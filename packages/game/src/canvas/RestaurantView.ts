@@ -722,8 +722,8 @@ export class RestaurantView {
       this.drawStaffMarker(s, m.x, m.y, opts);
     });
     // nobody front-of-house: a little sign on the pass
-    if (!front.length) label(ctx, "No server on shift!", L.pass.x + L.pass.w + 12, L.kitchen.h + 18, { size: 12, weight: 800, colour: C.tomatoDeep });
-    if (!chefs.length) label(ctx, "No chef on shift!", L.stoves[0]!.x - 20, 64, { size: 13, weight: 900, colour: C.tomatoDeep });
+    if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 18, { size: 12, weight: 800, colour: C.tomatoDeep });
+    if (!chefs.length) label(ctx, "No chef: you’re cooking!", L.stoves[0]!.x - 20, 64, { size: 13, weight: 900, colour: C.tomatoDeep });
   }
 
   private moveStaff(id: string, target: Pt, dt: number, opts: RenderOptions, L: Layout, start: Pt, via?: Pt): StaffSprite {
