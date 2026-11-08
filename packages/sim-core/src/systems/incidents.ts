@@ -638,5 +638,7 @@ export function respondIncident(content: ContentPack, state: GameState, incident
   const applied = applyOption(content, state, inc, optionId);
   if ("error" in applied) return applied;
   const s = { ...applied.state, incidentsHandled: (applied.state.incidentsHandled ?? 0) + 1 };
-  return finish(s, inc, optionId, outcomeText(content, s, inc, optionId, applied.staffId), optionTone(inc.kind, optionId));
+  // Text is filled from the state *before* the option (buying at the corner shop clears shortDelivery, which names
+  // the ingredient); the staff member who acted comes from the option.
+  return finish(s, inc, optionId, outcomeText(content, state, inc, optionId, applied.staffId), optionTone(inc.kind, optionId));
 }

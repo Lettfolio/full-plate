@@ -119,6 +119,8 @@ describe("incident conditions", () => {
     expect(shop.stock.find((x) => x.ingredientId === "beef")!.qty).toBe(50);
     expect(shop.stock.find((x) => x.ingredientId === "beef")!.batches!.at(-1)!.cost).toBe(800);
     expect(shop.shortDelivery).toBeUndefined();
+    const beef = C.ingredients.find((x) => x.id === "beef")!.name;
+    expect(shop.incidents![0]!.outcome).toContain(`10 ${beef}`); // not "10 stock" (text filled before shortDelivery clears)
     const pulled = respond(state, inc, "pull");
     expect(pulled.eightySixed).toEqual(expect.arrayContaining(["burger", "steak"]));
   });
