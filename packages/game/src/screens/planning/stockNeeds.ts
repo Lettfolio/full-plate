@@ -34,7 +34,9 @@ export function expectedCovers(game: GameState): number {
  * weights by appeal and price). With no mains on the menu each guest orders one dish of any kind.
  */
 export function platesPerGuest(content: ContentPack, game: GameState): Map<string, number> {
-  const active = game.menu.filter((m) => m.active && !(game.eightySixed ?? []).includes(m.dishId));
+  // Not filtered by eightySixed: that list is today-only (and in the evening it is exactly the dishes
+  // that ran out, which are the ones tomorrow's order must cover).
+  const active = game.menu.filter((m) => m.active);
   const byCourse = new Map<DishCourse, string[]>();
   for (const m of active) {
     const d = dishById(content, m.dishId);
@@ -49,6 +51,12 @@ export function platesPerGuest(content: ContentPack, game: GameState): Map<strin
   for (const [course, ids] of byCourse) {
     const perGuest = course === "main" ? 1 : COURSE_ORDER_CHANCE[course] ?? 0;
     for (const id of ids) out.set(id, perGuest / ids.length);
+  }
+  // Favourites sell more than an even split: use each dish's own recent plates per guest when higher.
+  for (const m of active) {
+    const days = m.recent?.length ?? 0;
+    const guests = game.history.slice(-days).reduce((a, d) => a + d.covers, 0);
+    if (days > 0 && guests > 0) out.set(m.dishId, Math.max(out.get(m.dishId) ?? 0, m.sold7d / guests));
   }
   return out;
 }
