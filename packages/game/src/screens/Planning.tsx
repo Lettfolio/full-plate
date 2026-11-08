@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import type { Command, GameState } from "@full-plate/sim-core";
+import { useMemo, useState } from "react";
+import type { Command, GameState, StaffRole } from "@full-plate/sim-core";
 import { GoalsCard } from "../components/GoalsCard";
 import { HelpPopover } from "../components/HelpPopover";
 import { GOAL_TAB } from "../lib/goals";
@@ -31,7 +31,16 @@ interface Props {
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }
 
+/** The role of the first unfinished "Hire a …" goal, so the Staff tab can put those candidates first. */
+function openHireGoalRole(game: GameState): StaffRole | undefined {
+  return (game.goals ?? []).find((g) => !g.done && g.kind === "hire_role")?.role;
+}
+
 export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }: Props) {
+  // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
+  const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
+  // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
+  const [confirmAlone, setConfirmAlone] = useState(false);
   const today = weekdayIndex(game.day);
   const active = game.menu.filter((m) => m.active);
   const onShift = game.staff.filter((s) => s.rota[today]);
@@ -99,13 +108,13 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
               goals={game.goals}
               justDone={goalsJustDone}
               spotlight={firstRun}
-              onShow={(g) => { const t = GOAL_TAB[g.kind]; if (t) setTab(t); }}
+              onShow={(g) => { const t = GOAL_TAB[g.kind]; setWantRole(g.kind === "hire_role" ? g.role : undefined); if (t) setTab(t); }}
             />
           </aside>
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "menu" && <MenuTab game={game} send={send} />}
-          {tab === "staff" && <StaffTab game={game} send={send} />}
+          {tab === "staff" && <StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} />}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
         </div>
@@ -118,9 +127,22 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
             </button>
           ))}
         </div>
-        <button className="btn btn--primary btn--xl" disabled={game.phase !== "planning" || !active.length} title={active.length ? undefined : "Add at least one dish to your menu first"} onClick={() => send({ type: "START_SERVICE" })}>
-          Open for service →
-        </button>
+        {confirmAlone ? (
+          <div className="openbar__confirm" role="alertdialog" aria-labelledby="alone-q">
+            <span id="alone-q"><b>Open with nobody to help?</b> You'll cook and serve on your own: slow food, long queues.</span>
+            <button className="btn btn--green" autoFocus onClick={() => { setConfirmAlone(false); setTab("staff"); }}>Hire someone first</button>
+            <button className="btn btn--ghost" onClick={() => { setConfirmAlone(false); send({ type: "START_SERVICE" }); }}>Open anyway</button>
+          </div>
+        ) : (
+          <button
+            className="btn btn--primary btn--xl"
+            disabled={game.phase !== "planning" || !active.length}
+            title={active.length ? undefined : "Add at least one dish to your menu first"}
+            onClick={() => (opening && game.staff.length === 0 ? setConfirmAlone(true) : send({ type: "START_SERVICE" }))}
+          >
+            Open for service →
+          </button>
+        )}
       </div>
     </div>
   );

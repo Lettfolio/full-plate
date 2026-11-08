@@ -608,3 +608,6 @@ button, input { font: inherit; color: inherit; }
 .incident__opt:disabled { cursor: not-allowed; background: var(--cream); border-color: var(--line-strong); box-shadow: none; transform: none; color: var(--ink-soft); }
 .incident__opt:disabled .incident__optlabel { text-decoration: line-through; text-decoration-thickness: 1.5px; }
 .incident__optwhy { grid-column: 1 / -1; font-size: var(--fs-xs); font-weight: 700; color: var(--tomato-deep); }
+.candidate--wanted { border-color: var(--amber); border-style: solid; border-width: 2px; background: var(--amber-wash); }
+.candidate__wanted { font-size: var(--fs-xs); font-weight: 800; color: var(--ink); }
+.openbar__confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; max-width: 640px; padding: 10px 14px; border-radius: var(--r); background: var(--amber-wash); border: 2px solid var(--amber); font-size: var(--fs-sm); }

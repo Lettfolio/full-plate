@@ -1,6 +1,6 @@
 /** Integration (round 2): sim fields wired into the UI — P&L incident line, morning notices, fatigue, tool gating. */
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { DayResult, GameState } from "@full-plate/sim-core";
 import { Evening } from "../screens/Evening";
 import { Planning } from "../screens/Planning";
@@ -122,5 +122,34 @@ describe("event contract", () => {
     ]);
     expect(s.ticker.at(-1)!.kind).toBe("info");
     expect(s.toast!.text).toMatch(/\+£100/);
+  });
+});
+
+describe("first-timer guidance (review round 2 playtest)", () => {
+  it("'Hire a server' puts server candidates first and marks them", async () => {
+    const { StaffTab } = await import("../screens/planning/StaffTab");
+    const g = baseGame(31);
+    render(<StaffTab game={g} send={noop} wantRole="server" />);
+    const cards = [...document.querySelectorAll(".candidate")];
+    expect(cards[0]!.classList.contains("candidate--wanted")).toBe(true);
+    expect(cards[0]!.textContent).toMatch(/Server ·/);
+    const firstOther = cards.findIndex((c) => !c.classList.contains("candidate--wanted"));
+    expect(cards.slice(firstOther).every((c) => !c.classList.contains("candidate--wanted"))).toBe(true);
+  });
+
+  it("opening day 0 with no staff asks first; 'Hire someone first' goes to Staff, 'Open anyway' opens", () => {
+    let g = baseGame();
+    for (const d of suggestedStarterMenu(content, g)) g = applyCommand(content, g, { type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice }).state;
+    const sent: unknown[] = [];
+    const tabs: string[] = [];
+    render(<Planning game={g} send={(c) => sent.push(c)} tab="menu" onTab={(t) => tabs.push(t)} />);
+    fireEvent.click(screen.getByRole("button", { name: /Open for service/ }));
+    expect(sent).toEqual([]);
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Hire someone first/ }));
+    expect(tabs.at(-1)).toBe("staff");
+    fireEvent.click(screen.getByRole("button", { name: /Open for service/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Open anyway/ }));
+    expect(sent).toEqual([{ type: "START_SERVICE" }]);
   });
 });

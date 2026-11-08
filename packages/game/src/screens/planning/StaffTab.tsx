@@ -7,7 +7,7 @@ import { traitName } from "../../lib/content";
 import { WEEKDAYS, weekdayIndex } from "../../lib/calendar";
 import { coverage, initials, isTrainingToday, moodFace, moodWord, ROLE_LABEL, SHIFT_HOURS, trainBlocker } from "../../lib/staff";
 
-interface Props { game: GameState; send: (cmd: Command) => void }
+interface Props { game: GameState; send: (cmd: Command) => void; /** List this role's candidates first and mark them (a "Hire a …" goal). */ wantRole?: StaffRole }
 
 function TraitTags({ ids }: { ids: string[] }) {
   return (
@@ -98,13 +98,14 @@ function PersonCard({ s, game, today, send }: { s: Staff; game: GameState; today
   );
 }
 
-function CandidateCard({ c, cash, onHire }: { c: Candidate; cash: number; onHire: () => void }) {
+function CandidateCard({ c, cash, onHire, wanted = false }: { c: Candidate; cash: number; onHire: () => void; wanted?: boolean }) {
   // Same rule as sim-core's HIRE: cash ≥ fee + a few shifts' wages.
   const perShift = shiftCost(c);
   const needed = RECRUITMENT_FEE + HIRE_CASH_BUFFER_SHIFTS * perShift;
   const canAfford = cash >= needed;
   return (
-    <div className="candidate">
+    <div className={`candidate ${wanted ? "candidate--wanted" : ""}`}>
+      {wanted && <div className="candidate__wanted">🎯 The {ROLE_LABEL[c.role].toLowerCase()} your goal asks for</div>}
       <div className="row">
         <span className={`avatar avatar--${c.role}`} style={{ width: 34, height: 34, fontSize: 14 }} aria-hidden="true">{initials(c.name)}</span>
         <div className="spacer">
@@ -124,11 +125,15 @@ function CandidateCard({ c, cash, onHire }: { c: Candidate; cash: number; onHire
   );
 }
 
-export function StaffTab({ game, send }: Props) {
+export function StaffTab({ game, send, wantRole }: Props) {
   const today = weekdayIndex(game.day);
   const pool = useMemo(() => candidates(content, game), [game]);
   // Indices stay stable after a hire (HIRE uses them); sim-core flags hired candidates with `hired`.
-  const shown = pool.map((c, i) => ({ c, i })).filter(({ c }) => !c.hired);
+  // Stable sort: the wanted role first, otherwise the sim's order. Indices are kept for HIRE.
+  const shown = pool
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => !c.hired)
+    .sort((a, b) => Number(b.c.role === wantRole) - Number(a.c.role === wantRole));
   const roles: StaffRole[] = ["chef", "server", ...(["bar", "porter", "manager"] as const).filter((r) => game.staff.some((s) => s.role === r))];
   const wageBill = game.staff.reduce((a, s) => a + (s.rota[today] ? shiftCost(s) : 0), 0);
 
@@ -158,7 +163,7 @@ export function StaffTab({ game, send }: Props) {
         <h3>Looking for work</h3>
         <p className="small muted">New faces every morning. Wages are per hour; a shift is {SHIFT_HOURS} hours. Hiring costs a <MoneyText pence={RECRUITMENT_FEE} whole /> agency fee.</p>
         {shown.length === 0 && <div className="empty small">No one else today. Check again tomorrow.</div>}
-        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} cash={game.cash} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
+        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} cash={game.cash} wanted={c.role === wantRole} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
       </aside>
     </div>
   );
