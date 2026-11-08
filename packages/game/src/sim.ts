@@ -41,6 +41,13 @@ const firstNumber = (...names: string[]): number | undefined => {
 
 /** Fee for one TRAIN day, if sim-core exports it (undefined → the UI shows "£—"). */
 export const TRAINING_FEE: number | undefined = firstNumber("TRAINING_FEE", "TRAIN_FEE", "TRAINING_COST", "TRAIN_COST");
+/** Ticks a GIVE_BREAK keeps someone off the floor, if exported. */
+export const BREAK_TICKS: number | undefined = firstNumber("BREAK_TICKS");
+/** [min, max] skill points a TRAIN day adds, if exported. */
+export const TRAINING_SKILL_GAIN: [number, number] | undefined = (() => {
+  const v = optional.TRAINING_SKILL_GAIN;
+  return Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === "number") ? [v[0] as number, v[1] as number] : undefined;
+})();
 
 type OrderLine = { ingredientId: string; qty: number };
 /**

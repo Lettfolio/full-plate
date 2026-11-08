@@ -2,6 +2,7 @@ import type { Command, GameState } from "@full-plate/sim-core";
 import { Bar } from "./Bar";
 import { initials, onBreak, onFloorToday, ROLE_LABEL } from "../lib/staff";
 import { weekdayIndex } from "../lib/calendar";
+import { BREAK_TICKS, MINUTES_PER_TICK } from "../sim";
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
@@ -25,7 +26,7 @@ export function StaffStrip({ game, send }: Props) {
               className="btn btn--ghost btn--sm"
               disabled={resting}
               onClick={() => send({ type: "GIVE_BREAK", staffId: s.id })}
-              title={resting ? `${first} is on a break` : `Send ${first} for a short break: less tired, but you're a pair of hands down for a bit`}
+              title={resting ? `${first} is on a break` : `Send ${first} for a ${BREAK_TICKS ? `${BREAK_TICKS * MINUTES_PER_TICK}-minute` : "short"} break: less tired, but you're a pair of hands down meanwhile`}
               aria-label={resting ? `${first} is on a break` : `Give ${first} a break`}
             >
               {resting ? "☕ On break" : "Break"}

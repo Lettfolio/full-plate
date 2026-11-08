@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Candidate, Command, GameState, Staff, StaffRole } from "@full-plate/sim-core";
-import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, RECRUITMENT_FEE, shiftCost, TRAINING_FEE } from "../../sim";
+import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, RECRUITMENT_FEE, shiftCost, TRAINING_FEE, TRAINING_SKILL_GAIN } from "../../sim";
 import { Bar } from "../../components/Bar";
 import { MoneyText } from "../../components/MoneyText";
 import { traitName } from "../../lib/content";
@@ -33,7 +33,7 @@ function TrainButton({ s, game, today, send }: { s: Staff; game: GameState; toda
         disabled={!!why}
         aria-describedby={why ? `train-why-${s.id}` : undefined}
         onClick={() => send({ type: "TRAIN", staffId: s.id })}
-        title={why ?? `A day on a course: ${first} gets better at the job but isn't working today (still paid)`}
+        title={why ?? `A day on a course: ${first} gains ${TRAINING_SKILL_GAIN ? `${TRAINING_SKILL_GAIN[0]}–${TRAINING_SKILL_GAIN[1]} skill` : "skill"} but isn't working today (still paid)`}
       >
         📚 Train · {TRAINING_FEE !== undefined ? <MoneyText pence={TRAINING_FEE} whole /> : "£—"}
       </button>
