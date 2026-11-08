@@ -1,0 +1,130 @@
+import { useMemo, useState } from "react";
+import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
+import { classifyMenu, content } from "../../sim";
+import { MoneyText } from "../../components/MoneyText";
+import { Stepper } from "../../components/Stepper";
+import { marginFraction, plateCost } from "../../lib/content";
+import { pct } from "../../lib/format";
+import { MenuMatrix, QUADRANT } from "./MenuMatrix";
+
+interface Props { game: GameState; send: (cmd: Command) => void }
+
+export const COURSE_ICON: Record<DishCourse, string> = { starter: "🥗", main: "🍽️", dessert: "🍰", drink: "🥤", side: "🍟" };
+const COURSE_ORDER: DishCourse[] = ["starter", "main", "side", "dessert", "drink"];
+const PRICE_STEP = 25;
+const PRICE_BIG = 100;
+
+function marginTone(f: number): string {
+  return f >= 0.68 ? "margin--good" : f >= 0.55 ? "margin--ok" : "margin--bad";
+}
+
+export function MenuTab({ game, send }: Props) {
+  const [hover, setHover] = useState<DishId | null>(null);
+  const quadrants = useMemo(() => classifyMenu(content, game), [game]);
+  const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), []);
+  const byCourse = (a: MenuItem, b: MenuItem) => {
+    const ca = content.dishes.find((d) => d.id === a.dishId)?.course ?? "main";
+    const cb = content.dishes.find((d) => d.id === b.dishId)?.course ?? "main";
+    return COURSE_ORDER.indexOf(ca) - COURSE_ORDER.indexOf(cb);
+  };
+  const items = [...game.menu].sort(byCourse);
+  const active = items.filter((m) => m.active);
+  const onMenu = new Set(game.menu.map((m) => m.dishId));
+  const library = content.dishes.filter((d) => !onMenu.has(d.id)).sort((a, b) => COURSE_ORDER.indexOf(a.course) - COURSE_ORDER.indexOf(b.course));
+
+  return (
+    <div className="stack">
+      <div className="menu-layout">
+        <div className="stack stack--sm">
+          <h3>Menu matrix</h3>
+          <MenuMatrix items={active} quadrants={quadrants} names={names} fallbackMargin={(m) => m.price - plateCost(content, m.dishId)} highlight={hover} onHover={setHover} />
+          <div className="matrix__legend">
+            {(Object.keys(QUADRANT) as (keyof typeof QUADRANT)[]).map((q) => (
+              <div key={q}><b style={{ color: QUADRANT[q].colour }}>●</b> <b>{QUADRANT[q].label}</b> — {QUADRANT[q].hint}</div>
+            ))}
+          </div>
+        </div>
+
+        <div className="stack stack--sm">
+          <div className="row">
+            <h3 className="spacer">On the menu</h3>
+            <span className="small muted">{active.length} active · aim for 6–10</span>
+          </div>
+          <div className="dishlist">
+            {items.length === 0 && <div className="empty">Nothing on the menu yet. Add something from the recipe book below.</div>}
+            {items.map((m) => {
+              const d = content.dishes.find((x) => x.id === m.dishId);
+              const cost = plateCost(content, m.dishId);
+              const f = marginFraction(m.price, cost);
+              const q = quadrants[m.dishId];
+              return (
+                <div key={m.dishId} className={`dish ${m.active ? "" : "dish--off"}`} onMouseEnter={() => setHover(m.dishId)} onMouseLeave={() => setHover(null)} style={hover === m.dishId ? { borderColor: "var(--ink)" } : undefined}>
+                  <span className="dish__course" title={d?.course}>{d ? COURSE_ICON[d.course] : "🍽️"}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="row">
+                      <span className="dish__name">{d?.name ?? m.dishId}</span>
+                      {m.active && q && <span className={`pill pill--${q}`}>{QUADRANT[q].label}</span>}
+                      {!m.active && <span className="pill pill--off">Off today</span>}
+                    </div>
+                    <div className="dish__meta">
+                      <span>cost <MoneyText pence={cost} /></span>
+                      <span>suggested <MoneyText pence={d?.suggestedPrice ?? 0} /></span>
+                      <span>sold 7d <b>{m.sold7d}</b></span>
+                      {d && <span>skill {d.skillRequired}</span>}
+                    </div>
+                  </div>
+                  <Stepper label={`price of ${d?.name ?? m.dishId}`} value={m.price} step={PRICE_STEP} bigStep={PRICE_BIG} min={PRICE_STEP} max={20000} onChange={(price) => send({ type: "SET_MENU_ITEM", dishId: m.dishId, price })}>
+                    <MoneyText pence={m.price} />
+                  </Stepper>
+                  <div className="dish__margin">
+                    <div className="xs faint">margin</div>
+                    <b className={marginTone(f)}>{pct(f)}</b> <span className="xs muted">(<MoneyText pence={m.price - cost} />)</span>
+                  </div>
+                  <div className="row">
+                    <button className="btn btn--ghost btn--sm" onClick={() => send({ type: "SET_MENU_ITEM", dishId: m.dishId, active: !m.active })} title={m.active ? "Keep the recipe but don't serve it" : "Serve it again"}>
+                      {m.active ? "Rest" : "Serve"}
+                    </button>
+                    <button className="iconbtn" aria-label={`Remove ${d?.name ?? m.dishId}`} title="Remove from menu" onClick={() => send({ type: "REMOVE_MENU_ITEM", dishId: m.dishId })}>✕</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <section className="library">
+        <div className="row" style={{ marginBottom: 10 }}>
+          <h3 className="spacer">Recipe book</h3>
+          <span className="small muted">Prices start at the suggested price — tweak them after adding.</span>
+        </div>
+        {library.length === 0 ? (
+          <div className="empty">Every recipe is already on your menu.</div>
+        ) : (
+          <div className="library__grid">
+            {library.map((d) => {
+              const cost = plateCost(content, d.id);
+              const f = marginFraction(d.suggestedPrice, cost);
+              return (
+                <div key={d.id} className="libdish">
+                  <div className="libdish__top">
+                    <span aria-hidden="true">{COURSE_ICON[d.course]}</span>
+                    <b>{d.name}</b>
+                    <button className="btn btn--green btn--sm" onClick={() => send({ type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice })}>Add</button>
+                  </div>
+                  <div className="dish__meta">
+                    <span>cost <MoneyText pence={cost} /></span>
+                    <span>sells <MoneyText pence={d.suggestedPrice} /></span>
+                    <span className={marginTone(f)}><b>{pct(f)}</b> margin</span>
+                    <span>skill {d.skillRequired}</span>
+                  </div>
+                  {d.blurb && <div className="xs muted">{d.blurb}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
