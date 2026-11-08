@@ -90,13 +90,19 @@ The UI reads every round-2 field as optional:
 - `sim.ts` reads `TRAINING_FEE` (or `TRAIN_FEE` / `TRAINING_COST` / `TRAIN_COST`) and `suggestedOrder` by name, so the game typechecks and runs with or without them. `restockLines()` (planning/stockNeeds.ts) calls `suggestedOrder` when present, else the UI forecast. The evening "Restock for tomorrow" and the Stock tab "Fill what's short" both go through it.
 - `Staff.trainingDay/breakUntilTick` are read through `lib/staff.ts` helpers.
 
+### Verified against the live sim
+
+When this section was written, sim-core's round-2 work was in the working tree but not committed. The game typechecks and all 41 tests pass against it and against the committed sim-core (a worktree at `d75082e`). A Playwright run on the live sim (2×, Student Quarter, chef only) showed the following. Goals came from the sim. Goal toasts fired. The owner-covering banner appeared. A `big_party` incident auto-paused the game and was resolved by clicking an option. The evening list and the owner-covered note were correct. "Restock for tomorrow" used `suggestedOrder`. `TRAINING_FEE` (£120), `BREAK_TICKS` and `TRAINING_SKILL_GAIN` are picked up by name.
+
+**Still to do once sim-core commits:** delete the UI forecast (`stockNeeds`/`shortfall`/`expectedCovers` fallback in `screens/planning/stockNeeds.ts`) and import `suggestedOrder` directly in `sim.ts`. It is kept for now so the committed game still builds against the committed sim-core, which lacks `suggestedOrder`. The Stock tab's per-ingredient "needed" column also comes from the UI forecast. The sim's forecast API returns only order lines, not per-ingredient need.
+
 ### Tests
 
 `src/__tests__/round2.test.tsx` (+ `fixtures/round2.ts`: a real `newGame` state with incidents, goals and owner coverage added by hand; every transition still goes through the real sim): RESPOND_INCIDENT from the card and through the reducer (asserting either outcome: resolved by the sim, or refused as a toast), alert/ticker absorption, auto-pause rules, highlight targets, evening incident lines, goals rendering/tiers/flash/toast, the worst-dish filter, train blockers, owner-covered copy, and the keyboard guard.
 
 ### Screenshots
 
-Playwright, fixture saves made with the real sim (scratchpad `shots/r2/`): `01-title-saved`, `02-planning-goals-firstrun`, `03-planning-help`, `04-planning-staff-train`, `05-settings`, `06-service-incident`, `07-service-incident-hover`, `08-service-goals-open`, `09-service-owner-covering`, `10-evening`, `11-evening-shortcut-to-restaurant`, `12-service-keyboard-table`, `13-service-after-respond`.
+Playwright, fixture saves made with the real sim (scratchpad `shots/r2/`): `01-title-saved`, `02-planning-goals-firstrun`, `03-planning-help`, `04-planning-staff-train`, `05-settings`, `06-service-incident`, `07-service-incident-hover`, `08-service-goals-open`, `09-service-owner-covering`, `10-evening`, `11-evening-shortcut-to-restaurant`, `12-service-keyboard-table`, `13-service-after-respond` (pre-sim: the refusal toast "Unknown command."); live sim: `20-live-planning-goals`, `21-live-staff-train`, `22-live-service-incident` (auto-paused), `23-live-incident-resolved`, `24-live-evening`.
 
 ### Contract gaps (round 2)
 
@@ -104,4 +110,5 @@ Playwright, fixture saves made with the real sim (scratchpad `shots/r2/`): `01-t
 13. **Option affordability.** `IncidentOption` has no `disabled`/`reason` (e.g. "no porter on", "not enough cash"); the UI can only show the cost.
 14. **Training fee and effect** are not described by the contract; the UI shows "£—" until a constant is exported and can't preview the skill gain.
 15. **Break length.** No constant for how long `GIVE_BREAK` lasts, so the button can't say "15 min".
+17. **Incident start lines.** The sim logs the incident title as a LOG "bad" with an extra "!" ("Whoops, a spill!!"), which duplicates the card. Consider kind "info" and no added "!".
 16. **Goal reward paid?** `GOAL_COMPLETED` has only `goalId`; the toast reads the reward from `state.goals`, which assumes the goal is still in the list after completion.
