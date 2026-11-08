@@ -91,7 +91,9 @@ function autoEightySix(content: ContentPack, state: GameState): { pulled: string
  * access monomorphic. Optional fields that come and go (shortDelivery, activeEvent, …) otherwise multiply shapes.
  */
 export function canonicalState(s: GameState): GameState {
-  return {
+  // Typed as every key of GameState (optional ones included): a field added to GameState but not listed here is a
+  // compile error instead of being silently dropped on the first service tick.
+  const out: { [K in keyof Required<GameState>]: GameState[K] } = {
     version: s.version, seed: s.seed, rngState: s.rngState, difficulty: s.difficulty, day: s.day, tick: s.tick, phase: s.phase,
     restaurantName: s.restaurantName, districtId: s.districtId, cash: s.cash, loan: s.loan, reputation: s.reputation,
     menu: s.menu, staff: s.staff, tables: s.tables, stock: s.stock, orders: s.orders, customers: s.customers, tickets: s.tickets,
@@ -100,6 +102,7 @@ export function canonicalState(s: GameState): GameState {
     eventHistory: s.eventHistory, gameOverReason: s.gameOverReason, incidents: s.incidents, goals: s.goals,
     ownerCovering: s.ownerCovering, ownerFatigue: s.ownerFatigue, shortDelivery: s.shortDelivery, incidentsHandled: s.incidentsHandled,
   };
+  return out;
 }
 
 /** The first service of a new game buys its opening stock (newGame starts with an empty larder). */
