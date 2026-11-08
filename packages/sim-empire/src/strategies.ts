@@ -104,9 +104,10 @@ function nextCity(run: Run, allow: (c: City) => boolean): City | undefined {
 }
 
 /** Enters the next city once the entered ones are filling up; localises menus that break local rules. */
-function expandCities(content: ContentPack, run: Run, cmd: Cmd, buffer: number, allow: (c: City) => boolean): void {
+function expandCities(content: ContentPack, run: Run, cmd: Cmd, buffer: number, allow: (c: City) => boolean, hqBuilds = true): void {
   const next = nextCity(run, allow);
-  if (next && run.e.hq.cash > cityEntryCost(run.e, next) + buildCost(next, run.e.brand.formula.driveThru, run.e.hq.priceLevel) + buffer) cmd({ type: "ENTER_CITY", cityId: next.id });
+  const build = hqBuilds ? buildCost(next ?? run.e.cities[0]!, run.e.brand.formula.driveThru, run.e.hq.priceLevel) : 0;
+  if (next && run.e.hq.cash > cityEntryCost(run.e, next) + build + buffer) cmd({ type: "ENTER_CITY", cityId: next.id });
   for (const c of run.e.cities) {
     if (c.entered && !c.localised && menuBreaksRules(content, run.e.brand.formula.menuDishIds, c.dietaryRules) && run.e.hq.cash > K.LOCALISE_COST * 2 + buffer)
       cmd({ type: "LOCALISE_MENU", cityId: c.id });
@@ -136,7 +137,8 @@ function franchiseFast(content: ContentPack, run: Run): void {
   const buffer = 15_000_000 * pl;
   techTree(run, cmd, buffer);
   for (const s of run.e.suppliers) if (!s.signed) cmd({ type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: s.failureRisk < 0.05 });
-  expandCities(content, run, cmd, buffer, () => true);
+  // Franchisees pay for the builds, so HQ only needs the entry cost.
+  expandCities(content, run, cmd, buffer, () => true, false);
   // Sell a franchise to every applicant who can pay, while HQ can carry the head lease.
   for (let guard = 0; guard < 6; guard++) {
     const loc = pickLocation(content, run.e);
@@ -148,8 +150,9 @@ function franchiseFast(content: ContentPack, run: Run): void {
     const ok = cmd({ type: "OPEN_SITE", cityId: loc.city.id, districtId: loc.districtId, ownership: "franchise", land: run.e.hq.cash > buffer * 2 ? "hqLease" : "thirdParty", ...(a ? { applicantId: a.id } : { franchiseeId: multi!.id }) });
     if (!ok) break;
   }
-  // Landlord mode: buy the plots under the best franchise sites.
-  buyPlots(run, cmd, buffer * 2, 3);
+  // Landlord mode: buy the plots under the best franchise sites, keeping enough back for the next city.
+  const next = nextCity(run, () => true);
+  buyPlots(run, cmd, buffer * 2 + (next ? cityEntryCost(run.e, next) : 0), 3);
   // Refranchise company sites that are old enough (keeps the flagship).
   for (const s of openSites(run.e)) {
     if (s.ownership !== "company" || s.id === "s1" || s.focused) continue;
@@ -184,7 +187,8 @@ function companySteady(content: ContentPack, run: Run): void {
     if (run.e.hq.cash < buildCost(loc.city, run.e.brand.formula.driveThru, pl) + buffer + yearBuffer) break;
     if (!cmd({ type: "OPEN_SITE", cityId: loc.city.id, districtId: loc.districtId, ownership: "company", land: "hqLease" })) break;
   }
-  if (!saving) buyPlots(run, cmd, buffer * 3, 1);
+  // Plots are bought from profits, never on the development facility.
+  if (!saving) buyPlots(run, cmd, 50_000_000 * pl, 1);
   const weak = weakestCompany(run.e);
   if (weak && run.e.hq.day % 30 === 0 && weak.failingDays > 180) cmd({ type: "CLOSE_SITE", siteId: weak.id });
   if (run.e.hq.day % 180 === 0 && run.e.hq.cash > 150_000_000 * pl) {
@@ -221,7 +225,7 @@ function inNOutSlow(content: ContentPack, run: Run): void {
     const loc = pickLocation(content, run.e, withCommissary);
     if (loc && run.e.hq.cash > buildCost(loc.city, f.driveThru, pl) + buffer) cmd({ type: "OPEN_SITE", cityId: loc.city.id, districtId: loc.districtId, ownership: "company", land: "hqLease" });
   }
-  if (!saving) buyPlots(run, cmd, buffer * 2, 1);
+  if (!saving) buyPlots(run, cmd, 50_000_000 * pl, 1);
 }
 
 const STYLE_FN: Record<EmpireStyle, (content: ContentPack, run: Run) => void> = { franchise: franchiseFast, company: companySteady, innout: inNOutSlow };

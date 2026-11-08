@@ -4,8 +4,9 @@
  *   covers  = baseCovers × location × season × weekend × demandFactors × noise
  *   revenue = covers × spendPerCover × priceIndex × costIndex × priceLevel × app
  *   food    = covers × foodPerCover × costIndex^0.6 × priceLevel × fresh × (1 − supplier discount)
- *   labour  = labourPerDay × costIndex × priceLevel × (covers / coversMean)^0.75 × (1 − speedee saving)
- *   overheads = overheadsFixed × costIndex × priceLevel + cardFee × revenue;   VAT = vatPct × revenue
+ *   labour  = labourPerDay × costIndex × priceLevel × (covers / coversMean)^0.92 × (1 − speedee saving)
+ *   overheads = overheadsFixed × costIndex × priceLevel × (covers / coversMean)^0.85 + cardFee × revenue
+ *   VAT = vatPct × revenue
  *
  * Every demand factor is normalised to 1 at the reference state (constants REF_*), which is exactly where
  * newEmpire puts the flagship. So a site at the reference state in the calibration district reproduces the
@@ -277,7 +278,8 @@ export function aggregateSiteDay(content: ContentPack, site: SiteSummary, brand:
   const foodCost = Math.round(covers * cal.foodPerCover * city.costIndex ** 0.6 * pl * (f.fresh ? K.FRESH_FOOD_COST : 1) * (ctx.foodMult ?? 1));
   const speedee = 1 - K.LABOUR_EFFICIENCY_PER_10_STD * Math.max(0, (f.standardisation - K.REF_STANDARDISATION) / 10);
   const labourCost = covers > 0 ? Math.round(cal.labourPerDay * city.costIndex * pl * (covers / cal.coversMean) ** K.LABOUR_SCALE_EXP * speedee) : Math.round(cal.labourPerDay * 0.3 * city.costIndex * pl);
-  const overheads = Math.round(cal.overheadsFixed * city.costIndex * pl + cal.cardFeePct * revenue);
+  const scale = Math.max(0.3, covers / cal.coversMean);
+  const overheads = Math.round(cal.overheadsFixed * city.costIndex * pl * scale ** K.OVERHEAD_SCALE_EXP + cal.cardFeePct * revenue);
   const vat = Math.round(cal.vatPct * revenue);
   return { siteId: site.id, covers, revenue, vat, foodCost, labourCost, overheads, contribution: revenue - vat - foodCost - labourCost - overheads };
 }

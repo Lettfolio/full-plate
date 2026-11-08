@@ -42,8 +42,12 @@ export const DRIVE_THRU_BUILD_EXTRA = 12_000_000;
 export const FRANCHISEE_EQUITY_SHARE = 0.3;
 export const OPERATOR_LOAN_APR = 0.07;
 export const OPERATOR_LOAN_YEARS = 10;
-/** Market rent for a QSR plot = district monthlyRent × this × city costIndex. */
-export const QSR_RENT_MULT = 1;
+/**
+ * Market rent for a new QSR plot = district monthlyRent × this × city costIndex: a drive-thru box on a
+ * corner plot is bigger than the first restaurant's unit (whose rent stays the sim-core district rent).
+ * Lands occupancy near the brief's ~5% of sales at a typical mature site.
+ */
+export const QSR_RENT_MULT = 1.6;
 /** Leases are reviewed to current prices every 5 years. */
 export const RENT_REVIEW_DAYS = 5 * DAYS_PER_YEAR;
 /** Purchase price = annual market rent / yield. */
@@ -71,8 +75,10 @@ export const STALE_FLOOR = 0.75;
 export const COLLAPSE_REVENUE_YEAR = 40_000_000;
 /** Annual revenue is an EMA of daily revenue with this time constant (days). */
 export const ANNUAL_EMA_DAYS = 90;
-/** Labour = labourPerDay × (covers / coversMean)^this (rota-based kitchens add people slower than covers). */
-export const LABOUR_SCALE_EXP = 0.75;
+/** Labour = labourPerDay × (covers / coversMean)^this (busier sites add crew a little slower than covers). */
+export const LABOUR_SCALE_EXP = 0.85;
+/** Fixed overheads (utilities, repairs, supplies) scale as (covers / coversMean)^this. */
+export const OVERHEAD_SCALE_EXP = 0.85;
 /** Each 10 points of standardisation above the reference cuts labour per cover by this share (Speedee system). */
 export const LABOUR_EFFICIENCY_PER_10_STD = 0.02;
 

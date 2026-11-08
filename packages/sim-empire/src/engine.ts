@@ -104,7 +104,7 @@ export function newEmpire(content: ContentPack, opts: NewEmpireOptions): EmpireS
     revenue7d: calibration.source.revenue * 7,
     margin7d: 0,
     revenueYear: calibration.source.revenue * K.DAYS_PER_YEAR,
-    rent: marketRent(content, home, flagshipDistrict, 1),
+    rent: marketRent(content, home, flagshipDistrict, 1, 1), // the first restaurant's own unit
     rentReviewedDay: day,
     driveThru: false,
     lastRemodel: day,
@@ -180,8 +180,8 @@ export function forkFromGameState(content: ContentPack, state: GameState, opts: 
 }
 
 // ───────────────────────── helpers ─────────────────────────
-export function marketRent(content: ContentPack, city: City, districtId: DistrictId, priceLevel: number): number {
-  return Math.round(districtDef(content, districtId).monthlyRent * K.QSR_RENT_MULT * city.costIndex * priceLevel);
+export function marketRent(content: ContentPack, city: City, districtId: DistrictId, priceLevel: number, mult = K.QSR_RENT_MULT): number {
+  return Math.round(districtDef(content, districtId).monthlyRent * mult * city.costIndex * priceLevel);
 }
 
 export function buildCost(city: City, driveThru: boolean, priceLevel: number): number {
