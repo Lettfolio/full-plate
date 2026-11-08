@@ -266,6 +266,10 @@ export interface Review {
 }
 
 export interface DayResult {
+  /** [round 2] incidents that happened today and how they went. */
+  incidents?: IncidentSummary[];
+  /** [round 2] roles the owner covered today; drives the "hire someone" lesson in the evening copy. */
+  ownerCovered?: StaffRole[];
   day: number;
   covers: number;
   walkouts: number;
@@ -360,7 +364,80 @@ export interface GameState {
   eventHistory?: { eventId: EventId; day: number }[];
   /** Why the game ended, when phase === "gameover". */
   gameOverReason?: string;
+  // ── round 2 additions ──
+  /** Live problems during service the player can react to. Cleared at START_SERVICE. */
+  incidents?: Incident[];
+  /** Guided objectives; the first N unfinished are shown by the UI. */
+  goals?: Goal[];
+  /** Owner coverage this service: which roles the owner is filling because nobody is rostered. */
+  ownerCovering?: StaffRole[];
 }
+
+// ───────────────────────── round 2: incidents & goals ─────────────────────────
+/**
+ * An Incident is a small live problem during service. It appears via INCIDENT_STARTED, sits in
+ * state.incidents with a countdown, and resolves either by a player RESPOND_INCIDENT command
+ * (one of its options) or by timing out (which applies its `ignored` effects). Options cost
+ * something (cash, a server's attention, a chef's time) and have a visible outcome; the point is
+ * that watching service has decisions in it.
+ */
+export type IncidentKind =
+  | "sent_back"        // a plate comes back: remake (chef time), comp (cash), apologise (server charm)
+  | "spill"            // table needs cleaning: send porter/server (slower service), ignore (satisfaction hit)
+  | "big_party"        // a walk-in party larger than any table: push tables together (ties up a server), turn away
+  | "rush"             // a surge in arrivals for ~10 ticks: 86 slow dishes, call in off-duty staff (cost), ride it
+  | "supplier_short"   // a delivery is short: buy at the corner shop (expensive), 86 the dish
+  | "equipment"        // fryer/oven trips: quick fix (chef time), call engineer (cash), limp on (slow kitchen)
+  | "vip"              // a critic or influencer is seated: assign your best server, send a freebie
+  | "staff_wobble";    // a staff member is flagging: give a break (short-handed), push on (mood hit)
+
+export interface IncidentOption {
+  id: string;
+  label: string;                       // short button text
+  description: string;                 // one line: cost and likely outcome
+  cost?: Pence;                        // shown and charged if chosen
+}
+
+export interface Incident {
+  id: string;
+  kind: IncidentKind;
+  startedTick: number;
+  /** Ticks left before it auto-resolves as ignored. */
+  ticksLeft: number;
+  title: string;
+  body: string;
+  options: IncidentOption[];
+  /** Related entities for the UI to highlight. */
+  customerId?: CustomerId;
+  tableId?: TableId;
+  staffId?: StaffId;
+  dishId?: DishId;
+  /** Set once resolved (option id or "ignored"); resolved incidents are kept for the evening summary. */
+  resolution?: string;
+  /** One-line outcome text written when resolved, shown in the ticker and evening. */
+  outcome?: string;
+}
+
+export type GoalKind =
+  | "add_dishes" | "hire_role" | "order_stock" | "open_first_day" | "serve_covers" | "earn_rating"
+  | "profit_day" | "profit_week" | "buy_table" | "survive_days" | "resolve_incident" | "reach_popularity";
+
+export interface Goal {
+  id: string;
+  kind: GoalKind;
+  title: string;
+  hint: string;                        // where to click
+  target: number;                      // e.g. covers to serve
+  progress: number;
+  done: boolean;
+  /** Reward on completion: a little cash and/or popularity so goals feel worth it. */
+  reward?: { cash?: Pence; popularity?: number };
+  /** Shown in order; goals unlock when all lower `tier` goals are done. */
+  tier: number;
+}
+
+/** Added to DayResult (optional). */
+export interface IncidentSummary { kind: IncidentKind; resolution: string; outcome: string }
 
 /** [sim-core addition] Per-service accumulators used to build the DayResult. */
 export interface ServiceTally {
@@ -409,7 +486,11 @@ export type Command =
   | { type: "COMP_TABLE"; customerId: CustomerId }      // free their meal, big satisfaction boost
   | { type: "EIGHTY_SIX"; dishId: DishId }               // pull a dish for today
   | { type: "END_DAY" }                                  // from evening → next planning
-  | { type: "RESOLVE_EVENT"; choiceId: string };
+  | { type: "RESOLVE_EVENT"; choiceId: string }
+  // round 2
+  | { type: "RESPOND_INCIDENT"; incidentId: string; optionId: string }
+  | { type: "TRAIN"; staffId: StaffId }                  // planning: pay for a training day (skill up, not on rota that day)
+  | { type: "GIVE_BREAK"; staffId: StaffId };            // service: short break (fatigue down, briefly short-handed)
 
 // ───────────────────────── events (sim → UI) ─────────────────────────
 export type SimEvent =
@@ -422,7 +503,11 @@ export type SimEvent =
   | { type: "EVENT_TRIGGERED"; eventId: EventId }
   | { type: "CASH_LOW"; cash: Pence }
   | { type: "GAME_OVER"; reason: string }
-  | { type: "LOG"; entry: LogEntry };
+  | { type: "LOG"; entry: LogEntry }
+  // round 2
+  | { type: "INCIDENT_STARTED"; incidentId: string }
+  | { type: "INCIDENT_RESOLVED"; incidentId: string; resolution: string; outcome: string }
+  | { type: "GOAL_COMPLETED"; goalId: string };
 
 export interface StepResult {
   state: GameState;
