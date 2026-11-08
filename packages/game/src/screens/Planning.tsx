@@ -29,9 +29,10 @@ export function Planning({ game, send }: Props) {
   const short = needs.filter((n) => n.need > 0 && n.onHand < n.need).length;
 
   const hints: Hint[] = [];
-  if (!active.length) hints.push({ text: "Your menu is empty", tone: "bad", tab: "menu" });
+  if (!active.length) hints.push({ text: "Step 1: add dishes to your menu", tone: "bad", tab: "menu" });
   // With nobody on, the owner covers the role (slowly) — a warning, not a blocker.
-  if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
+  if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: "Hire a chef (or you'll cook yourself)", tone: "bad", tab: "staff" });
+  else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
   if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll be serving`, tone: "warn", tab: "staff" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
   if (!hints.length) hints.push({ text: "Everything looks ready", tone: "good" });
@@ -66,7 +67,7 @@ export function Planning({ game, send }: Props) {
             </button>
           ))}
         </div>
-        <button className="btn btn--primary btn--xl" disabled={game.phase !== "planning" || !active.length} onClick={() => send({ type: "START_SERVICE" })}>
+        <button className="btn btn--primary btn--xl" disabled={game.phase !== "planning" || !active.length} title={active.length ? undefined : "Add at least one dish to your menu first"} onClick={() => send({ type: "START_SERVICE" })}>
           Open for service →
         </button>
       </div>

@@ -10,6 +10,7 @@
  * round tables, front wall with a door, pavement with the queue.
  */
 import type { ContentPack, Customer, CustomerId, GameState, SegmentId, Staff, Table, TableId } from "@full-plate/sim-core";
+import { weekdayIndex } from "../lib/calendar";
 
 // ───────────────────────── palette (mirrors theme.css) ─────────────────────────
 const C = {
@@ -677,7 +678,7 @@ export class RestaurantView {
 
   private drawStaff(game: GameState, L: Layout, opts: RenderOptions, dt: number) {
     const ctx = this.ctx;
-    const shift = ((game.day % 7) + 7) % 7;
+    const shift = weekdayIndex(game.day);
     const onShift = game.staff.filter((s) => s.rota[shift]);
     const chefs = onShift.filter((s) => s.role === "chef");
     const front = onShift.filter((s) => s.role !== "chef");

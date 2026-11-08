@@ -1,12 +1,14 @@
 import type { Command, GameState } from "@full-plate/sim-core";
-import { content } from "../../sim";
+import { content, TABLE_COST } from "../../sim";
+import { MoneyText } from "../../components/MoneyText";
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
 export function RestaurantTab({ game, send }: Props) {
   const max = content.balance.maxTables;
   const seats = game.tables.reduce((a, t) => a + t.seats, 0);
-  const canBuy = game.tables.length < max;
+  const roomLeft = game.tables.length < max;
+  const affordable = game.cash >= TABLE_COST;
   return (
     <div className="floorplan">
       <div className="stack stack--sm">
@@ -31,9 +33,9 @@ export function RestaurantTab({ game, send }: Props) {
           Another table of {content.balance.seatsPerTable} means fewer people stuck in the queue on busy nights —
           but only if the kitchen and your servers can keep up.
         </p>
-        <p className="xs faint">The price is set by the sim; you'll see it come off your cash.</p>
-        <button className="btn btn--green" disabled={!canBuy || game.phase !== "planning"} onClick={() => send({ type: "BUY_TABLE" })}>
-          {canBuy ? "Buy table" : "Room is full"}
+        <p className="small">Price: <b><MoneyText pence={TABLE_COST} whole /></b></p>
+        <button className="btn btn--green" disabled={!roomLeft || !affordable || game.phase !== "planning"} onClick={() => send({ type: "BUY_TABLE" })}>
+          {!roomLeft ? "Room is full" : affordable ? <>Buy table · <MoneyText pence={TABLE_COST} whole /></> : "Not enough cash"}
         </button>
       </aside>
     </div>

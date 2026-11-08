@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
-import { classifyMenu, content } from "../../sim";
+import { classifyMenu, content, MAX_MENU_ITEMS } from "../../sim";
+import { suggestedStarterMenu } from "../../lib/starterMenu";
 import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
 import { marginFraction, plateCost } from "../../lib/content";
@@ -48,10 +49,18 @@ export function MenuTab({ game, send }: Props) {
         <div className="stack stack--sm">
           <div className="row">
             <h3 className="spacer">On the menu</h3>
-            <span className="small muted">{active.length} active · aim for 6–10</span>
+            <span className="small muted">{active.length} active · aim for 6–10 · max {MAX_MENU_ITEMS}</span>
           </div>
           <div className="dishlist">
-            {items.length === 0 && <div className="empty">Nothing on the menu yet. Add something from the recipe book below.</div>}
+            {items.length === 0 && (
+              <div className="empty starter">
+                <p><b>Your menu is empty — nobody will come in until you add some dishes.</b></p>
+                <p className="small muted">Pick from the recipe book below, or start with a ready-made menu that suits this street. You can change it any morning.</p>
+                <button className="btn btn--primary" onClick={() => suggestedStarterMenu(content, game).forEach((d) => send({ type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice }))}>
+                  Use a suggested starter menu
+                </button>
+              </div>
+            )}
             {items.map((m) => {
               const d = content.dishes.find((x) => x.id === m.dishId);
               const cost = plateCost(content, m.dishId);
@@ -110,7 +119,7 @@ export function MenuTab({ game, send }: Props) {
                   <div className="libdish__top">
                     <span aria-hidden="true">{COURSE_ICON[d.course]}</span>
                     <b>{d.name}</b>
-                    <button className="btn btn--green btn--sm" onClick={() => send({ type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice })}>Add</button>
+                    <button className="btn btn--green btn--sm" disabled={game.menu.length >= MAX_MENU_ITEMS} onClick={() => send({ type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice })} aria-label={`Add ${d.name}`}>Add</button>
                   </div>
                   <div className="dish__meta">
                     <span>cost <MoneyText pence={cost} /></span>

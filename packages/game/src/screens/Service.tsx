@@ -204,7 +204,7 @@ export function Service({ game, app, send, runTicks }: Props) {
           <div className="xs faint" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>86 a dish (pull it for today)</div>
           <div className="eightysix">
             {game.menu.filter((m) => m.active).map((m) => {
-              const off = (game.eightySixed ?? app.eightySixed).includes(m.dishId);
+              const off = (game.eightySixed ?? []).includes(m.dishId);
               return (
                 <div key={m.dishId} className={`eightysix__row ${off ? "eightysix__row--off" : ""}`}>
                   <span>{dishName(content, m.dishId)}</span>

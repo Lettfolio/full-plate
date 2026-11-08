@@ -56,3 +56,25 @@ export function deserialize(json: string): GameState {
 }
 
 export * from "./types";
+
+/**
+ * Calendar and price constants the UI needs to show before the player acts.
+ * (Re-exported from constants.ts; values stay owned by sim-core.)
+ */
+export {
+  DAYS_PER_MONTH,
+  EMPLOYER_ONCOST,
+  HIRE_CASH_BUFFER_SHIFTS,
+  MAX_MENU_ITEMS,
+  MONTHS_PER_YEAR,
+  RECRUITMENT_FEE,
+  SHIFT_HOURS,
+  START_MONTH,
+  START_WEEKDAY,
+  TABLE_COST,
+  WEEKEND_DAYS,
+} from "./constants";
+/** Calendar helpers: month 1-12, weekday 0 = Monday (rota index), weekend footfall days. */
+export { isWeekend, monthOf, weekdayOf } from "./util";
+/** Cost of one rostered shift for a staff member (wage × SHIFT_HOURS × (1 + EMPLOYER_ONCOST)). */
+export { shiftCost } from "./systems/finance";

@@ -1,8 +1,8 @@
-import { useCallback, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import type { Command, Difficulty } from "@full-plate/sim-core";
 import { appReducer, initialAppState } from "./state/gameReducer";
 import { loadGame, useAutosave } from "./state/save";
-import { content, USING_STUBS } from "./sim";
+import { content } from "./sim";
 import { TitleScreen } from "./screens/TitleScreen";
 import { NewGame } from "./screens/NewGame";
 import { Planning } from "./screens/Planning";
@@ -11,6 +11,7 @@ import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
 import { GameOver } from "./screens/GameOver";
 import { StatusBar } from "./components/StatusBar";
+import { Toast } from "./components/Toast";
 
 type Shell = { view: "title" } | { view: "newgame"; seed?: number } | { view: "game" };
 
@@ -26,8 +27,14 @@ export function App() {
 
   useAutosave(game);
 
+  // On event days the evening P&L is shown first; "Next day" then opens the morning post.
+  const [eventOpen, setEventOpen] = useState(false);
+  const phase = game?.phase;
+  useEffect(() => { if (phase !== "event") setEventOpen(false); }, [phase]);
+
   const send = useCallback((cmd: Command) => dispatch({ type: "command", cmd }), []);
   const runTicks = useCallback((n: number) => dispatch({ type: "ticks", n }), []);
+  const dismissToast = useCallback(() => dispatch({ type: "dismissToast" }), []);
 
   const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
     dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty } });
@@ -50,7 +57,6 @@ export function App() {
           dispatch({ type: "load", game: g });
           setShell({ view: "game" });
         }}
-        stub={USING_STUBS}
       />
     );
   }
@@ -65,7 +71,7 @@ export function App() {
     return (
       <GameOver
         game={game}
-        reason={game.gameOverReason ?? app.gameOverReason}
+        reason={game.gameOverReason ?? null}
         onRetrySameSeed={() => start(game.seed, game.districtId, game.restaurantName, game.difficulty)}
         onNewSeed={() => setShell({ view: "newgame", seed: randomSeed() })}
         onTitle={quitToTitle}
@@ -77,11 +83,19 @@ export function App() {
     <div className="app">
       <StatusBar game={game} onMenu={game.phase === "service" ? undefined : quitToTitle} />
       <main className={`screen ${game.phase === "service" ? "screen--fixed" : ""}`}>
-        {(game.phase === "planning" || game.phase === "event") && <Planning game={game} send={send} />}
+        {game.phase === "planning" && <Planning game={game} send={send} />}
         {game.phase === "service" && <Service game={game} app={app} send={send} runTicks={runTicks} />}
-        {game.phase === "evening" && <Evening game={game} result={app.lastResult ?? game.history.at(-1) ?? null} send={send} />}
+        {(game.phase === "evening" || game.phase === "event") && (
+          <Evening
+            game={game}
+            result={game.history.at(-1) ?? app.lastResult}
+            onNext={() => (game.phase === "event" ? setEventOpen(true) : send({ type: "END_DAY" }))}
+            nextLabel={game.phase === "event" ? "Read the morning post →" : "Next day →"}
+          />
+        )}
       </main>
-      {game.phase === "event" && <EventModal game={game} send={send} />}
+      {game.phase === "event" && eventOpen && <EventModal game={game} send={send} />}
+      <Toast toast={app.toast} onDismiss={dismissToast} />
     </div>
   );
 }

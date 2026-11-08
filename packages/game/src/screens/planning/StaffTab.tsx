@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Candidate, Command, GameState, Staff, StaffRole } from "@full-plate/sim-core";
-import { candidates, content } from "../../sim";
+import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, RECRUITMENT_FEE, shiftCost } from "../../sim";
 import { Bar } from "../../components/Bar";
 import { MoneyText } from "../../components/MoneyText";
 import { traitName } from "../../lib/content";
@@ -44,7 +44,7 @@ function PersonCard({ s, today, send }: { s: Staff; today: number; send: Props["
       <div>
         <div className="row xs muted" style={{ marginBottom: 4 }}>
           <span className="spacer">Rota · {shifts} shift{shifts === 1 ? "" : "s"}</span>
-          <span>~<MoneyText pence={s.wage * SHIFT_HOURS * shifts} whole />/week</span>
+          <span>~<MoneyText pence={shiftCost(s) * shifts} whole />/week</span>
         </div>
         <div className="rota" role="group" aria-label={`${s.name}'s rota`}>
           {WEEKDAYS.map((d, i) => (
@@ -75,7 +75,11 @@ function PersonCard({ s, today, send }: { s: Staff; today: number; send: Props["
   );
 }
 
-function CandidateCard({ c, onHire }: { c: Candidate; onHire: () => void }) {
+function CandidateCard({ c, cash, onHire }: { c: Candidate; cash: number; onHire: () => void }) {
+  // Same rule as sim-core's HIRE: cash ≥ fee + a few shifts' wages.
+  const perShift = shiftCost(c);
+  const needed = RECRUITMENT_FEE + HIRE_CASH_BUFFER_SHIFTS * perShift;
+  const canAfford = cash >= needed;
   return (
     <div className="candidate">
       <div className="row">
@@ -84,8 +88,11 @@ function CandidateCard({ c, onHire }: { c: Candidate; onHire: () => void }) {
           <div style={{ fontWeight: 800 }}>{c.name}</div>
           <div className="xs muted">{ROLE_LABEL[c.role]} · <MoneyText pence={c.wage} />/h · <i>{c.potentialHint}</i></div>
         </div>
-        <button className="btn btn--green btn--sm" onClick={onHire}>Hire</button>
+        <button className="btn btn--green btn--sm" onClick={onHire} disabled={!canAfford} title={canAfford ? undefined : `Needs £${Math.ceil(needed / 100)} in the bank`}>
+          Hire · <MoneyText pence={RECRUITMENT_FEE} whole />
+        </button>
       </div>
+      <div className="xs muted">Costs about <MoneyText pence={perShift} whole /> per shift worked</div>
       <Bar label="Skill" value={c.skill} tone="accent" size="sm" showValue />
       <Bar label="Speed" value={c.speed} tone="sky" size="sm" showValue />
       <Bar label="Charm" value={c.charm} tone="plum" size="sm" showValue />
@@ -97,12 +104,10 @@ function CandidateCard({ c, onHire }: { c: Candidate; onHire: () => void }) {
 export function StaffTab({ game, send }: Props) {
   const today = weekdayIndex(game.day);
   const pool = useMemo(() => candidates(content, game), [game]);
-  // Indices stay stable after a hire (the HIRE command uses them). sim-core marks hired candidates
-  // with `hired`; older builds don't, so also hide anyone whose name+role was hired today.
-  const hiredToday = new Set(game.staff.filter((s) => s.hiredDay === game.day).map((s) => `${s.role}:${s.name}`));
-  const shown = pool.map((c, i) => ({ c, i })).filter(({ c, i }) => !c.hired && !game.hiredCandidates?.includes(i) && !hiredToday.has(`${c.role}:${c.name}`));
+  // Indices stay stable after a hire (HIRE uses them); sim-core flags hired candidates with `hired`.
+  const shown = pool.map((c, i) => ({ c, i })).filter(({ c }) => !c.hired);
   const roles: StaffRole[] = ["chef", "server", ...(["bar", "porter", "manager"] as const).filter((r) => game.staff.some((s) => s.role === r))];
-  const wageBill = game.staff.reduce((a, s) => a + (s.rota[today] ? s.wage * SHIFT_HOURS : 0), 0);
+  const wageBill = game.staff.reduce((a, s) => a + (s.rota[today] ? shiftCost(s) : 0), 0);
 
   return (
     <div className="staffgrid">
@@ -128,9 +133,9 @@ export function StaffTab({ game, send }: Props) {
 
       <aside className="stack stack--sm">
         <h3>Looking for work</h3>
-        <p className="small muted">New faces every morning. Wages are per hour; a shift is {SHIFT_HOURS} hours.</p>
+        <p className="small muted">New faces every morning. Wages are per hour; a shift is {SHIFT_HOURS} hours. Hiring costs a <MoneyText pence={RECRUITMENT_FEE} whole /> agency fee.</p>
         {shown.length === 0 && <div className="empty small">No one else today. Check again tomorrow.</div>}
-        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
+        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} cash={game.cash} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
       </aside>
     </div>
   );

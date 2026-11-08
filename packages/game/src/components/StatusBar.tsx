@@ -3,7 +3,6 @@ import { content } from "../sim";
 import { dateLabel } from "../lib/calendar";
 import { Bar } from "./Bar";
 import { MoneyText } from "./MoneyText";
-import { USING_STUBS } from "../sim";
 
 interface Props {
   game: GameState;
@@ -35,7 +34,6 @@ export function StatusBar({ game, onMenu }: Props) {
         <span className="status__sub">{game.loan.daysRemaining} days · <MoneyText pence={game.loan.dailyPayment} />/day</span>
       </div>
       <div className="status__end">
-        {USING_STUBS && <span className="pill pill--stub" title="VITE_USE_STUBS=1 — fake sim and content from src/dev/">stub sim</span>}
         <span className={`pill pill--${game.difficulty}`}>{game.difficulty}</span>
         {onMenu && <button className="btn btn--ghost btn--sm" onClick={onMenu}>Save &amp; quit</button>}
       </div>

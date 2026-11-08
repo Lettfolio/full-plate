@@ -27,5 +27,5 @@ export function coverage(staff: Staff[], role: StaffRole): number[] {
   return Array.from({ length: 7 }, (_, i) => staff.filter((s) => s.role === role && s.rota[i]).length);
 }
 
-/** Hourly wage × 10-hour shift (ARCHITECTURE: wages = Σ staff on rota × wage × 10h). */
-export const SHIFT_HOURS = 10;
+/** Shift length in hours (sim-core constant). */
+export { SHIFT_HOURS } from "../sim";

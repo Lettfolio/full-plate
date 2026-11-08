@@ -3,12 +3,18 @@
   "compilerOptions": {
     "noEmit": true,
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "node"],
-    "paths": {
-      "@full-plate/sim-core": ["../sim-core/src/index.ts", "./src/dev/contractShim.ts"],
-      "@full-plate/content": ["../content/src/index.ts", "./src/dev/contentShim.ts"]
-    }
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

@@ -1,4 +1,4 @@
-import type { Command, DayResult, GameState, Review } from "@full-plate/sim-core";
+import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import { content } from "../sim";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
@@ -11,7 +11,9 @@ import { initials, moodFace } from "../lib/staff";
 interface Props {
   game: GameState;
   result: DayResult | null;
-  send: (cmd: Command) => void;
+  /** END_DAY on a normal evening; opens the event modal when tomorrow has a card (phase "event"). */
+  onNext: () => void;
+  nextLabel: string;
 }
 
 const SOURCE: Record<Review["source"], { icon: string; label: string }> = {
@@ -31,17 +33,20 @@ export function Delta({ v, digits = 1, suffix = "" }: { v: number; digits?: numb
   );
 }
 
-export function Evening({ game, result, send }: Props) {
+export function Evening({ game, result, onNext, nextLabel }: Props) {
   if (!result) {
     return (
       <div className="page">
-        <div className="empty">No results for today. <button className="btn btn--sm" onClick={() => send({ type: "END_DAY" })}>Next day →</button></div>
+        <div className="empty">No results for today. <button className="btn btn--sm" onClick={onNext}>{nextLabel}</button></div>
       </div>
     );
   }
   const r = result;
-  const wasteTotal = r.waste.prep + r.waste.plate + r.waste.spoil;
-  const income = r.revenue + r.tips;
+  // profit = revenue − vat − food − prep waste − spoilage − labour − rent − overheads − loan (sim-core stats.ts).
+  // Plate waste is already inside food cost, so it is shown as a note, not a line.
+  const vat = r.vat ?? 0;
+  const overheads = r.overheads ?? 0;
+  const wasteCost = r.waste.prep + r.waste.spoil;
   const ofRev = (v: number) => (r.revenue > 0 ? pct(v / r.revenue) : "—");
   const good = r.profit >= 0;
   const moods = Object.entries(r.staffMoodDelta);
@@ -55,7 +60,7 @@ export function Evening({ game, result, send }: Props) {
             <h1>{good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
           </div>
           <span className="spacer" />
-          <button className="btn btn--primary btn--xl" onClick={() => send({ type: "END_DAY" })} autoFocus>Next day →</button>
+          <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>{nextLabel}</button>
         </div>
 
         <div className="stack">
@@ -64,19 +69,21 @@ export function Evening({ game, result, send }: Props) {
             <table className="pnl">
               <tbody>
                 <tr><td>Food & drink sales</td><td><MoneyText pence={r.revenue} /></td></tr>
-                <tr><td>Tips</td><td><MoneyText pence={r.tips} /></td></tr>
+                <tr className="pnl__cost"><td>VAT to the taxman <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
                 <tr className="pnl__cost"><td>Food cost <span className="pnl__pct">{ofRev(r.foodCost)}</span></td><td><MoneyText pence={-r.foodCost} /></td></tr>
                 <tr className="pnl__cost"><td>Staff wages <span className="pnl__pct">{ofRev(r.labourCost)}</span></td><td><MoneyText pence={-r.labourCost} /></td></tr>
                 <tr className="pnl__cost"><td>Rent (today's share)</td><td><MoneyText pence={-r.rent} /></td></tr>
+                <tr className="pnl__cost"><td>Bills &amp; card fees</td><td><MoneyText pence={-overheads} /></td></tr>
                 <tr className="pnl__cost"><td>Loan repayment</td><td><MoneyText pence={-r.loanPayment} /></td></tr>
-                <tr className="pnl__cost"><td>Waste <span className="pnl__pct">{ofRev(wasteTotal)}</span></td><td><MoneyText pence={-wasteTotal} /></td></tr>
+                <tr className="pnl__cost"><td>Waste <span className="pnl__pct">{ofRev(wasteCost)}</span></td><td><MoneyText pence={-wasteCost} /></td></tr>
                 <tr className="pnl__sub"><td>Prep trimmings</td><td><MoneyText pence={-r.waste.prep} /></td></tr>
-                <tr className="pnl__sub"><td>Left on plates</td><td><MoneyText pence={-r.waste.plate} /></td></tr>
                 <tr className="pnl__sub"><td>Spoiled stock</td><td><MoneyText pence={-r.waste.spoil} /></td></tr>
                 <tr className="pnl__total"><td>{good ? "Profit" : "Loss"}</td><td><MoneyText pence={r.profit} tone signed /></td></tr>
               </tbody>
             </table>
-            <p className="xs faint" style={{ marginTop: 8 }}>Money in: <MoneyText pence={income} /> · Cash now: <MoneyText pence={game.cash} tone /></p>
+            <p className="xs faint" style={{ marginTop: 8 }}>
+              Left on plates: <MoneyText pence={r.waste.plate} /> (already in food cost) · Tips for the team: <MoneyText pence={r.tips} /> (not your money) · Cash now: <MoneyText pence={game.cash} tone />
+            </p>
           </div>
 
           <div className="card">

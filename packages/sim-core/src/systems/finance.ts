@@ -20,7 +20,7 @@ import type { ContentPack, GameState, Loan, SimEvent, Staff } from "../types";
 import { districtOf, logEvent, worksToday } from "../util";
 import type { SystemResult } from "./system";
 
-export const shiftCost = (s: Staff): number => Math.round(s.wage * SHIFT_HOURS * (1 + EMPLOYER_ONCOST));
+export const shiftCost = (s: Pick<Staff, "wage">): number => Math.round(s.wage * SHIFT_HOURS * (1 + EMPLOYER_ONCOST));
 
 export function dailyRent(content: ContentPack, state: GameState): number {
   return Math.round((districtOf(content, state).monthlyRent * DIFFICULTY[state.difficulty].costMult) / DAYS_PER_MONTH);

@@ -131,7 +131,6 @@ button, input { font: inherit; color: inherit; }
 .pill--cosy { background: var(--basil-wash); color: var(--basil-deep); }
 .pill--normal { background: var(--sky-wash); color: #2d6788; }
 .pill--hard { background: var(--tomato-wash); color: var(--tomato-deep); }
-.pill--stub { background: var(--amber-wash); color: #8a5a0b; border: 1px dashed #c98b1a; }
 .pill--star { background: #fdf0c9; color: #8a5a0b; }
 .pill--ploughhorse { background: var(--sky-wash); color: #2d6788; }
 .pill--puzzle { background: var(--plum-wash); color: #6a3f7d; }
@@ -464,3 +463,14 @@ button, input { font: inherit; color: inherit; }
   .dish { grid-template-columns: 34px minmax(0, 1fr) auto auto; }
   .dish__margin { display: none; }
 }
+
+/* toast (refused commands) */
+.toast-region { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60; pointer-events: none; }
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: 560px;
+  background: var(--ink); color: var(--paper); border-radius: var(--r); padding: 10px 12px 10px 16px;
+  box-shadow: var(--shadow-lift); font-weight: 700; animation: toast-in 160ms ease-out;
+}
+.toast .iconbtn { color: var(--paper); background: transparent; border-color: rgba(255,255,255,0.3); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }

@@ -7,10 +7,9 @@ interface Props {
   saved: GameState | null;
   onNew: () => void;
   onContinue: () => void;
-  stub: boolean;
 }
 
-export function TitleScreen({ saved, onNew, onContinue, stub }: Props) {
+export function TitleScreen({ saved, onNew, onContinue }: Props) {
   return (
     <div className="title">
       <div className="title__inner">
@@ -32,7 +31,7 @@ export function TitleScreen({ saved, onNew, onContinue, stub }: Props) {
             New game
           </button>
         </div>
-        <p className="title__foot">Milestone 1 · one restaurant, one district{stub ? " · running on the stub sim" : ""}</p>
+        <p className="title__foot">Milestone 1 · one restaurant, one district</p>
       </div>
     </div>
   );
