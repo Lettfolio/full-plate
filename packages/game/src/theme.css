@@ -13,7 +13,7 @@
   --paper: #fffdf8;
   --ink: #2b2622;
   --ink-soft: #5c534a;
-  --ink-faint: #8f857a;
+  --ink-faint: #72675c; /* ≥4.5:1 on cream and paper (WCAG AA for small text) */
   --line: #e6d8bd;
   --line-strong: #d4c19c;
 
