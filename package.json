@@ -1,0 +1,17 @@
+{
+  "name": "full-plate",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter @full-plate/game dev",
+    "headless": "pnpm --filter @full-plate/sim-core headless",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^5.6.0"
+  }
+}

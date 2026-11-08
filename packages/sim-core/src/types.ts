@@ -1,0 +1,378 @@
+/**
+ * Full Plate — shared domain contract.
+ *
+ * This file is the agreement between sim-core, game (UI) and content (data).
+ * Change it only by agreement: everything else builds against it.
+ *
+ * Conventions
+ * - Money is integer pence (never floats).
+ * - Time: a Day has an index (0-based). Each day has a fixed number of service
+ *   ticks (SERVICE_TICKS). One tick ≈ 5 in-game minutes. Service runs 12:00→22:00
+ *   = 120 ticks. Planning and evening phases are not ticked.
+ * - All randomness comes from the seeded RNG; the sim never reads wall-clock time.
+ * - The sim is pure: `step(state, cmd)` and `tick(state)` return new state. UI
+ *   never mutates state.
+ */
+
+// ───────────────────────── identifiers ─────────────────────────
+export type Pence = number;              // integer
+export type DishId = string;
+export type IngredientId = string;
+export type StaffId = string;
+export type CustomerId = string;
+export type DistrictId = string;
+export type SegmentId = string;
+export type EventId = string;
+export type TableId = string;
+
+export const SERVICE_TICKS = 120;        // 12:00 → 22:00 at 5-minute ticks
+export const MINUTES_PER_TICK = 5;
+
+// ───────────────────────── content (static data) ─────────────────────────
+export type Cuisine = "british" | "italian" | "american" | "asian" | "french" | "cafe";
+export type DishCourse = "starter" | "main" | "dessert" | "drink" | "side";
+
+export interface IngredientDef {
+  id: IngredientId;
+  name: string;
+  unitCost: Pence;                       // per portion-unit
+  shelfLifeDays: number;                 // for spoilage
+  seasonality?: number[];                // months 1-12 when in season (cheaper, better)
+}
+
+export interface DishDef {
+  id: DishId;
+  name: string;
+  course: DishCourse;
+  cuisine: Cuisine;
+  ingredients: { id: IngredientId; qty: number }[];
+  prepTicks: number;                     // kitchen time per plate
+  skillRequired: number;                 // 0-100; chefs below this make mistakes
+  baseAppeal: Record<SegmentId, number>; // 0-1 per customer segment
+  qualityCeiling: number;                // 0-100; max quality even with perfect chef
+  suggestedPrice: Pence;
+  /** Flavour text shown in the menu editor. */
+  blurb?: string;
+}
+
+export interface SegmentDef {
+  id: SegmentId;
+  name: string;                          // "Students", "Families", "Business", "Foodies", "Tourists"
+  priceSensitivity: number;              // 0-1 (1 = very sensitive)
+  qualityWeight: number;                 // 0-1
+  speedWeight: number;                   // 0-1
+  averageBudget: Pence;                  // per head
+  partySizeWeights: number[];            // index = party size-1, weights
+  /** Arrival curve by service tick, length SERVICE_TICKS, sums to ~1. */
+  arrivalCurve: number[];
+  tipRate: number;                       // 0-0.2
+}
+
+export interface DistrictDef {
+  id: DistrictId;
+  name: string;                          // "Student Quarter", "High Street", "Business Park", "Seaside"
+  monthlyRent: Pence;
+  depositMonths: number;
+  /** Base footfall per day (potential customers passing). */
+  footfall: number;
+  /** Mix of segments, sums to 1. */
+  segmentMix: Record<SegmentId, number>;
+  /** Seasonal footfall multiplier by month 1-12. */
+  seasonCurve: number[];
+  blurb: string;
+}
+
+export type StaffRole = "chef" | "server" | "bar" | "porter" | "manager";
+
+export interface StaffArchetypeDef {
+  id: string;
+  role: StaffRole;
+  nameSamples: string[];
+  skillRange: [number, number];          // 0-100
+  speedRange: [number, number];          // 0-100
+  charmRange: [number, number];          // 0-100 (front of house)
+  wageRange: [Pence, Pence];             // per hour
+  traits: string[];                      // pool to draw 1-3 from
+}
+
+export interface TraitDef {
+  id: string;
+  name: string;
+  description: string;
+  /** Multipliers applied in StaffSystem. 1 = neutral. */
+  effects: Partial<{
+    skill: number; speed: number; charm: number; moodDecay: number; wageDemand: number; mistakeRate: number;
+  }>;
+}
+
+export interface EventDef {
+  id: EventId;
+  title: string;
+  body: string;
+  /** Weight in the deck; 0 disables. */
+  weight: number;
+  /** Conditions evaluated against state; all must hold. */
+  when?: Partial<{
+    minDay: number; maxDay: number; minCash: Pence; maxCash: Pence; minPopularity: number; minPrestige: number;
+    month: number[];
+  }>;
+  choices: EventChoiceDef[];
+}
+
+export interface EventChoiceDef {
+  id: string;
+  label: string;
+  /** Applied immediately. */
+  effects: Partial<{
+    cash: Pence; popularity: number; prestige: number; staffMood: number; footfallMultDays: { mult: number; days: number };
+  }>;
+}
+
+export interface ContentPack {
+  ingredients: IngredientDef[];
+  dishes: DishDef[];
+  segments: SegmentDef[];
+  districts: DistrictDef[];
+  staffArchetypes: StaffArchetypeDef[];
+  traits: TraitDef[];
+  events: EventDef[];
+  /** Global balance knobs. */
+  balance: BalanceDef;
+}
+
+export interface BalanceDef {
+  startingCash: Pence;
+  loanPrincipal: Pence;
+  loanTermDays: number;
+  loanApr: number;                       // e.g. 0.08
+  fitOutCost: Pence;
+  /** Reputation drift per day toward 50 when nothing happens. */
+  reputationDecay: number;
+  /** How many reviews a day are written per 10 covers. */
+  reviewRatePer10Covers: number;
+  /** Tables available at start and max. */
+  startingTables: number;
+  maxTables: number;
+  seatsPerTable: number;
+  /** Waste model shares: prep/plate/spoil sum to 1. */
+  wasteShares: { prep: number; plate: number; spoil: number };
+  /** Wage multiplier for weekend shifts etc. */
+  weekendFootfallMult: number;
+  /** Year-1 target: fraction of simulated owners who should survive at normal difficulty (headless target, not enforced). */
+  targetYear1Survival: number;
+}
+
+// ───────────────────────── runtime state ─────────────────────────
+export type Phase = "planning" | "service" | "evening" | "event" | "gameover";
+export type Difficulty = "cosy" | "normal" | "hard";
+
+export interface MenuItem {
+  dishId: DishId;
+  price: Pence;
+  active: boolean;
+  /** Rolling 7-day stats for the menu matrix. */
+  sold7d: number;
+  margin7d: Pence;
+}
+
+export interface Staff {
+  id: StaffId;
+  name: string;
+  role: StaffRole;
+  skill: number; speed: number; charm: number;   // 0-100
+  wage: Pence;                                   // per hour
+  mood: number;                                  // 0-100
+  fatigue: number;                               // 0-100
+  traits: string[];
+  hiredDay: number;
+  /** Hidden potential revealed over time; UI shows it fuzzily. */
+  potential: number;
+  /** Days worked this week for the rota. */
+  rota: boolean[];                               // length 7, true = working
+}
+
+export type CustomerStage = "queue" | "seated" | "ordered" | "eating" | "paying" | "left";
+
+export interface Customer {
+  id: CustomerId;
+  segment: SegmentId;
+  partySize: number;
+  arrivedTick: number;
+  stage: CustomerStage;
+  tableId?: TableId;
+  order: DishId[];
+  patience: number;                              // 0-100, falls while waiting
+  satisfaction: number;                          // 0-100, final rating basis
+  spend: Pence;
+  tip: Pence;
+  /** Set when stage === "left": did they leave before being served. */
+  walkedOut?: boolean;
+}
+
+export interface Table {
+  id: TableId;
+  seats: number;
+  occupiedBy?: CustomerId;
+  /** Ticks until cleared after guests leave. */
+  dirtyTicks: number;
+}
+
+export interface KitchenTicket {
+  id: string;
+  customerId: CustomerId;
+  dishId: DishId;
+  createdTick: number;
+  ticksRemaining: number;
+  chefId?: StaffId;
+  quality: number;                               // computed when plated
+}
+
+export interface Review {
+  day: number;
+  source: "walkin" | "online" | "critic" | "wordofmouth";
+  rating: number;                                // 1-5
+  text: string;
+  dishId?: DishId;
+}
+
+export interface DayResult {
+  day: number;
+  covers: number;
+  walkouts: number;
+  revenue: Pence;
+  tips: Pence;
+  foodCost: Pence;
+  labourCost: Pence;
+  rent: Pence;                                   // apportioned daily
+  loanPayment: Pence;
+  waste: { prep: Pence; plate: Pence; spoil: Pence };
+  profit: Pence;
+  averageSpend: Pence;
+  averageRating: number;                         // 1-5
+  bestDish?: DishId;
+  worstDish?: DishId;
+  popularityDelta: number;
+  prestigeDelta: number;
+  reviews: Review[];
+  staffMoodDelta: Record<StaffId, number>;
+}
+
+export interface Stock {
+  ingredientId: IngredientId;
+  qty: number;
+  /** Day the oldest batch was delivered; used for spoilage. */
+  oldestDay: number;
+}
+
+export interface Loan {
+  principal: Pence;
+  remaining: Pence;
+  dailyPayment: Pence;
+  daysRemaining: number;
+}
+
+export interface Reputation {
+  popularity: number;                            // 0-100, drives footfall
+  prestige: number;                              // 0-100, drives spend & critics
+}
+
+export interface ActiveEvent {
+  eventId: EventId;
+  /** Index into choices once resolved. */
+  chosen?: string;
+}
+
+export interface GameState {
+  version: 1;
+  seed: number;
+  rngState: number[];                            // serialisable RNG state
+  difficulty: Difficulty;
+  day: number;                                   // 0-based; day 0 is opening day
+  tick: number;                                  // 0..SERVICE_TICKS during service
+  phase: Phase;
+  restaurantName: string;
+  districtId: DistrictId;
+  cash: Pence;
+  loan: Loan;
+  reputation: Reputation;
+  menu: MenuItem[];
+  staff: Staff[];
+  tables: Table[];
+  stock: Stock[];
+  /** Pending deliveries arriving next morning. */
+  orders: { ingredientId: IngredientId; qty: number; cost: Pence }[];
+  // live service
+  customers: Customer[];
+  tickets: KitchenTicket[];
+  todays: Partial<DayResult> & { reviews: Review[] };
+  history: DayResult[];
+  activeEvent?: ActiveEvent;
+  /** Footfall multipliers from events: [mult, daysRemaining]. */
+  footfallMods: { mult: number; daysRemaining: number }[];
+  log: LogEntry[];                               // last ~200 entries for the UI ticker
+  stats: { totalCovers: number; totalRevenue: Pence; daysOpen: number };
+}
+
+export interface LogEntry { day: number; tick: number; text: string; kind: "info" | "good" | "bad" | "money" }
+
+// ───────────────────────── commands (UI → sim) ─────────────────────────
+export type Command =
+  | { type: "NEW_GAME"; seed: number; districtId: DistrictId; restaurantName: string; difficulty: Difficulty }
+  | { type: "SET_MENU_ITEM"; dishId: DishId; price?: Pence; active?: boolean }
+  | { type: "ADD_MENU_ITEM"; dishId: DishId; price: Pence }
+  | { type: "REMOVE_MENU_ITEM"; dishId: DishId }
+  | { type: "HIRE"; candidateIndex: number }
+  | { type: "FIRE"; staffId: StaffId }
+  | { type: "SET_ROTA"; staffId: StaffId; rota: boolean[] }
+  | { type: "ORDER_STOCK"; ingredientId: IngredientId; qty: number }
+  | { type: "BUY_TABLE" }
+  | { type: "START_SERVICE" }
+  | { type: "COMP_TABLE"; customerId: CustomerId }      // free their meal, big satisfaction boost
+  | { type: "EIGHTY_SIX"; dishId: DishId }               // pull a dish for today
+  | { type: "END_DAY" }                                  // from evening → next planning
+  | { type: "RESOLVE_EVENT"; choiceId: string };
+
+// ───────────────────────── events (sim → UI) ─────────────────────────
+export type SimEvent =
+  | { type: "CUSTOMER_ARRIVED"; customerId: CustomerId }
+  | { type: "CUSTOMER_SEATED"; customerId: CustomerId; tableId: TableId }
+  | { type: "CUSTOMER_WALKED_OUT"; customerId: CustomerId }
+  | { type: "DISH_PLATED"; ticketId: string; quality: number }
+  | { type: "CUSTOMER_PAID"; customerId: CustomerId; spend: Pence; tip: Pence; rating: number }
+  | { type: "SERVICE_ENDED"; result: DayResult }
+  | { type: "EVENT_TRIGGERED"; eventId: EventId }
+  | { type: "CASH_LOW"; cash: Pence }
+  | { type: "GAME_OVER"; reason: string }
+  | { type: "LOG"; entry: LogEntry };
+
+export interface StepResult {
+  state: GameState;
+  events: SimEvent[];
+}
+
+/** Candidates offered in the planning phase; derived, not stored. */
+export interface Candidate {
+  name: string;
+  role: StaffRole;
+  skill: number; speed: number; charm: number;
+  wage: Pence;
+  traits: string[];
+  /** Fuzzy band shown to the player, e.g. "promising". */
+  potentialHint: string;
+}
+
+/** Menu-matrix classification for the UI. */
+export type MenuQuadrant = "star" | "ploughhorse" | "puzzle" | "dog";
+
+// ───────────────────────── public API shape ─────────────────────────
+/**
+ * sim-core exports these functions (see index.ts). They are pure.
+ *
+ *   newGame(content, cmd: NEW_GAME): GameState
+ *   applyCommand(content, state, cmd): StepResult     // planning/evening/event commands
+ *   tick(content, state): StepResult                  // one service tick; no-op outside service
+ *   runDay(content, state): StepResult                // convenience: START_SERVICE → all ticks → evening
+ *   candidates(content, state): Candidate[]           // deterministic from seed+day
+ *   classifyMenu(content, state): Record<DishId, MenuQuadrant>
+ *   serialize(state): string / deserialize(json): GameState  (with version migration)
+ */
