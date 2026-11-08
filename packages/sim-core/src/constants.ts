@@ -27,7 +27,7 @@ export const STARTING_PRESTIGE = 30;
 export const DIFFICULTY: Record<Difficulty, { footfallMult: number; costMult: number; canGoBust: boolean }> = {
   cosy: { footfallMult: 1.15, costMult: 0.9, canGoBust: false },
   normal: { footfallMult: 1, costMult: 1, canGoBust: true },
-  hard: { footfallMult: 0.95, costMult: 1.05, canGoBust: true },
+  hard: { footfallMult: 0.88, costMult: 1.1, canGoBust: true },
 };
 
 // ── arrivals ──
@@ -36,6 +36,13 @@ export const APPEAL_WEIGHT = 1.2;
 /** Σ baseAppeal over the active menu is capped here before weighting. */
 export const APPEAL_CAP = 2.5;
 export const PRICE_GAP_WEIGHT = 4;
+/**
+ * Extra entry-logit penalty per unit of markup over the going rate (Σ menu price ÷ Σ suggestedPrice − 1),
+ * scaled by priceSensitivity. Passers-by compare you with similar places, not only with their budget;
+ * without this, pricing 25% over suggested loses too few guests and strictly dominates (docs/REVIEW.md).
+ * Pricing at or below suggested is unaffected.
+ */
+export const MARKUP_WEIGHT = 8;
 export const QUEUE_PENALTY_PER_PARTY = 0.35;
 export const MAX_QUEUE_PARTIES = 8;
 /** Prestige adds up to this much to the entry logit for quality-weighted segments. */

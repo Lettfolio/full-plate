@@ -9,6 +9,7 @@ import {
   DIFFICULTY,
   ENTRY_BIAS,
   LAST_SEATING_TICK,
+  MARKUP_WEIGHT,
   MAX_QUEUE_PARTIES,
   PATIENCE_START,
   PRESTIGE_APPEAL_WEIGHT,
@@ -59,6 +60,17 @@ export function expectedSpendPerHead(offered: readonly Offered[]): number {
   return spend;
 }
 
+/** Menu markup over the dishes' suggested prices: Σ price ÷ Σ suggestedPrice − 1 (0 when at or below). */
+export function menuMarkup(offered: readonly Offered[]): number {
+  let price = 0;
+  let suggested = 0;
+  for (const o of offered) {
+    price += o.item.price;
+    suggested += o.dish.suggestedPrice;
+  }
+  return suggested > 0 ? Math.max(0, price / suggested - 1) : 0;
+}
+
 /** Logit used when nothing is on the menu (finite so it survives JSON). */
 export const NO_MENU_LOGIT = -50;
 
@@ -70,7 +82,7 @@ export function entryLogit(segment: SegmentDef, offered: readonly Offered[], pre
   appeal = Math.min(APPEAL_CAP, appeal);
   const budget = Math.max(1, segment.averageBudget);
   const gapRatio = clamp((expectedSpendPerHead(offered) - budget) / budget, -0.5, 2);
-  const priceGap = gapRatio * segment.priceSensitivity * PRICE_GAP_WEIGHT;
+  const priceGap = segment.priceSensitivity * (gapRatio * PRICE_GAP_WEIGHT + menuMarkup(offered) * MARKUP_WEIGHT);
   const prestigeTerm = PRESTIGE_APPEAL_WEIGHT * segment.qualityWeight * ((prestige - 50) / 50);
   return ENTRY_BIAS + APPEAL_WEIGHT * appeal - priceGap + prestigeTerm;
 }
