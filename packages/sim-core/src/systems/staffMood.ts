@@ -2,9 +2,15 @@
  * StaffMoodSystem (evening) — worked shifts add fatigue (more on busy days), rest days recover it.
  * Mood falls with high fatigue, overwork (>5 rota days) and low tips; rises with good ratings,
  * rest and a manager on shift; drifts slowly toward a baseline. Skill grows toward hidden potential.
- * Very unhappy staff may quit.
+ * Very unhappy staff may quit. A training day counts as neither a shift nor a rest: no fatigue change, a small
+ * mood lift (the skill gain was applied by TRAIN). Also updates the owner's own fatigue from covering.
  */
 import {
+  OWNER_FATIGUE_PER_10_COVERS,
+  OWNER_FATIGUE_PER_ROLE,
+  OWNER_FATIGUE_RECOVERY,
+  OWNER_FATIGUE_WARNING,
+  TRAINING_MOOD,
   FATIGUE_MOOD_DIVISOR,
   FATIGUE_MOOD_THRESHOLD,
   FATIGUE_PER_10_COVERS,
@@ -39,7 +45,7 @@ export interface DayContext {
 const isFoh = (s: Staff) => s.role === "server" || s.role === "bar";
 
 export function dayContext(state: GameState): DayContext {
-  const working = state.staff.filter((s) => worksToday(s, state.day));
+  const working = state.staff.filter((s) => worksToday(s, state.day) && s.trainingDay !== state.day);
   const foh = working.filter(isFoh).length;
   const tally = tallyOf(state);
   return {
@@ -78,6 +84,12 @@ export function nextFatigue(worked: boolean, fatigue: number, coversPerHead: num
 }
 
 export function updateStaffMember(content: ContentPack, s: Staff, day: number, ctx: DayContext): Staff {
+  if (s.trainingDay === day) {
+    const { trainingDay: _t, breakUntilTick: _b, ...rest } = s;
+    return { ...rest, mood: round2(clamp(s.mood + TRAINING_MOOD, 0, 100)) };
+  }
+  const { breakUntilTick: _b, ...rest } = s;
+  s = rest;
   const worked = worksToday(s, day);
   const fatigue = nextFatigue(worked, s.fatigue, ctx.workingCount ? ctx.covers / ctx.workingCount : 0);
   const mood = round2(clamp(s.mood + moodChange(content, s, worked, ctx, fatigue), 0, 100));
@@ -85,9 +97,23 @@ export function updateStaffMember(content: ContentPack, s: Staff, day: number, c
   return { ...s, fatigue, mood, skill };
 }
 
+/** Owner fatigue after today: up for each role covered (and busier days), down on a day the team ran it. */
+export function nextOwnerFatigue(state: GameState): number {
+  const covered = state.ownerCovering?.length ?? 0;
+  const f = state.ownerFatigue ?? 0;
+  const next = covered
+    ? f + covered * OWNER_FATIGUE_PER_ROLE + ((state.todays.covers ?? 0) / 10) * OWNER_FATIGUE_PER_10_COVERS
+    : f - OWNER_FATIGUE_RECOVERY;
+  return round2(clamp(next, 0, 100));
+}
+
 export function staffMoodSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
   const ctx = dayContext(state);
   const events: SimEvent[] = [];
+  const ownerFatigue = nextOwnerFatigue(state);
+  if (ownerFatigue >= OWNER_FATIGUE_WARNING && ownerFatigue > (state.ownerFatigue ?? 0)) {
+    events.push(logEvent(state, "You're worn out from covering shifts. Tired owners cook and serve worse: hire some help!", "bad"));
+  }
   const staffMoodDelta: Record<string, number> = {};
   const staff: Staff[] = [];
   for (const s of state.staff) {
@@ -99,5 +125,5 @@ export function staffMoodSystem(content: ContentPack, state: GameState, rng: Rng
     }
     staff.push(next);
   }
-  return { state: { ...state, staff, todays: { ...state.todays, staffMoodDelta } }, events };
+  return { state: { ...state, staff, ownerFatigue, todays: { ...state.todays, staffMoodDelta } }, events };
 }

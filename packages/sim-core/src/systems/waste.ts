@@ -3,7 +3,11 @@
  *  - prep: trim taken from stock in proportion to portions used; better chefs trim less.
  *  - plate: food left by unhappy diners (already in food cost; reported only).
  *  - spoil: batches past shelf life are binned at the end of the day.
- * Also books today's food cost (ingredients consumed by the kitchen).
+ * Also books today's food cost.
+ *
+ * Food cost (round 2) = what was paid for the stock in the plates fired today (FIFO cost basis, so seasonal
+ * prices, difficulty and corner-shop buys are included). Prep and spoil waste are valued the same way, so
+ * over any period: cash spent on stock = foodCost + waste.prep + waste.spoil + change in stock value.
  */
 import { PREP_WASTE_RATE, WRAP_SHARES } from "../constants";
 import type { Rng } from "../rng";
@@ -38,9 +42,9 @@ function trimPrep(content: ContentPack, state: GameState, used: Record<string, n
   let cost = 0;
   for (const id of Object.keys(used).sort()) { // canonical order (see stats.ts bestAndWorst)
     const qty = used[id]!;
-    const r = takeStock(stock, id, qty * rate, state.day);
+    const r = takeStock(stock, id, qty * rate, state.day, findIngredient(content, id)?.unitCost ?? 0);
     stock = r.stock;
-    cost += valueOf(content, id, r.taken);
+    cost += r.cost;
   }
   return { stock, cost: Math.round(cost) };
 }
@@ -51,7 +55,7 @@ export function wasteSystem(content: ContentPack, state: GameState, _rng: Rng): 
   // Spoil what will be past its shelf life by tomorrow morning.
   const spoiled = spoil(content, prep.stock, state.day + 1);
   let spoilCost = 0;
-  for (const b of spoiled.binned) spoilCost += valueOf(content, b.id, b.qty);
+  for (const b of spoiled.binned) spoilCost += b.cost;
   const plateScale = content.balance.wasteShares.plate / WRAP_SHARES.plate;
   const waste = { prep: prep.cost, plate: Math.round(tally.plateWaste * plateScale), spoil: Math.round(spoilCost) };
   const events: SimEvent[] = [];
@@ -63,7 +67,8 @@ export function wasteSystem(content: ContentPack, state: GameState, _rng: Rng): 
     state: {
       ...state,
       stock: spoiled.stock,
-      todays: { ...state.todays, waste, foodCost: foodCostOf(content, tally.ingredientsUsed) },
+      // tally.foodCost is absent only in a mid-service save from round 1: fall back to base unit costs.
+      todays: { ...state.todays, waste, foodCost: Math.round(tally.foodCost ?? foodCostOf(content, tally.ingredientsUsed)) },
     },
     events,
   };

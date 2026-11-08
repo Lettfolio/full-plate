@@ -1,16 +1,17 @@
-/** Builds the opening state: lease deposit, fit-out, loan, starter menu, tables and opening stock. */
+/**
+ * Builds the opening state: lease deposit, fit-out, loan, tables and the first goals. The larder starts empty:
+ * the opening stock allowance (BalanceDef.openingStockBudget) is spent at the first START_SERVICE (forecast.ts).
+ */
 import {
   DIFFICULTY,
-  OPENING_STOCK_PORTIONS,
   SAVE_VERSION,
   STARTING_POPULARITY,
   STARTING_PRESTIGE,
 } from "./constants";
 import { seedState } from "./rng";
-import { addStock, purchaseCost } from "./stock";
+import { goalsForTier } from "./systems/goals";
 import { newLoan } from "./systems/finance";
-import type { Command, ContentPack, GameState, Stock, Table } from "./types";
-import { monthOf } from "./util";
+import type { Command, ContentPack, GameState, Table } from "./types";
 
 type NewGameCmd = Extract<Command, { type: "NEW_GAME" }>;
 
@@ -22,16 +23,6 @@ function starterTables(content: ContentPack): Table[] {
   }));
 }
 
-function openingStock(content: ContentPack, costMult: number): { stock: Stock[]; cost: number } {
-  let stock: Stock[] = [];
-  let cost = 0;
-  for (const ing of content.ingredients) {
-    stock = addStock(stock, ing.id, OPENING_STOCK_PORTIONS, 0);
-    cost += purchaseCost(ing, OPENING_STOCK_PORTIONS, monthOf(0), costMult);
-  }
-  return { stock, cost };
-}
-
 export function newGame(content: ContentPack, cmd: NewGameCmd): GameState {
   const district = content.districts.find((d) => d.id === cmd.districtId) ?? content.districts[0];
   if (!district) throw new Error("Content has no districts");
@@ -39,7 +30,6 @@ export function newGame(content: ContentPack, cmd: NewGameCmd): GameState {
   const b = content.balance;
   const costMult = DIFFICULTY[difficulty].costMult;
   const deposit = Math.round(district.monthlyRent * district.depositMonths * costMult);
-  const opening = openingStock(content, costMult);
   const seed = cmd.seed >>> 0;
   const name = cmd.restaurantName.trim() || "The Full Plate";
   return {
@@ -52,13 +42,13 @@ export function newGame(content: ContentPack, cmd: NewGameCmd): GameState {
     phase: "planning",
     restaurantName: name,
     districtId: district.id,
-    cash: b.startingCash + b.loanPrincipal - b.fitOutCost - deposit - opening.cost,
+    cash: b.startingCash + b.loanPrincipal - b.fitOutCost - deposit,
     loan: newLoan(b.loanPrincipal, b.loanApr, b.loanTermDays),
     reputation: { popularity: STARTING_POPULARITY, prestige: STARTING_PRESTIGE },
     menu: [], // the player builds the menu in planning
     staff: [],
     tables: starterTables(content),
-    stock: opening.stock,
+    stock: [],
     orders: [],
     customers: [],
     tickets: [],
@@ -71,5 +61,9 @@ export function newGame(content: ContentPack, cmd: NewGameCmd): GameState {
     hiredCandidates: [],
     distressDays: 0,
     eventHistory: [],
+    incidents: [],
+    goals: goalsForTier(content, 0),
+    ownerFatigue: 0,
+    incidentsHandled: 0,
   };
 }

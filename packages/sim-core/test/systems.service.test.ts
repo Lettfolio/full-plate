@@ -256,7 +256,9 @@ describe("front-of-house helpers", () => {
     expect(serverActionsPerTick(C, s)).toBeGreaterThan(serverActionsPerTick(C, { ...s, staff: [] }) - 1);
     const mgr = { ...s, staff: [...s.staff, staffMember({ id: "m", role: "manager", charm: 90 })] };
     expect(serverActionsPerTick(C, mgr)).toBeGreaterThan(serverActionsPerTick(C, s));
-    expect(serverActionsPerTick(C, { ...s, staff: [staffMember({ id: "m", role: "manager" })] })).toBeGreaterThan(1.5);
+    // A manager alone helps on top of the owner covering the floor (and kitchen, so the owner is at half pace).
+    const managerOnly = { ...s, staff: [staffMember({ id: "m", role: "manager" })] };
+    expect(serverActionsPerTick(C, managerOnly)).toBeGreaterThan(serverActionsPerTick(C, { ...s, staff: [] }));
     expect(frontCharm(C, { ...s, staff: [] })).toBeGreaterThan(0);
     expect(moodMult(100)).toBeGreaterThan(moodMult(0));
   });

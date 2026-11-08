@@ -5,6 +5,11 @@
  */
 import {
   CHARM_SATISFACTION_MAX,
+  CHARM_UPGRADE_FROM,
+  CHARM_UPGRADE_MAX,
+  INCIDENT,
+  TIP_CHARM_BASE,
+  TIP_CHARM_SLOPE,
   COMP_SATISFACTION_BONUS,
   PAY_ACTION_COST,
   PLATE_WASTE_MAX_FRACTION,
@@ -20,6 +25,7 @@ import type { Rng } from "../rng";
 import type { ContentPack, Customer, GameState, SegmentDef, ServiceTally, SimEvent } from "../types";
 import { clamp, findDish, findSegment, plateCost, round2, tallyOf } from "../util";
 import { frontCharm, type SystemResult } from "./system";
+import { vipVerdict } from "./incidents";
 
 export interface SatisfactionInputs {
   quality: number;   // mean plate quality 0-100
@@ -27,6 +33,8 @@ export interface SatisfactionInputs {
   spendPerHead: number;
   charm: number;     // 0-100
   comped: boolean;
+  /** Incident adjustments (apology, freebie, spill). */
+  bonus?: number;
 }
 
 export function speedScore(waitTicks: number): number {
@@ -49,7 +57,7 @@ export function satisfactionOf(seg: SegmentDef, x: SatisfactionInputs): number {
   const value = x.comped ? 100 : valueScore(seg, x.spendPerHead);
   const base = (wq * x.quality + ws * speedScore(x.waitTicks) + wv * value) / total;
   const charm = (CHARM_SATISFACTION_MAX * clamp(x.charm, 0, 100)) / 100;
-  return round2(clamp(base + charm + (x.comped ? COMP_SATISFACTION_BONUS : 0), 0, 100));
+  return round2(clamp(base + charm + (x.comped ? COMP_SATISFACTION_BONUS : 0) + (x.bonus ?? 0), 0, 100));
 }
 
 export function ratingOf(satisfaction: number): number {
@@ -58,9 +66,16 @@ export function ratingOf(satisfaction: number): number {
   return rating;
 }
 
-export function tipOf(seg: SegmentDef, spend: number, rating: number): number {
+/** Charming servers earn more tips: × (BASE + SLOPE × charm/100); charm 50 ⇒ ×1. */
+export function tipOf(seg: SegmentDef, spend: number, rating: number, charm = 50): number {
   if (rating < TIP_MIN_RATING || spend <= 0) return 0;
-  return Math.round(spend * seg.tipRate * ((rating - TIP_MIN_RATING + 1) / (6 - TIP_MIN_RATING)));
+  const charmMult = TIP_CHARM_BASE + (TIP_CHARM_SLOPE * clamp(charm, 0, 100)) / 100;
+  return Math.round(spend * seg.tipRate * ((rating - TIP_MIN_RATING + 1) / (6 - TIP_MIN_RATING)) * charmMult);
+}
+
+/** Chance a charming server turns a 3★ evening into a 4★ one. */
+export function charmUpgradeChance(charm: number): number {
+  return CHARM_UPGRADE_MAX * clamp((charm - CHARM_UPGRADE_FROM) / (100 - CHARM_UPGRADE_FROM), 0, 1);
 }
 
 /** Cost of food left on plates by unhappy diners (display; already inside foodCost). */
@@ -93,12 +108,13 @@ function signatureDish(order: readonly string[]): string | undefined {
   return best;
 }
 
-export function paymentSystem(content: ContentPack, state: GameState, _rng: Rng): SystemResult {
+export function paymentSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
   let tally = tallyOf(state);
   let actions = tally.actionsLeft;
   const paying = state.customers.filter((c) => c.stage === "paying");
   if (paying.length === 0) return { state, events: [] };
-  const charm = frontCharm(content, state);
+  const charm = tally.frontCharm ?? frontCharm(content, state);
+  let prestigeBonus = tally.prestigeBonus ?? 0;
   const events: SimEvent[] = [];
   const paid = new Map<string, Customer>();
   let revenue = 0;
@@ -117,9 +133,16 @@ export function paymentSystem(content: ContentPack, state: GameState, _rng: Rng)
       spendPerHead: c.spend / c.partySize,
       charm,
       comped: !!c.comped,
+      bonus: c.satisfactionBonus ?? 0,
     });
-    const rating = ratingOf(satisfaction);
-    const tip = tipOf(seg, c.spend, rating);
+    let rating = ratingOf(satisfaction);
+    if (rating === 3 && rng.chance(charmUpgradeChance(charm))) rating = 4;
+    const tip = tipOf(seg, c.spend, rating, charm);
+    if (c.vip) {
+      const delta = (rating - 3) * INCIDENT.vipPrestigePerStar;
+      prestigeBonus += delta;
+      events.push(...vipVerdict(state, rating, delta));
+    }
     paid.set(c.id, { ...c, stage: "left", leftTick: state.tick, satisfaction, rating, spend, tip });
     events.push({ type: "CUSTOMER_PAID", customerId: c.id, spend, tip, rating });
     revenue += spend;
@@ -148,7 +171,7 @@ export function paymentSystem(content: ContentPack, state: GameState, _rng: Rng)
         tips: (t.tips ?? 0) + tips,
         covers: (t.covers ?? 0) + covers,
       },
-      service: { ...tally, actionsLeft: actions },
+      service: { ...tally, actionsLeft: actions, prestigeBonus },
     },
     events,
   };

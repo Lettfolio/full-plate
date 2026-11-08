@@ -10,12 +10,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { DAYS_PER_MONTH } from "./constants";
-import { applyCommand, candidates, newGame, runDay } from "./index";
+import { applyCommand, candidates, newGame, tick } from "./index";
 import { stockQty } from "./stock";
 import type { Candidate, Command, ContentPack, Difficulty, GameState, StaffRole } from "./types";
 
 // ── strategies ──
-export type StrategyName = "balanced" | "cheap" | "premium";
+export type StrategyName = "balanced" | "cheap" | "premium" | "nohire";
 
 export interface Strategy {
   name: StrategyName;
@@ -23,7 +23,9 @@ export interface Strategy {
   priceMult: number;
   /** Max dishes on the menu (best-appeal first). */
   menuSize: number;
-  /** Cash above which a second chef / server is hired. */
+  /** Cash above which a second chef / server is hired to cover the first one's days off. */
+  coverCash: number;
+  /** Cash above which the second chef / server also works the weekend. */
   secondHireCash: number;
   /** Cash above which a table is bought (if below max). */
   tableCash: number;
@@ -31,12 +33,15 @@ export interface Strategy {
   stockDays: number;
   /** Pick candidates by skill (premium) or by wage (cheap). */
   hireBy: "value" | "skill" | "wage";
+  /** Never hire: the owner covers every role (the "is staff worth it?" baseline). */
+  noHire?: boolean;
 }
 
 export const STRATEGIES: Record<StrategyName, Strategy> = {
-  balanced: { name: "balanced", priceMult: 1, menuSize: 6, secondHireCash: 1_500_000, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value" },
-  cheap: { name: "cheap", priceMult: 0.85, menuSize: 5, secondHireCash: 2_500_000, tableCash: 3_000_000, stockDays: 1.1, hireBy: "wage" },
-  premium: { name: "premium", priceMult: 1.25, menuSize: 6, secondHireCash: 1_000_000, tableCash: 1_500_000, stockDays: 1.5, hireBy: "skill" },
+  balanced: { name: "balanced", priceMult: 1, menuSize: 6, coverCash: 150_000, secondHireCash: 1_500_000, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value" },
+  cheap: { name: "cheap", priceMult: 0.85, menuSize: 5, coverCash: 250_000, secondHireCash: 2_500_000, tableCash: 3_000_000, stockDays: 1.1, hireBy: "wage" },
+  premium: { name: "premium", priceMult: 1.25, menuSize: 6, coverCash: 150_000, secondHireCash: 1_000_000, tableCash: 1_500_000, stockDays: 1.5, hireBy: "skill" },
+  nohire: { name: "nohire", priceMult: 1, menuSize: 6, coverCash: Infinity, secondHireCash: Infinity, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value", noHire: true },
 };
 
 type Step = (s: GameState, cmd: Command) => GameState;
@@ -71,24 +76,52 @@ function hireRole(content: ContentPack, s: GameState, role: StaffRole, strat: St
   return best ? step(s, { type: "HIRE", candidateIndex: best.i }) : s;
 }
 
+/** Walk-outs per day over the last week above which another table is worth it. */
+const BUSY_WALKOUTS = 4;
+
+/** True when staffed days in the last week averaged more than BUSY_WALKOUTS walk-outs (owner days don't count). */
+function isBusy(s: GameState): boolean {
+  const recent = s.history.slice(-7).filter((h) => !h.ownerCovered?.length);
+  return recent.length >= 4 && recent.reduce((a, h) => a + h.walkouts, 0) / recent.length > BUSY_WALKOUTS;
+}
+
 function staffing(content: ContentPack, s: GameState, strat: Strategy, step: Step): GameState {
+  if (strat.noHire) return s;
   let cur = s;
   for (const role of ["chef", "server"] as const) {
     const have = cur.staff.filter((x) => x.role === role).length;
-    const want = cur.cash > strat.secondHireCash ? 2 : 1;
+    // A second of each role first covers the first one's days off (so the owner isn't left alone), then the weekend.
+    const want = cur.cash > strat.coverCash ? 2 : 1;
     if (have < want) cur = hireRole(content, cur, role, strat, step);
   }
   return cur;
 }
 
-/** Second staff of a role works the days the first has off plus the weekend, so all 7 days are covered. */
-function rotas(s: GameState, step: Step): GameState {
+/** The first hire's default days off (Mon, Tue); plus the weekend once cash allows. */
+const COVER_ROTA = [true, true, false, false, false, false, false];
+const COVER_PLUS_WEEKEND_ROTA = [true, true, false, false, true, true, true];
+
+/** Mean daily profit over the last `days` (0 with no history). */
+function recentProfit(s: GameState, days: number): number {
+  const h = s.history.slice(-days);
+  return h.length ? h.reduce((a, d) => a + d.profit, 0) / h.length : 0;
+}
+
+/**
+ * The second of each role works the days the first has off, plus the weekend when the strategy can afford it
+ * and the last fortnight was profitable; weekend shifts are dropped again after a losing fortnight
+ * (a real owner trims the rota in slow months; REVIEW.md coordinator item 3).
+ */
+function rotas(s: GameState, strat: Strategy, step: Step): GameState {
   let cur = s;
+  const profit = recentProfit(cur, 14);
   for (const role of ["chef", "server"] as const) {
     const team = cur.staff.filter((x) => x.role === role);
     if (team.length < 2) continue;
     const second = team[1]!;
-    const rota = [true, true, false, false, true, true, true];
+    const has = second.rota.join() === COVER_PLUS_WEEKEND_ROTA.join();
+    const weekend = has ? profit >= 0 || cur.cash > strat.secondHireCash * 2 : cur.cash > strat.secondHireCash && profit > 0;
+    const rota = weekend ? COVER_PLUS_WEEKEND_ROTA : COVER_ROTA;
     if (second.rota.join() !== rota.join()) cur = step(cur, { type: "SET_ROTA", staffId: second.id, rota });
   }
   return cur;
@@ -116,9 +149,7 @@ function restock(content: ContentPack, s: GameState, strat: Strategy, step: Step
 }
 
 function buyTables(content: ContentPack, s: GameState, strat: Strategy, step: Step): GameState {
-  const recent = s.history.slice(-7);
-  const busy = recent.length >= 7 && recent.reduce((a, h) => a + h.walkouts, 0) / 7 > 4;
-  if (busy && s.cash > strat.tableCash && s.tables.length < content.balance.maxTables) return step(s, { type: "BUY_TABLE" });
+  if (isBusy(s) && s.cash > strat.tableCash && s.tables.length < content.balance.maxTables) return step(s, { type: "BUY_TABLE" });
   return s;
 }
 
@@ -128,6 +159,48 @@ function resolveEvent(content: ContentPack, s: GameState, step: Step): GameState
   if (!ev) return s;
   const affordable = ev.choices.find((c) => (c.effects.cash ?? 0) >= 0 || s.cash + (c.effects.cash ?? 0) > 500_000);
   return step(s, { type: "RESOLVE_EVENT", choiceId: (affordable ?? ev.choices.at(-1)!).id });
+}
+
+/**
+ * Incident policy for scripted owners: a fixed preference per kind (the free, "deal with it properly" option
+ * first; the corner shop is the only paid option they take, and only with cash to spare). Never comps.
+ */
+export const INCIDENT_POLICY: Record<string, readonly string[]> = {
+  sent_back: ["remake", "apologise"],
+  spill: ["mop"],
+  big_party: ["push", "decline"],
+  rush: ["simplify", "ride"],
+  supplier_short: ["shop", "pull"],
+  equipment: ["fix"],
+  vip: ["best"],
+  staff_wobble: ["break"],
+};
+
+export function respondToIncidents(content: ContentPack, s: GameState): GameState {
+  let cur = s;
+  for (const inc of cur.incidents ?? []) {
+    if (inc.resolution) continue;
+    for (const id of INCIDENT_POLICY[inc.kind] ?? []) {
+      const opt = inc.options.find((o) => o.id === id);
+      if (!opt || (opt.cost ?? 0) > cur.cash - 200_000) continue;
+      const r = applyCommand(content, cur, { type: "RESPOND_INCIDENT", incidentId: inc.id, optionId: opt.id });
+      if ((r.state.incidents ?? []).find((i) => i.id === inc.id)?.resolution) {
+        cur = r.state;
+        break;
+      }
+    }
+  }
+  return cur;
+}
+
+/** One service, tick by tick, reacting to incidents as they start. */
+export function playService(content: ContentPack, s0: GameState, react: boolean): GameState {
+  let s = s0.phase === "planning" ? applyCommand(content, s0, { type: "START_SERVICE" }).state : s0;
+  while (s.phase === "service") {
+    if (react && (s.incidents ?? []).some((i) => !i.resolution)) s = respondToIncidents(content, s);
+    s = tick(content, s).state;
+  }
+  return s;
 }
 
 export interface RunResult {
@@ -152,9 +225,9 @@ export function playOne(content: ContentPack, seed: number, days: number, strat:
   const ratings: number[] = [];
   while (s.day < days && s.phase !== "gameover") {
     s = staffing(content, s, strat, step);
-    s = rotas(s, step);
+    s = rotas(s, strat, step);
     s = buyTables(content, s, strat, step);
-    s = runDay(content, s).state;
+    s = playService(content, s, true);
     if (s.phase === "evening" || s.phase === "event") s = restock(content, s, strat, step);
     const h = s.history.at(-1);
     if (h) {

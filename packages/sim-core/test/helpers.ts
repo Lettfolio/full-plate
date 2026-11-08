@@ -1,6 +1,7 @@
 /** Test helpers: build states quickly without going through the UI flow. */
 import { applyCommand, candidates, newGame, tick } from "../src/index";
 import { Rng } from "../src/rng";
+import { addStock } from "../src/stock";
 import { newCustomer } from "../src/systems/arrival";
 import type { Command, ContentPack, Customer, GameState, Staff } from "../src/types";
 import { emptyTally } from "../src/util";
@@ -16,8 +17,23 @@ export function step(state: GameState, ...cmds: Command[]): GameState {
   return cmds.reduce((s, cmd) => applyCommand(C, s, cmd).state, state);
 }
 
-/** A playable restaurant: full menu at suggested prices, one chef and one server hired. */
+/** `qty` portions of every fixture ingredient (delivered on the state's day, base unit cost). */
+export function stocked(s: GameState, qty = 40): GameState {
+  let stock = s.stock;
+  for (const ing of C.ingredients) stock = addStock(stock, ing.id, qty, s.day, ing.unitCost);
+  return { ...s, stock };
+}
+
+/**
+ * A playable restaurant: full menu at suggested prices, one chef and one server hired, and (unlike a real new game,
+ * which buys opening stock at the first START_SERVICE) 40 portions of everything in the larder for unit tests.
+ */
 export function ready(seed = 1, difficulty: GameState["difficulty"] = "normal"): GameState {
+  return stocked(readyEmpty(seed, difficulty));
+}
+
+/** As `ready`, but with the empty larder a new game really starts with. */
+export function readyEmpty(seed = 1, difficulty: GameState["difficulty"] = "normal"): GameState {
   let s = fresh(seed, difficulty);
   for (const d of C.dishes) s = step(s, { type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice });
   const pool = candidates(C, s);

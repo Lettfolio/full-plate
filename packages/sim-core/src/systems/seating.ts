@@ -7,7 +7,7 @@ import { ACTIONS_CARRY_CAP, PATIENCE_START, SEAT_ACTION_COST, SEATED_PATIENCE_RE
 import type { Rng } from "../rng";
 import type { ContentPack, Customer, GameState, SimEvent, Table } from "../types";
 import { tallyOf } from "../util";
-import type { SystemResult } from "./system";
+import { actionsMod, type SystemResult } from "./system";
 
 /** Smallest free, clean table that seats the party. */
 export function findTable(tables: readonly Table[], partySize: number): Table | undefined {
@@ -21,7 +21,7 @@ export function findTable(tables: readonly Table[], partySize: number): Table | 
 
 export function seatingSystem(_content: ContentPack, state: GameState, _rng: Rng): SystemResult {
   const tally = tallyOf(state);
-  let actions = Math.min(ACTIONS_CARRY_CAP, tally.actionsLeft) + tally.actionsPerTick;
+  let actions = Math.min(ACTIONS_CARRY_CAP, tally.actionsLeft) + Math.max(0, tally.actionsPerTick + actionsMod(state));
   const queue = state.customers.filter((c) => c.stage === "queue");
   const events: SimEvent[] = [];
   let tables = state.tables;

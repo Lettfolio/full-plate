@@ -98,8 +98,18 @@ export function traitMult(
 }
 
 export const worksToday = (s: Staff, day: number): boolean => s.rota[weekdayOf(day)] === true;
+/** Rostered, not on a training day, and not on a break right now. */
+export const onFloor = (s: Staff, state: Pick<GameState, "day" | "tick">): boolean =>
+  worksToday(s, state.day) && s.trainingDay !== state.day && !((s.breakUntilTick ?? 0) > state.tick);
 export const onShift = (state: GameState, role?: StaffRole): Staff[] =>
-  state.staff.filter((s) => worksToday(s, state.day) && (role === undefined || s.role === role));
+  state.staff.filter((s) => onFloor(s, state) && (role === undefined || s.role === role));
+
+/** Deterministic dither in [0, 1) from a string (used to round fractional cook times without RNG). */
+export function dither(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193) >>> 0;
+  return ((Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0) % 10_000) / 10_000;
+}
 
 // ── logging ──
 export function logEvent(state: GameState, text: string, kind: LogEntry["kind"]): SimEvent {
@@ -136,6 +146,16 @@ export function emptyTally(): ServiceTally {
     serverTips: 0,
     ingredientsUsed: {},
     paid: [],
+    // round 2: always present on new tallies so every tally has one object shape (V8 stays monomorphic).
+    foodCost: 0,
+    frontCharm: 50,
+    mods: [],
+    kitchenCarry: 0,
+    prestigeBonus: 0,
+    popularityBonus: 0,
+    incidentCosts: 0,
+    incidentsStarted: 0,
+    lastIncidentTick: -1000,
   };
 }
 

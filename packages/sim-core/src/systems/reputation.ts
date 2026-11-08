@@ -86,9 +86,10 @@ export function reputationSystem(content: ContentPack, state: GameState, rng: Rn
   const covers = state.todays.covers ?? 0;
   const reviews = writeReviews(content, state, rng, tally, covers);
   const meanRating = tally.ratedCovers > 0 ? tally.ratingSum / tally.ratedCovers : undefined;
+  // Incidents: critics' verdicts move prestige; turning big parties away costs a little popularity.
   const reputation: Reputation = {
-    popularity: nextPopularity(content, state.reputation, meanRating, tally.walkoutParties),
-    prestige: nextPrestige(content, state.reputation, reviews),
+    popularity: round2(clamp(nextPopularity(content, state.reputation, meanRating, tally.walkoutParties) + (tally.popularityBonus ?? 0), 0, 100)),
+    prestige: round2(clamp(nextPrestige(content, state.reputation, reviews) + (tally.prestigeBonus ?? 0), 0, 100)),
   };
   return {
     state: {

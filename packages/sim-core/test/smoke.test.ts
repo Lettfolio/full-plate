@@ -8,10 +8,11 @@ import { C, fresh, playDays, ready, step } from "./helpers";
 describe("365-day smoke run", () => {
   it("plays a full year quickly with sane numbers and no NaNs", () => {
     const t0 = performance.now();
-    const s = playDays(ready(11), 365);
+    // The scripted balanced owner (hires cover for days off, restocks, reacts to incidents).
+    const s = playOne(C, 11, 365, STRATEGIES.balanced, "normal").final!;
     const ms = performance.now() - t0;
-    expect(ms).toBeLessThan(2000);
-    expect(s.day).toBeGreaterThan(30);
+    expect(ms).toBeLessThan(3000);
+    expect(s.day).toBeGreaterThan(300);
     const json = serialize(s);
     expect(json).not.toMatch(/NaN|null|Infinity/);
     for (const h of s.history) {
@@ -69,13 +70,16 @@ describe("classifyMenu", () => {
 });
 
 describe("newGame", () => {
-  it("sets up loan, deposit, fit-out and opening stock", () => {
+  it("sets up loan, deposit, fit-out, an empty larder and the first goals", () => {
     const s = fresh();
     expect(s).toMatchObject({ version: 1, day: 0, phase: "planning", menu: [], staff: [] });
     expect(s.tables).toHaveLength(C.balance.startingTables);
     expect(s.loan.remaining).toBe(C.balance.loanPrincipal);
     expect(s.cash).toBeLessThan(C.balance.startingCash + C.balance.loanPrincipal - C.balance.fitOutCost);
-    expect(s.stock).toHaveLength(C.ingredients.length);
+    expect(s.stock).toEqual([]);
+    expect(s.cash).toBe(C.balance.startingCash + C.balance.loanPrincipal - C.balance.fitOutCost - 350_000 * 3); // 3 months' deposit
+    expect(s.goals!.every((g) => g.tier === 0 && !g.done)).toBe(true);
+    expect(s.ownerFatigue).toBe(0);
     const fallback = newGame(C, { type: "NEW_GAME", seed: 1, districtId: "nowhere", restaurantName: "  ", difficulty: "hard" });
     expect(fallback.districtId).toBe("highstreet");
     expect(fallback.restaurantName).toBe("The Full Plate");
@@ -94,7 +98,7 @@ describe("stock", () => {
     expect(t.stock[0]!.batches).toEqual([{ qty: 4, day: 3 }]);
     expect(takeStock(st, "ghost", 1, 0).taken).toBe(0);
     const sp = spoil(C, st, 4); // beef life 4: day-0 batch expires
-    expect(sp.binned).toEqual([{ id: "beef", qty: 5 }]);
+    expect(sp.binned).toEqual([{ id: "beef", qty: 5, cost: 1600 }]); // no batch cost ⇒ valued at unitCost
     expect(sp.stock[0]!.qty).toBe(5);
     const beef = C.ingredients[0]!;
     expect(freshnessScore(beef, 0, 1)).toBeGreaterThan(freshnessScore(beef, 4, 1));

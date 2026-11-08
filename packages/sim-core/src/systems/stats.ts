@@ -2,13 +2,14 @@
  * StatsSystem (evening, last) — assembles the DayResult, rolls the 7-day menu window,
  * and updates lifetime stats and history.
  *
- * P&L: profit = revenue − VAT − foodCost − prep waste − spoilage − labour − rent − overheads − loan.
+ * P&L: profit = revenue − VAT − foodCost − prep waste − spoilage − labour − rent − overheads − incident costs − loan.
+ * foodCost is the stock (at the price paid) in today's plates; see waste.ts.
  * VAT is settled daily for simplicity (real businesses pay quarterly).
  * Plate waste is already part of foodCost and is shown for information only.
  */
 import { HISTORY_MAX, MENU_WINDOW_DAYS } from "../constants";
 import type { Rng } from "../rng";
-import type { ContentPack, DayResult, DishId, GameState, MenuItem, ServiceTally } from "../types";
+import type { ContentPack, DayResult, DishId, GameState, IncidentSummary, MenuItem, ServiceTally } from "../types";
 import { round2, tallyOf } from "../util";
 import type { SystemResult } from "./system";
 
@@ -57,7 +58,11 @@ export function buildDayResult(state: GameState): DayResult {
   const loanPayment = t.loanPayment ?? 0;
   const overheads = t.overheads ?? 0;
   const vat = t.vat ?? 0;
+  const incidentCosts = Math.round(tally.incidentCosts ?? 0);
   const { best, worst } = bestAndWorst(tally.dishes);
+  const incidents: IncidentSummary[] = (state.incidents ?? [])
+    .filter((i) => i.resolution)
+    .map((i) => ({ kind: i.kind, resolution: i.resolution!, outcome: i.outcome ?? "" }));
   return {
     day: state.day,
     covers,
@@ -70,8 +75,9 @@ export function buildDayResult(state: GameState): DayResult {
     loanPayment,
     overheads,
     vat,
+    incidentCosts,
     waste,
-    profit: revenue - vat - foodCost - waste.prep - waste.spoil - labourCost - rent - overheads - loanPayment,
+    profit: revenue - vat - foodCost - waste.prep - waste.spoil - labourCost - rent - overheads - incidentCosts - loanPayment,
     averageSpend: covers ? Math.round(revenue / covers) : 0,
     averageRating: t.averageRating ?? 0,
     ...(best ? { bestDish: best } : {}),
@@ -80,6 +86,8 @@ export function buildDayResult(state: GameState): DayResult {
     prestigeDelta: round2(t.prestigeDelta ?? 0),
     reviews: t.reviews,
     staffMoodDelta: t.staffMoodDelta ?? {},
+    incidents,
+    ownerCovered: [...(state.ownerCovering ?? [])],
   };
 }
 

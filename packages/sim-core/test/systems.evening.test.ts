@@ -87,7 +87,7 @@ describe("WasteSystem", () => {
         { ingredientId: "beef", qty: 10, oldestDay: 10, batches: [{ qty: 10, day: 10 }] },
         { ingredientId: "fish", qty: 5, oldestDay: 0, batches: [{ qty: 5, day: 0 }] },
       ],
-      service: { ...emptyTally(), ingredientsUsed: { beef: 20 }, plateWaste: 340 },
+      service: { ...emptyTally(), ingredientsUsed: { beef: 20 }, plateWaste: 340, foodCost: 6123.4 },
     });
     const r = wasteSystem(C, s, rng());
     const w = r.state.todays.waste!;
@@ -96,7 +96,10 @@ describe("WasteSystem", () => {
     expect(w.spoil).toBe(5 * 280);
     expect(r.state.stock.find((x) => x.ingredientId === "fish")!.qty).toBe(0);
     expect(w.plate).toBe(340);
-    expect(r.state.todays.foodCost).toBe(foodCostOf(C, { beef: 20 }));
+    expect(r.state.todays.foodCost).toBe(6123); // what was actually paid for the plates (tally.foodCost)
+    // A round-1 mid-service save has no tally.foodCost: fall back to base unit costs.
+    const legacy = wasteSystem(C, { ...s, service: { ...s.service!, foodCost: undefined } }, rng());
+    expect(legacy.state.todays.foodCost).toBe(foodCostOf(C, { beef: 20 }));
     expect(r.events.some((e) => e.type === "LOG")).toBe(true);
   });
 

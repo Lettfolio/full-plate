@@ -2,12 +2,17 @@
  * Engine — runs the per-tick service pipeline and the evening pipeline, and moves the
  * day through its phases: planning → service → evening|event → (END_DAY|RESOLVE_EVENT) → planning.
  */
-import { Rng } from "./rng";
+import { SHORT_DELIVERY_CHANCE, SHORT_DELIVERY_SHARE } from "./constants";
+import { buyOpeningStock } from "./forecast";
+import { INCIDENT_LINES, fill } from "./incidents/text";
+import { hashSeed, Rng } from "./rng";
 import { addStock, canPlate } from "./stock";
 import { arrivalSystem, planArrivals } from "./systems/arrival";
 import { clearingSystem } from "./systems/clearing";
 import { eventDeckSystem } from "./systems/eventDeck";
 import { checkSolvency, financeSystem } from "./systems/finance";
+import { goalSystem } from "./systems/goals";
+import { closeIncidents, floorSystem, incidentSystem } from "./systems/incidents";
 import { kitchenSystem } from "./systems/kitchen";
 import { orderSystem } from "./systems/order";
 import { paymentSystem } from "./systems/payment";
@@ -16,19 +21,21 @@ import { seatingSystem } from "./systems/seating";
 import { serviceSystem } from "./systems/service";
 import { staffMoodSystem } from "./systems/staffMood";
 import { statsSystem, buildDayResult } from "./systems/stats";
-import { serverActionsPerTick, type System, type SystemResult } from "./systems/system";
+import { coveringRoles, frontCharm, serverActionsPerTick, type System, type SystemResult } from "./systems/system";
 import { wasteSystem } from "./systems/waste";
 import type { ContentPack, Customer, GameState, SimEvent, StepResult, Table } from "./types";
 import { SERVICE_TICKS } from "./types";
-import { emptyTally, findDish, foldLog, logEvent, tallyOf } from "./util";
+import { emptyTally, findDish, findIngredient, foldLog, logEvent, tallyOf } from "./util";
 
 /** Per-tick order from ARCHITECTURE.md (LogSystem = foldLog at the end of each step). */
 export const SERVICE_SYSTEMS: readonly System[] = [
+  floorSystem, // round 2: breaks end, incident modifiers expire
   arrivalSystem,
   seatingSystem,
   orderSystem,
   kitchenSystem,
   serviceSystem,
+  incidentSystem, // round 2: incidents count down, time out, start
   paymentSystem,
   clearingSystem,
 ];
@@ -42,6 +49,7 @@ export const EVENING_SYSTEMS: readonly System[] = [
   staffMoodSystem,
   eventDeckSystem,
   statsSystem,
+  (c, s) => goalSystem(c, s),
 ];
 
 export function runSystems(content: ContentPack, state: GameState, systems: readonly System[], rng: Rng): SystemResult {
@@ -77,24 +85,54 @@ function autoEightySix(content: ContentPack, state: GameState): { pulled: string
   return { pulled, events };
 }
 
+/**
+ * Rebuilds the state with every field in one fixed order (absent optionals as undefined, which serialize drops).
+ * Service runs ~120 ticks × 9 systems of `{ ...state, x }` copies; a single object shape keeps V8's property
+ * access monomorphic. Optional fields that come and go (shortDelivery, activeEvent, …) otherwise multiply shapes.
+ */
+export function canonicalState(s: GameState): GameState {
+  return {
+    version: s.version, seed: s.seed, rngState: s.rngState, difficulty: s.difficulty, day: s.day, tick: s.tick, phase: s.phase,
+    restaurantName: s.restaurantName, districtId: s.districtId, cash: s.cash, loan: s.loan, reputation: s.reputation,
+    menu: s.menu, staff: s.staff, tables: s.tables, stock: s.stock, orders: s.orders, customers: s.customers, tickets: s.tickets,
+    todays: s.todays, history: s.history, activeEvent: s.activeEvent, footfallMods: s.footfallMods, log: s.log, stats: s.stats,
+    eightySixed: s.eightySixed, hiredCandidates: s.hiredCandidates, distressDays: s.distressDays, service: s.service,
+    eventHistory: s.eventHistory, gameOverReason: s.gameOverReason, incidents: s.incidents, goals: s.goals,
+    ownerCovering: s.ownerCovering, ownerFatigue: s.ownerFatigue, shortDelivery: s.shortDelivery, incidentsHandled: s.incidentsHandled,
+  };
+}
+
+/** The first service of a new game buys its opening stock (newGame starts with an empty larder). */
+export const isFirstService = (state: GameState): boolean => state.day === 0 && state.stats.daysOpen === 0 && state.history.length === 0;
+
 export function openService(content: ContentPack, state: GameState): StepResult {
-  const auto = autoEightySix(content, state);
+  const opening = isFirstService(state) ? buyOpeningStock(content, state) : { state, events: [] };
+  const auto = autoEightySix(content, opening.state);
   const base: GameState = {
-    ...state,
+    ...opening.state,
     eightySixed: auto.pulled,
     phase: "service",
     tick: 0,
     customers: [],
     tickets: [],
+    incidents: [],
     todays: { reviews: [] },
   };
+  const covering = coveringRoles(base);
+  const withOwner: GameState = { ...base, ownerCovering: covering };
   const tally = {
     ...emptyTally(),
-    arrivals: planArrivals(content, base),
-    actionsPerTick: serverActionsPerTick(content, base),
+    arrivals: planArrivals(content, withOwner),
+    actionsPerTick: serverActionsPerTick(content, withOwner),
+    frontCharm: frontCharm(content, withOwner),
   };
   tally.potentialParties = Math.round(tally.arrivals.reduce((a, p) => a + p.potentialParties, 0));
-  return { state: { ...base, service: tally }, events: auto.events };
+  const events = [...opening.events, ...auto.events];
+  if (covering.length) {
+    const what = covering.length === 2 ? "cooking AND serving" : covering[0] === "chef" ? "cooking" : "serving";
+    events.push(logEvent(base, `Nobody else is on today, so you're ${what} yourself.`, "bad"));
+  }
+  return { state: canonicalState({ ...withOwner, service: tally }), events };
 }
 
 const ALL_ACTIONS = 1e6;
@@ -133,18 +171,20 @@ export function settleAtClose(content: ContentPack, state: GameState, rng: Rng):
 
 /** Closes service, runs the evening systems and emits SERVICE_ENDED. */
 export function closeService(content: ContentPack, state: GameState, rng: Rng): SystemResult {
-  const settled = settleAtClose(content, state, rng);
+  const quiet = closeIncidents(state);
+  const settled = settleAtClose(content, quiet.state, rng);
   const evening = runSystems(content, settled.state, EVENING_SYSTEMS, rng);
   let s = evening.state;
   if (s.phase !== "gameover") s = { ...s, phase: s.activeEvent ? "event" : "evening" };
   const result = s.history.at(-1) ?? buildDayResult(s);
-  return { state: s, events: [...settled.events, ...evening.events, { type: "SERVICE_ENDED", result }] };
+  return { state: s, events: [...quiet.events, ...settled.events, ...evening.events, { type: "SERVICE_ENDED", result }] };
 }
 
 export function tickService(content: ContentPack, state: GameState): StepResult {
   if (state.phase !== "service") return { state, events: [] };
   return withRng(state, (rng) => {
-    const r = runSystems(content, state, SERVICE_SYSTEMS, rng);
+    // A save loaded mid-service (or a hand-built test state) may have a different key order: normalise once.
+    const r = runSystems(content, canonicalState(state), SERVICE_SYSTEMS, rng);
     const next = { ...r.state, tick: state.tick + 1 };
     if (next.tick < SERVICE_TICKS) return { state: next, events: r.events };
     const closed = closeService(content, next, rng);
@@ -154,21 +194,48 @@ export function tickService(content: ContentPack, state: GameState): StepResult 
 
 // ── day advance ──
 
-/** Morning: deliveries arrive, event footfall mods tick down, per-day state resets. */
-export function advanceDay(state: GameState): StepResult {
+/** Salt for the supplier's own random stream (kept apart from the main game RNG). */
+const SUPPLIER_SALT = 0x5a771e5;
+
+/**
+ * Sometimes one line of the morning delivery comes up short (the supplier refunds the missing part).
+ * Uses a stream hashed from seed + day, so it is deterministic and never shifts the main RNG.
+ */
+export function shortLine(state: GameState, day: number): { index: number; missing: number } | undefined {
+  const lines = state.orders.map((o, index) => ({ o, index })).filter((x) => x.o.qty >= 4);
+  if (lines.length === 0) return undefined;
+  const rng = Rng.fromSeed(hashSeed(state.seed, day, SUPPLIER_SALT));
+  if (!rng.chance(SHORT_DELIVERY_CHANCE)) return undefined;
+  const { o, index } = rng.pick(lines);
+  const [lo, hi] = SHORT_DELIVERY_SHARE;
+  const arrived = Math.floor(o.qty * (lo + rng.float() * (hi - lo)));
+  return { index, missing: o.qty - arrived };
+}
+
+/** Morning: deliveries arrive (one may be short), event footfall mods tick down, per-day state resets. */
+export function advanceDay(state: GameState, content?: ContentPack): StepResult {
   const day = state.day + 1;
   let stock = state.stock;
-  for (const o of state.orders) stock = addStock(stock, o.ingredientId, o.qty, day);
+  let cash = state.cash;
+  const short = shortLine(state, day);
+  state.orders.forEach((o, i) => {
+    const missing = short && short.index === i ? short.missing : 0;
+    if (missing) cash += Math.round((o.cost * missing) / o.qty); // refunded
+    stock = addStock(stock, o.ingredientId, o.qty - missing, day, o.qty > 0 ? o.cost / o.qty : undefined);
+  });
   const footfallMods = state.footfallMods
     .map((m) => ({ ...m, daysRemaining: m.daysRemaining - 1 }))
     .filter((m) => m.daysRemaining > 0);
-  const { activeEvent: _a, service: _s, ...rest } = state;
+  const { activeEvent: _a, service: _s, shortDelivery: _sd, ownerCovering: _oc, ...rest } = state;
+  const shortOrder = short ? state.orders[short.index] : undefined;
   const next: GameState = {
     ...rest,
     day,
     tick: 0,
     phase: "planning",
+    cash,
     stock,
+    ...(short && shortOrder ? { shortDelivery: { ingredientId: shortOrder.ingredientId, missing: short.missing } } : {}),
     orders: [],
     customers: [],
     tickets: [],
@@ -179,5 +246,9 @@ export function advanceDay(state: GameState): StepResult {
   };
   const events: SimEvent[] = [];
   if (state.orders.length) events.push(logEvent(next, `${state.orders.length} deliver${state.orders.length === 1 ? "y" : "ies"} arrived.`, "info"));
+  if (short && shortOrder) {
+    const name = (content && findIngredient(content, shortOrder.ingredientId)?.name) ?? shortOrder.ingredientId;
+    events.push(logEvent(next, fill(INCIDENT_LINES.shortDeliveryLog, { ingredient: name, missing: short.missing }), "bad"));
+  }
   return { state: foldLog(next, events), events };
 }

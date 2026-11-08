@@ -3,6 +3,8 @@
  * segment's speedWeight); at 0 the party walks out. Fully served parties eat, then ask for the bill.
  */
 import {
+  CHARM_PATIENCE_CLAMP,
+  CHARM_PATIENCE_WEIGHT,
   EAT_TICKS_BASE,
   EAT_TICKS_PER_EXTRA_GUEST,
   PATIENCE_DECAY,
@@ -10,12 +12,18 @@ import {
 } from "../constants";
 import type { Rng } from "../rng";
 import type { ContentPack, Customer, GameState, SegmentDef, SimEvent, Table } from "../types";
-import { findSegment, logEvent, mapIfChanged, round2, tallyOf } from "../util";
-import type { SystemResult } from "./system";
+import { clamp, findSegment, logEvent, mapIfChanged, round2, tallyOf } from "../util";
+import { frontCharm, type SystemResult } from "./system";
 
-export function patienceDecay(stage: Customer["stage"], seg: SegmentDef | undefined): number {
+/** Charmed guests wait more happily: decay × (1 + w × (50 − charm)/50), clamped. Charm 50 ⇒ ×1. */
+export function charmPatienceMult(charm: number): number {
+  const [lo, hi] = CHARM_PATIENCE_CLAMP;
+  return clamp(1 + (CHARM_PATIENCE_WEIGHT * (50 - charm)) / 50, lo, hi);
+}
+
+export function patienceDecay(stage: Customer["stage"], seg: SegmentDef | undefined, charm = 50): number {
   if (stage !== "queue" && stage !== "seated" && stage !== "ordered") return 0;
-  return PATIENCE_DECAY[stage] * (PATIENCE_SPEED_BASE + (seg?.speedWeight ?? 0.5));
+  return PATIENCE_DECAY[stage] * (PATIENCE_SPEED_BASE + (seg?.speedWeight ?? 0.5)) * charmPatienceMult(charm);
 }
 
 export const eatTicks = (partySize: number): number =>
@@ -26,14 +34,14 @@ function walkOut(c: Customer, tick: number): Customer {
 }
 
 /** Advances one customer by a tick. */
-export function advanceCustomer(content: ContentPack, c: Customer, tick: number): Customer {
+export function advanceCustomer(content: ContentPack, c: Customer, tick: number, charm = 50): Customer {
   if (c.stage === "ordered" && c.servedTick !== undefined) {
     return { ...c, stage: "eating", stageTick: tick, eatUntil: tick + eatTicks(c.partySize) };
   }
   if (c.stage === "eating") {
     return tick >= (c.eatUntil ?? tick) ? { ...c, stage: "paying", stageTick: tick } : c;
   }
-  const decay = patienceDecay(c.stage, findSegment(content, c.segment));
+  const decay = patienceDecay(c.stage, findSegment(content, c.segment), charm);
   if (decay === 0) return c;
   const patience = round2(c.patience - decay);
   return patience <= 0 ? walkOut(c, tick) : { ...c, patience };
@@ -49,8 +57,9 @@ export function serviceSystem(content: ContentPack, state: GameState, _rng: Rng)
   let tables = state.tables;
   let walkouts = 0;
   let walkoutCovers = 0;
+  const charm = state.service?.frontCharm ?? frontCharm(content, state);
   const customers = mapIfChanged(state.customers, (c) => {
-    const next = advanceCustomer(content, c, state.tick);
+    const next = advanceCustomer(content, c, state.tick, charm);
     if (next.walkedOut && !c.walkedOut) {
       walkouts++;
       walkoutCovers += c.partySize;

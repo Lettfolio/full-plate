@@ -19,7 +19,7 @@ import {
 import type { Rng } from "../rng";
 import type { ContentPack, Customer, DishDef, GameState, MenuItem, SegmentDef, ServiceTally, SimEvent } from "../types";
 import { clamp, districtOf, findDish, findSegment, isWeekend, monthOf, sigmoid, tallyOf } from "../util";
-import type { SystemResult } from "./system";
+import { multMod, type SystemResult } from "./system";
 
 type Offered = { item: MenuItem; dish: DishDef };
 
@@ -127,10 +127,11 @@ export function arrivalSystem(content: ContentPack, state: GameState, rng: Rng):
   const arrivals: Customer[] = [];
   const events: SimEvent[] = [];
   let next = tally.nextCustomer;
+  const surge = multMod(state, "arrivals");
   for (const plan of tally.arrivals) {
     const seg = findSegment(content, plan.segment);
     if (!seg) continue;
-    const lambda = (plan.potentialParties * (seg.arrivalCurve[state.tick] ?? 0)) / curveSum(seg);
+    const lambda = (surge * plan.potentialParties * (seg.arrivalCurve[state.tick] ?? 0)) / curveSum(seg);
     const passing = rng.poisson(lambda);
     for (let i = 0; i < passing; i++) {
       if (queueLen >= MAX_QUEUE_PARTIES) break;
@@ -168,5 +169,6 @@ export function newCustomer(id: string, seg: SegmentDef, size: number, tick: num
     platesReady: 0,
     qualitySum: 0,
     foodCost: 0,
+    satisfactionBonus: 0,
   };
 }

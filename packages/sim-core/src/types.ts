@@ -165,6 +165,11 @@ export interface BalanceDef {
   weekendFootfallMult: number;
   /** Year-1 target: fraction of simulated owners who should survive at normal difficulty (headless target, not enforced). */
   targetYear1Survival: number;
+  /**
+   * [round 2, sim-core] Opening stock allowance (pence), spent automatically at the first START_SERVICE on
+   * what the menu needs for ~1.3× the first-day forecast. Defaults to OPENING_STOCK_BUDGET.
+   */
+  openingStockBudget?: Pence;
 }
 
 // ───────────────────────── runtime state ─────────────────────────
@@ -196,6 +201,10 @@ export interface Staff {
   potential: number;
   /** Days worked this week for the rota. */
   rota: boolean[];                               // length 7, true = working
+  /** [round 2, sim-core] Day index of a TRAIN day: off the floor that day (paid), skill already raised. */
+  trainingDay?: number;
+  /** [round 2, sim-core] On a GIVE_BREAK until this service tick (unavailable while tick < this). Cleared when it ends. */
+  breakUntilTick?: number;
 }
 
 export type CustomerStage = "queue" | "seated" | "ordered" | "eating" | "paying" | "left";
@@ -233,6 +242,10 @@ export interface Customer {
   comped?: boolean;
   /** Final 1-5 rating once paid. */
   rating?: number;
+  /** [round 2, sim-core] Satisfaction points added (or removed) by incidents: apologies, freebies, spills. */
+  satisfactionBonus?: number;
+  /** [round 2, sim-core] A critic/influencer (VIP incident); their rating moves prestige ±5. Usually a party of 1-2. */
+  vip?: boolean;
 }
 
 export interface Table {
@@ -253,6 +266,8 @@ export interface KitchenTicket {
   quality: number;                               // computed when plated
   /** [sim-core addition] Ingredient freshness/season bonus captured when stock was consumed. */
   freshness?: number;
+  /** [round 2, sim-core] A remake for a sent-back plate: when plated, replaces this quality in the party's average. */
+  remakeOf?: number;
 }
 
 export interface Review {
@@ -283,6 +298,8 @@ export interface DayResult {
   overheads?: Pence;
   /** [sim-core addition] VAT owed on today's takings (menu prices are VAT-inclusive). Included in profit. */
   vat?: Pence;
+  /** [round 2, sim-core] Cash spent on incident fixes (engineer, call-ins, freebies). Included in profit. Corner-shop stock is food, not this. */
+  incidentCosts?: Pence;
   waste: { prep: Pence; plate: Pence; spoil: Pence };
   profit: Pence;
   averageSpend: Pence;
@@ -300,8 +317,8 @@ export interface Stock {
   qty: number;
   /** Day the oldest batch was delivered; used for spoilage. */
   oldestDay: number;
-  /** [sim-core addition] FIFO delivery batches, oldest first; qty is their sum. */
-  batches?: { qty: number; day: number }[];
+  /** [sim-core addition] FIFO delivery batches, oldest first; qty is their sum. `cost` = pence paid per portion (round 2; base unitCost when absent). */
+  batches?: { qty: number; day: number; cost?: number }[];
 }
 
 export interface Loan {
@@ -371,6 +388,12 @@ export interface GameState {
   goals?: Goal[];
   /** Owner coverage this service: which roles the owner is filling because nobody is rostered. */
   ownerCovering?: StaffRole[];
+  /** [round 2, sim-core] Owner tiredness 0-100 from covering shifts; persists across days and slows the owner when covering. */
+  ownerFatigue?: number;
+  /** [round 2, sim-core] This morning's delivery that came up short (drives the supplier_short incident). Cleared at END_DAY. */
+  shortDelivery?: { ingredientId: IngredientId; missing: number };
+  /** [round 2, sim-core] Incidents the player has resolved by choosing an option (lifetime; drives goals). */
+  incidentsHandled?: number;
 }
 
 // ───────────────────────── round 2: incidents & goals ─────────────────────────
@@ -412,6 +435,8 @@ export interface Incident {
   tableId?: TableId;
   staffId?: StaffId;
   dishId?: DishId;
+  /** [round 2, sim-core] Kind-specific number: plate quality (sent_back), portions missing (supplier_short), party size (big_party). */
+  value?: number;
   /** Set once resolved (option id or "ignored"); resolved incidents are kept for the evening summary. */
   resolution?: string;
   /** One-line outcome text written when resolved, shown in the ticker and evening. */
@@ -434,7 +459,16 @@ export interface Goal {
   reward?: { cash?: Pence; popularity?: number };
   /** Shown in order; goals unlock when all lower `tier` goals are done. */
   tier: number;
+  /** [round 2, sim-core] For hire_role goals: which role. */
+  role?: StaffRole;
 }
+
+/**
+ * [round 2, sim-core] A temporary service modifier from an incident, active while tick < untilTick.
+ * actions: + FOH actions per tick (negative = a server tied up). kitchen: × kitchen progress per tick.
+ * arrivals: × passing parties. `source` is the incident id that created it.
+ */
+export interface ServiceMod { kind: "actions" | "kitchen" | "arrivals"; value: number; untilTick: number; source?: string }
 
 /** Added to DayResult (optional). */
 export interface IncidentSummary { kind: IncidentKind; resolution: string; outcome: string }
@@ -467,6 +501,24 @@ export interface ServiceTally {
   ingredientsUsed: Record<IngredientId, number>;
   /** One entry per paying party, for review sampling. */
   paid: { segment: SegmentId; partySize: number; rating: number; quality: number; dishId?: DishId }[];
+  // ── round 2 (optional so mid-service saves from round 1 still load) ──
+  /** Ingredient cost actually paid (FIFO cost basis) for plates fired today; float, rounded into foodCost. */
+  foodCost?: number;
+  /** Mean charm of front of house right now (owner/fatigue/breaks applied). */
+  frontCharm?: number;
+  /** Temporary service modifiers from incidents: extra FOH actions per tick, or a kitchen speed multiplier. */
+  mods?: ServiceMod[];
+  /** Fractional kitchen progress carried between ticks while the kitchen is slowed. */
+  kitchenCarry?: number;
+  /** Prestige gained or lost from critics today; folded in by ReputationSystem. */
+  prestigeBonus?: number;
+  /** Popularity gained or lost from incidents today (e.g. turning a big party away); folded in by ReputationSystem. */
+  popularityBonus?: number;
+  /** Cash spent on incident options today (see DayResult.incidentCosts). */
+  incidentCosts?: number;
+  /** Incidents started this service, last start tick, and the id counter. */
+  incidentsStarted?: number;
+  lastIncidentTick?: number;
 }
 
 export interface LogEntry { day: number; tick: number; text: string; kind: "info" | "good" | "bad" | "money" }

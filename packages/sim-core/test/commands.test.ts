@@ -92,7 +92,8 @@ describe("stock and tables", () => {
     expect(s.orders).toHaveLength(0);
     expect(s.stock.find((x) => x.ingredientId === "beef")!.qty).toBeGreaterThan(before - 50 + 19);
     const batch = s.stock.find((x) => x.ingredientId === "beef")!.batches!.at(-1)!;
-    expect(batch).toEqual({ qty: 20, day: 1 });
+    // Day 0 is a fixture day with no short delivery for this seed; the batch keeps the pence paid per portion.
+    expect(batch).toEqual({ qty: 20, day: 1, cost: 320 });
   });
 
   it("rejects bad stock orders and unaffordable tables", () => {
@@ -194,7 +195,8 @@ describe("service actions", () => {
   });
 
   it("dishes with no stock are 86'd automatically at opening", () => {
-    const s = step({ ...ready(), stock: [] }, { type: "START_SERVICE" });
+    // Day 1 (not the first service, which would buy opening stock).
+    const s = step({ ...ready(), day: 1, stats: { totalCovers: 1, totalRevenue: 1, daysOpen: 1 }, stock: [] }, { type: "START_SERVICE" });
     expect(s.eightySixed!.length).toBe(C.dishes.length);
     expect(s.service!.arrivals.every((a) => a.entryLogit < -10)).toBe(true);
   });

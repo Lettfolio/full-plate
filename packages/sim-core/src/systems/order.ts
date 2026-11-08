@@ -23,7 +23,7 @@ import type {
   ServiceTally,
   SimEvent,
 } from "../types";
-import { clamp, findSegment, logEvent, monthOf, plateCost, tallyOf } from "../util";
+import { clamp, findSegment, logEvent, monthOf, tallyOf } from "../util";
 import { offeredDishes, planArrivals } from "./arrival";
 import type { SystemResult } from "./system";
 
@@ -69,8 +69,13 @@ export function chooseForGuest(rng: Rng, offered: readonly Offered[], seg: Segme
 }
 
 /** Scratch builder for one OrderSystem run; reassigned fields are fresh objects, inputs are never mutated. */
-interface Kitchen {
+export interface Kitchen {
   state: GameState;
+  /** Stock as it is consumed (written back to state once at the end). */
+  stock: GameState["stock"];
+  /** Running tallies for this run. */
+  nextTicket: number;
+  foodCost: number;
   tally: ServiceTally;
   tickets: KitchenTicket[];
   events: SimEvent[];
@@ -80,15 +85,16 @@ interface Kitchen {
   used: Record<string, number>;
 }
 
-/** Fires one plate: consumes stock, books cost and creates the ticket. Returns false when out of stock. */
-function firePlate(content: ContentPack, k: Kitchen, c: Customer, dish: DishDef): boolean {
-  if (!canPlate(k.state.stock, dish)) return false;
-  const used = consumeDish(content, k.state.stock, dish, k.state.day, monthOf(k.state.day));
-  k.state = { ...k.state, stock: used.stock };
+/** Fires one plate: consumes stock, books cost and creates the ticket. Returns the pence paid for it, or undefined when out of stock. */
+export function firePlate(content: ContentPack, k: Kitchen, c: Customer, dish: DishDef): number | undefined {
+  if (!canPlate(k.stock, dish)) return undefined;
+  const used = consumeDish(content, k.stock, dish, k.state.day, monthOf(k.state.day));
+  k.stock = used.stock;
   for (const ing of dish.ingredients) k.used[ing.id] = (k.used[ing.id] ?? 0) + ing.qty;
-  k.tally = { ...k.tally, nextTicket: k.tally.nextTicket + 1 };
+  k.nextTicket++;
+  k.foodCost += used.cost;
   k.tickets.push({
-    id: `t${k.state.day}-${k.tally.nextTicket}`,
+    id: `t${k.state.day}-${k.nextTicket}`,
     customerId: c.id,
     dishId: dish.id,
     createdTick: k.state.tick,
@@ -96,13 +102,13 @@ function firePlate(content: ContentPack, k: Kitchen, c: Customer, dish: DishDef)
     quality: 0,
     freshness: used.freshness,
   });
-  return true;
+  return used.cost;
 }
 
 /** Marks a dish as 86'd for the rest of the day and re-plans arrivals for the smaller menu. */
 function pullDish(content: ContentPack, k: Kitchen, dish: DishDef): void {
   if ((k.state.eightySixed ?? []).includes(dish.id)) return;
-  k.state = { ...k.state, eightySixed: [...(k.state.eightySixed ?? []), dish.id] };
+  k.state = { ...k.state, stock: k.stock, eightySixed: [...(k.state.eightySixed ?? []), dish.id] };
   k.tally = { ...k.tally, arrivals: planArrivals(content, k.state) };
   k.offered = offeredDishes(content, k.state);
   k.events.push(logEvent(k.state, `${dish.name} has run out — 86'd for today.`, "bad"));
@@ -117,22 +123,23 @@ function takeOrder(content: ContentPack, k: Kitchen, c: Customer, seg: SegmentDe
   for (let g = 0; g < c.partySize; g++) {
     for (let attempt = 0; attempt < 3; attempt++) {
       const picks = chooseForGuest(rng, k.offered, seg);
-      const missing = picks.find((p) => !canPlate(k.state.stock, p.dish));
+      const missing = picks.find((p) => !canPlate(k.stock, p.dish));
       if (missing) {
         pullDish(content, k, missing.dish);
         patience -= OUT_OF_STOCK_PATIENCE_HIT;
         continue;
       }
       for (const p of picks) {
-        firePlate(content, k, c, p.dish);
+        const cost = firePlate(content, k, c, p.dish);
+        if (cost === undefined) continue; // two picks sharing a scarce ingredient
         order.push(p.dish.id);
         spend += p.item.price;
-        foodCost += plateCost(content, p.dish);
+        foodCost += cost;
       }
       break;
     }
   }
-  return { ...c, stage: "ordered", order, spend, foodCost, patience, stageTick: k.state.tick };
+  return { ...c, stage: "ordered", order, spend, foodCost: Math.round(foodCost), patience, stageTick: k.state.tick };
 }
 
 export function orderSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
@@ -141,7 +148,17 @@ export function orderSystem(content: ContentPack, state: GameState, rng: Rng): S
   );
   if (ready.length === 0) return { state, events: [] };
   const tally = tallyOf(state);
-  const k: Kitchen = { state, tally, tickets: [], events: [], offered: offeredDishes(content, state), used: { ...tally.ingredientsUsed } };
+  const k: Kitchen = {
+    state,
+    stock: state.stock,
+    nextTicket: tally.nextTicket,
+    foodCost: tally.foodCost ?? 0,
+    tally,
+    tickets: [],
+    events: [],
+    offered: offeredDishes(content, state),
+    used: { ...tally.ingredientsUsed },
+  };
   let actions = k.tally.actionsLeft;
   const updated = new Map<string, Customer>();
   for (const c of ready) {
@@ -157,9 +174,10 @@ export function orderSystem(content: ContentPack, state: GameState, rng: Rng): S
   return {
     state: {
       ...k.state,
+      stock: k.stock,
       customers,
       tickets: state.tickets.concat(k.tickets),
-      service: { ...k.tally, ingredientsUsed: k.used, actionsLeft: actions },
+      service: { ...k.tally, nextTicket: k.nextTicket, foodCost: k.foodCost, ingredientsUsed: k.used, actionsLeft: actions },
     },
     events: k.events,
   };

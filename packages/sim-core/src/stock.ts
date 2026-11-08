@@ -1,4 +1,9 @@
-/** FIFO stock helpers. Stock rows keep `batches` (oldest first); `qty` and `oldestDay` mirror them. */
+/**
+ * FIFO stock helpers. Stock rows keep `batches` (oldest first); `qty` and `oldestDay` mirror them.
+ * Each batch remembers what was paid per portion (`cost`), so food cost and waste are valued at the
+ * price actually paid (seasonal discount, difficulty, corner-shop markup). Batches without `cost`
+ * (round-1 saves) are valued at the ingredient's base unitCost.
+ */
 import {
   FRESH_BONUS_MAX,
   FRESH_PENALTY_MAX,
@@ -11,7 +16,10 @@ import { findIngredient, isInSeason } from "./util";
 /** Rounds stock quantities so float dust never accumulates in saves. */
 const q3 = (x: number): number => Math.round(x * 1000) / 1000;
 
-type Batch = { qty: number; day: number };
+type Batch = { qty: number; day: number; cost?: number };
+
+/** Per-portion cost kept to 4 dp so saves stay short. */
+const c4 = (x: number): number => Math.round(x * 10_000) / 10_000;
 
 function batchesOf(row: Stock): Batch[] {
   return row.batches ?? (row.qty > 0 ? [{ qty: row.qty, day: row.oldestDay }] : []);
@@ -32,15 +40,26 @@ export function stockQty(stock: readonly Stock[], id: IngredientId): number {
   return 0;
 }
 
-/** Adds a delivered batch. Returns a new stock array. */
-export function addStock(stock: readonly Stock[], id: IngredientId, qty: number, day: number): Stock[] {
+/** Adds a delivered batch (optionally with the pence paid per portion). Returns a new stock array. */
+export function addStock(stock: readonly Stock[], id: IngredientId, qty: number, day: number, unitCost?: number): Stock[] {
   if (qty <= 0) return stock.slice();
+  const batch: Batch = unitCost === undefined ? { qty: q3(qty), day } : { qty: q3(qty), day, cost: c4(unitCost) };
   const i = stock.findIndex((s) => s.ingredientId === id);
-  if (i < 0) return [...stock, rowFrom(id, [{ qty: q3(qty), day }], day)];
+  if (i < 0) return [...stock, rowFrom(id, [batch], day)];
   const out = stock.slice();
   const row = stock[i]!;
-  out[i] = rowFrom(id, [...batchesOf(row), { qty: q3(qty), day }], day);
+  out[i] = rowFrom(id, [...batchesOf(row), batch], day);
   return out;
+}
+
+/** Value (pence, float) of all stock at the price paid. */
+export function stockValue(content: ContentPack, stock: readonly Stock[]): number {
+  let v = 0;
+  for (const row of stock) {
+    const base = findIngredient(content, row.ingredientId)?.unitCost ?? 0;
+    for (const b of batchesOf(row)) v += b.qty * (b.cost ?? base);
+  }
+  return v;
 }
 
 export interface Consumed {
@@ -49,26 +68,30 @@ export interface Consumed {
   taken: number;
   /** Quantity-weighted mean age in days of what was removed. */
   meanAge: number;
+  /** Pence paid for what was removed (float; batches without a cost use `baseCost`). */
+  cost: number;
 }
 
-/** Removes up to `qty` oldest-first. */
-export function takeStock(stock: readonly Stock[], id: IngredientId, qty: number, day: number): Consumed {
+/** Removes up to `qty` oldest-first. `baseCost` values batches that carry no cost of their own. */
+export function takeStock(stock: readonly Stock[], id: IngredientId, qty: number, day: number, baseCost = 0): Consumed {
   const i = stock.findIndex((s) => s.ingredientId === id);
-  if (i < 0 || qty <= 0) return { stock: stock as Stock[], taken: 0, meanAge: 0 };
+  if (i < 0 || qty <= 0) return { stock: stock as Stock[], taken: 0, meanAge: 0, cost: 0 };
   const row = stock[i]!;
   let need = qty;
   let ageSum = 0;
+  let cost = 0;
   const batches: Batch[] = [];
   for (const b of batchesOf(row)) {
     const use = Math.min(b.qty, need);
     need -= use;
     ageSum += use * (day - b.day);
-    if (b.qty - use > 1e-9) batches.push({ qty: q3(b.qty - use), day: b.day });
+    cost += use * (b.cost ?? baseCost);
+    if (b.qty - use > 1e-9) batches.push({ ...b, qty: q3(b.qty - use) });
   }
   const taken = qty - need;
   const out = stock.slice();
   out[i] = rowFrom(id, batches, row.oldestDay);
-  return { stock: out, taken: q3(taken), meanAge: taken > 0 ? ageSum / taken : 0 };
+  return { stock: out, taken: q3(taken), meanAge: taken > 0 ? ageSum / taken : 0, cost };
 }
 
 /** Removes batches whose shelf life has run out by `day`. Returns the new stock and portions binned per ingredient. */
@@ -76,15 +99,22 @@ export function spoil(
   content: ContentPack,
   stock: readonly Stock[],
   day: number,
-): { stock: Stock[]; binned: { id: IngredientId; qty: number }[] } {
-  const binned: { id: IngredientId; qty: number }[] = [];
+): { stock: Stock[]; binned: { id: IngredientId; qty: number; cost: number }[] } {
+  const binned: { id: IngredientId; qty: number; cost: number }[] = [];
   const out = stock.map((row) => {
-    const life = findIngredient(content, row.ingredientId)?.shelfLifeDays ?? Infinity;
+    const ing = findIngredient(content, row.ingredientId);
+    const life = ing?.shelfLifeDays ?? Infinity;
     const all = batchesOf(row);
     const keep = all.filter((b) => b.day + life > day);
     if (keep.length === all.length) return row;
-    const lost = all.reduce((a, b) => a + b.qty, 0) - keep.reduce((a, b) => a + b.qty, 0);
-    binned.push({ id: row.ingredientId, qty: q3(lost) });
+    let lost = 0;
+    let cost = 0;
+    for (const b of all) {
+      if (b.day + life > day) continue;
+      lost += b.qty;
+      cost += b.qty * (b.cost ?? ing?.unitCost ?? 0);
+    }
+    binned.push({ id: row.ingredientId, qty: q3(lost), cost });
     return rowFrom(row.ingredientId, keep, row.oldestDay);
   });
   return { stock: out, binned };
@@ -108,7 +138,7 @@ export function freshnessScore(ing: IngredientDef | undefined, meanAge: number, 
 export interface Plated {
   stock: Stock[];
   freshness: number;
-  /** Base ingredient cost of what was used (pence, rounded). */
+  /** Pence paid for the stock used (float; FIFO cost basis). */
   cost: number;
 }
 
@@ -125,13 +155,13 @@ export function consumeDish(
   let cost = 0;
   for (const ing of dish.ingredients) {
     const def = findIngredient(content, ing.id);
-    const r = takeStock(cur, ing.id, ing.qty, day);
+    const r = takeStock(cur, ing.id, ing.qty, day, def?.unitCost ?? 0);
     cur = r.stock;
     fresh += freshnessScore(def, r.meanAge, month);
-    cost += (def?.unitCost ?? 0) * ing.qty;
+    cost += r.cost;
   }
   const n = Math.max(1, dish.ingredients.length);
-  return { stock: cur, freshness: fresh / n, cost: Math.round(cost) };
+  return { stock: cur, freshness: fresh / n, cost };
 }
 
 /** Purchase price of `qty` portions in a given month (in-season discount, difficulty cost multiplier). */

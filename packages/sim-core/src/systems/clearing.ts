@@ -3,14 +3,16 @@
  * counts down dirty tables (a porter halves the work), drops tickets for walk-outs,
  * and removes customers who left on an earlier tick so the UI sees "left" for one tick.
  */
-import { DIRTY_TICKS, DIRTY_TICKS_WITH_PORTER } from "../constants";
+import { DIRTY_TICKS, DIRTY_TICKS_WITH_PORTER, OWNER_EXTRA_DIRTY_TICKS } from "../constants";
 import type { Rng } from "../rng";
 import type { ContentPack, GameState, Table } from "../types";
 import { mapIfChanged, onShift } from "../util";
-import type { SystemResult } from "./system";
+import { coveringRoles, type SystemResult } from "./system";
 
+/** A porter turns tables round fast; an owner running kitchen and floor alone is slower still. */
 export function dirtyTicksFor(state: GameState): number {
-  return onShift(state, "porter").length > 0 ? DIRTY_TICKS_WITH_PORTER : DIRTY_TICKS;
+  if (onShift(state, "porter").length > 0) return DIRTY_TICKS_WITH_PORTER;
+  return DIRTY_TICKS + (coveringRoles(state).length >= 2 ? OWNER_EXTRA_DIRTY_TICKS : 0);
 }
 
 function clearTable(t: Table, leftNow: ReadonlySet<string>, dirty: number): Table {

@@ -14,7 +14,12 @@ import {
   RECRUITMENT_FEE,
   STOCK_OVERDRAFT_LIMIT,
   TABLE_COST,
+  TRAINING_FEE,
+  TRAINING_SKILL_GAIN,
 } from "./constants";
+import { hashSeed, Rng } from "./rng";
+import { updateGoals } from "./systems/goals";
+import { respondIncident, startBreak } from "./systems/incidents";
 import { advanceDay, openService } from "./engine";
 import { staffFromCandidate } from "./staff";
 import { purchaseCost } from "./stock";
@@ -22,15 +27,20 @@ import { planArrivals } from "./systems/arrival";
 import { applyChoice } from "./systems/eventDeck";
 import { shiftCost } from "./systems/finance";
 import type { Command, ContentPack, GameState, Phase, SimEvent, StepResult } from "./types";
-import { clamp, findDish, findIngredient, foldLog, logEvent, monthOf, round2, tallyOf } from "./util";
+import { clamp, findDish, findIngredient, foldLog, logEvent, monthOf, onFloor, round2, tallyOf, worksToday } from "./util";
 
 type Cmd<T extends Command["type"]> = Extract<Command, { type: T }>;
 type Handler<T extends Command["type"]> = (content: ContentPack, state: GameState, cmd: Cmd<T>) => StepResult;
 
 // ── result helpers ──
+/** Results produced by reject(): their state must stay exactly the input (plus the log line). */
+const rejected = new WeakSet<StepResult>();
+
 export function reject(state: GameState, reason: string): StepResult {
   const events: SimEvent[] = [logEvent(state, reason, "bad")];
-  return { state: foldLog(state, events), events };
+  const r = { state: foldLog(state, events), events };
+  rejected.add(r);
+  return r;
 }
 
 function ok(state: GameState, text?: string, kind: "info" | "good" | "money" = "info"): StepResult {
@@ -183,21 +193,65 @@ const eightySix: Handler<"EIGHTY_SIX"> = (content, state, cmd) => {
   return ok(next, `${findDish(content, cmd.dishId)?.name ?? cmd.dishId} is 86'd for today.`);
 };
 
-const endDay: Handler<"END_DAY"> = (_c, state) => {
+const endDay: Handler<"END_DAY"> = (content, state) => {
   const bad = requirePhase(state, ["evening"], "end the day");
   if (bad) return bad;
-  return advanceDay(state);
+  return advanceDay(state, content);
 };
 
 const resolveEvent: Handler<"RESOLVE_EVENT"> = (content, state, cmd) => {
   const bad = requirePhase(state, ["event"], "resolve an event");
   if (bad) return bad;
   const ev = content.events.find((e) => e.id === state.activeEvent?.eventId);
-  const choice = ev?.choices.find((c) => c.id === cmd.choiceId);
-  if (!ev || !choice) return reject(state, "That isn't one of the choices.");
+  if (!ev) {
+    // The card no longer exists (old save, content changed): dismiss it with any choiceId and carry on.
+    const events: SimEvent[] = [logEvent(state, "The morning post got lost. Never mind!", "info")];
+    const day = advanceDay(state, content);
+    return { state: foldLog(day.state, events), events: [...events, ...day.events] };
+  }
+  const choice = ev.choices.find((c) => c.id === cmd.choiceId);
+  if (!choice) return reject(state, "That isn't one of the choices.");
   const chosen = applyChoice(state, choice);
-  const day = advanceDay(chosen.state);
+  const day = advanceDay(chosen.state, content);
   return { state: foldLog(day.state, chosen.events), events: [...chosen.events, ...day.events] };
+};
+
+// ── round 2: incidents, training, breaks ──
+const respond: Handler<"RESPOND_INCIDENT"> = (content, state, cmd) => {
+  const bad = requirePhase(state, ["service"], "deal with that");
+  if (bad) return bad;
+  const r = respondIncident(content, state, cmd.incidentId, cmd.optionId);
+  if ("error" in r) return reject(state, r.error);
+  return { state: foldLog(r.state, r.events), events: r.events };
+};
+
+/** Salt for training outcomes (independent of the main RNG so planning commands stay order-free). */
+const TRAIN_SALT = 0x7a1a1e;
+
+const train: Handler<"TRAIN"> = (_c, state, cmd) => {
+  const bad = requirePhase(state, PLANNING, "send staff on training");
+  if (bad) return bad;
+  const who = state.staff.find((s) => s.id === cmd.staffId);
+  if (!who) return reject(state, "No such staff member.");
+  if (who.trainingDay === state.day) return reject(state, `${who.name} is already on a course today.`);
+  if (who.skill >= who.potential) return reject(state, `${who.name} has learned all a course can teach them.`);
+  if (state.cash < TRAINING_FEE) return reject(state, `Not enough cash for a course (£${Math.round(TRAINING_FEE / 100)}).`);
+  const rng = Rng.fromSeed(hashSeed(state.seed, state.day, TRAIN_SALT, state.staff.indexOf(who)));
+  const gain = rng.int(TRAINING_SKILL_GAIN[0], TRAINING_SKILL_GAIN[1]);
+  const skill = round2(Math.min(who.potential, who.skill + gain));
+  const staff = state.staff.map((s) => (s.id === who.id ? { ...s, skill, trainingDay: state.day } : s));
+  const shift = worksToday(who, state.day) ? " They're off the floor today." : "";
+  return ok({ ...state, cash: state.cash - TRAINING_FEE, staff }, `${who.name} is on a training course: skill ${Math.round(who.skill)} → ${Math.round(skill)}.${shift}`, "good");
+};
+
+const giveBreak: Handler<"GIVE_BREAK"> = (content, state, cmd) => {
+  const bad = requirePhase(state, ["service"], "give a break");
+  if (bad) return bad;
+  const who = state.staff.find((s) => s.id === cmd.staffId);
+  if (!who) return reject(state, "No such staff member.");
+  if ((who.breakUntilTick ?? 0) > state.tick) return reject(state, `${who.name} is already on a break.`);
+  if (!onFloor(who, state)) return reject(state, `${who.name} isn't working right now.`);
+  return ok(startBreak(content, state, who), `${who.name} is having a short break.`, "info");
 };
 
 const newGameCmd: Handler<"NEW_GAME"> = (_c, state) => reject(state, "Use newGame() to start a new game.");
@@ -217,12 +271,20 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
   EIGHTY_SIX: eightySix,
   END_DAY: endDay,
   RESOLVE_EVENT: resolveEvent,
+  RESPOND_INCIDENT: respond,
+  TRAIN: train,
+  GIVE_BREAK: giveBreak,
 };
 
 export function dispatch(content: ContentPack, state: GameState, cmd: Command): StepResult {
   if (state.phase === "gameover") return reject(state, "The restaurant has closed. Start a new game.");
   const handler = HANDLERS[cmd?.type as Command["type"]] as Handler<Command["type"]> | undefined;
   if (!handler) return reject(state, "Unknown command.");
-  return handler(content, state, cmd as never);
+  const r = handler(content, state, cmd as never);
+  if (rejected.has(r)) return r;
+  // Goals track what the player does (menu, hires, orders, opening, incidents).
+  const g = updateGoals(content, r.state);
+  if (g.state === r.state) return r;
+  return { state: foldLog(g.state, g.events), events: [...r.events, ...g.events] };
 }
 

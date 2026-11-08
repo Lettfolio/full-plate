@@ -5,7 +5,8 @@ import { candidates as candidatePool } from "./staff";
 import { classifyMenu as classify } from "./menu";
 import { newGame as createGame } from "./newGame";
 import { deserialize as load, serialize as save } from "./save";
-import type { Candidate, Command, ContentPack, DishId, GameState, MenuQuadrant, SimEvent, StepResult } from "./types";
+import { expectedCovers as forecastCovers, suggestedOrder as forecastOrder } from "./forecast";
+import type { Candidate, Command, ContentPack, DishId, GameState, IngredientId, MenuQuadrant, SimEvent, StepResult } from "./types";
 import { SERVICE_TICKS } from "./types";
 
 export function newGame(content: ContentPack, cmd: Extract<Command, { type: "NEW_GAME" }>): GameState {
@@ -47,6 +48,19 @@ export function classifyMenu(content: ContentPack, state: GameState): Record<Dis
   return classify(content, state);
 }
 
+/**
+ * Suggested ORDER_STOCK lines (portions, rounded up to 5s) so on hand + already ordered covers the next
+ * service's forecast. Call it in the evening (deliveries arrive next morning) or in planning.
+ */
+export function suggestedOrder(content: ContentPack, state: GameState): { ingredientId: IngredientId; qty: number }[] {
+  return forecastOrder(content, state);
+}
+
+/** Guests the forecast plans for at the next service (what suggestedOrder is built on). */
+export function expectedCovers(content: ContentPack, state: GameState): number {
+  return forecastCovers(content, state);
+}
+
 export function serialize(state: GameState): string {
   return save(state);
 }
@@ -68,7 +82,13 @@ export {
   HIRE_CASH_BUFFER_SHIFTS,
   MAX_MENU_ITEMS,
   MONTHS_PER_YEAR,
+  BREAK_TICKS,
+  OPENING_STOCK_BUDGET,
+  OWNER,
+  OWNER_FATIGUE_WARNING,
   RECRUITMENT_FEE,
+  TRAINING_FEE,
+  TRAINING_SKILL_GAIN,
   SHIFT_HOURS,
   START_MONTH,
   START_WEEKDAY,
@@ -79,3 +99,5 @@ export {
 export { isWeekend, monthOf, weekdayOf } from "./util";
 /** Cost of one rostered shift for a staff member (wage × SHIFT_HOURS × (1 + EMPLOYER_ONCOST)). */
 export { shiftCost } from "./systems/finance";
+/** Opening stock allowance in effect for a content pack (BalanceDef.openingStockBudget or the default). */
+export { openingStockBudget } from "./forecast";

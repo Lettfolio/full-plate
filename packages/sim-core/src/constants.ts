@@ -18,8 +18,13 @@ export const START_WEEKDAY = 2;
 export const WEEKEND_DAYS: readonly number[] = [4, 5, 6];
 
 // ── opening ──
-/** Portions of every ingredient delivered before opening day; cost is taken from starting cash. */
-export const OPENING_STOCK_PORTIONS = 40;
+/**
+ * Default opening stock allowance (pence) when content's BalanceDef.openingStockBudget is absent.
+ * newGame starts with an empty larder; at the first START_SERVICE this much (at most) is spent on what the
+ * active menu needs for OPENING_STOCK_COVER_MULT × the first-day cover forecast, delivered at once.
+ */
+export const OPENING_STOCK_BUDGET = 60_000;
+export const OPENING_STOCK_COVER_MULT = 1.3;
 export const STARTING_POPULARITY = 40;
 export const STARTING_PRESTIGE = 30;
 
@@ -81,8 +86,14 @@ export const MIN_DISH_WEIGHT = 0.02;
 export const CHEF_PARALLEL_TICKETS = 3;
 export const BAR_PARALLEL_TICKETS = 4;
 /** prep ticks × (SPEED_TICKS_BASE − SPEED_TICKS_SLOPE × speed/100). */
-export const SPEED_TICKS_BASE = 1.4;
-export const SPEED_TICKS_SLOPE = 0.8;
+export const SPEED_TICKS_BASE = 1.6;
+export const SPEED_TICKS_SLOPE = 1.2;
+/**
+ * Plate quality before ceiling/fatigue = PIVOT + (skill − PIVOT) × SLOPE. A slope above 1 makes a good
+ * chef visibly better than an average one (and a tired owner visibly worse).
+ */
+export const SKILL_QUALITY_PIVOT = 50;
+export const SKILL_QUALITY_SLOPE = 1.4;
 export const SKILL_GAP_PENALTY = 0.8;
 export const FATIGUE_QUALITY_PENALTY = 0.15;
 export const QUALITY_NOISE_SD = 4;
@@ -101,7 +112,23 @@ export const FRESH_BONUS_MAX = 4;
 export const FRESH_PENALTY_MAX = 6;
 
 // ── owner fallback (when nobody of a role is on today) ──
-export const OWNER = { skill: 40, speed: 45, charm: 45, serverActions: 1.5, chefTickets: 2 };
+/** The owner is a mediocre generalist who covers any chef/server gap. */
+export const OWNER = { skill: 40, speed: 45, charm: 50, serverActions: 1.5, chefTickets: 2 };
+/** Covering kitchen AND floor: the owner is in two places, so kitchen throughput (1/cook time) and FOH actions are × this. */
+export const OWNER_BOTH_SPEED_MULT = 0.5;
+/** Covering both: each plate waits this many extra ticks at the pass before the owner can run it out. */
+export const OWNER_PASS_DELAY_TICKS = 1;
+/** Covering both: tables take this many extra ticks to clear. */
+export const OWNER_EXTRA_DIRTY_TICKS = 1;
+/** Owner fatigue (0-100) gained per role covered in a service, plus per 10 covers served that day. */
+export const OWNER_FATIGUE_PER_ROLE = 22;
+export const OWNER_FATIGUE_PER_10_COVERS = 1;
+/** Owner fatigue recovered on an evening when the owner did not cover. */
+export const OWNER_FATIGUE_RECOVERY = 25;
+/** At fatigue 100 the owner's skill, speed, charm and actions are × (1 − this). */
+export const OWNER_FATIGUE_EFFECT = 0.4;
+/** Above this owner fatigue the evening log warns the player. */
+export const OWNER_FATIGUE_WARNING = 60;
 
 // ── front of house ──
 /** Actions per server per tick = SERVER_ACTIONS_BASE + speed / SERVER_ACTIONS_SPEED_DIV. */
@@ -120,6 +147,17 @@ export const EAT_TICKS_BASE = 8;
 export const EAT_TICKS_PER_EXTRA_GUEST = 1;
 export const DIRTY_TICKS = 3;
 export const DIRTY_TICKS_WITH_PORTER = 1;
+
+// ── front-of-house charm (0-100; 50 = neutral) ──
+/** Patience decay × (1 + WEIGHT × (50 − charm)/50), clamped to CHARM_PATIENCE_CLAMP. */
+export const CHARM_PATIENCE_WEIGHT = 0.3;
+export const CHARM_PATIENCE_CLAMP: [number, number] = [0.6, 1.4];
+/** Tips × (TIP_CHARM_BASE + TIP_CHARM_SLOPE × charm/100). Charm 50 ⇒ ×1. */
+export const TIP_CHARM_BASE = 0.6;
+export const TIP_CHARM_SLOPE = 0.8;
+/** A 3★ party becomes 4★ with chance UPGRADE_MAX × (charm − UPGRADE_FROM)/(100 − UPGRADE_FROM). */
+export const CHARM_UPGRADE_FROM = 40;
+export const CHARM_UPGRADE_MAX = 0.4;
 
 // ── satisfaction & rating ──
 export const CHARM_SATISFACTION_MAX = 10;
@@ -209,6 +247,16 @@ export const FATIGUE_PER_SHIFT = 10;
 /** Extra fatigue per shift per 10 covers handled per staff member. */
 export const FATIGUE_PER_10_COVERS = 1.5;
 export const FATIGUE_RECOVERY_PER_REST_DAY = 30;
+
+// ── training & breaks ──
+/** TRAIN: course fee (pence); the staff member is off the floor that day (still paid if rostered). */
+export const TRAINING_FEE = 12_000;
+/** Skill gained from a training day, toward (never past) potential. */
+export const TRAINING_SKILL_GAIN: [number, number] = [3, 6];
+export const TRAINING_MOOD = 2;
+/** GIVE_BREAK: fatigue removed and how long they are off the floor. */
+export const BREAK_FATIGUE_RELIEF = 20;
+export const BREAK_TICKS = 6;
 export const FATIGUE_MOOD_THRESHOLD = 60;
 export const FATIGUE_MOOD_DIVISOR = 8;
 /** Rota days beyond this per week cost mood each day worked. */
@@ -226,6 +274,101 @@ export const FIRE_MOOD_HIT = 5;
 /** Below this mood a staff member may quit each evening. */
 export const QUIT_MOOD = 12;
 export const QUIT_CHANCE = 0.25;
+
+// ── incidents (live service problems; see systems/incidents.ts) ──
+export const INCIDENT_MAX_LIVE = 2;
+export const INCIDENT_MAX_PER_SERVICE = 3;
+/** Minimum ticks between two incidents starting. */
+export const INCIDENT_MIN_GAP_TICKS = 10;
+/** No new incidents in the last ticks of service. */
+export const INCIDENT_LAST_START_TICK = 108;
+/** ticksLeft drawn uniformly from this range. */
+export const INCIDENT_TIMEOUT_TICKS: [number, number] = [6, 12];
+/** Per-tick start chances (when the kind's condition holds). */
+export const INCIDENT_RATES = {
+  /** Chance per party that starts eating with mean plate quality below SENT_BACK_QUALITY. */
+  sentBackPerParty: 0.4,
+  /** Per seated-cover per tick: ≈ 1 spill per 60 covers (a cover sits ~12 ticks). */
+  spillPerCoverTick: 1 / 720,
+  bigParty: 0.006,
+  rush: 0.05,
+  supplierShort: 0.25,
+  equipment: 0.0012,
+  vip: 0.004,
+  staffWobble: 0.02,
+};
+export const SENT_BACK_QUALITY = 45;
+export const RUSH_MIN_POTENTIAL_PARTIES = 30;
+export const RUSH_MIN_QUEUE = 4;
+export const VIP_MIN_POPULARITY = 60;
+export const STAFF_WOBBLE_FATIGUE = 75;
+/** Chance a delivery line arrives short each morning (one line at most), and the share that turns up. */
+export const SHORT_DELIVERY_CHANCE = 0.12;
+export const SHORT_DELIVERY_SHARE: [number, number] = [0.3, 0.7];
+/** Incident option effects. */
+export const INCIDENT = {
+  /** sent_back */
+  remakeTicks: 3,
+  /** Extra ticks a remake party keeps their table waiting for the new plate. */
+  remakeWaitTicks: 4,
+  apologyMaxBonus: 12,
+  sentBackIgnoredHit: -15,
+  /** spill */
+  spillServerActions: -0.5,
+  spillServerTicks: 4,
+  spillCleanBonus: 3,
+  spillIgnoredHit: -10,
+  spillIgnoredDirtyTicks: 3,
+  /** big_party: sizes seatsPerTable+1 … 2×seatsPerTable; seating them costs FOH actions for a few ticks. */
+  bigPartyServerActions: -0.75,
+  bigPartyServerTicks: 4,
+  bigPartyTurnAwayPopularity: -0.3,
+  bigPartyIgnoredPopularity: -1,
+  /** rush */
+  rushTicks: 10,
+  rushArrivalMult: 1.6,
+  rushCallInCost: 6_000,
+  rushCallInActions: 1.5,
+  rushCallInKitchen: 1.3,
+  rushSimplifyKitchen: 1.2,
+  /** supplier_short */
+  cornerShopMult: 2.5,
+  /** equipment */
+  equipmentFixTicks: 5,
+  equipmentFixKitchen: 0.6,
+  engineerCost: 12_000,
+  engineerTicks: 2,
+  engineerKitchen: 0.8,
+  equipmentIgnoredTicks: 30,
+  equipmentIgnoredKitchen: 0.7,
+  /** vip */
+  vipServerActions: -0.4,
+  vipServerTicks: 10,
+  vipBestServerMaxBonus: 14,
+  vipFreebieBonus: 8,
+  /** Fallback freebie cost when no starter/dessert is on the menu. */
+  vipFreebieCost: 600,
+  /** Prestige per star away from 3 in the critic's verdict (5★ ⇒ +5, 1★ ⇒ −5). */
+  vipPrestigePerStar: 2.5,
+  vipWalkoutPrestige: -5,
+  /** staff_wobble */
+  wobblePushOnMood: -3,
+  wobbleIgnoredMood: -6,
+  wobbleIgnoredFatigue: 5,
+} as const;
+
+// ── goals ──
+/** Goals shown at once is a UI choice; the sim stores every unlocked goal. */
+export const GOAL_PROFIT_WEEK_DAYS = 7;
+
+// ── forecasting (suggestedOrder) ──
+/** Covers forecast before the first service when the model gives nothing usable. */
+export const FORECAST_MIN_COVERS = 20;
+/** History forecast = busiest recent demand (covers + walk-outs) × this. */
+export const FORECAST_HISTORY_MULT = 1.1;
+export const FORECAST_WINDOW_DAYS = 7;
+/** Suggested orders are rounded up to multiples of this. */
+export const ORDER_ROUND_TO = 5;
 
 // ── events ──
 export const EVENT_CHANCE_PER_DAY = 0.15;
