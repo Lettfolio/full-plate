@@ -253,3 +253,112 @@ Reading it:
 - After any sim elasticity fix: segment `averageBudget` (first) and food price multiplier.
 - Seaside and Student Quarter at 56% are the floor; +4 footfall each lifts them about 8–10 points.
 - `weekendFootfallMult` 1.3 is untouched; cosy hits ~100 covers in Seaside, close to the table cap.
+
+## Round 2 (sim-core 6d2cf07 / 30bd60d / 1570fdc)
+
+Round 2 made staff matter, added incidents, goals and an empty opening larder, and made the scripted owners
+smarter. All runs: 100 seeds × 365 days, 25 per district, real pack.
+
+### Before (round-1 content on round-2 sim)
+
+| Run | Overall | High Street | Business Park | Seaside | Student Quarter |
+| --- | --- | --- | --- | --- | --- |
+| balanced / normal | 97% | 24/25 | 25/25 | 23/25 | 25/25 |
+| balanced / hard | 89% | 20/25 | 24/25 | 21/25 | 24/25 |
+| balanced / cosy | 100% | 25/25 | 25/25 | 25/25 | 25/25 |
+| cheap / normal | 25% | 5/25 | 4/25 | 5/25 | 11/25 |
+| premium / normal | 95% | 22/25 | 25/25 | 25/25 | 23/25 |
+| nohire / normal | 0% | 0/25 | 0/25 | 0/25 | 0/25 |
+
+### What I tried (three rounds, 60 seeds each unless noted, balanced / cheap / premium at normal)
+
+| Round | Variant | balanced | cheap | premium | hard |
+| --- | --- | --- | --- | --- | --- |
+| 1 | budgets −£1 to −£2.50, better commis | 98% | 27% | — | — |
+| 1 | same + startingCash £12k | 98% | 8% | — | — |
+| 1 | budgets −£2, footfall −11% | 97% | 7% | 78% | — |
+| 1 | budgets −£2, footfall −19% | 97% | 2% | 60% | — |
+| 2 | price sensitivity +0.1–0.15, rent +£600 | 98% | 18% | 85% | — |
+| 2 | same, rent +£800–900, startingCash £10k | 98% | 0% | 62% | — |
+| 2 | wages +£0.50–1.50/h | 98% | 32% | 90% | — |
+| 3 | food prices ×0.94 | 100% | 2% | 98% | 87% |
+| 3 | food prices ×0.90 | 98% | 0% | 98% | 53% |
+| 3 | ingredient costs ×1.12 | 97% | — | — | 78% |
+| 3 | ingredient costs ×1.20 | 97% | — | — | 37% |
+
+**What this shows.** No content lever moves balanced/normal below about 97%, while every lever that tightens
+the economy collapses cheap and premium first. There are two reasons:
+
+1. **Balanced is anchored to `suggestedPrice`.** The sim's markup penalty (`MARKUP_WEIGHT`) is measured from
+   `suggestedPrice`, and the balanced owner prices at exactly 1.0×. Changing prices moves the anchor with them,
+   so balanced always sits at "the going rate" and any other strategy is a deviation from it. The scripted
+   owner set to 0.85× (cheap's prices but balanced's hiring) survives 60%. Set to 1.25×, it survives 93%.
+2. **The round-2 balanced owner adapts.** It drops weekend shifts after a losing fortnight and responds to
+   incidents. Its lowest month-end cash is about £10–15k (p10 £10.6k), while bust needs about −£47k (three
+   months of rent plus wages, below zero for 14 days). In scratch copies of sim-core I tried tightening that
+   line (`INSOLVENCY_MONTHS` 3 → 1), and also `ENTRY_BIAS` −3.45 and −3.6. Balanced/normal stayed at 98–100%
+   in every case.
+
+**Cheap's collapse is mostly its script, not its prices.** Giving cheap balanced's hiring rules
+(`menuSize: 6`, `hireBy: "value"`, `coverCash: 150_000`) while keeping 0.85× prices lifts it from 25% to
+**65%**. With 5 dishes and wage-first hiring it gets weak cooks and too few dishes, so ratings and covers fall
+together.
+
+**Porter and weekend second chef (28-day payback from day 60, 16 seeds, staff injected at the archetype
+midpoint):**
+- porter, 7 days: **−£3.7k**
+- line chef, weekends only: −£1.8k
+- server, weekends only: −£1.9k
+
+Porter wages are already at the NLW floor (£12.71–£12.90), so content can't make them cheaper. Skill, speed
+and charm don't affect what a porter does in the sim; its only effect is clearing tables in 1 tick instead of
+3, which pays only when the room is full and there's a queue. This needs a sim-side effect (below).
+
+### Shipped in round 2
+
+| Knob | Before | After | Why |
+| --- | --- | --- | --- |
+| `chef_commis.skillRange` / `speedRange` | 15–35 / 35–60 | 28–45 / 40–65 | with round 2, plate quality is 50 + (skill − 50) × 1.4, so a skill-20 commis plated ~8. Cheap hires the cheapest chef, so this was the main reason cheap collapsed |
+| `server.charmRange` | 40–85 | 48–85 | charm 50 is now neutral, so a server under 50 actively hurt patience and tips |
+
+Nothing else changed: budgets, prices, footfall, season curves, rent and balance.json are the same as
+round 1. Every content-wide squeeze I tried moved the other strategies in the wrong direction.
+
+### After (shipped data)
+
+| Run | Overall | High Street | Business Park | Seaside | Student Quarter |
+| --- | --- | --- | --- | --- | --- |
+| balanced / normal | **100%** | 25/25 | 25/25 | 25/25 | 25/25 |
+| balanced / hard | 95% | 23/25 | 24/25 | 23/25 | 25/25 |
+| balanced / cosy | 100% | 25/25 | 25/25 | 25/25 | 25/25 |
+| cheap / normal | 39% | 8/25 | 7/25 | 6/25 | 18/25 |
+| premium / normal | 98% | 24/25 | 25/25 | 25/25 | 24/25 |
+| nohire / normal | 0% | 0/25 | 0/25 | 0/25 | 0/25 |
+
+The staff change helps cheap (25% → 39%) and nudges balanced *up* (97% → 100%). It's kept because it fixes a
+real content problem (candidates who were too weak to be worth hiring). It is easy to revert if the reviewer
+prefers the round-1 archetypes.
+
+### Recommended sim-side changes for the reviewer
+
+1. **Hard: `DIFFICULTY.hard` → `{ footfallMult: 0.80, costMult: 1.20 }`** (from 0.88 / 1.10). Verified in a
+   scratch copy of sim-core on the shipped content: balanced/hard **45%** (High Street 7/25, Business Park
+   16/25, Seaside 8/25, Student Quarter 14/25). That's close to the ~50% target. Use 0.82 / 1.18 if you want
+   it slightly kinder.
+2. **Cheap: change `STRATEGIES.cheap` in headless.ts, not constants.** Use `menuSize: 6`, `hireBy: "value"`,
+   `coverCash: 150_000` and keep `priceMult: 0.85`: 65% at 60 seeds. That puts it within ~15 points of a
+   re-targeted balanced.
+3. **Normal 70–80%: I could not find a single constant that does it.** `ENTRY_BIAS` −3.45 / −3.6 and
+   `INSOLVENCY_MONTHS` 1 were each tested and left balanced at 98–100%. The scripted owner is now a
+   competent player. Options:
+   - accept ~95%+ for the scripted owner and judge normal by a weaker "typical" strategy (e.g. balanced
+     without the weekend-shift trimming);
+   - or have the markup penalty compare against a district "going rate" instead of `suggestedPrice`, so
+     balanced isn't the anchor by definition.
+   `MARKUP_WEIGHT` was not varied.
+4. **Porter:** give it a second effect, e.g. it absorbs `spill` and `equipment` incidents, or adds +0.5 FOH
+   actions/tick, so it pays back mid-game at NLW. A weekend-only second chef will keep losing money until
+   kitchen throughput is the binding limit at weekends. Check that once tables can be bought earlier.
+
+Note: during this run the working tree had an uncommitted change in `packages/sim-core/src/systems/incidents.ts`
+(outcome text only) from another agent. It doesn't affect any economics.

@@ -27,12 +27,12 @@
       "Viktor Okafor"
     ],
     "skillRange": [
-      15,
-      35
+      28,
+      45
     ],
     "speedRange": [
-      35,
-      60
+      40,
+      65
     ],
     "charmRange": [
       20,
@@ -201,7 +201,7 @@
       80
     ],
     "charmRange": [
-      40,
+      48,
       85
     ],
     "wageRange": [
