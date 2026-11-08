@@ -101,7 +101,7 @@ export function updateGoals(content: ContentPack, state: GameState): SystemResul
       changed = true;
       cash += g.reward?.cash ?? 0;
       popularity += g.reward?.popularity ?? 0;
-      events.push({ type: "GOAL_COMPLETED", goalId: g.id });
+      events.push({ type: "GOAL_COMPLETED", goalId: g.id, ...(g.reward ? { reward: { ...g.reward } } : {}) });
       const reward = rewardText(g);
       const line = reward ? GOAL_LINES.reward.replace("{reward}", reward) : GOAL_LINES.completed;
       events.push(logEvent(state, line.replace("{title}", g.title), "good"));

@@ -230,3 +230,52 @@ describe("incident limits and plumbing", () => {
     expect(fill("Hi {name}, {who}", { name: "Ali" })).toBe("Hi Ali, {who}");
   });
 });
+
+describe("integration: contract polish (tone, disabled, reward, start log)", () => {
+  it("INCIDENT_RESOLVED carries a tone; the start line is info without a doubled '!'", () => {
+    const s = { ...inService(ready()), customers: Array.from({ length: 6 }, (_, i) => seatedAt(`c${i}`, `T${i + 1}`, { qualitySum: 160 })) };
+    let found: { state: GameState; inc: Incident; events: import("../src/types").SimEvent[] } | undefined;
+    for (let seed = 1; seed < 400 && !found; seed++) {
+      const r = incidentSystem(C, s, rng(seed));
+      const inc = liveIncidents(r.state).find((i) => i.kind === "spill");
+      if (inc) found = { state: r.state, inc, events: r.events };
+    }
+    const { state, inc, events } = found!;
+    const start = events.find((e) => e.type === "LOG")!;
+    expect(start.type === "LOG" && start.entry.kind).toBe("info");
+    expect(start.type === "LOG" && start.entry.text).toBe(inc.title);
+    expect(inc.title.endsWith("!!")).toBe(false);
+    const tone = (opt: string) => {
+      const r = applyCommand(C, state, { type: "RESPOND_INCIDENT", incidentId: inc.id, optionId: opt });
+      const e = r.events.find((x) => x.type === "INCIDENT_RESOLVED");
+      return e?.type === "INCIDENT_RESOLVED" ? e.tone : undefined;
+    };
+    expect(tone("mop")).toBe("good");
+    expect(tone("leave")).toBe("bad");
+  });
+
+  it("push tables is disabled (with a reason) while there aren't two free tables, and re-enabled when there are", () => {
+    const base = inService(ready());
+    const s = { ...base, service: { ...base.service!, arrivals: [{ segment: "families", potentialParties: 40, entryLogit: 0 }] } };
+    const { state, inc } = startOne(s, "big_party", 2000);
+    expect(inc.options.find((o) => o.id === "push")!.disabled).toBeUndefined();
+    const full = { ...state, tables: state.tables.map((t) => ({ ...t, occupiedBy: "x" })), tick: state.tick + 1 };
+    const next = incidentSystem(C, full, rng(1)).state;
+    const push = next.incidents!.find((i) => i.id === inc.id)!.options.find((o) => o.id === "push")!;
+    expect(push.disabled).toMatch(/two free/i);
+    const freed = incidentSystem(C, { ...next, tables: state.tables, tick: next.tick + 1 }, rng(2)).state;
+    expect(freed.incidents!.find((i) => i.id === inc.id)!.options.find((o) => o.id === "push")!.disabled).toBeUndefined();
+  });
+
+  it("GOAL_COMPLETED carries the reward it paid", () => {
+    let s = ready();
+    let reward: unknown;
+    for (let d = 0; d < 6 && reward === undefined; d++) {
+      const r = runDay(C, s);
+      for (const e of r.events) if (e.type === "GOAL_COMPLETED" && e.reward) reward = e.reward;
+      s = r.state.phase === "event" ? applyCommand(C, r.state, { type: "RESOLVE_EVENT", choiceId: "x" }).state : applyCommand(C, r.state, { type: "END_DAY" }).state;
+    }
+    expect(reward).toMatchObject({});
+    expect(Object.keys(reward as object).length).toBeGreaterThan(0);
+  });
+});

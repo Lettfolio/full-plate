@@ -419,6 +419,8 @@ export interface IncidentOption {
   label: string;                       // short button text
   description: string;                 // one line: cost and likely outcome
   cost?: Pence;                        // shown and charged if chosen
+  /** [round 2, integration] Why this option can't be chosen right now (e.g. "No two free tables"); absent = available. Refreshed every tick. */
+  disabled?: string;
 }
 
 export interface Incident {
@@ -558,8 +560,20 @@ export type SimEvent =
   | { type: "LOG"; entry: LogEntry }
   // round 2
   | { type: "INCIDENT_STARTED"; incidentId: string }
-  | { type: "INCIDENT_RESOLVED"; incidentId: string; resolution: string; outcome: string }
-  | { type: "GOAL_COMPLETED"; goalId: string };
+  | {
+      type: "INCIDENT_RESOLVED";
+      incidentId: string;
+      resolution: string;
+      outcome: string;
+      /** [integration] How it went: "bad" when ignored or a costly choice, "neutral" for a shrug (closing time, ride it out). */
+      tone?: "good" | "bad" | "neutral";
+    }
+  | {
+      type: "GOAL_COMPLETED";
+      goalId: string;
+      /** [integration] The reward just paid (absent when the goal has none). */
+      reward?: { cash?: Pence; popularity?: number };
+    };
 
 export interface StepResult {
   state: GameState;

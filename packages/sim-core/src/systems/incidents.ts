@@ -214,7 +214,7 @@ function buildIncident(content: ContentPack, state: GameState, rng: Rng, kind: I
     return { id, label: fill(o.label, vars), description: fill(o.description, vars), ...(cost ? { cost } : {}) };
   });
   const vars = textVars(content, state, base);
-  return {
+  const inc: Incident = {
     id: `i${state.day}-${t.incidentsStarted ?? 0}`,
     startedTick: state.tick,
     ticksLeft: rng.int(lo, hi),
@@ -223,6 +223,44 @@ function buildIncident(content: ContentPack, state: GameState, rng: Rng, kind: I
     options,
     ...base,
   };
+  return withAvailability(content, state, inc);
+}
+
+// ── option availability (IncidentOption.disabled) ──
+/** Why an option can't be chosen right now, mirroring the checks in respondIncident/applyOption. */
+function optionBlocker(content: ContentPack, state: GameState, inc: Incident, o: IncidentOption): string | undefined {
+  if ((o.cost ?? 0) > 0 && o.id !== "comp" && state.cash < o.cost!) return INCIDENT_LINES.cantAfford;
+  switch (`${inc.kind}:${o.id}`) {
+    case "big_party:push": {
+      const first = findTable(state.tables, 1);
+      return first && findTable(state.tables.filter((x) => x.id !== first.id), 1) ? undefined : INCIDENT_LINES.needTablesShort;
+    }
+    case "sent_back:remake": {
+      const dish = inc.dishId ? findDish(content, inc.dishId) : undefined;
+      return dish && !canPlate(state.stock, dish) ? fill(INCIDENT_LINES.noStockRemake, { dish: dish.name }) : undefined;
+    }
+    case "staff_wobble:break": {
+      const who = state.staff.find((x) => x.id === inc.staffId);
+      return who && onFloor(who, state) ? undefined : fill(INCIDENT_LINES.notOnFloor, { name: who?.name ?? "They" });
+    }
+  }
+  return undefined;
+}
+
+/** The incident with each option's `disabled` reason brought up to date (the same object when nothing changed). */
+function withAvailability(content: ContentPack, state: GameState, inc: Incident): Incident {
+  let changed = false;
+  const options = inc.options.map((o) => {
+    const why = optionBlocker(content, state, inc, o);
+    if (why === o.disabled) return o;
+    changed = true;
+    if (why === undefined) {
+      const { disabled: _d, ...rest } = o;
+      return rest;
+    }
+    return { ...o, disabled: why };
+  });
+  return changed ? { ...inc, options } : inc;
 }
 
 // ── conditions: each returns the context for a new incident, or undefined ──
@@ -320,17 +358,31 @@ function maybeStart(content: ContentPack, state: GameState, rng: Rng): SystemRes
     let s: GameState = { ...state, incidents: [...(state.incidents ?? []), inc] };
     s = patchTally(s, { incidentsStarted: (t.incidentsStarted ?? 0) + 1, lastIncidentTick: state.tick });
     s = onStart(s, inc);
-    return { state: s, events: [{ type: "INCIDENT_STARTED", incidentId: inc.id }, logEvent(state, `${inc.title}!`, "bad")] };
+    return { state: s, events: [{ type: "INCIDENT_STARTED", incidentId: inc.id }, logEvent(state, inc.title, "info")] };
   }
   return { state, events: [] };
 }
 
 // ── resolving ──
-function finish(state: GameState, inc: Incident, resolution: string, outcome: string, kind: "good" | "bad" | "info" | "money"): SystemResult {
+type Tone = "good" | "bad" | "neutral";
+const LOG_KIND: Record<Tone, "good" | "bad" | "info"> = { good: "good", bad: "bad", neutral: "info" };
+
+/** How a chosen option reads: most fixes are good; leaving a mess or pushing a tired person on is not. */
+const OPTION_TONE: Partial<Record<string, Tone>> = {
+  "spill:leave": "bad",
+  "staff_wobble:push": "bad",
+  "big_party:decline": "neutral",
+  "rush:ride": "neutral",
+  "vip:normal": "neutral",
+};
+export const optionTone = (kind: IncidentKind, optionId: string): Tone =>
+  optionId === "ignored" ? "bad" : OPTION_TONE[`${kind}:${optionId}`] ?? "good";
+
+function finish(state: GameState, inc: Incident, resolution: string, outcome: string, tone: Tone): SystemResult {
   const incidents = (state.incidents ?? []).map((i) => (i.id === inc.id ? { ...i, resolution, outcome, ticksLeft: 0 } : i));
   return {
     state: { ...state, incidents },
-    events: [{ type: "INCIDENT_RESOLVED", incidentId: inc.id, resolution, outcome }, logEvent(state, outcome, kind)],
+    events: [{ type: "INCIDENT_RESOLVED", incidentId: inc.id, resolution, outcome, tone }, logEvent(state, outcome, LOG_KIND[tone])],
   };
 }
 
@@ -377,7 +429,8 @@ export function incidentSystem(content: ContentPack, state: GameState, rng: Rng)
   const events: SimEvent[] = [];
   for (const inc of liveIncidents(state)) {
     if (inc.ticksLeft > 1) {
-      s = { ...s, incidents: (s.incidents ?? []).map((i) => (i.id === inc.id ? { ...i, ticksLeft: i.ticksLeft - 1 } : i)) };
+      const cur = s;
+      s = { ...s, incidents: (s.incidents ?? []).map((i) => (i.id === inc.id ? withAvailability(content, cur, { ...i, ticksLeft: i.ticksLeft - 1 }) : i)) };
       continue;
     }
     s = applyIgnored(content, s, inc);
@@ -408,7 +461,7 @@ export function closeIncidents(state: GameState): SystemResult {
   let s = state;
   const events: SimEvent[] = [];
   for (const inc of liveIncidents(state)) {
-    const r = finish(dropMods(s, inc.id), inc, "ignored", INCIDENT_LINES.closingTime, "info");
+    const r = finish(dropMods(s, inc.id), inc, "ignored", INCIDENT_LINES.closingTime, "neutral");
     s = r.state;
     events.push(r.events[0]!); // no ticker line for each one at closing
   }
@@ -585,5 +638,5 @@ export function respondIncident(content: ContentPack, state: GameState, incident
   const applied = applyOption(content, state, inc, optionId);
   if ("error" in applied) return applied;
   const s = { ...applied.state, incidentsHandled: (applied.state.incidentsHandled ?? 0) + 1 };
-  return finish(s, inc, optionId, outcomeText(content, s, inc, optionId, applied.staffId), "good");
+  return finish(s, inc, optionId, outcomeText(content, s, inc, optionId, applied.staffId), optionTone(inc.kind, optionId));
 }

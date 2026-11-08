@@ -5,7 +5,7 @@ import { candidates as candidatePool } from "./staff";
 import { classifyMenu as classify } from "./menu";
 import { newGame as createGame } from "./newGame";
 import { deserialize as load, serialize as save } from "./save";
-import { expectedCovers as forecastCovers, suggestedOrder as forecastOrder } from "./forecast";
+import { expectedCovers as forecastCovers, ingredientNeeds, suggestedOrder as forecastOrder } from "./forecast";
 import type { Candidate, Command, ContentPack, DishId, GameState, IngredientId, MenuQuadrant, SimEvent, StepResult } from "./types";
 import { SERVICE_TICKS } from "./types";
 
@@ -54,6 +54,15 @@ export function classifyMenu(content: ContentPack, state: GameState): Record<Dis
  */
 export function suggestedOrder(content: ContentPack, state: GameState): { ingredientId: IngredientId; qty: number }[] {
   return forecastOrder(content, state);
+}
+
+/**
+ * Portions of each ingredient the next service's forecast needs (rounded up), in content order: the per-ingredient
+ * figure behind suggestedOrder (order = need − on hand − already ordered, rounded up to 5s). Ingredients the active
+ * menu doesn't use are absent.
+ */
+export function forecastNeeds(content: ContentPack, state: GameState): { ingredientId: IngredientId; need: number }[] {
+  return [...ingredientNeeds(content, state, forecastCovers(content, state))].map(([ingredientId, need]) => ({ ingredientId, need: Math.ceil(need) }));
 }
 
 /** Guests the forecast plans for at the next service (what suggestedOrder is built on). */

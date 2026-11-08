@@ -186,6 +186,9 @@ export const INCIDENT_LINES = {
   vipWalkout: "The critic got fed up and walked out. That review will sting.",
   closingTime: "Service ended before anyone got to it.",
   needTables: "You need two free, clean tables for that. Wait a moment, or turn them away.",
+  /** IncidentOption.disabled reasons (short: they sit under the button). */
+  needTablesShort: "Needs two free, clean tables",
+  cantAfford: "Not enough cash",
   noStockRemake: "There's no {dish} stock left to cook another one.",
   notOnFloor: "{name} isn't on the floor right now.",
   shortDeliveryLog: "Oh no, the {ingredient} delivery came {missing} short.",
