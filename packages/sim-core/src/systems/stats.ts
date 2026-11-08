@@ -11,7 +11,7 @@ import { HISTORY_MAX, MENU_WINDOW_DAYS } from "../constants";
 import type { Rng } from "../rng";
 import type { ContentPack, DayResult, DishId, GameState, IncidentSummary, MenuItem, ServiceTally } from "../types";
 import { round2, tallyOf } from "../util";
-import type { SystemResult } from "./system";
+import { rosterGaps, type SystemResult } from "./system";
 
 type DishTally = ServiceTally["dishes"][string];
 
@@ -87,7 +87,7 @@ export function buildDayResult(state: GameState): DayResult {
     reviews: t.reviews,
     staffMoodDelta: t.staffMoodDelta ?? {},
     incidents,
-    ownerCovered: [...(state.ownerCovering ?? [])],
+    ownerCovered: rosterGaps(state),
   };
 }
 

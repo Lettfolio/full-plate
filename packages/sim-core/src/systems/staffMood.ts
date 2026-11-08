@@ -32,7 +32,7 @@ import {
 import type { Rng } from "../rng";
 import type { ContentPack, GameState, SimEvent, Staff } from "../types";
 import { clamp, logEvent, round2, tallyOf, traitMult, worksToday } from "../util";
-import type { SystemResult } from "./system";
+import { rosterGaps, type SystemResult } from "./system";
 
 export interface DayContext {
   covers: number;
@@ -99,7 +99,7 @@ export function updateStaffMember(content: ContentPack, s: Staff, day: number, c
 
 /** Owner fatigue after today: up for each role covered (and busier days), down on a day the team ran it. */
 export function nextOwnerFatigue(state: GameState): number {
-  const covered = state.ownerCovering?.length ?? 0;
+  const covered = rosterGaps(state).length;
   const f = state.ownerFatigue ?? 0;
   const next = covered
     ? f + covered * OWNER_FATIGUE_PER_ROLE + ((state.todays.covers ?? 0) / 10) * OWNER_FATIGUE_PER_10_COVERS

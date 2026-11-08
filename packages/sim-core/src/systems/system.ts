@@ -10,7 +10,7 @@ import {
 } from "../constants";
 import type { Rng } from "../rng";
 import type { ContentPack, GameState, ServiceMod, SimEvent, Staff, StaffRole } from "../types";
-import { clamp, onShift, traitMult } from "../util";
+import { clamp, onShift, traitMult, worksToday } from "../util";
 
 export interface SystemResult {
   state: GameState;
@@ -38,6 +38,14 @@ export const OWNER_ROLES: readonly StaffRole[] = ["chef", "server"];
 
 export function coveringRoles(state: GameState): StaffRole[] {
   return OWNER_ROLES.filter((r) => onShift(state, r).length === 0);
+}
+
+/**
+ * Roles nobody was rostered for today (training days count as off; short breaks don't). This is "the owner covered X
+ * today" for the evening (DayResult.ownerCovered, owner fatigue); `ownerCovering` is the live, minute-by-minute value.
+ */
+export function rosterGaps(state: GameState): StaffRole[] {
+  return OWNER_ROLES.filter((r) => !state.staff.some((s) => s.role === r && worksToday(s, state.day) && s.trainingDay !== state.day));
 }
 
 export interface OwnerStats {
@@ -95,11 +103,17 @@ export function bestCharm(content: ContentPack, state: GameState): number {
   return foh.length ? Math.max(...foh.map((s) => effectiveCharm(content, s))) : ownerStats(state).charm;
 }
 
-/** Recomputes the service tally's staff-derived figures after the floor changes (break, call-in). */
+/**
+ * Recomputes the floor after it changes (a break starts or ends): the tally's staff-derived figures and the live
+ * `ownerCovering` (a lone chef on a break means the owner is cooking until they're back).
+ */
 export function refreshFloor(content: ContentPack, state: GameState): GameState {
   if (!state.service) return state;
+  const covering = coveringRoles(state);
+  const same = covering.length === (state.ownerCovering?.length ?? 0) && covering.every((r, i) => state.ownerCovering?.[i] === r);
   return {
     ...state,
+    ...(same ? {} : { ownerCovering: covering }),
     service: { ...state.service, actionsPerTick: serverActionsPerTick(content, state), frontCharm: frontCharm(content, state) },
   };
 }

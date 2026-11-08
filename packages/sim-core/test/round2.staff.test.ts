@@ -42,9 +42,13 @@ describe("the owner covering", () => {
   });
 
   it("owner fatigue builds while covering, persists, wears the owner down and recovers on staffed days", () => {
-    const s = { ...ready(), ownerCovering: ["chef", "server"] as GameState["ownerCovering"], todays: { reviews: [], covers: 30 } };
+    // Fatigue follows the rota (who was meant to be in today), not the live minute-by-minute ownerCovering.
+    const staffed = ready();
+    const s = { ...staffed, staff: [], todays: { reviews: [], covers: 30 } };
     expect(nextOwnerFatigue(s)).toBeCloseTo(2 * 22 + 3);
-    expect(nextOwnerFatigue({ ...s, ownerCovering: [], ownerFatigue: 50 })).toBe(25);
+    expect(nextOwnerFatigue({ ...staffed, todays: { reviews: [], covers: 30 }, ownerFatigue: 50 })).toBe(25);
+    // A short break doesn't count as covering the role for the day.
+    expect(nextOwnerFatigue({ ...staffed, ownerCovering: ["chef"], todays: { reviews: [], covers: 30 }, ownerFatigue: 50 })).toBe(25);
     const tired = { ...s, staff: [], ownerFatigue: 100 };
     expect(ownerStats(tired).skill).toBeLessThan(ownerStats({ ...tired, ownerFatigue: 0 }).skill);
     expect(serverActionsPerTick(C, tired)).toBeLessThan(serverActionsPerTick(C, { ...tired, ownerFatigue: 0 }));
@@ -174,5 +178,19 @@ describe("GIVE_BREAK", () => {
     const svc = inService({ ...s, staff: s.staff.map((x) => ({ ...x, rota: [false, false, false, false, false, false, false] })) });
     expect(applyCommand(C, svc, { type: "GIVE_BREAK", staffId: s.staff[0]!.id }).state.staff).toBe(svc.staff);
     expect(applyCommand(C, svc, { type: "GIVE_BREAK", staffId: "ghost" }).state).toEqual(svc.log ? { ...svc, log: expect.any(Array) } : svc);
+  });
+});
+
+describe("review round 2: live ownerCovering", () => {
+  it("a lone chef's break makes ownerCovering include chef until they're back, but the day isn't 'owner covered'", () => {
+    let s = inService(ready());
+    const chef = s.staff.find((x) => x.role === "chef")!;
+    expect(s.staff.filter((x) => x.role === "chef")).toHaveLength(1);
+    s = step(s, { type: "GIVE_BREAK", staffId: chef.id });
+    expect(s.ownerCovering).toContain("chef");
+    for (let i = 0; i < 12 && s.phase === "service"; i++) s = tick(C, s).state;
+    expect(s.ownerCovering ?? []).not.toContain("chef");
+    while (s.phase === "service") s = tick(C, s).state;
+    expect(s.history.at(-1)!.ownerCovered).toEqual([]);
   });
 });
