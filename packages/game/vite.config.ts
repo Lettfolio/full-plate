@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 
 // The game always bundles the real @full-plate/sim-core and @full-plate/content workspace packages.
 export default defineConfig({
+  base: "./",
   plugins: [react()],
   test: {
     environment: "jsdom",
