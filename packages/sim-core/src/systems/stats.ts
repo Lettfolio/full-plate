@@ -20,7 +20,10 @@ export function bestAndWorst(dishes: Record<DishId, DishTally>): { best?: DishId
   let worst: DishId | undefined;
   let bestMargin = -Infinity;
   let worstQuality = Infinity;
-  for (const [id, d] of Object.entries(dishes)) {
+  // Sorted ids: object key order differs between a live tally (insertion order) and a reloaded save
+  // (serialize sorts keys), and ties here are order-dependent, so iterate canonically.
+  for (const id of Object.keys(dishes).sort()) {
+    const d = dishes[id]!;
     if (d.sold <= 0) continue;
     if (d.margin > bestMargin) [best, bestMargin] = [id, d.margin];
     const q = d.plated ? d.qualitySum / d.plated : 0;

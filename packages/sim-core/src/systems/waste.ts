@@ -36,7 +36,8 @@ function trimPrep(content: ContentPack, state: GameState, used: Record<string, n
   const rate = prepWasteRate(content, state);
   let stock = state.stock;
   let cost = 0;
-  for (const [id, qty] of Object.entries(used)) {
+  for (const id of Object.keys(used).sort()) { // canonical order (see stats.ts bestAndWorst)
+    const qty = used[id]!;
     const r = takeStock(stock, id, qty * rate, state.day);
     stock = r.stock;
     cost += valueOf(content, id, r.taken);

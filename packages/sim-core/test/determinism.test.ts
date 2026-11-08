@@ -1,3 +1,4 @@
+import { bestAndWorst } from "../src/systems/stats";
 import { describe, expect, it } from "vitest";
 import { deserialize, runDay, serialize, tick } from "../src/index";
 import { MIGRATIONS } from "../src/save";
@@ -38,6 +39,12 @@ describe("serialize", () => {
     const restored = deserialize(serialize(s));
     expect(serialize(restored)).toBe(serialize(s));
     expect(serialize(runDay(C, restored).state)).toBe(serialize(runDay(C, s).state));
+  });
+
+  it("tally key order does not change results (live insertion order vs sorted after reload)", () => {
+    const dishes = { b: { sold: 1, plated: 1, qualitySum: 50, margin: 300 }, a: { sold: 1, plated: 1, qualitySum: 50, margin: 300 } };
+    const sorted = { a: dishes.a, b: dishes.b };
+    expect(bestAndWorst(dishes)).toEqual(bestAndWorst(sorted));
   });
 
   it("round-trips after a long game", () => {
