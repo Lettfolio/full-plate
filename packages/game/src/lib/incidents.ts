@@ -50,7 +50,7 @@ export function incidentLines(result: DayResult | null, game: Pick<GameState, "i
     return {
       kind: s.kind,
       title: s.title ?? match?.title ?? INCIDENT_LABEL[s.kind],
-      choice: ignored ? "Left it" : opt?.label ?? s.resolution,
+      choice: ignored ? "Left it" : s.resolution === "porter" ? "Your porter handled it" : opt?.label ?? s.resolution,
       outcome: s.outcome,
       ignored,
     };

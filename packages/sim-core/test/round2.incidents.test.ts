@@ -281,3 +281,17 @@ describe("integration: contract polish (tone, disabled, reward, start log)", () 
     expect(Object.keys(reward as object).length).toBeGreaterThan(0);
   });
 });
+
+describe("review round 2: the porter earns its keep", () => {
+  it("a porter mops a spill before it needs a decision, and adds front-of-house actions", async () => {
+    const { serverActionsPerTick } = await import("../src/systems/system");
+    const base = inService(ready());
+    const porter = staffMember({ id: "p", role: "porter" });
+    const withPorter = { ...base, staff: [...base.staff, porter], customers: Array.from({ length: 6 }, (_, i) => seatedAt(`c${i}`, `T${i + 1}`, { qualitySum: 160 })) };
+    expect(serverActionsPerTick(C, withPorter)).toBeCloseTo(serverActionsPerTick(C, base) + 0.5);
+    let done: Incident | undefined;
+    for (let seed = 1; seed < 400 && !done; seed++) done = incidentSystem(C, withPorter, rng(seed)).state.incidents?.find((i) => i.kind === "spill");
+    expect(done!.resolution).toBe("porter");
+    expect(done!.outcome).toMatch(/porter mopped/);
+  });
+});

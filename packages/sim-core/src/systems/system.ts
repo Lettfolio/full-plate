@@ -1,6 +1,7 @@
 /** Common shapes and staff-effect helpers for systems: staff on the floor, the owner as cover, incident mods. */
 import {
   MANAGER_EXTRA_ACTIONS,
+  PORTER_EXTRA_ACTIONS,
   MOOD_EFFECT_RANGE,
   OWNER,
   OWNER_BOTH_SPEED_MULT,
@@ -82,7 +83,7 @@ export function ownerStats(state: GameState): OwnerStats {
 export function serverActionsPerTick(content: ContentPack, state: GameState): number {
   const servers = onShift(state, "server");
   const managers = onShift(state, "manager").length;
-  let actions = managers * MANAGER_EXTRA_ACTIONS;
+  let actions = managers * MANAGER_EXTRA_ACTIONS + onShift(state, "porter").length * PORTER_EXTRA_ACTIONS;
   if (servers.length === 0) return actions + ownerStats(state).actions;
   for (const s of servers) actions += SERVER_ACTIONS_BASE + effectiveSpeed(content, s) / SERVER_ACTIONS_SPEED_DIV;
   return actions;

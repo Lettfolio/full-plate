@@ -1,5 +1,6 @@
 /**
  * Headless balance runner.
+ *   Strategies: balanced (near-optimal script), typical (headline "normal" owner), cheap, premium, nohire.
  *   pnpm headless --days 365 --seeds 100 --strategy balanced|cheap|premium --difficulty normal [--content fixture|<module path>]
  * Plays scripted owners and prints survival, cash percentiles by month, covers/day and rating;
  * writes out/balance.csv (one row per seed × month).
@@ -15,7 +16,7 @@ import { stockQty } from "./stock";
 import type { Candidate, Command, ContentPack, Difficulty, GameState, StaffRole } from "./types";
 
 // ── strategies ──
-export type StrategyName = "balanced" | "cheap" | "premium" | "nohire";
+export type StrategyName = "balanced" | "cheap" | "premium" | "nohire" | "typical";
 
 export interface Strategy {
   name: StrategyName;
@@ -35,12 +36,20 @@ export interface Strategy {
   hireBy: "value" | "skill" | "wage";
   /** Never hire: the owner covers every role (the "is staff worth it?" baseline). */
   noHire?: boolean;
+  /**
+   * A typical first-time player rather than a near-optimal script: never trims weekend shifts after a bad fortnight,
+   * answers only every other incident, and restocks with a generous margin (overstock → spoilage).
+   */
+  typical?: boolean;
 }
 
 export const STRATEGIES: Record<StrategyName, Strategy> = {
   balanced: { name: "balanced", priceMult: 1, menuSize: 6, coverCash: 150_000, secondHireCash: 1_500_000, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value" },
-  cheap: { name: "cheap", priceMult: 0.85, menuSize: 5, coverCash: 250_000, secondHireCash: 2_500_000, tableCash: 3_000_000, stockDays: 1.1, hireBy: "wage" },
+  // Round 2 review: cheap keeps its 0.85× prices but hires like balanced (it collapsed on its script, CONTENT-NOTES).
+  cheap: { name: "cheap", priceMult: 0.85, menuSize: 6, coverCash: 150_000, secondHireCash: 2_500_000, tableCash: 3_000_000, stockDays: 1.1, hireBy: "value" },
   premium: { name: "premium", priceMult: 1.25, menuSize: 6, coverCash: 150_000, secondHireCash: 1_000_000, tableCash: 1_500_000, stockDays: 1.5, hireBy: "skill" },
+  // The headline "normal" owner: hires cover late, over-orders, never trims the rota, ignores half the incidents.
+  typical: { name: "typical", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true },
   nohire: { name: "nohire", priceMult: 1, menuSize: 6, coverCash: Infinity, secondHireCash: Infinity, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value", noHire: true },
 };
 
@@ -85,13 +94,18 @@ function isBusy(s: GameState): boolean {
   return recent.length >= 4 && recent.reduce((a, h) => a + h.walkouts, 0) / recent.length > BUSY_WALKOUTS;
 }
 
+/** Owner-covered days before the typical player hires cover for that role. */
+const TYPICAL_NOTICE_DAYS = 6;
+
 function staffing(content: ContentPack, s: GameState, strat: Strategy, step: Step): GameState {
   if (strat.noHire) return s;
   let cur = s;
   for (const role of ["chef", "server"] as const) {
     const have = cur.staff.filter((x) => x.role === role).length;
     // A second of each role first covers the first one's days off (so the owner isn't left alone), then the weekend.
-    const want = cur.cash > strat.coverCash ? 2 : 1;
+    // The typical player only notices after a few days of covering it themselves (it's in the evening copy).
+    const noticed = !strat.typical || cur.history.filter((h) => h.ownerCovered?.includes(role)).length >= TYPICAL_NOTICE_DAYS;
+    const want = cur.cash > strat.coverCash && noticed ? 2 : 1;
     if (have < want) cur = hireRole(content, cur, role, strat, step);
   }
   return cur;
@@ -120,7 +134,9 @@ function rotas(s: GameState, strat: Strategy, step: Step): GameState {
     if (team.length < 2) continue;
     const second = team[1]!;
     const has = second.rota.join() === COVER_PLUS_WEEKEND_ROTA.join();
-    const weekend = has ? profit >= 0 || cur.cash > strat.secondHireCash * 2 : cur.cash > strat.secondHireCash && profit > 0;
+    const weekend = strat.typical
+      ? has || cur.cash > strat.secondHireCash // once on, never trimmed
+      : has ? profit >= 0 || cur.cash > strat.secondHireCash * 2 : cur.cash > strat.secondHireCash && profit > 0;
     const rota = weekend ? COVER_PLUS_WEEKEND_ROTA : COVER_ROTA;
     if (second.rota.join() !== rota.join()) cur = step(cur, { type: "SET_ROTA", staffId: second.id, rota });
   }
@@ -176,10 +192,12 @@ export const INCIDENT_POLICY: Record<string, readonly string[]> = {
   staff_wobble: ["break"],
 };
 
-export function respondToIncidents(content: ContentPack, s: GameState): GameState {
+export function respondToIncidents(content: ContentPack, s: GameState, half = false): GameState {
   let cur = s;
   for (const inc of cur.incidents ?? []) {
     if (inc.resolution) continue;
+    // A typical player misses about half: deterministic by the incident's sequence number.
+    if (half && Number(inc.id.split("-").at(-1)) % 2 === 1) continue;
     for (const id of INCIDENT_POLICY[inc.kind] ?? []) {
       const opt = inc.options.find((o) => o.id === id);
       if (!opt || (opt.cost ?? 0) > cur.cash - 200_000) continue;
@@ -194,10 +212,10 @@ export function respondToIncidents(content: ContentPack, s: GameState): GameStat
 }
 
 /** One service, tick by tick, reacting to incidents as they start. */
-export function playService(content: ContentPack, s0: GameState, react: boolean): GameState {
+export function playService(content: ContentPack, s0: GameState, react: boolean, half = false): GameState {
   let s = s0.phase === "planning" ? applyCommand(content, s0, { type: "START_SERVICE" }).state : s0;
   while (s.phase === "service") {
-    if (react && (s.incidents ?? []).some((i) => !i.resolution)) s = respondToIncidents(content, s);
+    if (react && (s.incidents ?? []).some((i) => !i.resolution)) s = respondToIncidents(content, s, half);
     s = tick(content, s).state;
   }
   return s;
@@ -227,7 +245,7 @@ export function playOne(content: ContentPack, seed: number, days: number, strat:
     s = staffing(content, s, strat, step);
     s = rotas(s, strat, step);
     s = buyTables(content, s, strat, step);
-    s = playService(content, s, true);
+    s = playService(content, s, true, !!strat.typical);
     if (s.phase === "evening" || s.phase === "event") s = restock(content, s, strat, step);
     const h = s.history.at(-1);
     if (h) {

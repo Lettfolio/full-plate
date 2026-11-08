@@ -357,6 +357,13 @@ function maybeStart(content: ContentPack, state: GameState, rng: Rng): SystemRes
     const inc = buildIncident(content, state, rng, kind, ctx);
     let s: GameState = { ...state, incidents: [...(state.incidents ?? []), inc] };
     s = patchTally(s, { incidentsStarted: (t.incidentsStarted ?? 0) + 1, lastIncidentTick: state.tick });
+    // A porter on shift deals with spills before anyone has to decide (no floor time lost, a small bonus).
+    if (kind === "spill" && onShift(s, "porter").length) {
+      s = patchCustomer(s, inc.customerId, bonus(INCIDENT.spillCleanBonus));
+      const porter = onShift(s, "porter")[0]!;
+      const r = finish(s, inc, "porter", fill(INCIDENT_LINES.porterMopped, { name: porter.name, table: tableNo(inc.tableId) }), "good");
+      return { state: r.state, events: r.events };
+    }
     s = onStart(s, inc);
     return { state: s, events: [{ type: "INCIDENT_STARTED", incidentId: inc.id }, logEvent(state, inc.title, "info")] };
   }
@@ -596,6 +603,10 @@ function applyOption(content: ContentPack, state: GameState, inc: Incident, opti
     }
     case "equipment:fix": {
       const s = dropMods(state, inc.id);
+      // A porter does the fetching and holding: the fryer's back quicker (as fast as the engineer, but free).
+      if (onShift(s, "porter").length) {
+        return { state: addMod(s, { kind: "kitchen", value: INCIDENT.engineerKitchen, untilTick: s.tick + INCIDENT.engineerTicks, source: inc.id }) };
+      }
       const chef = onShift(s, "chef").sort((a, b) => effectiveSkill(content, b) - effectiveSkill(content, a))[0];
       return {
         state: addMod(s, { kind: "kitchen", value: INCIDENT.equipmentFixKitchen, untilTick: s.tick + INCIDENT.equipmentFixTicks, source: inc.id }),

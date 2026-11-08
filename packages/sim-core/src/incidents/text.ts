@@ -189,6 +189,8 @@ export const INCIDENT_LINES = {
   /** IncidentOption.disabled reasons (short: they sit under the button). */
   needTablesShort: "Needs two free, clean tables",
   cantAfford: "Not enough cash",
+  /** A porter on shift mops a spill before it needs a decision. */
+  porterMopped: "{name} the porter mopped up a spill at table {table} before anyone noticed.",
   noStockRemake: "There's no {dish} stock left to cook another one.",
   notOnFloor: "{name} isn't on the floor right now.",
   shortDeliveryLog: "Oh no, the {ingredient} delivery came {missing} short.",

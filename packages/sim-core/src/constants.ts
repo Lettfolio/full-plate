@@ -32,7 +32,7 @@ export const STARTING_PRESTIGE = 30;
 export const DIFFICULTY: Record<Difficulty, { footfallMult: number; costMult: number; canGoBust: boolean }> = {
   cosy: { footfallMult: 1.15, costMult: 0.9, canGoBust: false },
   normal: { footfallMult: 1, costMult: 1, canGoBust: true },
-  hard: { footfallMult: 0.88, costMult: 1.1, canGoBust: true },
+  hard: { footfallMult: 0.8, costMult: 1.2, canGoBust: true },
 };
 
 // ── arrivals ──
@@ -147,6 +147,8 @@ export const EAT_TICKS_BASE = 8;
 export const EAT_TICKS_PER_EXTRA_GUEST = 1;
 export const DIRTY_TICKS = 3;
 export const DIRTY_TICKS_WITH_PORTER = 1;
+/** [review round 2] A porter also helps front of house: extra FOH actions per tick (fetching, clearing, water). */
+export const PORTER_EXTRA_ACTIONS = 0.5;
 
 // ── front-of-house charm (0-100; 50 = neutral) ──
 /** Patience decay × (1 + WEIGHT × (50 − charm)/50), clamped to CHARM_PATIENCE_CLAMP. */
