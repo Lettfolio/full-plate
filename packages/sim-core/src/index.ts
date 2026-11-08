@@ -62,6 +62,7 @@ export * from "./types";
  * (Re-exported from constants.ts; values stay owned by sim-core.)
  */
 export {
+  COURSE_ORDER_CHANCE,
   DAYS_PER_MONTH,
   EMPLOYER_ONCOST,
   HIRE_CASH_BUFFER_SHIFTS,

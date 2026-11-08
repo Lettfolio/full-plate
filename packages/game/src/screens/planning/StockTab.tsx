@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Command, GameState, IngredientId } from "@full-plate/sim-core";
 import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
-import { expectedCovers, type StockNeed } from "./stockNeeds";
+import { expectedCovers, shortfall, type StockNeed } from "./stockNeeds";
 
 interface Props { game: GameState; send: (cmd: Command) => void; needs: StockNeed[] }
 
@@ -24,14 +24,7 @@ export function StockTab({ game, send, needs }: Props) {
   const rows = [...needs].sort((a, b) => (b.need > 0 ? 1 : 0) - (a.need > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   const basket = rows.reduce((a, r) => a + (qty[r.ingredientId] ?? 0) * r.unitCost, 0);
   const ordered = game.orders.reduce((a, o) => a + o.cost, 0);
-  const fillShort = () => {
-    const next: Record<IngredientId, number> = { ...qty };
-    for (const r of rows) {
-      const gap = r.need - r.onHand - r.incoming;
-      if (r.need > 0 && gap > 0) next[r.ingredientId] = Math.ceil(gap / 5) * 5;
-    }
-    setQty(next);
-  };
+  const fillShort = () => setQty({ ...qty, ...shortfall(rows) });
   const place = () => {
     for (const r of rows) {
       const q = qty[r.ingredientId] ?? 0;
@@ -44,8 +37,12 @@ export function StockTab({ game, send, needs }: Props) {
     <div className="stack">
       <div className="row">
         <h3 className="spacer">Larder & order sheet</h3>
-        <span className="small muted">Planning for about <b>{expectedCovers(game)}</b> covers · deliveries arrive tomorrow morning</span>
+        <span className="small muted">Planning for about <b>{expectedCovers(game)}</b> guests</span>
       </div>
+      <p className="callout">
+        <b>Orders arrive tomorrow morning</b>, not today — today's service uses what's in the larder now.
+        The easiest habit: restock from the evening screen after each service.
+      </p>
       <table className="stocktable">
         <thead>
           <tr>
@@ -91,7 +88,7 @@ export function StockTab({ game, send, needs }: Props) {
         <span>Basket <b><MoneyText pence={basket} /></b></span>
         <button className="btn btn--green" disabled={basket === 0} onClick={place}>Place order</button>
       </div>
-      <p className="xs faint">“Needed” is a rough guess from yesterday's covers spread across today's menu. Fresh food spoils — don't over-order the short-life stuff.</p>
+      <p className="xs faint">“Needed” is a rough guess: the busiest recent day, one main per guest plus some starters, sides, desserts and drinks. Prices shown are base prices; seasonal discounts apply at checkout. Fresh food spoils — don't over-order the short-life stuff.</p>
     </div>
   );
 }

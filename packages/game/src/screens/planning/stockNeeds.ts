@@ -1,5 +1,6 @@
-import type { ContentPack, GameState, IngredientId } from "@full-plate/sim-core";
-import { ingredientUsage } from "../../lib/content";
+import type { ContentPack, DishCourse, GameState, IngredientId } from "@full-plate/sim-core";
+import { COURSE_ORDER_CHANCE } from "../../sim";
+import { dishById, ingredientUsage } from "../../lib/content";
 
 export interface StockNeed {
   ingredientId: IngredientId;
@@ -15,24 +16,52 @@ export interface StockNeed {
   usedBy: string[];
 }
 
-/** Guess at tomorrow's covers: yesterday's covers if we have them, otherwise a cautious 40. */
+/**
+ * Guess at the next service's guests: the busiest of the last week (covers + walk-outs, i.e. demand,
+ * not what we managed to serve) plus 10%; a cautious 40 before the first service. Using only
+ * yesterday collapsed the forecast after a sold-out day and caused feast/famine stock cycles.
+ */
 export function expectedCovers(game: GameState): number {
-  const last = game.history.at(-1);
-  return Math.max(20, Math.round(last ? last.covers * 1.1 : 40));
+  const recent = game.history.slice(-7);
+  if (!recent.length) return 40;
+  const demand = Math.max(...recent.map((d) => d.covers + d.walkouts));
+  return Math.max(20, Math.round(demand * 1.1));
 }
 
 /**
- * Heuristic only — the sim owns real demand. Assumes each cover orders ~1 dish, spread evenly
- * across active dishes. Good enough for a "you'll probably run out" hint.
+ * Plates of each dish per guest, following sim-core's ordering: every guest picks one main, plus each
+ * other course with COURSE_ORDER_CHANCE; demand within a course is split evenly (a heuristic — the sim
+ * weights by appeal and price). With no mains on the menu each guest orders one dish of any kind.
  */
+export function platesPerGuest(content: ContentPack, game: GameState): Map<string, number> {
+  const active = game.menu.filter((m) => m.active && !(game.eightySixed ?? []).includes(m.dishId));
+  const byCourse = new Map<DishCourse, string[]>();
+  for (const m of active) {
+    const d = dishById(content, m.dishId);
+    if (d) byCourse.set(d.course, [...(byCourse.get(d.course) ?? []), d.id]);
+  }
+  const out = new Map<string, number>();
+  const mains = byCourse.get("main");
+  if (!mains) {
+    for (const m of active) out.set(m.dishId, 1 / active.length);
+    return out;
+  }
+  for (const [course, ids] of byCourse) {
+    const perGuest = course === "main" ? 1 : COURSE_ORDER_CHANCE[course] ?? 0;
+    for (const id of ids) out.set(id, perGuest / ids.length);
+  }
+  return out;
+}
+
+/** Heuristic only — the sim owns real demand. Good enough for "you'll probably run out". */
 export function stockNeeds(content: ContentPack, game: GameState): StockNeed[] {
   const usage = ingredientUsage(content, game);
-  const activeCount = Math.max(1, game.menu.filter((m) => m.active).length);
-  const perDish = expectedCovers(game) / activeCount;
+  const guests = expectedCovers(game);
+  const share = platesPerGuest(content, game);
   return content.ingredients.map((ing) => {
     const st = game.stock.find((s) => s.ingredientId === ing.id);
     const uses = usage.get(ing.id) ?? [];
-    const need = Math.ceil(uses.reduce((a, u) => a + u.qty * perDish, 0));
+    const need = Math.ceil(uses.reduce((a, u) => a + u.qty * (share.get(u.dishId) ?? 0) * guests, 0));
     return {
       ingredientId: ing.id,
       name: ing.name,
@@ -45,4 +74,14 @@ export function stockNeeds(content: ContentPack, game: GameState): StockNeed[] {
       usedBy: uses.map((u) => content.dishes.find((d) => d.id === u.dishId)?.name ?? u.dishId),
     };
   });
+}
+
+/** Portions to order so that on hand + incoming covers the forecast (rounded up to 5s). */
+export function shortfall(needs: StockNeed[]): Record<IngredientId, number> {
+  const out: Record<IngredientId, number> = {};
+  for (const r of needs) {
+    const gap = r.need - r.onHand - r.incoming;
+    if (r.need > 0 && gap > 0) out[r.ingredientId] = Math.ceil(gap / 5) * 5;
+  }
+  return out;
 }

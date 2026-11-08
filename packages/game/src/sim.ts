@@ -24,6 +24,7 @@ export const {
   HIRE_CASH_BUFFER_SHIFTS,
   SHIFT_HOURS,
   MAX_MENU_ITEMS,
+  COURSE_ORDER_CHANCE,
   weekdayOf,
   isWeekend,
   monthOf,

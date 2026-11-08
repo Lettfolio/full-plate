@@ -1,5 +1,7 @@
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
+import type { Command } from "@full-plate/sim-core";
 import { content } from "../sim";
+import { shortfall, stockNeeds } from "./planning/stockNeeds";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
 import { Bar } from "../components/Bar";
@@ -14,6 +16,33 @@ interface Props {
   /** END_DAY on a normal evening; opens the event modal when tomorrow has a card (phase "event"). */
   onNext: () => void;
   nextLabel: string;
+  send: (cmd: Command) => void;
+}
+
+/** Orders tomorrow's shortfall now (ORDER_STOCK is allowed in the evening; deliveries land next morning). */
+function Restock({ game, send }: { game: GameState; send: (cmd: Command) => void }) {
+  const needs = stockNeeds(content, game);
+  const gap = shortfall(needs);
+  const lines = Object.entries(gap);
+  const cost = lines.reduce((a, [id, q]) => a + q * (needs.find((n) => n.ingredientId === id)?.unitCost ?? 0), 0);
+  const ordered = game.orders.length > 0;
+  return (
+    <div className="card restock">
+      <div className="spacer">
+        <h3>Stock for tomorrow</h3>
+        <div className="small muted">
+          {lines.length === 0
+            ? ordered ? "Order placed — it arrives in the morning." : "The larder looks fine for tomorrow."
+            : <>{lines.length} ingredient{lines.length > 1 ? "s" : ""} will run short. Deliveries arrive tomorrow morning.</>}
+        </div>
+      </div>
+      {lines.length > 0 && (
+        <button className="btn btn--green" onClick={() => lines.forEach(([ingredientId, qty]) => send({ type: "ORDER_STOCK", ingredientId, qty }))}>
+          Restock for tomorrow · ≈<MoneyText pence={cost} whole />
+        </button>
+      )}
+    </div>
+  );
 }
 
 const SOURCE: Record<Review["source"], { icon: string; label: string }> = {
@@ -33,7 +62,7 @@ export function Delta({ v, digits = 1, suffix = "" }: { v: number; digits?: numb
   );
 }
 
-export function Evening({ game, result, onNext, nextLabel }: Props) {
+export function Evening({ game, result, onNext, nextLabel, send }: Props) {
   if (!result) {
     return (
       <div className="page">
@@ -64,6 +93,7 @@ export function Evening({ game, result, onNext, nextLabel }: Props) {
         </div>
 
         <div className="stack">
+          {game.phase !== "gameover" && <Restock game={game} send={send} />}
           <div className="card">
             <div className="card__title"><h3>Today's takings</h3><span className="xs faint">% of revenue</span></div>
             <table className="pnl">

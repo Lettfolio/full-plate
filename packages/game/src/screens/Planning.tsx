@@ -8,6 +8,7 @@ import { StockTab } from "./planning/StockTab";
 import { RestaurantTab } from "./planning/RestaurantTab";
 import { stockNeeds } from "./planning/stockNeeds";
 import { weekdayIndex, WEEKDAYS } from "../lib/calendar";
+import { unplateable } from "../lib/plateable";
 
 type TabId = "menu" | "staff" | "stock" | "restaurant";
 
@@ -34,6 +35,8 @@ export function Planning({ game, send }: Props) {
   if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: "Hire a chef (or you'll cook yourself)", tone: "bad", tab: "staff" });
   else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
   if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll be serving`, tone: "warn", tab: "staff" });
+  const noStock = unplateable(content, game).length;
+  if (noStock) hints.push({ text: `${noStock} dish${noStock > 1 ? "es" : ""} out of stock today — order in the evening`, tone: "bad", tab: "stock" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
   if (!hints.length) hints.push({ text: "Everything looks ready", tone: "good" });
 

@@ -91,6 +91,7 @@ export function App() {
             result={game.history.at(-1) ?? app.lastResult}
             onNext={() => (game.phase === "event" ? setEventOpen(true) : send({ type: "END_DAY" }))}
             nextLabel={game.phase === "event" ? "Read the morning post →" : "Next day →"}
+            send={send}
           />
         )}
       </main>
