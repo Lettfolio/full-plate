@@ -35,7 +35,9 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
   return (
     <section
       className={`incident ${urgent ? "incident--urgent" : ""}`}
+      data-incident={inc.id}
       aria-labelledby={`inc-${inc.id}`}
+      aria-describedby={`inc-${inc.id}-body`}
       onMouseEnter={() => onFocusSubject?.(inc.id)}
       onMouseLeave={() => onFocusSubject?.(null)}
     >
@@ -43,7 +45,7 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
         <span className="incident__icon" aria-hidden="true">{INCIDENT_ICON[inc.kind] ?? "❗"}</span>
         <div className="spacer">
           <h4 id={`inc-${inc.id}`}>{inc.title}</h4>
-          <p className="small">{inc.body}</p>
+          <p className="small" id={`inc-${inc.id}-body`}>{inc.body}</p>
         </div>
       </div>
       <div className="incident__timer" role="meter" aria-label="Time to decide" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(f * 100)}>

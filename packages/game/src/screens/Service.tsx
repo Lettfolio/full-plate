@@ -110,6 +110,16 @@ export function Service({ game, app, send, runTicks, notify }: Props) {
     lastAlert.current = app.incidentAlert.seq;
     const next = speedAfterIncident(live.current.speed, settings.autoPause);
     if (next.speed !== live.current.speed) setSpeed(next.speed);
+    // Paused for a decision: put keyboard focus on the new card's first available option (only if focus isn't
+    // already in a text field), so Tab/Enter users and screen readers land on the choice.
+    if (next.speed === 0 && app.incidentAlert.incidentId) {
+      const id = app.incidentAlert.incidentId;
+      window.requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+        document.querySelector<HTMLButtonElement>(`[data-incident="${CSS.escape(id)}"] .incident__opt:not(:disabled)`)?.focus();
+      });
+    }
     if (next.toast) {
       const inc = game.incidents?.find((i) => i.id === app.incidentAlert.incidentId);
       notify?.(`${inc?.title ?? "Something's come up"} — see the right-hand panel.`);
