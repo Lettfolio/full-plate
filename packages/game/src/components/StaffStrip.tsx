@@ -26,7 +26,7 @@ export function StaffStrip({ game, send }: Props) {
               className="btn btn--ghost btn--sm"
               disabled={resting}
               onClick={() => send({ type: "GIVE_BREAK", staffId: s.id })}
-              title={resting ? `${first} is on a break` : `Send ${first} for a ${BREAK_TICKS ? `${BREAK_TICKS * MINUTES_PER_TICK}-minute` : "short"} break: less tired, but you're a pair of hands down meanwhile`}
+              title={resting ? `${first} is on a break` : `Send ${first} for a ${BREAK_TICKS * MINUTES_PER_TICK}-minute break: less tired, but you're a pair of hands down meanwhile`}
               aria-label={resting ? `${first} is on a break` : `Give ${first} a break`}
             >
               {resting ? "☕ On break" : "Break"}

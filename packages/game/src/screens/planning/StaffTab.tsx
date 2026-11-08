@@ -22,7 +22,7 @@ function TraitTags({ ids }: { ids: string[] }) {
 
 function TrainButton({ s, game, today, send }: { s: Staff; game: GameState; today: number; send: Props["send"] }) {
   const blocked = trainBlocker(game, s, today);
-  const poor = TRAINING_FEE !== undefined && game.cash < TRAINING_FEE;
+  const poor = game.cash < TRAINING_FEE;
   const why = blocked ?? (poor ? "Not enough cash for the course" : null);
   const first = s.name.split(" ")[0];
   if (isTrainingToday(game, s)) return <span className="tag tag--train">📚 Training today</span>;
@@ -33,9 +33,9 @@ function TrainButton({ s, game, today, send }: { s: Staff; game: GameState; toda
         disabled={!!why}
         aria-describedby={why ? `train-why-${s.id}` : undefined}
         onClick={() => send({ type: "TRAIN", staffId: s.id })}
-        title={why ?? `A day on a course: ${first} gains ${TRAINING_SKILL_GAIN ? `${TRAINING_SKILL_GAIN[0]}–${TRAINING_SKILL_GAIN[1]} skill` : "skill"} but isn't working today (still paid)`}
+        title={why ?? `A day on a course: ${first} gains ${TRAINING_SKILL_GAIN[0]}–${TRAINING_SKILL_GAIN[1]} skill but isn't working today (still paid)`}
       >
-        📚 Train · {TRAINING_FEE !== undefined ? <MoneyText pence={TRAINING_FEE} whole /> : "£—"}
+        📚 Train · <MoneyText pence={TRAINING_FEE} whole />
       </button>
       {why && <span id={`train-why-${s.id}`} className="xs muted train__why">{why}</span>}
     </span>

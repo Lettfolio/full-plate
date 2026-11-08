@@ -35,23 +35,19 @@ export function onFloorToday(game: { day: number; staff: Staff[] }, weekday: num
   return game.staff.filter((s) => s.rota[weekday] && !isTrainingToday(game, s));
 }
 
-/**
- * Round-2 staff fields the sim agent is adding (`trainingDay`, `breakUntilTick`). Read loosely so the UI
- * works before they exist in the contract and on saves from round 1.
- */
-type R2Staff = Staff & { trainingDay?: number; breakUntilTick?: number };
+/** Round-2 staff fields (`trainingDay`, `breakUntilTick`); both optional, so round-1 saves read as "no". */
 export function isTrainingToday(game: { day: number }, s: Staff): boolean {
-  return (s as R2Staff).trainingDay === game.day;
+  return s.trainingDay === game.day;
 }
 export function onBreak(game: { tick: number }, s: Staff): boolean {
-  const until = (s as R2Staff).breakUntilTick;
-  return typeof until === "number" && game.tick < until;
+  return typeof s.breakUntilTick === "number" && game.tick < s.breakUntilTick;
 }
 
 /** Why `s` can't be sent on a training day right now, or null if they can. */
 export function trainBlocker(game: { day: number; staff: Staff[]; phase: string }, s: Staff, weekday: number): string | null {
   if (game.phase !== "planning") return "Training is booked in the morning";
   if (isTrainingToday(game, s)) return `${s.name.split(" ")[0]} is training today`;
+  if (s.skill >= s.potential) return `${s.name.split(" ")[0]} has learned all a course can teach`;
   const floor = onFloorToday(game, weekday);
   if (floor.some((x) => x.id === s.id) && floor.filter((x) => x.role === s.role).length === 1) {
     return `${s.name.split(" ")[0]} is the only ${ROLE_LABEL[s.role].toLowerCase()} on today — you'd have to cover`;

@@ -1,6 +1,6 @@
-import type { ContentPack, DishCourse, GameState, IngredientId } from "@full-plate/sim-core";
-import { COURSE_ORDER_CHANCE, content as pack, simSuggestedOrder } from "../../sim";
-import { dishById, ingredientUsage } from "../../lib/content";
+import type { ContentPack, GameState, IngredientId } from "@full-plate/sim-core";
+import { content as pack, expectedCovers as simExpectedCovers, forecastNeeds, suggestedOrder } from "../../sim";
+import { ingredientUsage } from "../../lib/content";
 
 export interface StockNeed {
   ingredientId: IngredientId;
@@ -11,65 +11,26 @@ export interface StockNeed {
   incoming: number;
   /** Age in days of the oldest batch. */
   age: number;
-  /** Rough portions needed for one day's service with the current menu (0 if unused). */
+  /** Portions the sim's forecast needs for the next service with the current menu (0 if unused). */
   need: number;
   usedBy: string[];
 }
 
-/**
- * Guess at the next service's guests: the busiest of the last week (covers + walk-outs, i.e. demand,
- * not what we managed to serve) plus 10%; a cautious 40 before the first service. Using only
- * yesterday collapsed the forecast after a sold-out day and caused feast/famine stock cycles.
- */
+/** Guests sim-core's forecast plans for at the next service. */
 export function expectedCovers(game: GameState): number {
-  const recent = game.history.slice(-7);
-  if (!recent.length) return 40;
-  const demand = Math.max(...recent.map((d) => d.covers + d.walkouts));
-  return Math.max(20, Math.round(demand * 1.1));
+  return simExpectedCovers(pack, game);
 }
 
 /**
- * Plates of each dish per guest, following sim-core's ordering: every guest picks one main, plus each
- * other course with COURSE_ORDER_CHANCE; demand within a course is split evenly (a heuristic — the sim
- * weights by appeal and price). With no mains on the menu each guest orders one dish of any kind.
+ * One row per ingredient for the Stock tab. `need` is sim-core's per-ingredient forecast (`forecastNeeds`), the
+ * same numbers `suggestedOrder` is built from, so "needed" and "Fill what's short" always agree.
  */
-export function platesPerGuest(content: ContentPack, game: GameState): Map<string, number> {
-  // Not filtered by eightySixed: that list is today-only (and in the evening it is exactly the dishes
-  // that ran out, which are the ones tomorrow's order must cover).
-  const active = game.menu.filter((m) => m.active);
-  const byCourse = new Map<DishCourse, string[]>();
-  for (const m of active) {
-    const d = dishById(content, m.dishId);
-    if (d) byCourse.set(d.course, [...(byCourse.get(d.course) ?? []), d.id]);
-  }
-  const out = new Map<string, number>();
-  const mains = byCourse.get("main");
-  if (!mains) {
-    for (const m of active) out.set(m.dishId, 1 / active.length);
-    return out;
-  }
-  for (const [course, ids] of byCourse) {
-    const perGuest = course === "main" ? 1 : COURSE_ORDER_CHANCE[course] ?? 0;
-    for (const id of ids) out.set(id, perGuest / ids.length);
-  }
-  // Favourites sell more than an even split: use each dish's own recent plates per guest when higher.
-  for (const m of active) {
-    const days = m.recent?.length ?? 0;
-    const guests = game.history.slice(-days).reduce((a, d) => a + d.covers, 0);
-    if (days > 0 && guests > 0) out.set(m.dishId, Math.max(out.get(m.dishId) ?? 0, m.sold7d / guests));
-  }
-  return out;
-}
-
-/** Heuristic only — the sim owns real demand. Good enough for "you'll probably run out". */
 export function stockNeeds(content: ContentPack, game: GameState): StockNeed[] {
   const usage = ingredientUsage(content, game);
-  const guests = expectedCovers(game);
-  const share = platesPerGuest(content, game);
+  const need = new Map(forecastNeeds(content, game).map((n) => [n.ingredientId, n.need]));
   return content.ingredients.map((ing) => {
     const st = game.stock.find((s) => s.ingredientId === ing.id);
     const uses = usage.get(ing.id) ?? [];
-    const need = Math.ceil(uses.reduce((a, u) => a + u.qty * (share.get(u.dishId) ?? 0) * guests, 0));
     return {
       ingredientId: ing.id,
       name: ing.name,
@@ -78,28 +39,13 @@ export function stockNeeds(content: ContentPack, game: GameState): StockNeed[] {
       onHand: st?.qty ?? 0,
       incoming: game.orders.filter((o) => o.ingredientId === ing.id).reduce((a, o) => a + o.qty, 0),
       age: st && st.qty > 0 ? Math.max(0, game.day - st.oldestDay) : 0,
-      need,
+      need: need.get(ing.id) ?? 0,
       usedBy: uses.map((u) => content.dishes.find((d) => d.id === u.dishId)?.name ?? u.dishId),
     };
   });
 }
 
-/** Portions to order so that on hand + incoming covers the forecast (rounded up to 5s). */
-export function shortfall(needs: StockNeed[]): Record<IngredientId, number> {
-  const out: Record<IngredientId, number> = {};
-  for (const r of needs) {
-    const gap = r.need - r.onHand - r.incoming;
-    if (r.need > 0 && gap > 0) out[r.ingredientId] = Math.ceil(gap / 5) * 5;
-  }
-  return out;
-}
-
-/**
- * Tomorrow's order as [ingredientId, qty] lines: sim-core's `suggestedOrder` once it exists, else the
- * UI's own forecast above. Used by the evening "Restock for tomorrow" and the Stock tab's "Fill what's short".
- */
+/** Tomorrow's order as [ingredientId, qty] lines, from sim-core's `suggestedOrder`. */
 export function restockLines(game: GameState): [IngredientId, number][] {
-  const sim = simSuggestedOrder(game);
-  if (sim) return sim.map((l) => [l.ingredientId, l.qty]);
-  return Object.entries(shortfall(stockNeeds(pack, game)));
+  return suggestedOrder(pack, game).map((l) => [l.ingredientId, l.qty]);
 }

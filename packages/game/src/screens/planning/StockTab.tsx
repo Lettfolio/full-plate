@@ -4,7 +4,7 @@ import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
 import { expectedCovers, restockLines, type StockNeed } from "./stockNeeds";
 
-interface Props { game: GameState; send: (cmd: Command) => void; needs: StockNeed[] }
+interface Props { game: GameState; send: (cmd: Command) => void; needs: StockNeed[]; /** Day 0: opening stock arrives at "Open", so nothing reads as short. */ opening?: boolean }
 
 function Shelf({ days, age }: { days: number; age: number }) {
   const left = Math.max(0, days - age);
@@ -19,7 +19,7 @@ function Shelf({ days, age }: { days: number; age: number }) {
   );
 }
 
-export function StockTab({ game, send, needs }: Props) {
+export function StockTab({ game, send, needs, opening = false }: Props) {
   const [qty, setQty] = useState<Record<IngredientId, number>>({});
   const rows = [...needs].sort((a, b) => (b.need > 0 ? 1 : 0) - (a.need > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   const basket = rows.reduce((a, r) => a + (qty[r.ingredientId] ?? 0) * r.unitCost, 0);
@@ -39,6 +39,9 @@ export function StockTab({ game, send, needs }: Props) {
         <h3 className="spacer">Larder & order sheet</h3>
         <span className="small muted">Planning for about <b>{expectedCovers(game)}</b> guests</span>
       </div>
+      {opening && (
+        <p className="callout" role="note"><b>First day:</b> today's opening stock is bought for you when you open. Anything you order here is for tomorrow.</p>
+      )}
       <p className="callout">
         <b>Orders arrive tomorrow morning</b>, not today — today's service uses what's in the larder now.
         The easiest habit: restock from the evening screen after each service.
@@ -59,7 +62,7 @@ export function StockTab({ game, send, needs }: Props) {
           {rows.map((r) => {
             const q = qty[r.ingredientId] ?? 0;
             const have = r.onHand + r.incoming;
-            const state = r.need === 0 ? "idle" : have >= r.need ? "ok" : "short";
+            const state = r.need === 0 ? "idle" : have >= r.need ? "ok" : opening ? "opening" : "short";
             return (
               <tr key={r.ingredientId}>
                 <td>
@@ -70,7 +73,7 @@ export function StockTab({ game, send, needs }: Props) {
                 <td><Shelf days={r.shelfLifeDays} age={r.age} /></td>
                 <td>
                   <span className={`need need--${state}`}>
-                    {state === "idle" ? "not on menu" : state === "ok" ? `✓ ~${r.need} needed` : `▲ ~${r.need} needed, short ${r.need - have}`}
+                    {state === "idle" ? "not on menu" : state === "ok" ? `✓ ~${r.need} needed` : state === "opening" ? `~${r.need} needed · opening stock` : `▲ ~${r.need} needed, short ${r.need - have}`}
                   </span>
                 </td>
                 <td className="r"><MoneyText pence={r.unitCost} /></td>
@@ -82,7 +85,7 @@ export function StockTab({ game, send, needs }: Props) {
         </tbody>
       </table>
       <div className="row">
-        <button className="btn btn--ghost" onClick={fillShort}>Fill what's short</button>
+        <button className="btn btn--ghost" onClick={fillShort}>{opening ? "Fill for tomorrow" : "Fill what's short"}</button>
         {ordered > 0 && <span className="small muted">Already ordered today: <MoneyText pence={ordered} /></span>}
         <span className="spacer" />
         <span>Basket <b><MoneyText pence={basket} /></b></span>

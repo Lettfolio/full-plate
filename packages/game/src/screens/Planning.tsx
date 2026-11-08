@@ -4,7 +4,10 @@ import { GoalsCard } from "../components/GoalsCard";
 import { HelpPopover } from "../components/HelpPopover";
 import { GOAL_TAB } from "../lib/goals";
 import { Tabs, type TabDef } from "../components/Tabs";
-import { content } from "../sim";
+import { content, openingStockBudget, OWNER_FATIGUE_WARNING } from "../sim";
+import { FatigueNote } from "../components/FatigueNote";
+import { MoneyText } from "../components/MoneyText";
+import { isOpeningDay } from "../lib/calendar";
 import { MenuTab } from "./planning/MenuTab";
 import { StaffTab } from "./planning/StaffTab";
 import { StockTab } from "./planning/StockTab";
@@ -35,7 +38,11 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
   const chefs = onShift.filter((s) => s.role === "chef").length;
   const servers = onShift.filter((s) => s.role === "server").length;
   const needs = useMemo(() => stockNeeds(content, game), [game]);
-  const short = needs.filter((n) => n.need > 0 && n.onHand < n.need).length;
+  // Day 0: the larder is empty until "Open", when the sim buys opening stock, so nothing is "short" yet.
+  const opening = isOpeningDay(game);
+  const short = opening ? 0 : needs.filter((n) => n.need > 0 && n.onHand < n.need).length;
+  const shortDelivery = game.shortDelivery;
+  const shortName = shortDelivery ? content.ingredients.find((i) => i.id === shortDelivery.ingredientId)?.name ?? shortDelivery.ingredientId : "";
 
   const hints: Hint[] = [];
   if (!active.length) hints.push({ text: "Step 1: add dishes to your menu", tone: "bad", tab: "menu" });
@@ -43,7 +50,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
   if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: "Hire a chef (or you'll cook yourself)", tone: "bad", tab: "staff" });
   else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
   if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll be serving`, tone: "warn", tab: "staff" });
-  const noStock = unplateable(content, game).length;
+  const noStock = opening ? 0 : unplateable(content, game).length;
   if (noStock) hints.push({ text: `${noStock} dish${noStock > 1 ? "es" : ""} out of stock today — order in the evening`, tone: "bad", tab: "stock" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
   if (!hints.length) hints.push({ text: "Everything looks ready", tone: "good" });
@@ -70,6 +77,21 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
         <div className="planning__help"><HelpPopover /></div>
       </div>
+      {(opening || shortDelivery || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING) && (
+        <div className="planning__notices">
+          {opening && game.menu.length > 0 && (
+            <p className="callout" role="note">
+              <b>📦 Your larder is empty — that's fine.</b> Opening stock for today's menu is bought automatically when you open (up to <MoneyText pence={openingStockBudget(content)} whole />). Orders you place now arrive tomorrow morning.
+            </p>
+          )}
+          {shortDelivery && (
+            <p className="callout callout--warn" role="note">
+              <b>🚚 The {shortName} delivery came {shortDelivery.missing} portion{shortDelivery.missing === 1 ? "" : "s"} short</b> this morning (the supplier refunded it). Dishes that use it may run out during service.
+            </p>
+          )}
+          {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={() => setTab("staff")} />}
+        </div>
+      )}
       <div className={`planning__body ${hasGoals ? "planning__body--goals" : ""}`}>
         {hasGoals && (
           <aside className="planning__side" aria-label="Goals">
@@ -84,7 +106,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "menu" && <MenuTab game={game} send={send} />}
           {tab === "staff" && <StaffTab game={game} send={send} />}
-          {tab === "stock" && <StockTab game={game} send={send} needs={needs} />}
+          {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
         </div>
       </div>

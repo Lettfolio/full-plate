@@ -1,6 +1,7 @@
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
-import { content, TABLE_COST } from "../sim";
+import { content, OWNER_FATIGUE_WARNING, TABLE_COST } from "../sim";
+import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
 import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
 import { incidentLines, INCIDENT_ICON } from "../lib/incidents";
@@ -91,10 +92,11 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send }: Props
     );
   }
   const r = result;
-  // profit = revenue − vat − food − prep waste − spoilage − labour − rent − overheads − loan (sim-core stats.ts).
+  // profit = revenue − vat − food − prep waste − spoilage − labour − rent − overheads − incident costs − loan (sim-core stats.ts).
   // Plate waste is already inside food cost, so it is shown as a note, not a line.
   const vat = r.vat ?? 0;
   const overheads = r.overheads ?? 0;
+  const incidentCosts = r.incidentCosts ?? 0;
   const wasteCost = r.waste.prep + r.waste.spoil;
   const ofRev = (v: number) => (r.revenue > 0 ? pct(v / r.revenue) : "—");
   const good = r.profit >= 0;
@@ -132,6 +134,7 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send }: Props
               {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>Hire →</button>}
             </div>
           )}
+          {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && game.phase !== "gameover" && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={onGoTo ? () => onGoTo("staff") : undefined} />}
           {moreTables && (
             <div className="card tip">
               <span className="tip__icon" aria-hidden="true">🪑</span>
@@ -152,6 +155,7 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send }: Props
                 <tr className="pnl__cost"><td>Staff wages <span className="pnl__pct">{ofRev(r.labourCost)}</span></td><td><MoneyText pence={-r.labourCost} /></td></tr>
                 <tr className="pnl__cost"><td>Rent (today's share)</td><td><MoneyText pence={-r.rent} /></td></tr>
                 <tr className="pnl__cost"><td>Bills &amp; card fees</td><td><MoneyText pence={-overheads} /></td></tr>
+                {incidentCosts > 0 && <tr className="pnl__cost"><td>Problems sorted <span className="pnl__pct">call-ins, engineer, treats</span></td><td><MoneyText pence={-incidentCosts} /></td></tr>}
                 <tr className="pnl__cost"><td>Loan repayment</td><td><MoneyText pence={-r.loanPayment} /></td></tr>
                 <tr className="pnl__cost"><td>Waste <span className="pnl__pct">{ofRev(wasteCost)}</span></td><td><MoneyText pence={-wasteCost} /></td></tr>
                 <tr className="pnl__sub"><td>Prep trimmings</td><td><MoneyText pence={-r.waste.prep} /></td></tr>

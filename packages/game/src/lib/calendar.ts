@@ -26,3 +26,8 @@ export function clockLabel(tick: number): string {
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+
+/** The first morning of a new game: the larder is empty until the first "Open" buys opening stock (sim-core isFirstService). */
+export function isOpeningDay(game: { day: number; history: readonly unknown[]; stats: { daysOpen: number } }): boolean {
+  return game.day === 0 && game.history.length === 0 && game.stats.daysOpen === 0;
+}

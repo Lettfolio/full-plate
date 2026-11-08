@@ -600,3 +600,11 @@ button, input { font: inherit; color: inherit; }
   .incident, .goals--spotlight, .goal--done, .popover { animation: none; }
   .incident--leaving { animation: none; opacity: 0.5; }
 }
+
+/* ═══════════ integration (round 2) ═══════════ */
+.planning__notices { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.callout--warn { background: #fde9e4; border-color: var(--tomato); }
+.need--opening { color: var(--ink-soft); }
+.incident__opt:disabled { cursor: not-allowed; background: var(--cream); border-color: var(--line-strong); box-shadow: none; transform: none; color: var(--ink-soft); }
+.incident__opt:disabled .incident__optlabel { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.incident__optwhy { grid-column: 1 / -1; font-size: var(--fs-xs); font-weight: 700; color: var(--tomato-deep); }

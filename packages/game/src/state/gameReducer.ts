@@ -1,4 +1,4 @@
-import type { Command, DayResult, GameState, LogEntry, SimEvent } from "@full-plate/sim-core";
+import type { Command, DayResult, GameState, Goal, LogEntry, SimEvent } from "@full-plate/sim-core";
 import { applyCommand, content, newGame, tick } from "../sim";
 import { formatPence } from "../lib/format";
 
@@ -60,19 +60,21 @@ function withToast(s: AppState, text: string, tone: ToastTone): AppState {
   return { ...s, toast: { id: (s.toast?.id ?? 0) + 1, text, tone } };
 }
 
-/** Ticker kind for a resolved incident: letting it time out is bad; a chosen option is good unless its outcome says otherwise. */
+const TONE_KIND: Record<"good" | "bad" | "neutral", LogEntry["kind"]> = { good: "good", bad: "bad", neutral: "info" };
+
+/** Fallback ticker kind when INCIDENT_RESOLVED has no `tone` (round-1/early round-2 sims): a guess from the text. */
 export function incidentOutcomeKind(resolution: string, outcome: string): LogEntry["kind"] {
   if (resolution === "ignored") return "bad";
   return /\b(walked out|left|angry|furious|worse|lost|complain|bad review|upset|quit)\b/i.test(outcome) ? "bad" : "good";
 }
 
-function goalToastText(game: GameState | null, goalId: string): string {
+function goalToastText(game: GameState | null, goalId: string, paid?: Goal["reward"]): string {
   const g = game?.goals?.find((x) => x.id === goalId);
-  if (!g) return "🎉 Goal complete!";
+  const reward = paid ?? g?.reward;
   const bits: string[] = [];
-  if (g.reward?.cash) bits.push(`+${formatPence(g.reward.cash, { whole: true })}`);
-  if (g.reward?.popularity) bits.push(`+${g.reward.popularity} popularity`);
-  return `🎉 Goal complete: ${g.title}${bits.length ? ` · ${bits.join(", ")}` : ""}`;
+  if (reward?.cash) bits.push(`+${formatPence(reward.cash, { whole: true })}`);
+  if (reward?.popularity) bits.push(`+${reward.popularity} popularity`);
+  return `🎉 Goal complete${g ? `: ${g.title}` : "!"}${bits.length ? ` · ${bits.join(", ")}` : ""}`;
 }
 
 /** Folds sim events into UI memory. Exported for tests. */
@@ -91,12 +93,13 @@ export function absorb(s: AppState, events: SimEvent[]): AppState {
         // The sim may log the outcome itself; only add a line when it didn't.
         if (e.outcome && !logged.has(e.outcome)) {
           const g = s.game;
-          ticker = [...ticker, { day: g?.day ?? 0, tick: g?.tick ?? 0, text: e.outcome, kind: incidentOutcomeKind(e.resolution, e.outcome) }];
+          const kind = e.tone ? TONE_KIND[e.tone] : incidentOutcomeKind(e.resolution, e.outcome);
+          ticker = [...ticker, { day: g?.day ?? 0, tick: g?.tick ?? 0, text: e.outcome, kind }];
         }
         break;
       case "GOAL_COMPLETED":
         if (!goalsJustDone.includes(e.goalId)) goalsJustDone = [...goalsJustDone, e.goalId];
-        next = withToast(next, goalToastText(s.game, e.goalId), "good");
+        next = withToast(next, goalToastText(s.game, e.goalId, e.reward), "good");
         break;
       default: break;
     }

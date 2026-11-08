@@ -52,19 +52,23 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
       <div className="xs muted">{inc.ticksLeft * MINUTES_PER_TICK} min to decide, or it sorts itself out (badly).</div>
       <div className="incident__options">
         {inc.options.map((o) => {
-          const short = (o.cost ?? 0) > 0 && cash < (o.cost ?? 0);
+          // The sim says why an option is impossible right now (no free tables, no stock, not enough cash).
+          const why = o.disabled ?? ((o.cost ?? 0) > 0 && o.id !== "comp" && cash < (o.cost ?? 0) ? "Not enough cash" : undefined);
+          const whyId = `inc-${inc.id}-${o.id}-why`;
           return (
             <button
               key={o.id}
               className="incident__opt"
+              disabled={!!why}
+              aria-describedby={why ? whyId : undefined}
               onClick={() => send({ type: "RESPOND_INCIDENT", incidentId: inc.id, optionId: o.id })}
               onFocus={() => onFocusSubject?.(inc.id)}
               onBlur={() => onFocusSubject?.(null)}
-              title={short ? "You're low on cash, but the sim may still let you" : undefined}
             >
               <span className="incident__optlabel">{o.label}</span>
               {o.cost ? <span className="incident__cost"><MoneyText pence={-o.cost} whole={o.cost >= 10000} /></span> : <span className="incident__cost incident__cost--free">free</span>}
               <span className="incident__optdesc">{o.description}</span>
+              {why && <span id={whyId} className="incident__optwhy">{why}</span>}
             </button>
           );
         })}
