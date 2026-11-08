@@ -70,7 +70,6 @@ const COLLAPSE_GRACE_DAYS = 270;
 const COLLAPSE_MIN_AGE = 180;
 const APPLICANT_EXPIRY_DAYS = 180;
 const HOME_VISIBILITY = 0.55;
-const OVERDRAFT_APR = 0.08;
 
 export function newEmpire(content: ContentPack, opts: NewEmpireOptions): EmpireState {
   const day = opts.day ?? 0;
@@ -207,6 +206,17 @@ export function annuityDaily(principal: number, apr: number, days: number): numb
 /** What a franchisee needs in cash to take a new site: fee + equity share of the build. */
 export function franchiseCashNeeded(e: EmpireState, city: City): number {
   return e.contract.fee + Math.round(buildCost(city, e.brand.formula.driveThru, e.hq.priceLevel) * K.FRANCHISEE_EQUITY_SHARE);
+}
+
+/** Cash HQ can spend now: its balance plus the share of the credit line banks lend for development. */
+export function spendable(e: EmpireState): number {
+  return e.hq.cash + K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE * e.hq.priceLevel;
+}
+
+/** Cost of ENTER_CITY: a local office and permits, plus a country premium the first time (supply chain, legal). */
+export function cityEntryCost(e: EmpireState, city: City): number {
+  const newCountry = !e.cities.some((c) => c.entered && c.country === city.country);
+  return Math.round((K.CITY_ENTRY_COST + (newCountry ? K.COUNTRY_ENTRY_COST : 0)) * Math.max(0.6, city.costIndex) * e.hq.priceLevel);
 }
 
 /** Royalty + ad fund + rent share: the brand's take per pound of net sales. */
@@ -636,7 +646,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     p.mortgageRemaining -= pay;
     hqNet -= pay;
   }
-  if (e.hq.cash < 0) hqNet += (e.hq.cash * OVERDRAFT_APR) / K.DAYS_PER_YEAR;
+  if (e.hq.cash < 0) hqNet += (e.hq.cash * K.OVERDRAFT_APR) / K.DAYS_PER_YEAR;
   const net = Math.round(hqNet);
   e.hq.cash += net;
   e.hq.lastDayNet = net;
@@ -991,7 +1001,7 @@ function buyPlot(x: Ctx, s: SiteSummary): string | undefined {
   if (e.property.some((p) => p.siteId === s.id)) return `${s.name}'s plot is already yours.`;
   const price = propertyPrice(s);
   const deposit = Math.round(price * K.PROPERTY_DEPOSIT_SHARE);
-  if (e.hq.cash < deposit) return `A ${pounds(deposit)} deposit is needed to buy ${s.name}'s plot (price ${pounds(price)}).`;
+  if (spendable(e) < deposit) return `A ${pounds(deposit)} deposit is needed to buy ${s.name}'s plot (price ${pounds(price)}).`;
   e.hq.cash -= deposit;
   const loan = price - deposit;
   const days = K.MORTGAGE_YEARS * K.DAYS_PER_YEAR;
@@ -1043,12 +1053,12 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       mealsServed: 0,
     };
     if (cmd.ownership === "company") {
-      if (e.hq.cash < build) return `Building a site in ${city.name} costs ${pounds(build)}; HQ has ${pounds(e.hq.cash)}.`;
+      if (spendable(e) < build) return `Building a site in ${city.name} costs ${pounds(build)}; HQ can spend ${pounds(spendable(e))}.`;
       e.hq.cash -= build;
     } else {
       if (cmd.ownership === "licence") {
         const setup = Math.round(K.LICENCE_SETUP_COST * city.costIndex * e.hq.priceLevel);
-        if (e.hq.cash < setup) return `A licence costs HQ ${pounds(setup)} to set up.`;
+        if (spendable(e) < setup) return `A licence costs HQ ${pounds(setup)} to set up.`;
         e.hq.cash -= setup;
       }
       const fr = takeFranchisee(x, cmd.applicantId, cmd.franchiseeId);
@@ -1108,7 +1118,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const fr = s.franchisee ? x.fr.get(s.franchisee) : undefined;
     const annualOp = Math.max(0, (s.margin7d / 7) * K.DAYS_PER_YEAR * 0.5);
     const price = Math.round(2.5 * annualOp + (s.operatorLoan?.remaining ?? 0));
-    if (e.hq.cash < price) return `Buying back ${s.name} costs ${pounds(price)}.`;
+    if (spendable(e) < price) return `Buying back ${s.name} costs ${pounds(price)}.`;
     e.hq.cash -= price;
     if (fr) fr.cash += price - (s.operatorLoan?.remaining ?? 0);
     detachFromFranchisee(x, s);
@@ -1185,7 +1195,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (!f.locked) return "Lock the formula first: standardisation starts with one menu, one kitchen, one script.";
     if (t.requires && !f[t.requires]) return `${TECH_LABEL[cmd.tech]} needs ${TECH_LABEL[t.requires]} first.`;
     const cost = Math.round(t.cost * e.hq.priceLevel);
-    if (e.hq.cash < cost) return `${TECH_LABEL[cmd.tech]} costs ${pounds(cost)}.`;
+    if (spendable(e) < cost) return `${TECH_LABEL[cmd.tech]} costs ${pounds(cost)}.`;
     e.hq.cash -= cost;
     e.brand.research = { tech: cmd.tech, daysLeft: t.days };
     emit(x, "research", `Started ${TECH_LABEL[cmd.tech]} (${pounds(cost)}, ${t.days} days).`, "money");
@@ -1205,7 +1215,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   LAUNCH_CAMPAIGN: (x, cmd) => {
     const e = x.e;
     if (!(cmd.budget > 0)) return "A campaign needs a budget.";
-    if (e.hq.cash < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} campaign.`;
+    if (spendable(e) < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} campaign.`;
     if (cmd.regionId && !e.regions.some((r) => r.id === cmd.regionId)) return "No such region.";
     e.hq.cash -= Math.round(cmd.budget);
     const day = e.hq.day;
@@ -1228,8 +1238,8 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (city.exited) return `${city.country} has closed its doors to the brand.`;
     if (city.entered) return `Already in ${city.name}.`;
     const newCountry = !e.cities.some((c) => c.entered && c.country === city.country);
-    const cost = Math.round((K.CITY_ENTRY_COST + (newCountry ? K.COUNTRY_ENTRY_COST : 0)) * Math.max(0.6, city.costIndex) * e.hq.priceLevel);
-    if (e.hq.cash < cost) return `Entering ${city.name} costs ${pounds(cost)}${newCountry ? " (new country: permits, a local office, supply chain)" : ""}.`;
+    const cost = cityEntryCost(e, city);
+    if (spendable(e) < cost) return `Entering ${city.name} costs ${pounds(cost)}${newCountry ? " (new country: permits, a local office, supply chain)" : ""}.`;
     e.hq.cash -= cost;
     city.entered = true;
     const notes: string[] = [];
@@ -1245,7 +1255,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (!city || !city.entered) return "Enter the city first.";
     if (city.localised) return `${city.name} already has a local menu.`;
     const cost = Math.round(K.LOCALISE_COST * Math.max(0.6, city.costIndex) * e.hq.priceLevel);
-    if (e.hq.cash < cost) return `Localising costs ${pounds(cost)}.`;
+    if (spendable(e) < cost) return `Localising costs ${pounds(cost)}.`;
     e.hq.cash -= cost;
     city.localised = true;
     emit(x, "localised", `${city.name} gets a local menu (${pounds(cost)}); consistency there dips a little.`, "money", { cityId: city.id });
@@ -1260,7 +1270,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   LAUNCH_PRODUCT: (x, cmd) => {
     const e = x.e;
     if (!(cmd.budget > 0)) return "A launch needs a budget.";
-    if (e.hq.cash < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} launch.`;
+    if (spendable(e) < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} launch.`;
     if (cmd.fit === "franchiseeIdea" && !e.pendingIdea) return "No franchisee idea is waiting.";
     e.hq.cash -= Math.round(cmd.budget);
     const p = clamp(K.PRODUCT_SUCCESS[cmd.fit] + Math.min(0.15, (cmd.budget / K.PRODUCT_BUDGET_REF) * 0.1), 0.05, 0.9);
@@ -1300,7 +1310,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const s = x.site.get(cmd.siteId);
     if (!s || s.status !== "open") return "Only an open site can be remodelled.";
     const cost = remodelCost(s, x.city.get(s.cityId)!, x.e.hq.priceLevel);
-    if (s.ownership === "company" && x.e.hq.cash < cost) return `Remodelling ${s.name} costs ${pounds(cost)}.`;
+    if (s.ownership === "company" && spendable(x.e) < cost) return `Remodelling ${s.name} costs ${pounds(cost)}.`;
     doRemodel(x, s, s.ownership !== "company");
     return undefined;
   },
@@ -1311,7 +1321,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (!r) return "No such region.";
     if (r.commissary) return `${r.name} already has a commissary.`;
     const cost = Math.round(K.COMMISSARY_COST * e.hq.priceLevel);
-    if (e.hq.cash < cost) return `A commissary costs ${pounds(cost)}.`;
+    if (spendable(e) < cost) return `A commissary costs ${pounds(cost)}.`;
     e.hq.cash -= cost;
     r.commissary = true;
     emit(x, "formula", `Commissary built in ${r.name} (${pounds(cost)}): fresh deliveries every morning.`, "money", { regionId: r.id });

@@ -35,8 +35,8 @@ export const LICENCE_SETUP_COST = 2_500_000;
 export const LICENCE_CONSISTENCY_PENALTY = 20;
 
 // ── building and property ──
-/** Fit-out of a quick-service unit (UK £30–150k kitchen + furniture; a QSR box with signage is more). × city costIndex. */
-export const SITE_BUILD_COST = 30_000_000;
+/** Fit-out of a quick-service unit (UK £30–150k kitchen + £15–35k furniture, plus signage and kit for a QSR box). × city costIndex. */
+export const SITE_BUILD_COST = 22_000_000;
 export const DRIVE_THRU_BUILD_EXTRA = 12_000_000;
 /** Franchisees put this share of the build cost down in cash; a bank lends the rest. */
 export const FRANCHISEE_EQUITY_SHARE = 0.3;
@@ -150,8 +150,11 @@ export const HQ_OVERHEAD_PER_SITE_DAILY = 3_000;
 export const INSPECTION_COST = 80_000;
 export const DEFAULT_INSPECTION_EVERY_DAYS = 180;
 export const INSPECTION_CONSISTENCY_BONUS = 3;
-/** HQ is insolvent below this cash (an overdraft line). */
+/** HQ is insolvent below this cash (an overdraft line). Overdrafts cost OVERDRAFT_APR. */
 export const HQ_CREDIT_LINE = 200_000_000;
+/** Share of the credit line HQ may draw for capital spending (sites, plots, research); the rest absorbs losses. */
+export const DEVELOPMENT_FACILITY_SHARE = 0.5;
+export const OVERDRAFT_APR = 0.08;
 export const CITY_ENTRY_COST = 12_000_000;
 export const COUNTRY_ENTRY_COST = 40_000_000;
 export const COMMISSARY_COST = 150_000_000;

@@ -8,7 +8,7 @@
 import type { City, Region, Supplier } from "./types";
 
 export const DEFAULT_REGIONS: Region[] = [
-  { id: "isles", name: "The Isles", commissary: false, x: 470, y: 120 },
+  { id: "isles", name: "The Isles", commissary: false, x: 455, y: 110 },
   { id: "mainland", name: "The Mainland", commissary: false, x: 560, y: 175 },
   { id: "westland", name: "Westland", commissary: false, x: 190, y: 190 },
   { id: "sunrise", name: "Sunrise Coast", commissary: false, x: 820, y: 230 },
@@ -19,9 +19,9 @@ type CitySeed = Omit<City, "entered" | "localised" | "tradition" | "championStre
 
 const CITY_SEEDS: CitySeed[] = [
   // The Isles (home): the fork happens in Harbourton.
-  { id: "harbourton", name: "Harbourton", country: "Albrenn", regionId: "isles", population: 2_500_000, districts: ["high_street", "student_quarter", "business_park", "seaside"], costIndex: 1, dietaryRules: [], x: 455, y: 130 },
-  { id: "kingsbridge", name: "Kingsbridge", country: "Albrenn", regionId: "isles", population: 1_200_000, districts: ["high_street", "student_quarter", "business_park"], costIndex: 0.95, dietaryRules: [], x: 480, y: 95 },
-  { id: "glenmoor", name: "Glenmoor", country: "Caledh", regionId: "isles", population: 800_000, districts: ["high_street", "seaside"], costIndex: 0.9, dietaryRules: [], x: 440, y: 70 },
+  { id: "harbourton", name: "Harbourton", country: "Albrenn", regionId: "isles", population: 2_500_000, districts: ["high_street", "student_quarter", "business_park", "seaside"], costIndex: 1, dietaryRules: [], x: 452, y: 150 },
+  { id: "kingsbridge", name: "Kingsbridge", country: "Albrenn", regionId: "isles", population: 1_200_000, districts: ["high_street", "student_quarter", "business_park"], costIndex: 0.95, dietaryRules: [], x: 492, y: 104 },
+  { id: "glenmoor", name: "Glenmoor", country: "Caledh", regionId: "isles", population: 800_000, districts: ["high_street", "seaside"], costIndex: 0.9, dietaryRules: [], x: 428, y: 64 },
   // The Mainland
   { id: "velmont", name: "Velmont", country: "Velland", regionId: "mainland", population: 3_000_000, districts: ["high_street", "business_park", "student_quarter"], costIndex: 1.1, dietaryRules: [], localChampion: "Maison Frites", championStrength: 0.3, x: 545, y: 165 },
   { id: "port_sarn", name: "Port Sarn", country: "Ostria", regionId: "mainland", population: 1_500_000, districts: ["high_street", "seaside"], costIndex: 1.05, dietaryRules: [], x: 600, y: 140 },

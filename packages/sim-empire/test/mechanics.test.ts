@@ -129,7 +129,8 @@ describe("landlord mode", () => {
   });
 
   it("buying a plot needs the deposit", () => {
-    const e = empire({ cash: 1_000_000 });
+    // HQ can draw half its credit line for development; below that, no deal.
+    const e = empire({ cash: -K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE });
     expect(rejected(e, { type: "BUY_PROPERTY", siteId: "s1" })).toMatch(/deposit/);
     const rich = must(empire(), { type: "BUY_PROPERTY", siteId: "s1" });
     expect(rich.sites[0]!.land).toBe("hqOwned");
@@ -374,7 +375,7 @@ describe("win condition", () => {
   });
 
   it("is not achieved while the association is in revolt", () => {
-    let e = { ...empire(), mealsServedTotal: 2_000_000_000, association: { active: true, formedDay: 0 } };
+    let e: EmpireState = { ...empire(), mealsServedTotal: 2_000_000_000, association: { active: true, formedDay: 0 } };
     e = { ...e, franchisees: Array.from({ length: 5 }, (_, i) => ({ id: `f${i}`, name: "x", competence: 50, honesty: 50, mood: 10, cash: 1e8, sites: ["s1"], joinedDay: 0, margin30d: -0.1 })) };
     e = stepEmpireDay(content, e, undefined, { noEvents: true }).empire;
     expect(e.win.moodOk).toBe(false);
@@ -438,6 +439,14 @@ describe("HQ", () => {
     e = must(e, { type: "FOCUS_SITE" });
     expect(e.focusedSiteId).toBeUndefined();
     expect(openSites(e).every((s) => !s.focused)).toBe(true);
+  });
+
+  it("capital spending can draw on half the credit line; losses accrue overdraft interest", () => {
+    const e = empire({ cash: 0 });
+    const built = must(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "seaside", ownership: "company", land: "hqLease" });
+    expect(built.hq.cash).toBe(-K.SITE_BUILD_COST);
+    const broke = empire({ cash: -K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE + 1 });
+    expect(rejected(broke, { type: "OPEN_SITE", cityId: "harbourton", districtId: "seaside", ownership: "company", land: "hqLease" })).toMatch(/can spend/);
   });
 
   it("fresh formula needs a commissary in the region", () => {

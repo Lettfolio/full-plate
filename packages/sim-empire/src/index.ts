@@ -16,6 +16,7 @@ export {
   // derived helpers for the UI
   avgFranchiseeMood,
   buildCost,
+  cityEntryCost,
   contractAttractiveness,
   contractTake,
   franchiseCashNeeded,
@@ -24,6 +25,7 @@ export {
   propertyPrice,
   recognitionTarget,
   remodelCost,
+  spendable,
   TECH_LABEL,
 } from "./engine";
 export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent } from "./engine";
