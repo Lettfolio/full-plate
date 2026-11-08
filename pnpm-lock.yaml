@@ -77,6 +77,25 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@26.6.6)(jsdom@31.0.0)
 
+  packages/handson:
+    dependencies:
+      '@full-plate/sim-core':
+        specifier: workspace:*
+        version: link:../sim-core
+    devDependencies:
+      '@full-plate/content':
+        specifier: workspace:*
+        version: link:../content
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@26.6.6)
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.6.6)(jsdom@31.0.0)
+
   packages/sim-core:
     devDependencies:
       '@vitest/coverage-v8':
@@ -88,6 +107,80 @@ importers:
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.6.6)(jsdom@31.0.0)
+
+  packages/sim-empire:
+    dependencies:
+      '@full-plate/sim-core':
+        specifier: workspace:*
+        version: link:../sim-core
+    devDependencies:
+      '@full-plate/content':
+        specifier: workspace:*
+        version: link:../content
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@26.6.6))
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@26.6.6)
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.6.6)(jsdom@31.0.0)
+
+  packages/sim-stars:
+    dependencies:
+      '@full-plate/content':
+        specifier: workspace:*
+        version: link:../content
+      '@full-plate/sim-core':
+        specifier: workspace:*
+        version: link:../sim-core
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@5.4.21(@types/node@26.6.6))
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@26.6.6)
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@26.6.6)(jsdom@31.0.0)
