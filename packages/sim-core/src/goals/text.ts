@@ -31,7 +31,7 @@ export const GOAL_LADDER: readonly GoalDef[] = [
   { id: "t1-incident", kind: "resolve_incident", tier: 1, target: 1, title: "Sort out a problem during service", hint: "When something goes wrong in service, pick an option before time runs out.", reward: { cash: 10_000 } },
   // tier 2: a real business
   { id: "t2-week", kind: "profit_week", tier: 2, target: 1, title: "Make a profit over a whole week", hint: "Add up the last 7 days. Days off for staff need cover!", reward: { cash: 25_000, popularity: 2 } },
-  { id: "t2-table", kind: "buy_table", tier: 2, target: 1, title: "Buy a new table", hint: "Tables tab. Worth it when people walk out because you're full.", reward: { cash: 15_000 } },
+  { id: "t2-table", kind: "buy_table", tier: 2, target: 1, title: "Buy a new table", hint: "Restaurant tab. Worth it when people walk out because you're full.", reward: { cash: 15_000 } },
   { id: "t2-pop", kind: "reach_popularity", tier: 2, target: 60, title: "Reach popularity {target}", hint: "Happy guests tell their friends. Walk-outs don't help.", reward: { cash: 20_000 } },
   { id: "t2-survive", kind: "survive_days", tier: 2, target: 30, title: "Stay open for {target} days", hint: "Keep an eye on cash in the evening report.", reward: { cash: 25_000, popularity: 1 } },
   // tier 3: the long game
