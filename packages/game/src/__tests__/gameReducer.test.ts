@@ -12,6 +12,11 @@ function withMenu(): AppState {
   }
   return s;
 }
+/** Ticks until the service ends. A batch stops early on the tick an incident starts, so loop. */
+export function finishService(s: AppState): AppState {
+  for (let i = 0; i < SERVICE_TICKS * 2 && s.game!.phase === "service"; i++) s = appReducer(s, { type: "ticks", n: SERVICE_TICKS });
+  return s;
+}
 const started = () => appReducer(withMenu(), { type: "command", cmd: { type: "START_SERVICE" } });
 
 describe("appReducer (real sim + content)", () => {
@@ -23,7 +28,7 @@ describe("appReducer (real sim + content)", () => {
     expect(s.game!.menu.length).toBeLessThanOrEqual(8);
     const mains = s.game!.menu.filter((m) => content.dishes.find((d) => d.id === m.dishId)?.course === "main");
     expect(mains.length).toBeGreaterThan(0);
-    expect(s.toast).toBeNull();
+    expect(s.toast?.tone ?? "none").not.toBe("bad"); // a goal toast is fine; a refusal isn't
   });
 
   it("never mutates the previous GameState", () => {
@@ -49,7 +54,7 @@ describe("appReducer (real sim + content)", () => {
   it("a batch of ticks stops at the end of service and captures the day's result", () => {
     let s = started();
     expect(s.game!.phase).toBe("service");
-    s = appReducer(s, { type: "ticks", n: SERVICE_TICKS + 50 });
+    s = finishService(s);
     expect(s.ticksRun).toBe(SERVICE_TICKS);
     expect(["evening", "event", "gameover"]).toContain(s.game!.phase);
     expect(s.lastResult?.day).toBe(0);
@@ -62,7 +67,7 @@ describe("appReducer (real sim + content)", () => {
     const dish = s.game!.menu[0]!.dishId;
     s = appReducer(s, { type: "command", cmd: { type: "EIGHTY_SIX", dishId: dish } });
     expect(s.game!.eightySixed).toContain(dish);
-    s = appReducer(s, { type: "ticks", n: SERVICE_TICKS });
+    s = finishService(s);
     if (s.game!.phase === "event") {
       const ev = content.events.find((e) => e.id === s.game!.activeEvent?.eventId)!;
       s = appReducer(s, { type: "command", cmd: { type: "RESOLVE_EVENT", choiceId: ev.choices[0]!.id } });

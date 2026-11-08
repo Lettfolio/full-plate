@@ -11,7 +11,7 @@ describe("stock forecast", () => {
     s = appReducer(s, { type: "command", cmd: { type: "START_SERVICE" } });
     const dish = s.game!.menu[0]!.dishId;
     s = appReducer(s, { type: "command", cmd: { type: "EIGHTY_SIX", dishId: dish } });
-    s = appReducer(s, { type: "ticks", n: SERVICE_TICKS });
+    while (s.game!.phase === "service") s = appReducer(s, { type: "ticks", n: SERVICE_TICKS });
     const g = s.game!;
     expect(g.eightySixed).toContain(dish);
     const ings = content.dishes.find((d) => d.id === dish)!.ingredients.map((i) => i.id);
