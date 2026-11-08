@@ -1,0 +1,386 @@
+[
+  {
+    "id": "chef_commis",
+    "role": "chef",
+    "nameSamples": [
+      "Amara Campbell",
+      "Ben Chen",
+      "Chloe Davies",
+      "Dev Robinson",
+      "Ellie Rossi",
+      "Femi Hall",
+      "Grace Ferreira",
+      "Harvey Hughes",
+      "Isla Evans",
+      "Jamal Kowalski",
+      "Keira Nguyen",
+      "Liam Gallagher",
+      "Maya Wright",
+      "Nikhil Doyle",
+      "Olivia Patel",
+      "Priya Singh",
+      "Quinn Mensah",
+      "Rhys Fraser",
+      "Sofia Lewis",
+      "Tom Kelly",
+      "Una Iqbal",
+      "Viktor Okafor"
+    ],
+    "skillRange": [
+      15,
+      35
+    ],
+    "speedRange": [
+      35,
+      60
+    ],
+    "charmRange": [
+      20,
+      50
+    ],
+    "wageRange": [
+      1271,
+      1325
+    ],
+    "traits": [
+      "quick_learner",
+      "nervous",
+      "clumsy",
+      "fast_hands",
+      "team_player",
+      "early_bird",
+      "night_owl",
+      "flaky",
+      "ambitious",
+      "tidy"
+    ]
+  },
+  {
+    "id": "chef_line",
+    "role": "chef",
+    "nameSamples": [
+      "Willow MacLeod",
+      "Xander Taylor",
+      "Yasmin Ali",
+      "Zak Price",
+      "Aisha Shah",
+      "Callum Clarke",
+      "Dylan Novak",
+      "Esme Jones",
+      "Finn Begum",
+      "Gethin Thompson",
+      "Hana Hussain",
+      "Imran Bell",
+      "Jess Reid",
+      "Kofi Brennan",
+      "Lucy Ahmed",
+      "Mohammed Williams",
+      "Niamh Khan",
+      "Oscar Walsh",
+      "Poppy Osei",
+      "Ravi Owusu",
+      "Sian Lee",
+      "Tariq Nowak"
+    ],
+    "skillRange": [
+      35,
+      60
+    ],
+    "speedRange": [
+      45,
+      75
+    ],
+    "charmRange": [
+      20,
+      55
+    ],
+    "wageRange": [
+      1325,
+      1500
+    ],
+    "traits": [
+      "fast_hands",
+      "steady",
+      "team_player",
+      "perfectionist",
+      "night_owl",
+      "grumpy",
+      "ambitious",
+      "tidy",
+      "flaky",
+      "penny_wise"
+    ]
+  },
+  {
+    "id": "chef_experienced",
+    "role": "chef",
+    "nameSamples": [
+      "Ruby O'Brien",
+      "Wei Murphy",
+      "Zara Adeyemi",
+      "Alfie Morgan",
+      "Bethan Bianchi",
+      "Connor Stewart",
+      "Daisy Campbell",
+      "Eilidh Chen",
+      "Freddie Davies",
+      "Gabriel Robinson",
+      "Hollie Rossi",
+      "Ivan Hall",
+      "Jade Ferreira",
+      "Kai Hughes",
+      "Leah Evans",
+      "Mei Kowalski",
+      "Noah Nguyen",
+      "Orla Gallagher",
+      "Patrick Wright",
+      "Rosa Doyle",
+      "Sami Patel",
+      "Tia Singh"
+    ],
+    "skillRange": [
+      60,
+      85
+    ],
+    "speedRange": [
+      50,
+      80
+    ],
+    "charmRange": [
+      20,
+      60
+    ],
+    "wageRange": [
+      1550,
+      1800
+    ],
+    "traits": [
+      "perfectionist",
+      "grumpy",
+      "steady",
+      "showstopper",
+      "ambitious",
+      "tidy",
+      "team_player",
+      "night_owl"
+    ]
+  },
+  {
+    "id": "server",
+    "role": "server",
+    "nameSamples": [
+      "Uzma Mensah",
+      "Vinnie Fraser",
+      "Wren Lewis",
+      "Yusuf Kelly",
+      "Ada Iqbal",
+      "Bilal Okafor",
+      "Carys MacLeod",
+      "Dominika Taylor",
+      "Ewan Ali",
+      "Fatima Price",
+      "George Shah",
+      "Hamza Clarke",
+      "Iona Novak",
+      "Joel Jones",
+      "Kiran Begum",
+      "Lola Thompson",
+      "Marcus Hussain",
+      "Nadia Bell",
+      "Ollie Reid",
+      "Phoebe Brennan",
+      "Rory Ahmed",
+      "Shreya Williams"
+    ],
+    "skillRange": [
+      20,
+      55
+    ],
+    "speedRange": [
+      40,
+      80
+    ],
+    "charmRange": [
+      40,
+      85
+    ],
+    "wageRange": [
+      1271,
+      1340
+    ],
+    "traits": [
+      "sunny",
+      "chatterbox",
+      "tip_hungry",
+      "fast_hands",
+      "clumsy",
+      "flaky",
+      "team_player",
+      "nervous",
+      "early_bird",
+      "showstopper"
+    ]
+  },
+  {
+    "id": "bar",
+    "role": "bar",
+    "nameSamples": [
+      "Theo Khan",
+      "Ayo Walsh",
+      "Bea Osei",
+      "Cormac Owusu",
+      "Dina Lee",
+      "Elliot Nowak",
+      "Farah O'Brien",
+      "Grant Murphy",
+      "Hugo Adeyemi",
+      "Ines Morgan",
+      "Jack Bianchi",
+      "Kemi Stewart",
+      "Luca Campbell",
+      "Martha Chen",
+      "Nico Davies",
+      "Ottilie Robinson",
+      "Pavel Rossi",
+      "Rania Hall",
+      "Seb Ferreira",
+      "Tilly Hughes",
+      "Arjun Evans",
+      "Bronwen Kowalski"
+    ],
+    "skillRange": [
+      25,
+      65
+    ],
+    "speedRange": [
+      40,
+      80
+    ],
+    "charmRange": [
+      40,
+      85
+    ],
+    "wageRange": [
+      1271,
+      1400
+    ],
+    "traits": [
+      "showstopper",
+      "sunny",
+      "night_owl",
+      "chatterbox",
+      "tip_hungry",
+      "steady",
+      "fast_hands",
+      "flaky"
+    ]
+  },
+  {
+    "id": "porter",
+    "role": "porter",
+    "nameSamples": [
+      "Cian Nguyen",
+      "Diya Gallagher",
+      "Erin Wright",
+      "Felix Doyle",
+      "Gwen Patel",
+      "Harris Singh",
+      "Ifeoma Mensah",
+      "Jonah Fraser",
+      "Kasia Lewis",
+      "Logan Kelly",
+      "Malik Iqbal",
+      "Nell Okafor",
+      "Omar MacLeod",
+      "Pippa Taylor",
+      "Reggie Ali",
+      "Saoirse Price",
+      "Toby Shah",
+      "Agnes Clarke",
+      "Basil Novak",
+      "Cerys Jones",
+      "Darius Begum",
+      "Effie Thompson"
+    ],
+    "skillRange": [
+      10,
+      30
+    ],
+    "speedRange": [
+      45,
+      85
+    ],
+    "charmRange": [
+      15,
+      50
+    ],
+    "wageRange": [
+      1271,
+      1290
+    ],
+    "traits": [
+      "tidy",
+      "fast_hands",
+      "steady",
+      "team_player",
+      "penny_wise",
+      "early_bird",
+      "flaky",
+      "quick_learner"
+    ]
+  },
+  {
+    "id": "manager",
+    "role": "manager",
+    "nameSamples": [
+      "Fergus Hussain",
+      "Gita Bell",
+      "Hector Reid",
+      "Ivy Brennan",
+      "Joss Ahmed",
+      "Khadija Williams",
+      "Lewis Khan",
+      "Mabel Walsh",
+      "Nathan Osei",
+      "Osian Owusu",
+      "Peggy Lee",
+      "Raj Nowak",
+      "Stella O'Brien",
+      "Tobias Murphy",
+      "Anwen Adeyemi",
+      "Barnaby Morgan",
+      "Cleo Bianchi",
+      "Deepak Stewart",
+      "Edie Campbell",
+      "Flynn Chen",
+      "Georgia Davies",
+      "Hassan Robinson"
+    ],
+    "skillRange": [
+      45,
+      75
+    ],
+    "speedRange": [
+      40,
+      70
+    ],
+    "charmRange": [
+      50,
+      85
+    ],
+    "wageRange": [
+      1500,
+      1800
+    ],
+    "traits": [
+      "steady",
+      "sunny",
+      "team_player",
+      "tidy",
+      "penny_wise",
+      "ambitious",
+      "grumpy",
+      "chatterbox"
+    ]
+  }
+]

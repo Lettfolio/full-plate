@@ -1,0 +1,476 @@
+[
+  {
+    "id": "beef_steak",
+    "name": "Beef sirloin (steak cut)",
+    "unitCost": 650,
+    "shelfLifeDays": 4
+  },
+  {
+    "id": "beef_mince",
+    "name": "Beef mince",
+    "unitCost": 230,
+    "shelfLifeDays": 2
+  },
+  {
+    "id": "chicken_breast",
+    "name": "Chicken breast",
+    "unitCost": 190,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "pork_belly",
+    "name": "Pork belly",
+    "unitCost": 220,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "sausages",
+    "name": "Butcher's pork sausages",
+    "unitCost": 75,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "bacon",
+    "name": "Smoked back bacon",
+    "unitCost": 50,
+    "shelfLifeDays": 7
+  },
+  {
+    "id": "lamb",
+    "name": "Lamb shoulder",
+    "unitCost": 380,
+    "shelfLifeDays": 4,
+    "seasonality": [
+      4,
+      5,
+      6,
+      7,
+      8
+    ]
+  },
+  {
+    "id": "cod",
+    "name": "Cod fillet",
+    "unitCost": 280,
+    "shelfLifeDays": 2
+  },
+  {
+    "id": "salmon",
+    "name": "Salmon fillet",
+    "unitCost": 300,
+    "shelfLifeDays": 2
+  },
+  {
+    "id": "scallops",
+    "name": "Hand-dived scallops",
+    "unitCost": 400,
+    "shelfLifeDays": 1,
+    "seasonality": [
+      10,
+      11,
+      12,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  {
+    "id": "prawns",
+    "name": "King prawns",
+    "unitCost": 180,
+    "shelfLifeDays": 2
+  },
+  {
+    "id": "mussels",
+    "name": "Rope-grown mussels",
+    "unitCost": 160,
+    "shelfLifeDays": 1,
+    "seasonality": [
+      9,
+      10,
+      11,
+      12,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  {
+    "id": "duck_breast",
+    "name": "Duck breast",
+    "unitCost": 380,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "eggs",
+    "name": "Free-range eggs",
+    "unitCost": 28,
+    "shelfLifeDays": 21
+  },
+  {
+    "id": "halloumi",
+    "name": "Halloumi",
+    "unitCost": 140,
+    "shelfLifeDays": 14
+  },
+  {
+    "id": "butter",
+    "name": "Butter",
+    "unitCost": 20,
+    "shelfLifeDays": 21
+  },
+  {
+    "id": "cream",
+    "name": "Double cream",
+    "unitCost": 40,
+    "shelfLifeDays": 7
+  },
+  {
+    "id": "milk",
+    "name": "Whole milk",
+    "unitCost": 8,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "cheddar",
+    "name": "Mature cheddar",
+    "unitCost": 60,
+    "shelfLifeDays": 21
+  },
+  {
+    "id": "parmesan",
+    "name": "Parmesan",
+    "unitCost": 50,
+    "shelfLifeDays": 30
+  },
+  {
+    "id": "mozzarella",
+    "name": "Mozzarella",
+    "unitCost": 90,
+    "shelfLifeDays": 7
+  },
+  {
+    "id": "potatoes",
+    "name": "Potatoes",
+    "unitCost": 15,
+    "shelfLifeDays": 14,
+    "seasonality": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": "onions",
+    "name": "Onions",
+    "unitCost": 8,
+    "shelfLifeDays": 21
+  },
+  {
+    "id": "garlic",
+    "name": "Garlic",
+    "unitCost": 4,
+    "shelfLifeDays": 30
+  },
+  {
+    "id": "tomatoes",
+    "name": "Vine tomatoes",
+    "unitCost": 30,
+    "shelfLifeDays": 5,
+    "seasonality": [
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  {
+    "id": "salad_leaves",
+    "name": "Salad leaves",
+    "unitCost": 40,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  {
+    "id": "peas",
+    "name": "Garden peas (frozen)",
+    "unitCost": 20,
+    "shelfLifeDays": 90
+  },
+  {
+    "id": "mushrooms",
+    "name": "Chestnut mushrooms",
+    "unitCost": 45,
+    "shelfLifeDays": 4,
+    "seasonality": [
+      8,
+      9,
+      10,
+      11
+    ]
+  },
+  {
+    "id": "asparagus",
+    "name": "British asparagus",
+    "unitCost": 120,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      4,
+      5,
+      6
+    ]
+  },
+  {
+    "id": "leeks",
+    "name": "Leeks",
+    "unitCost": 25,
+    "shelfLifeDays": 5,
+    "seasonality": [
+      9,
+      10,
+      11,
+      12,
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": "root_veg",
+    "name": "Carrots & parsnips",
+    "unitCost": 22,
+    "shelfLifeDays": 10,
+    "seasonality": [
+      9,
+      10,
+      11,
+      12,
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": "peppers",
+    "name": "Peppers",
+    "unitCost": 35,
+    "shelfLifeDays": 5,
+    "seasonality": [
+      7,
+      8,
+      9
+    ]
+  },
+  {
+    "id": "lemons",
+    "name": "Lemons",
+    "unitCost": 15,
+    "shelfLifeDays": 14
+  },
+  {
+    "id": "herbs",
+    "name": "Fresh herbs",
+    "unitCost": 20,
+    "shelfLifeDays": 4,
+    "seasonality": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  {
+    "id": "strawberries",
+    "name": "Strawberries",
+    "unitCost": 90,
+    "shelfLifeDays": 2,
+    "seasonality": [
+      6,
+      7
+    ]
+  },
+  {
+    "id": "apples",
+    "name": "Bramley apples",
+    "unitCost": 25,
+    "shelfLifeDays": 21,
+    "seasonality": [
+      8,
+      9,
+      10,
+      11,
+      12
+    ]
+  },
+  {
+    "id": "flour",
+    "name": "Flour",
+    "unitCost": 8,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "pasta",
+    "name": "Dried pasta",
+    "unitCost": 30,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "rice",
+    "name": "Rice",
+    "unitCost": 15,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "noodles",
+    "name": "Noodles",
+    "unitCost": 35,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "sourdough",
+    "name": "Sourdough loaf",
+    "unitCost": 40,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "burger_buns",
+    "name": "Brioche buns",
+    "unitCost": 40,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "pizza_dough",
+    "name": "Pizza dough ball",
+    "unitCost": 60,
+    "shelfLifeDays": 4
+  },
+  {
+    "id": "sugar",
+    "name": "Sugar",
+    "unitCost": 5,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "chocolate",
+    "name": "Dark chocolate",
+    "unitCost": 80,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "tinned_tomatoes",
+    "name": "Tinned tomatoes",
+    "unitCost": 25,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "curry_paste",
+    "name": "Curry paste & coconut",
+    "unitCost": 70,
+    "shelfLifeDays": 60
+  },
+  {
+    "id": "soy_ginger",
+    "name": "Soy, ginger & chilli",
+    "unitCost": 15,
+    "shelfLifeDays": 90
+  },
+  {
+    "id": "stock",
+    "name": "Stock",
+    "unitCost": 25,
+    "shelfLifeDays": 30
+  },
+  {
+    "id": "oil",
+    "name": "Frying oil",
+    "unitCost": 15,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "baked_beans",
+    "name": "Baked beans",
+    "unitCost": 20,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "ice_cream",
+    "name": "Vanilla ice cream",
+    "unitCost": 60,
+    "shelfLifeDays": 90
+  },
+  {
+    "id": "coffee_beans",
+    "name": "Coffee (double shot)",
+    "unitCost": 18,
+    "shelfLifeDays": 60
+  },
+  {
+    "id": "tea",
+    "name": "Tea",
+    "unitCost": 5,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "fruit_juice",
+    "name": "Pressed apple juice",
+    "unitCost": 45,
+    "shelfLifeDays": 7
+  },
+  {
+    "id": "mixer",
+    "name": "Cola, tonic & mixers",
+    "unitCost": 40,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "house_wine",
+    "name": "House wine (175ml)",
+    "unitCost": 150,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "fine_wine",
+    "name": "Good red wine (175ml)",
+    "unitCost": 300,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "prosecco",
+    "name": "Prosecco (125ml)",
+    "unitCost": 220,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "lager",
+    "name": "Draught lager (pint)",
+    "unitCost": 120,
+    "shelfLifeDays": 30
+  },
+  {
+    "id": "craft_ale",
+    "name": "Local ale (pint)",
+    "unitCost": 150,
+    "shelfLifeDays": 30
+  },
+  {
+    "id": "spirit",
+    "name": "Spirit measure (25ml)",
+    "unitCost": 80,
+    "shelfLifeDays": 365
+  }
+]

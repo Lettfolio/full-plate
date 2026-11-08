@@ -1,0 +1,19 @@
+{
+  "startingCash": 1500000,
+  "loanPrincipal": 4000000,
+  "loanTermDays": 1095,
+  "loanApr": 0.08,
+  "fitOutCost": 3000000,
+  "reputationDecay": 0.2,
+  "reviewRatePer10Covers": 1.5,
+  "startingTables": 6,
+  "maxTables": 14,
+  "seatsPerTable": 4,
+  "wasteShares": {
+    "prep": 0.45,
+    "plate": 0.34,
+    "spoil": 0.21
+  },
+  "weekendFootfallMult": 1.3,
+  "targetYear1Survival": 0.75
+}

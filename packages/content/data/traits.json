@@ -1,0 +1,171 @@
+[
+  {
+    "id": "night_owl",
+    "name": "Night owl",
+    "description": "Gets better as the evening goes on. Mornings are a different story.",
+    "effects": {
+      "speed": 1.05,
+      "moodDecay": 1.1
+    }
+  },
+  {
+    "id": "perfectionist",
+    "name": "Perfectionist",
+    "description": "Every plate is a little masterpiece. Every plate also takes a little longer.",
+    "effects": {
+      "skill": 1.12,
+      "speed": 0.88,
+      "mistakeRate": 0.7
+    }
+  },
+  {
+    "id": "sunny",
+    "name": "Sunny",
+    "description": "Smiles so warmly that customers forget how long they waited.",
+    "effects": {
+      "charm": 1.2
+    }
+  },
+  {
+    "id": "flaky",
+    "name": "Flaky",
+    "description": "Lovely when they're here. Sometimes they're just... not.",
+    "effects": {
+      "moodDecay": 1.3,
+      "mistakeRate": 1.2,
+      "wageDemand": 0.95
+    }
+  },
+  {
+    "id": "fast_hands",
+    "name": "Fast hands",
+    "description": "Chops, plates and clears at lightning speed.",
+    "effects": {
+      "speed": 1.18,
+      "mistakeRate": 1.08
+    }
+  },
+  {
+    "id": "tip_hungry",
+    "name": "Big appetite for tips",
+    "description": "Extra charming when there's a tip jar nearby, and expects a fair share of it.",
+    "effects": {
+      "charm": 1.1,
+      "moodDecay": 1.1,
+      "wageDemand": 1.05
+    }
+  },
+  {
+    "id": "steady",
+    "name": "Steady Eddie",
+    "description": "Never rushes, never panics, never drops a plate.",
+    "effects": {
+      "mistakeRate": 0.75,
+      "moodDecay": 0.85,
+      "speed": 0.97
+    }
+  },
+  {
+    "id": "quick_learner",
+    "name": "Quick learner",
+    "description": "Watches once, nails it the second time. Grows faster than most.",
+    "effects": {
+      "skill": 1.05,
+      "wageDemand": 1.05
+    }
+  },
+  {
+    "id": "clumsy",
+    "name": "Butterfingers",
+    "description": "Means well. The plates disagree.",
+    "effects": {
+      "mistakeRate": 1.35,
+      "wageDemand": 0.92
+    }
+  },
+  {
+    "id": "team_player",
+    "name": "Team player",
+    "description": "Always the first to help a colleague and the last to grumble.",
+    "effects": {
+      "moodDecay": 0.8,
+      "speed": 1.03
+    }
+  },
+  {
+    "id": "grumpy",
+    "name": "Grumpy but brilliant",
+    "description": "Mutters at the oven, but the food is wonderful.",
+    "effects": {
+      "skill": 1.1,
+      "charm": 0.8,
+      "moodDecay": 1.15
+    }
+  },
+  {
+    "id": "chatterbox",
+    "name": "Chatterbox",
+    "description": "Customers love a natter. The next table, waiting for their bill, slightly less so.",
+    "effects": {
+      "charm": 1.15,
+      "speed": 0.9
+    }
+  },
+  {
+    "id": "penny_wise",
+    "name": "Penny-wise",
+    "description": "Happy with a modest wage and never wastes a scrap.",
+    "effects": {
+      "wageDemand": 0.9,
+      "mistakeRate": 0.9
+    }
+  },
+  {
+    "id": "ambitious",
+    "name": "Ambitious",
+    "description": "Wants to run their own kitchen one day. Works hard, and will ask for a pay rise.",
+    "effects": {
+      "skill": 1.06,
+      "speed": 1.04,
+      "wageDemand": 1.15
+    }
+  },
+  {
+    "id": "early_bird",
+    "name": "Early bird",
+    "description": "Fresh as a daisy at lunchtime, yawning by nine.",
+    "effects": {
+      "speed": 1.04,
+      "moodDecay": 0.95
+    }
+  },
+  {
+    "id": "nervous",
+    "name": "Nervous newbie",
+    "description": "Gets flustered when it's busy, but improves with a bit of kindness.",
+    "effects": {
+      "mistakeRate": 1.2,
+      "charm": 0.95,
+      "wageDemand": 0.95
+    }
+  },
+  {
+    "id": "showstopper",
+    "name": "Showstopper",
+    "description": "Flambés, flourishes and a little bow. Customers adore it.",
+    "effects": {
+      "charm": 1.12,
+      "skill": 1.04,
+      "speed": 0.95
+    }
+  },
+  {
+    "id": "tidy",
+    "name": "Tidy as a pin",
+    "description": "A spotless station and a perfect fridge. Inspectors love them.",
+    "effects": {
+      "mistakeRate": 0.85,
+      "speed": 1.02
+    }
+  }
+]

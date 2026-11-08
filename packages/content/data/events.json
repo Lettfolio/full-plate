@@ -1,0 +1,767 @@
+[
+  {
+    "id": "supplier_van",
+    "title": "The supplier's van has broken down",
+    "body": "Your veg delivery is stuck on the ring road with a flat tyre. The kitchen is looking at you hopefully.",
+    "weight": 6,
+    "choices": [
+      {
+        "id": "cash_and_carry",
+        "label": "Dash to the cash-and-carry (costs more)",
+        "effects": {
+          "cash": -25000,
+          "staffMood": 2
+        }
+      },
+      {
+        "id": "short_menu",
+        "label": "Run a shorter menu today",
+        "effects": {
+          "popularity": -2,
+          "footfallMultDays": {
+            "mult": 0.85,
+            "days": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "rent_review",
+    "title": "The landlord's letter",
+    "body": "Your lease is up for renewal and the landlord would like a bit more rent. They've included a very polite biscuit.",
+    "weight": 10,
+    "when": {
+      "minDay": 365
+    },
+    "choices": [
+      {
+        "id": "accept",
+        "label": "Sign and pay the higher rent upfront",
+        "effects": {
+          "cash": -180000
+        }
+      },
+      {
+        "id": "negotiate",
+        "label": "Haggle for a smaller rise (it takes up your week)",
+        "effects": {
+          "cash": -90000,
+          "staffMood": -3
+        }
+      }
+    ]
+  },
+  {
+    "id": "local_critic",
+    "title": "A critic from the local paper",
+    "body": "Someone at table four is writing very small notes in a very small notebook. It's the food critic from the Gazette!",
+    "weight": 4,
+    "when": {
+      "minDay": 20
+    },
+    "choices": [
+      {
+        "id": "special",
+        "label": "Send out chef's special, on the house",
+        "effects": {
+          "cash": -6000,
+          "prestige": 6,
+          "popularity": 3
+        }
+      },
+      {
+        "id": "normal",
+        "label": "Treat them like everyone else",
+        "effects": {
+          "prestige": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "rival_opens",
+    "title": "A rival opens across the road",
+    "body": "A shiny new place called 'Plate Expectations' has opened opposite. They're handing out free samples.",
+    "weight": 4,
+    "when": {
+      "minDay": 60
+    },
+    "choices": [
+      {
+        "id": "promo",
+        "label": "Run a two-for-one week",
+        "effects": {
+          "cash": -60000,
+          "popularity": 4,
+          "footfallMultDays": {
+            "mult": 0.95,
+            "days": 7
+          }
+        }
+      },
+      {
+        "id": "ride_it_out",
+        "label": "Stay calm and keep cooking",
+        "effects": {
+          "footfallMultDays": {
+            "mult": 0.8,
+            "days": 14
+          }
+        }
+      },
+      {
+        "id": "say_hello",
+        "label": "Pop over with a welcome card",
+        "effects": {
+          "popularity": 2,
+          "footfallMultDays": {
+            "mult": 0.88,
+            "days": 10
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "heatwave",
+    "title": "Heatwave!",
+    "body": "It's 31°C and everybody wants ice cream and somewhere shady. The kitchen feels like the inside of a toaster.",
+    "weight": 5,
+    "when": {
+      "month": [
+        6,
+        7,
+        8
+      ]
+    },
+    "choices": [
+      {
+        "id": "terrace",
+        "label": "Hire parasols for the pavement tables",
+        "effects": {
+          "cash": -30000,
+          "footfallMultDays": {
+            "mult": 1.25,
+            "days": 4
+          }
+        }
+      },
+      {
+        "id": "fans",
+        "label": "Buy fans for the kitchen team",
+        "effects": {
+          "cash": -15000,
+          "staffMood": 6
+        }
+      }
+    ]
+  },
+  {
+    "id": "pipe_burst",
+    "title": "A pipe has burst",
+    "body": "There's a small indoor paddling pool where the dish-wash used to be. Nobody is having fun.",
+    "weight": 4,
+    "choices": [
+      {
+        "id": "emergency_plumber",
+        "label": "Call the emergency plumber now",
+        "effects": {
+          "cash": -85000
+        }
+      },
+      {
+        "id": "close_day",
+        "label": "Close for the day and use the regular plumber",
+        "effects": {
+          "cash": -35000,
+          "popularity": -3,
+          "footfallMultDays": {
+            "mult": 0.2,
+            "days": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "staff_birthday",
+    "title": "It's someone's birthday!",
+    "body": "One of your team turns 25 today. There are whispers about cake in the walk-in fridge.",
+    "weight": 6,
+    "choices": [
+      {
+        "id": "cake",
+        "label": "Buy a cake and sing (badly)",
+        "effects": {
+          "cash": -4000,
+          "staffMood": 8
+        }
+      },
+      {
+        "id": "card",
+        "label": "Everyone signs a card",
+        "effects": {
+          "staffMood": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "food_blogger",
+    "title": "A food blogger wants to visit",
+    "body": "@CrumbsAndCrusts has 80,000 followers and would like a free meal in exchange for a review.",
+    "weight": 4,
+    "when": {
+      "minDay": 14
+    },
+    "choices": [
+      {
+        "id": "yes",
+        "label": "Roll out the red carpet",
+        "effects": {
+          "cash": -20000,
+          "popularity": 7,
+          "footfallMultDays": {
+            "mult": 1.15,
+            "days": 7
+          }
+        }
+      },
+      {
+        "id": "no_thanks",
+        "label": "Politely say you'd rather they paid",
+        "effects": {
+          "prestige": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "hen_party",
+    "title": "A hen party booking",
+    "body": "A party of fourteen in matching pink sashes would like to book the whole back room for Saturday.",
+    "weight": 4,
+    "when": {
+      "minDay": 7
+    },
+    "choices": [
+      {
+        "id": "accept",
+        "label": "Yes! Set menu for fourteen",
+        "effects": {
+          "cash": 56000,
+          "staffMood": -2,
+          "popularity": 2
+        }
+      },
+      {
+        "id": "decline",
+        "label": "Keep the tables for regulars",
+        "effects": {
+          "popularity": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "power_cut",
+    "title": "Power cut",
+    "body": "The lights flicker, the ovens sigh, and the whole street goes dark. Candles, anyone?",
+    "weight": 3,
+    "choices": [
+      {
+        "id": "candlelit",
+        "label": "Candlelit cold platters only",
+        "effects": {
+          "cash": -20000,
+          "popularity": 3,
+          "prestige": 1
+        }
+      },
+      {
+        "id": "close",
+        "label": "Close early and send everyone home",
+        "effects": {
+          "cash": -40000,
+          "footfallMultDays": {
+            "mult": 0.4,
+            "days": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "market_find",
+    "title": "A lucky find at the market",
+    "body": "A farmer has a crate of perfect wild mushrooms going cheap because 'they're a bit knobbly'.",
+    "weight": 5,
+    "choices": [
+      {
+        "id": "buy",
+        "label": "Buy the lot and run a special",
+        "effects": {
+          "cash": -8000,
+          "prestige": 3,
+          "popularity": 2
+        }
+      },
+      {
+        "id": "pass",
+        "label": "Stick to the plan",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "inspector",
+    "title": "The food safety inspector",
+    "body": "An inspector from the council has arrived with a clipboard and a torch. They'd like to see the fridges.",
+    "weight": 4,
+    "when": {
+      "minDay": 30
+    },
+    "choices": [
+      {
+        "id": "show_round",
+        "label": "Give them the full tour",
+        "effects": {
+          "prestige": 4,
+          "popularity": 2
+        }
+      },
+      {
+        "id": "deep_clean",
+        "label": "Ask for ten minutes and blitz the kitchen first",
+        "effects": {
+          "cash": -20000,
+          "prestige": 2,
+          "staffMood": -3
+        }
+      }
+    ]
+  },
+  {
+    "id": "proposal",
+    "title": "A proposal at table six",
+    "body": "A nervous regular asks if you could hide a ring in their partner's pudding. (Not inside it. On top. Safely.)",
+    "weight": 3,
+    "when": {
+      "minDay": 30,
+      "minPopularity": 45
+    },
+    "choices": [
+      {
+        "id": "help",
+        "label": "Of course! Bring out the sparklers",
+        "effects": {
+          "cash": -3000,
+          "popularity": 6,
+          "staffMood": 4
+        }
+      },
+      {
+        "id": "free_fizz",
+        "label": "Help, and send over free drinks",
+        "effects": {
+          "cash": -7000,
+          "popularity": 9,
+          "staffMood": 5
+        }
+      }
+    ]
+  },
+  {
+    "id": "school_trip",
+    "title": "A school trip needs lunch",
+    "body": "The coach broke down outside and thirty hungry Year 7s need feeding. Their teacher looks frazzled.",
+    "weight": 3,
+    "when": {
+      "month": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        10
+      ]
+    },
+    "choices": [
+      {
+        "id": "feed_them",
+        "label": "Chips and squash for everyone",
+        "effects": {
+          "cash": 24000,
+          "popularity": 4,
+          "staffMood": -2
+        }
+      },
+      {
+        "id": "point_away",
+        "label": "Point them to the sandwich shop",
+        "effects": {}
+      }
+    ]
+  },
+  {
+    "id": "staff_poached",
+    "title": "Somebody's been sweet-talked",
+    "body": "The new burger bar has offered one of your cooks an extra pound an hour. They'd rather stay, but...",
+    "weight": 3,
+    "when": {
+      "minDay": 45
+    },
+    "choices": [
+      {
+        "id": "match",
+        "label": "Match the offer with a bonus",
+        "effects": {
+          "cash": -40000,
+          "staffMood": 5
+        }
+      },
+      {
+        "id": "talk",
+        "label": "Have a heart-to-heart instead",
+        "effects": {
+          "staffMood": -4
+        }
+      }
+    ]
+  },
+  {
+    "id": "viral_dessert",
+    "title": "Your pudding went viral",
+    "body": "A video of your dessert being served has 200,000 views. People are queuing outside with phones out.",
+    "weight": 2,
+    "when": {
+      "minDay": 30,
+      "minPopularity": 55
+    },
+    "choices": [
+      {
+        "id": "lean_in",
+        "label": "Order extra stock and lean in",
+        "effects": {
+          "cash": -30000,
+          "popularity": 8,
+          "footfallMultDays": {
+            "mult": 1.3,
+            "days": 7
+          }
+        }
+      },
+      {
+        "id": "keep_calm",
+        "label": "Carry on as normal",
+        "effects": {
+          "popularity": 4,
+          "footfallMultDays": {
+            "mult": 1.15,
+            "days": 5
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "charity_bake",
+    "title": "The charity bake sale",
+    "body": "The hospice down the road is holding a bake sale and asks if you could donate a tray or two.",
+    "weight": 4,
+    "choices": [
+      {
+        "id": "donate",
+        "label": "Donate two trays of brownies",
+        "effects": {
+          "cash": -5000,
+          "popularity": 4
+        }
+      },
+      {
+        "id": "sponsor",
+        "label": "Sponsor the whole thing",
+        "effects": {
+          "cash": -25000,
+          "popularity": 7,
+          "prestige": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "oven_fault",
+    "title": "The oven is making a funny noise",
+    "body": "It's not a nice noise. It's more of a 'clunk... wheeee'. The engineer can come today for a call-out fee.",
+    "weight": 4,
+    "choices": [
+      {
+        "id": "fix_now",
+        "label": "Fix it now",
+        "effects": {
+          "cash": -45000
+        }
+      },
+      {
+        "id": "wait",
+        "label": "Wait and hope it settles down",
+        "effects": {
+          "cash": -110000,
+          "popularity": -2
+        }
+      }
+    ]
+  },
+  {
+    "id": "christmas_parties",
+    "title": "Christmas party season",
+    "body": "Three offices want to book their Christmas dos. Crackers, paper hats and a lot of sprouts.",
+    "weight": 8,
+    "when": {
+      "month": [
+        11,
+        12
+      ]
+    },
+    "choices": [
+      {
+        "id": "set_menu",
+        "label": "Take all three bookings",
+        "effects": {
+          "cash": 150000,
+          "staffMood": -5,
+          "popularity": 3
+        }
+      },
+      {
+        "id": "one_party",
+        "label": "Take just one, keep it relaxed",
+        "effects": {
+          "cash": 50000,
+          "staffMood": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "january_lull",
+    "title": "The January lull",
+    "body": "Everybody is on a health kick and saving money. The streets are very quiet and very grey.",
+    "weight": 6,
+    "when": {
+      "month": [
+        1,
+        2
+      ]
+    },
+    "choices": [
+      {
+        "id": "deal",
+        "label": "Launch a cosy winter deal",
+        "effects": {
+          "cash": -20000,
+          "footfallMultDays": {
+            "mult": 1.15,
+            "days": 14
+          }
+        }
+      },
+      {
+        "id": "fewer_hours",
+        "label": "Close on Mondays for a few weeks",
+        "effects": {
+          "staffMood": -3,
+          "footfallMultDays": {
+            "mult": 0.9,
+            "days": 14
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "street_festival",
+    "title": "The street festival is coming",
+    "body": "The council is closing the road for a festival with music, bunting and a giant inflatable duck.",
+    "weight": 4,
+    "when": {
+      "month": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "choices": [
+      {
+        "id": "stall",
+        "label": "Run a food stall outside",
+        "effects": {
+          "cash": 65000,
+          "staffMood": -2,
+          "popularity": 4
+        }
+      },
+      {
+        "id": "stay_inside",
+        "label": "Stay open as usual and enjoy the crowds",
+        "effects": {
+          "footfallMultDays": {
+            "mult": 1.2,
+            "days": 2
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "tax_refund",
+    "title": "A brown envelope from HMRC",
+    "body": "Good news for once: you overpaid VAT last quarter and they're giving it back.",
+    "weight": 2,
+    "when": {
+      "minDay": 100
+    },
+    "choices": [
+      {
+        "id": "bank_it",
+        "label": "Put it in the bank",
+        "effects": {
+          "cash": 90000
+        }
+      },
+      {
+        "id": "team_treat",
+        "label": "Bank most of it, treat the team to pizza",
+        "effects": {
+          "cash": 80000,
+          "staffMood": 6
+        }
+      }
+    ]
+  },
+  {
+    "id": "fridge_fail",
+    "title": "The fridge has given up",
+    "body": "The walk-in fridge stopped humming in the night. Everything inside is warm and very sad.",
+    "weight": 3,
+    "when": {
+      "minDay": 20
+    },
+    "choices": [
+      {
+        "id": "replace",
+        "label": "Buy a new fridge today",
+        "effects": {
+          "cash": -160000,
+          "staffMood": 2
+        }
+      },
+      {
+        "id": "repair",
+        "label": "Repair it and bin the stock",
+        "effects": {
+          "cash": -70000,
+          "popularity": -2
+        }
+      }
+    ]
+  },
+  {
+    "id": "regular_returns",
+    "title": "A regular brings friends",
+    "body": "Mrs Patel has been in every Thursday since you opened. Today she's brought her whole book club.",
+    "weight": 5,
+    "when": {
+      "minDay": 21,
+      "minPopularity": 40
+    },
+    "choices": [
+      {
+        "id": "free_dessert",
+        "label": "Desserts on the house for the book club",
+        "effects": {
+          "cash": -4000,
+          "popularity": 5
+        }
+      },
+      {
+        "id": "thank_you",
+        "label": "Thank her warmly and serve as usual",
+        "effects": {
+          "cash": 12000,
+          "popularity": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "rainy_week",
+    "title": "A very rainy week",
+    "body": "It has rained so much the ducks have started looking for umbrellas.",
+    "weight": 4,
+    "when": {
+      "month": [
+        10,
+        11,
+        1,
+        2,
+        3
+      ]
+    },
+    "choices": [
+      {
+        "id": "soup_deal",
+        "label": "Soup-and-a-sandwich deal",
+        "effects": {
+          "cash": -10000,
+          "footfallMultDays": {
+            "mult": 0.95,
+            "days": 5
+          }
+        }
+      },
+      {
+        "id": "ride_out",
+        "label": "Wait for the sunshine",
+        "effects": {
+          "footfallMultDays": {
+            "mult": 0.8,
+            "days": 5
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "award_nomination",
+    "title": "Nominated for an award!",
+    "body": "You've been shortlisted for 'Best Newcomer' at the regional food awards. Black tie optional, but encouraged.",
+    "weight": 2,
+    "when": {
+      "minDay": 180,
+      "minPrestige": 60
+    },
+    "choices": [
+      {
+        "id": "go",
+        "label": "Buy a table at the ceremony",
+        "effects": {
+          "cash": -50000,
+          "prestige": 8,
+          "staffMood": 6
+        }
+      },
+      {
+        "id": "stay",
+        "label": "Stay home and keep cooking",
+        "effects": {
+          "prestige": 3
+        }
+      }
+    ]
+  }
+]

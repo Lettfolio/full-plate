@@ -1,0 +1,2670 @@
+[
+  {
+    "id": "tomato_soup",
+    "name": "Roasted tomato soup",
+    "course": "starter",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "tomatoes",
+        "qty": 2
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 0.5
+      },
+      {
+        "id": "sourdough",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 15,
+    "qualityCeiling": 72,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.65,
+      "business": 0.5,
+      "foodies": 0.35,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 445,
+    "blurb": "Like a warm hug in a bowl, with bread for dunking."
+  },
+  {
+    "id": "garlic_bread",
+    "name": "Cheesy garlic bread",
+    "course": "starter",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "sourdough",
+        "qty": 1
+      },
+      {
+        "id": "garlic",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "mozzarella",
+        "qty": 0.5
+      },
+      {
+        "id": "herbs",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 62,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.8,
+      "business": 0.35,
+      "foodies": 0.25,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 395,
+    "blurb": "Nobody has ever said no to this. We checked."
+  },
+  {
+    "id": "prawn_cocktail",
+    "name": "Prawn cocktail",
+    "course": "starter",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "prawns",
+        "qty": 1
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 1
+      },
+      {
+        "id": "lemons",
+        "qty": 0.5
+      },
+      {
+        "id": "sourdough",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 20,
+    "qualityCeiling": 78,
+    "baseAppeal": {
+      "students": 0.3,
+      "families": 0.5,
+      "business": 0.55,
+      "foodies": 0.35,
+      "tourists": 0.75
+    },
+    "suggestedPrice": 795,
+    "blurb": "A retro classic, back by popular demand since 1975."
+  },
+  {
+    "id": "scallops_pea",
+    "name": "Seared scallops, pea purée & bacon",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "scallops",
+        "qty": 1
+      },
+      {
+        "id": "peas",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "bacon",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 72,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.1,
+      "business": 0.45,
+      "foodies": 0.95,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 1545,
+    "blurb": "Ninety seconds a side and not one second more."
+  },
+  {
+    "id": "sticky_chicken_bites",
+    "name": "Sticky chicken bites",
+    "course": "starter",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 1
+      },
+      {
+        "id": "soy_ginger",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.3
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 20,
+    "qualityCeiling": 74,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.7,
+      "business": 0.4,
+      "foodies": 0.3,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 695,
+    "blurb": "Bring napkins. Then bring more napkins."
+  },
+  {
+    "id": "bruschetta",
+    "name": "Tomato bruschetta",
+    "course": "starter",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "sourdough",
+        "qty": 1
+      },
+      {
+        "id": "tomatoes",
+        "qty": 1.5
+      },
+      {
+        "id": "garlic",
+        "qty": 0.5
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 20,
+    "qualityCeiling": 76,
+    "baseAppeal": {
+      "students": 0.5,
+      "families": 0.45,
+      "business": 0.5,
+      "foodies": 0.5,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 395,
+    "blurb": "Sunshine on toast, best when tomatoes are in season."
+  },
+  {
+    "id": "salmon_fishcakes",
+    "name": "Salmon fishcakes",
+    "course": "starter",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "salmon",
+        "qty": 0.5
+      },
+      {
+        "id": "potatoes",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      },
+      {
+        "id": "lemons",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 40,
+    "qualityCeiling": 85,
+    "baseAppeal": {
+      "students": 0.3,
+      "families": 0.55,
+      "business": 0.55,
+      "foodies": 0.65,
+      "tourists": 0.75
+    },
+    "suggestedPrice": 695,
+    "blurb": "Golden, crispy and suspiciously easy to eat three of."
+  },
+  {
+    "id": "chicken_gyoza",
+    "name": "Chicken & leek gyoza",
+    "course": "starter",
+    "cuisine": "asian",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 0.8
+      },
+      {
+        "id": "leeks",
+        "qty": 0.5
+      },
+      {
+        "id": "flour",
+        "qty": 1
+      },
+      {
+        "id": "soy_ginger",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 45,
+    "qualityCeiling": 86,
+    "baseAppeal": {
+      "students": 0.65,
+      "families": 0.4,
+      "business": 0.5,
+      "foodies": 0.7,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 595,
+    "blurb": "Hand-pleated dumplings. Each one gets a little pep talk."
+  },
+  {
+    "id": "asparagus_hollandaise",
+    "name": "Asparagus & hollandaise",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "asparagus",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 2
+      },
+      {
+        "id": "lemons",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 55,
+    "qualityCeiling": 92,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.3,
+      "business": 0.5,
+      "foodies": 0.85,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 645,
+    "blurb": "Only here for six weeks a year, like a very green celebrity."
+  },
+  {
+    "id": "halloumi_fries",
+    "name": "Halloumi fries",
+    "course": "starter",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "halloumi",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 15,
+    "qualityCeiling": 72,
+    "baseAppeal": {
+      "students": 0.75,
+      "families": 0.6,
+      "business": 0.35,
+      "foodies": 0.4,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 545,
+    "blurb": "Squeaky cheese, but make it chips."
+  },
+  {
+    "id": "potato_skins",
+    "name": "Loaded potato skins",
+    "course": "starter",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "cheddar",
+        "qty": 1
+      },
+      {
+        "id": "bacon",
+        "qty": 1
+      },
+      {
+        "id": "oil",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 15,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.7,
+      "business": 0.3,
+      "foodies": 0.3,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 495,
+    "blurb": "Crispy boats of cheese and bacon, sailing straight to you."
+  },
+  {
+    "id": "fish_and_chips",
+    "name": "Fish & chips with mushy peas",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "cod",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 2
+      },
+      {
+        "id": "peas",
+        "qty": 1
+      },
+      {
+        "id": "lemons",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 35,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.85,
+      "business": 0.55,
+      "foodies": 0.55,
+      "tourists": 0.95
+    },
+    "suggestedPrice": 1195,
+    "blurb": "The national treasure. Salt, vinegar and a wedge of lemon."
+  },
+  {
+    "id": "sausage_and_mash",
+    "name": "Bangers & mash",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "sausages",
+        "qty": 2
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.75,
+      "families": 0.8,
+      "business": 0.5,
+      "foodies": 0.4,
+      "tourists": 0.8
+    },
+    "suggestedPrice": 745,
+    "blurb": "Proper sausages, buttery mash and a lake of onion gravy."
+  },
+  {
+    "id": "steak_frites",
+    "name": "Sirloin steak frites",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "beef_steak",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 55,
+    "qualityCeiling": 94,
+    "baseAppeal": {
+      "students": 0.15,
+      "families": 0.4,
+      "business": 0.75,
+      "foodies": 0.75,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 2245,
+    "blurb": "Cooked exactly how you like it. Chips exactly how everyone likes them."
+  },
+  {
+    "id": "beef_burger",
+    "name": "Cheeseburger & fries",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "beef_mince",
+        "qty": 1.2
+      },
+      {
+        "id": "burger_buns",
+        "qty": 1
+      },
+      {
+        "id": "cheddar",
+        "qty": 1
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 0.5
+      },
+      {
+        "id": "tomatoes",
+        "qty": 0.5
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 82,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.85,
+      "business": 0.6,
+      "foodies": 0.45,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1445,
+    "blurb": "Two hands required. Possibly three."
+  },
+  {
+    "id": "chicken_burger",
+    "name": "Crispy chicken burger",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 1
+      },
+      {
+        "id": "burger_buns",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 0.5
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.8,
+      "business": 0.55,
+      "foodies": 0.35,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 945,
+    "blurb": "Crunchy outside, juicy inside, a bun that holds it all together."
+  },
+  {
+    "id": "halloumi_burger",
+    "name": "Mushroom & halloumi burger",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "mushrooms",
+        "qty": 1.5
+      },
+      {
+        "id": "halloumi",
+        "qty": 0.7
+      },
+      {
+        "id": "burger_buns",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.75,
+      "families": 0.55,
+      "business": 0.45,
+      "foodies": 0.5,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 795,
+    "blurb": "A veggie burger so good the meat-eaters keep asking for a bite."
+  },
+  {
+    "id": "margherita",
+    "name": "Margherita pizza",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "pizza_dough",
+        "qty": 1
+      },
+      {
+        "id": "tinned_tomatoes",
+        "qty": 1
+      },
+      {
+        "id": "mozzarella",
+        "qty": 1.5
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 85,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.9,
+      "business": 0.45,
+      "foodies": 0.45,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 745,
+    "blurb": "Tomato, mozzarella, basil. Simple, perfect, gone in minutes."
+  },
+  {
+    "id": "bacon_mushroom_pizza",
+    "name": "Bacon & mushroom pizza",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "pizza_dough",
+        "qty": 1
+      },
+      {
+        "id": "tinned_tomatoes",
+        "qty": 1
+      },
+      {
+        "id": "mozzarella",
+        "qty": 1.2
+      },
+      {
+        "id": "bacon",
+        "qty": 1.5
+      },
+      {
+        "id": "mushrooms",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 84,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.8,
+      "business": 0.45,
+      "foodies": 0.4,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 995,
+    "blurb": "The pizza that started a hundred friendly arguments about toppings."
+  },
+  {
+    "id": "spag_bol",
+    "name": "Spaghetti bolognese",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "pasta",
+        "qty": 1
+      },
+      {
+        "id": "beef_mince",
+        "qty": 1
+      },
+      {
+        "id": "tinned_tomatoes",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "garlic",
+        "qty": 0.5
+      },
+      {
+        "id": "parmesan",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.85,
+      "business": 0.5,
+      "foodies": 0.35,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 1045,
+    "blurb": "Slow-simmered sauce and a snowfall of parmesan."
+  },
+  {
+    "id": "carbonara",
+    "name": "Spaghetti carbonara",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "pasta",
+        "qty": 1
+      },
+      {
+        "id": "bacon",
+        "qty": 1.5
+      },
+      {
+        "id": "eggs",
+        "qty": 2
+      },
+      {
+        "id": "parmesan",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 45,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.7,
+      "families": 0.6,
+      "business": 0.55,
+      "foodies": 0.6,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 695,
+    "blurb": "No cream, just eggs, cheese and confidence."
+  },
+  {
+    "id": "mushroom_risotto",
+    "name": "Wild mushroom risotto",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "rice",
+        "qty": 1
+      },
+      {
+        "id": "mushrooms",
+        "qty": 2
+      },
+      {
+        "id": "stock",
+        "qty": 2
+      },
+      {
+        "id": "parmesan",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 55,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.35,
+      "families": 0.4,
+      "business": 0.5,
+      "foodies": 0.8,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 745,
+    "blurb": "Stirred with patience and a little bit of love."
+  },
+  {
+    "id": "seafood_linguine",
+    "name": "Seafood linguine",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "pasta",
+        "qty": 1
+      },
+      {
+        "id": "prawns",
+        "qty": 1
+      },
+      {
+        "id": "mussels",
+        "qty": 0.5
+      },
+      {
+        "id": "garlic",
+        "qty": 0.5
+      },
+      {
+        "id": "tomatoes",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 50,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.3,
+      "families": 0.35,
+      "business": 0.6,
+      "foodies": 0.8,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1045,
+    "blurb": "A trip to the Italian seaside, no passport needed."
+  },
+  {
+    "id": "tikka_masala",
+    "name": "Chicken tikka masala",
+    "course": "main",
+    "cuisine": "asian",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 1.2
+      },
+      {
+        "id": "curry_paste",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 1
+      },
+      {
+        "id": "tinned_tomatoes",
+        "qty": 0.5
+      },
+      {
+        "id": "rice",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 35,
+    "qualityCeiling": 85,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.7,
+      "business": 0.55,
+      "foodies": 0.5,
+      "tourists": 0.75
+    },
+    "suggestedPrice": 1195,
+    "blurb": "Often voted Britain's favourite dish. It knows, and it's very humble about it."
+  },
+  {
+    "id": "green_curry",
+    "name": "Thai green curry",
+    "course": "main",
+    "cuisine": "asian",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 1
+      },
+      {
+        "id": "curry_paste",
+        "qty": 1.5
+      },
+      {
+        "id": "peppers",
+        "qty": 0.5
+      },
+      {
+        "id": "rice",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 40,
+    "qualityCeiling": 86,
+    "baseAppeal": {
+      "students": 0.7,
+      "families": 0.45,
+      "business": 0.55,
+      "foodies": 0.65,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 1095,
+    "blurb": "Fragrant, zingy and just warm enough to make you smile."
+  },
+  {
+    "id": "chicken_katsu",
+    "name": "Chicken katsu curry",
+    "course": "main",
+    "cuisine": "asian",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "rice",
+        "qty": 1
+      },
+      {
+        "id": "curry_paste",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 35,
+    "qualityCeiling": 85,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.65,
+      "business": 0.6,
+      "foodies": 0.5,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 945,
+    "blurb": "Crunchy chicken, silky curry sauce, a mountain of rice."
+  },
+  {
+    "id": "prawn_stir_fry",
+    "name": "Prawn & veggie noodle stir-fry",
+    "course": "main",
+    "cuisine": "asian",
+    "ingredients": [
+      {
+        "id": "noodles",
+        "qty": 1.2
+      },
+      {
+        "id": "peppers",
+        "qty": 1.5
+      },
+      {
+        "id": "mushrooms",
+        "qty": 1.5
+      },
+      {
+        "id": "soy_ginger",
+        "qty": 1.5
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      },
+      {
+        "id": "prawns",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.45,
+      "business": 0.65,
+      "foodies": 0.5,
+      "tourists": 0.4
+    },
+    "suggestedPrice": 945,
+    "blurb": "Sizzling, speedy and full of crunch."
+  },
+  {
+    "id": "pork_ramen",
+    "name": "Pork belly ramen",
+    "course": "main",
+    "cuisine": "asian",
+    "ingredients": [
+      {
+        "id": "noodles",
+        "qty": 1
+      },
+      {
+        "id": "pork_belly",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "stock",
+        "qty": 2
+      },
+      {
+        "id": "soy_ginger",
+        "qty": 1
+      },
+      {
+        "id": "leeks",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 62,
+    "qualityCeiling": 93,
+    "baseAppeal": {
+      "students": 0.65,
+      "families": 0.3,
+      "business": 0.4,
+      "foodies": 0.85,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 1145,
+    "blurb": "The broth takes twelve hours. Slurping is encouraged."
+  },
+  {
+    "id": "roast_chicken",
+    "name": "Roast chicken dinner",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 1.2
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "root_veg",
+        "qty": 2
+      },
+      {
+        "id": "peas",
+        "qty": 0.5
+      },
+      {
+        "id": "stock",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.3
+      },
+      {
+        "id": "eggs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 40,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.45,
+      "families": 0.85,
+      "business": 0.5,
+      "foodies": 0.5,
+      "tourists": 0.9
+    },
+    "suggestedPrice": 1145,
+    "blurb": "Roast potatoes, a Yorkshire pudding and gravy. Every day is Sunday here."
+  },
+  {
+    "id": "shepherds_pie",
+    "name": "Shepherd's pie",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "lamb",
+        "qty": 0.6
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "root_veg",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "stock",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 30,
+    "qualityCeiling": 84,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.8,
+      "business": 0.5,
+      "foodies": 0.5,
+      "tourists": 0.85
+    },
+    "suggestedPrice": 1045,
+    "blurb": "Cosy lamb under a fluffy, golden potato duvet."
+  },
+  {
+    "id": "steak_ale_pie",
+    "name": "Steak & ale pie",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "beef_steak",
+        "qty": 0.5
+      },
+      {
+        "id": "craft_ale",
+        "qty": 0.2
+      },
+      {
+        "id": "flour",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "onions",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 45,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.55,
+      "families": 0.7,
+      "business": 0.6,
+      "foodies": 0.6,
+      "tourists": 0.9
+    },
+    "suggestedPrice": 1345,
+    "blurb": "Flaky pastry, rich gravy, and a lid you'll want to lift slowly."
+  },
+  {
+    "id": "lamb_shoulder",
+    "name": "Slow-cooked lamb shoulder",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "lamb",
+        "qty": 1
+      },
+      {
+        "id": "root_veg",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 1
+      },
+      {
+        "id": "stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 60,
+    "qualityCeiling": 93,
+    "baseAppeal": {
+      "students": 0.2,
+      "families": 0.45,
+      "business": 0.55,
+      "foodies": 0.85,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1395,
+    "blurb": "Cooked so slowly it falls apart if you look at it kindly."
+  },
+  {
+    "id": "duck_breast",
+    "name": "Duck breast, red wine jus",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "duck_breast",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 1.5
+      },
+      {
+        "id": "root_veg",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "house_wine",
+        "qty": 0.3
+      },
+      {
+        "id": "stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 72,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.6,
+      "foodies": 0.95,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 1495,
+    "blurb": "Crispy skin, blushing pink middle, glossy sauce. Chef is very proud."
+  },
+  {
+    "id": "salmon_fillet",
+    "name": "Pan-roasted salmon, crushed potatoes",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "salmon",
+        "qty": 1
+      },
+      {
+        "id": "potatoes",
+        "qty": 1.5
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "lemons",
+        "qty": 0.5
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 55,
+    "qualityCeiling": 92,
+    "baseAppeal": {
+      "students": 0.2,
+      "families": 0.45,
+      "business": 0.75,
+      "foodies": 0.75,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1145,
+    "blurb": "Crispy skin, buttery potatoes and a squeeze of lemon."
+  },
+  {
+    "id": "moules_frites",
+    "name": "Moules frites",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "mussels",
+        "qty": 2
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "house_wine",
+        "qty": 0.3
+      },
+      {
+        "id": "cream",
+        "qty": 0.5
+      },
+      {
+        "id": "garlic",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 45,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.25,
+      "families": 0.35,
+      "business": 0.5,
+      "foodies": 0.75,
+      "tourists": 0.75
+    },
+    "suggestedPrice": 1395,
+    "blurb": "A big pot of mussels and a bowl for the empty shells. Very satisfying."
+  },
+  {
+    "id": "caesar_salad",
+    "name": "Chicken Caesar salad",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "chicken_breast",
+        "qty": 0.8
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 1.5
+      },
+      {
+        "id": "parmesan",
+        "qty": 0.5
+      },
+      {
+        "id": "sourdough",
+        "qty": 0.5
+      },
+      {
+        "id": "eggs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 25,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.4,
+      "families": 0.45,
+      "business": 0.8,
+      "foodies": 0.45,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 845,
+    "blurb": "Crunchy, cheesy and secretly quite filling."
+  },
+  {
+    "id": "full_english",
+    "name": "All-day full English",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "eggs",
+        "qty": 2
+      },
+      {
+        "id": "bacon",
+        "qty": 2
+      },
+      {
+        "id": "sausages",
+        "qty": 1
+      },
+      {
+        "id": "mushrooms",
+        "qty": 0.5
+      },
+      {
+        "id": "tomatoes",
+        "qty": 0.5
+      },
+      {
+        "id": "sourdough",
+        "qty": 1
+      },
+      {
+        "id": "baked_beans",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 20,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.75,
+      "business": 0.55,
+      "foodies": 0.4,
+      "tourists": 0.95
+    },
+    "suggestedPrice": 1045,
+    "blurb": "Breakfast, but you can have it at teatime. We won't tell."
+  },
+  {
+    "id": "jacket_potato",
+    "name": "Jacket potato, cheese & beans",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "potatoes",
+        "qty": 4
+      },
+      {
+        "id": "cheddar",
+        "qty": 1.5
+      },
+      {
+        "id": "baked_beans",
+        "qty": 1.5
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.7,
+      "business": 0.5,
+      "foodies": 0.2,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 745,
+    "blurb": "Fluffy inside, crispy outside, cheese melting everywhere."
+  },
+  {
+    "id": "mac_and_cheese",
+    "name": "Mac & cheese",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "pasta",
+        "qty": 1.2
+      },
+      {
+        "id": "cheddar",
+        "qty": 2.5
+      },
+      {
+        "id": "milk",
+        "qty": 2
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.3
+      },
+      {
+        "id": "sourdough",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 15,
+    "qualityCeiling": 78,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.75,
+      "business": 0.4,
+      "foodies": 0.35,
+      "tourists": 0.4
+    },
+    "suggestedPrice": 745,
+    "blurb": "Bubbling, golden and extremely cheesy. As it should be."
+  },
+  {
+    "id": "ploughmans",
+    "name": "Ploughman's lunch",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "cheddar",
+        "qty": 2.5
+      },
+      {
+        "id": "sourdough",
+        "qty": 1.5
+      },
+      {
+        "id": "apples",
+        "qty": 1
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 76,
+    "baseAppeal": {
+      "students": 0.45,
+      "families": 0.55,
+      "business": 0.65,
+      "foodies": 0.45,
+      "tourists": 0.85
+    },
+    "suggestedPrice": 995,
+    "blurb": "Cheese, bread, pickles and an apple. A picnic on a plate."
+  },
+  {
+    "id": "cornish_pasty",
+    "name": "Cornish-style pasty",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "beef_steak",
+        "qty": 0.25
+      },
+      {
+        "id": "potatoes",
+        "qty": 1.5
+      },
+      {
+        "id": "root_veg",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 1.5
+      },
+      {
+        "id": "butter",
+        "qty": 1.5
+      },
+      {
+        "id": "salad_leaves",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 30,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.7,
+      "families": 0.6,
+      "business": 0.7,
+      "foodies": 0.35,
+      "tourists": 0.85
+    },
+    "suggestedPrice": 895,
+    "blurb": "Crimped by hand. The crust was invented as a handle, you know."
+  },
+  {
+    "id": "kids_fish_fingers",
+    "name": "Little chef's fish fingers",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "cod",
+        "qty": 0.4
+      },
+      {
+        "id": "flour",
+        "qty": 0.3
+      },
+      {
+        "id": "eggs",
+        "qty": 0.3
+      },
+      {
+        "id": "potatoes",
+        "qty": 1
+      },
+      {
+        "id": "peas",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 15,
+    "qualityCeiling": 75,
+    "baseAppeal": {
+      "students": 0.35,
+      "families": 1,
+      "business": 0.1,
+      "foodies": 0.1,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 495,
+    "blurb": "Kids' plate: crunchy fish fingers, chips and peas. Ketchup on request."
+  },
+  {
+    "id": "kids_pasta",
+    "name": "Tiny tomato pasta",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "pasta",
+        "qty": 0.8
+      },
+      {
+        "id": "tinned_tomatoes",
+        "qty": 1
+      },
+      {
+        "id": "cheddar",
+        "qty": 1
+      },
+      {
+        "id": "peas",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.4,
+      "families": 0.95,
+      "business": 0.05,
+      "foodies": 0.05,
+      "tourists": 0.4
+    },
+    "suggestedPrice": 395,
+    "blurb": "Kids' plate: little pasta shapes, tomato sauce, a cheesy top."
+  },
+  {
+    "id": "chunky_chips",
+    "name": "Chunky chips",
+    "course": "side",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "potatoes",
+        "qty": 3
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.8,
+      "business": 0.5,
+      "foodies": 0.35,
+      "tourists": 0.7
+    },
+    "suggestedPrice": 345,
+    "blurb": "Triple-cooked and fluffy in the middle."
+  },
+  {
+    "id": "house_salad",
+    "name": "House salad",
+    "course": "side",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "salad_leaves",
+        "qty": 1
+      },
+      {
+        "id": "tomatoes",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 65,
+    "baseAppeal": {
+      "students": 0.3,
+      "families": 0.4,
+      "business": 0.6,
+      "foodies": 0.45,
+      "tourists": 0.4
+    },
+    "suggestedPrice": 345,
+    "blurb": "Crisp leaves and a zippy dressing. Yes, it counts as one of your five a day."
+  },
+  {
+    "id": "onion_rings",
+    "name": "Beer-battered onion rings",
+    "course": "side",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "onions",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      },
+      {
+        "id": "lager",
+        "qty": 0.1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 72,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.7,
+      "business": 0.4,
+      "foodies": 0.35,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 345,
+    "blurb": "Golden hoops. Perfect for wearing as rings before eating."
+  },
+  {
+    "id": "buttered_greens",
+    "name": "Buttered peas & leeks",
+    "course": "side",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "peas",
+        "qty": 1
+      },
+      {
+        "id": "leeks",
+        "qty": 0.5
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 74,
+    "baseAppeal": {
+      "students": 0.2,
+      "families": 0.5,
+      "business": 0.45,
+      "foodies": 0.5,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 345,
+    "blurb": "Green, glossy, and much tastier than your vegetables at home."
+  },
+  {
+    "id": "bread_and_butter",
+    "name": "Sourdough & salted butter",
+    "course": "side",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "sourdough",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 72,
+    "baseAppeal": {
+      "students": 0.5,
+      "families": 0.55,
+      "business": 0.5,
+      "foodies": 0.6,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 345,
+    "blurb": "Warm bread and proper butter. Dangerously moreish."
+  },
+  {
+    "id": "cheesy_chips",
+    "name": "Cheesy chips",
+    "course": "side",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "potatoes",
+        "qty": 3
+      },
+      {
+        "id": "oil",
+        "qty": 1
+      },
+      {
+        "id": "cheddar",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.95,
+      "families": 0.8,
+      "business": 0.3,
+      "foodies": 0.25,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 395,
+    "blurb": "Chips wearing a cheese blanket. Comfort level: maximum."
+  },
+  {
+    "id": "sticky_toffee",
+    "name": "Sticky toffee pudding",
+    "course": "dessert",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 25,
+    "qualityCeiling": 86,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.75,
+      "business": 0.5,
+      "foodies": 0.6,
+      "tourists": 0.9
+    },
+    "suggestedPrice": 495,
+    "blurb": "Warm sponge, toffee sauce, and a strong chance of seconds."
+  },
+  {
+    "id": "eton_mess",
+    "name": "Eton mess",
+    "course": "dessert",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "strawberries",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 20,
+    "qualityCeiling": 84,
+    "baseAppeal": {
+      "students": 0.45,
+      "families": 0.7,
+      "business": 0.5,
+      "foodies": 0.55,
+      "tourists": 0.8
+    },
+    "suggestedPrice": 545,
+    "blurb": "A pudding that's supposed to look like it fell over. Very relaxing."
+  },
+  {
+    "id": "apple_crumble",
+    "name": "Apple crumble & custard",
+    "course": "dessert",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "apples",
+        "qty": 2
+      },
+      {
+        "id": "flour",
+        "qty": 0.5
+      },
+      {
+        "id": "butter",
+        "qty": 0.5
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 20,
+    "qualityCeiling": 84,
+    "baseAppeal": {
+      "students": 0.55,
+      "families": 0.8,
+      "business": 0.45,
+      "foodies": 0.5,
+      "tourists": 0.85
+    },
+    "suggestedPrice": 495,
+    "blurb": "Crunchy on top, jammy underneath, custard all over."
+  },
+  {
+    "id": "brownie",
+    "name": "Chocolate brownie & ice cream",
+    "course": "dessert",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chocolate",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 0.5
+      },
+      {
+        "id": "sugar",
+        "qty": 0.5
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "flour",
+        "qty": 0.3
+      },
+      {
+        "id": "ice_cream",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 20,
+    "qualityCeiling": 84,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.85,
+      "business": 0.45,
+      "foodies": 0.5,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 595,
+    "blurb": "Gooey in the middle, crackly on top, cold ice cream on the side."
+  },
+  {
+    "id": "tiramisu",
+    "name": "Tiramisu",
+    "course": "dessert",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "coffee_beans",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 0.5
+      },
+      {
+        "id": "cream",
+        "qty": 1
+      },
+      {
+        "id": "chocolate",
+        "qty": 0.3
+      },
+      {
+        "id": "flour",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 40,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.5,
+      "families": 0.4,
+      "business": 0.55,
+      "foodies": 0.7,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 495,
+    "blurb": "Its name means 'pick me up'. It's very good at its job."
+  },
+  {
+    "id": "creme_brulee",
+    "name": "Crème brûlée",
+    "course": "dessert",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "cream",
+        "qty": 1.5
+      },
+      {
+        "id": "eggs",
+        "qty": 1.5
+      },
+      {
+        "id": "sugar",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 55,
+    "qualityCeiling": 92,
+    "baseAppeal": {
+      "students": 0.25,
+      "families": 0.4,
+      "business": 0.55,
+      "foodies": 0.85,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 495,
+    "blurb": "Tap tap tap... crack! The most satisfying sound in the restaurant."
+  },
+  {
+    "id": "sundae",
+    "name": "Knickerbocker glory",
+    "course": "dessert",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "ice_cream",
+        "qty": 2
+      },
+      {
+        "id": "chocolate",
+        "qty": 0.5
+      },
+      {
+        "id": "strawberries",
+        "qty": 0.3
+      },
+      {
+        "id": "cream",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.95,
+      "business": 0.2,
+      "foodies": 0.2,
+      "tourists": 0.7
+    },
+    "suggestedPrice": 645,
+    "blurb": "A tall glass of ice cream with a very long spoon."
+  },
+  {
+    "id": "cheese_board",
+    "name": "British cheese board",
+    "course": "dessert",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "cheddar",
+        "qty": 2
+      },
+      {
+        "id": "parmesan",
+        "qty": 0.5
+      },
+      {
+        "id": "apples",
+        "qty": 0.5
+      },
+      {
+        "id": "sourdough",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 85,
+    "baseAppeal": {
+      "students": 0.15,
+      "families": 0.25,
+      "business": 0.6,
+      "foodies": 0.7,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 545,
+    "blurb": "Three cheeses, crackers and chutney. For people who think cheese is pudding."
+  },
+  {
+    "id": "flat_white",
+    "name": "Flat white",
+    "course": "drink",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "coffee_beans",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 20,
+    "qualityCeiling": 85,
+    "baseAppeal": {
+      "students": 0.65,
+      "families": 0.45,
+      "business": 0.9,
+      "foodies": 0.5,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 340,
+    "blurb": "Velvety milk, double shot, tiny heart drawn on top."
+  },
+  {
+    "id": "pot_of_tea",
+    "name": "Pot of tea",
+    "course": "drink",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "tea",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.4,
+      "families": 0.6,
+      "business": 0.55,
+      "foodies": 0.35,
+      "tourists": 0.9
+    },
+    "suggestedPrice": 280,
+    "blurb": "Milk in first or second? We're staying out of it."
+  },
+  {
+    "id": "hot_chocolate",
+    "name": "Hot chocolate",
+    "course": "drink",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "chocolate",
+        "qty": 0.5
+      },
+      {
+        "id": "milk",
+        "qty": 1.5
+      },
+      {
+        "id": "cream",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 82,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.9,
+      "business": 0.25,
+      "foodies": 0.3,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 360,
+    "blurb": "Topped with cream and a sprinkle of happiness."
+  },
+  {
+    "id": "lemonade",
+    "name": "Homemade lemonade",
+    "course": "drink",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "lemons",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.85,
+      "business": 0.35,
+      "foodies": 0.45,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 350,
+    "blurb": "Squeezed this morning, so sharp it winks at you."
+  },
+  {
+    "id": "soft_drink",
+    "name": "Cola or lemonade",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "mixer",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 60,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.8,
+      "business": 0.5,
+      "foodies": 0.2,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 295,
+    "blurb": "Fizzy, cold and comes with a straw."
+  },
+  {
+    "id": "apple_juice",
+    "name": "Pressed apple juice",
+    "course": "drink",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "fruit_juice",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 75,
+    "baseAppeal": {
+      "students": 0.4,
+      "families": 0.8,
+      "business": 0.45,
+      "foodies": 0.4,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 325,
+    "blurb": "From an orchard down the road. The apples are very proud."
+  },
+  {
+    "id": "milkshake",
+    "name": "Strawberry milkshake",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "ice_cream",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      },
+      {
+        "id": "strawberries",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.75,
+      "families": 0.95,
+      "business": 0.15,
+      "foodies": 0.2,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 450,
+    "blurb": "Thick enough to stand a straw up in."
+  },
+  {
+    "id": "house_wine",
+    "name": "Glass of house wine",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "house_wine",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.4,
+      "families": 0.45,
+      "business": 0.6,
+      "foodies": 0.4,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 550,
+    "blurb": "Red or white, friendly and fuss-free. (Grown-ups only.)"
+  },
+  {
+    "id": "fine_red",
+    "name": "Glass of good red",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "fine_wine",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 25,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.2,
+      "business": 0.55,
+      "foodies": 0.85,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 1095,
+    "blurb": "Picked by someone who uses the word 'tannins'. (Grown-ups only.)"
+  },
+  {
+    "id": "prosecco",
+    "name": "Glass of prosecco",
+    "course": "drink",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "prosecco",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 78,
+    "baseAppeal": {
+      "students": 0.35,
+      "families": 0.35,
+      "business": 0.5,
+      "foodies": 0.5,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 750,
+    "blurb": "Bubbles for celebrating, or for Tuesday. (Grown-ups only.)"
+  },
+  {
+    "id": "lager",
+    "name": "Pint of lager",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "lager",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 65,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.45,
+      "business": 0.55,
+      "foodies": 0.2,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 550,
+    "blurb": "Cold, crisp and poured with a proper head. (Grown-ups only.)"
+  },
+  {
+    "id": "local_ale",
+    "name": "Pint of local ale",
+    "course": "drink",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "craft_ale",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 82,
+    "baseAppeal": {
+      "students": 0.55,
+      "families": 0.35,
+      "business": 0.45,
+      "foodies": 0.65,
+      "tourists": 0.8
+    },
+    "suggestedPrice": 595,
+    "blurb": "Brewed three streets away by a man with a magnificent beard. (Grown-ups only.)"
+  },
+  {
+    "id": "gin_tonic",
+    "name": "Gin & tonic",
+    "course": "drink",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "spirit",
+        "qty": 1
+      },
+      {
+        "id": "mixer",
+        "qty": 1
+      },
+      {
+        "id": "lemons",
+        "qty": 0.2
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 80,
+    "baseAppeal": {
+      "students": 0.45,
+      "families": 0.35,
+      "business": 0.65,
+      "foodies": 0.5,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 750,
+    "blurb": "Ice, a slice, and a satisfying fizz. (Grown-ups only.)"
+  },
+  {
+    "id": "espresso_martini",
+    "name": "Espresso martini",
+    "course": "drink",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "spirit",
+        "qty": 1
+      },
+      {
+        "id": "coffee_beans",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 35,
+    "qualityCeiling": 88,
+    "baseAppeal": {
+      "students": 0.55,
+      "families": 0.1,
+      "business": 0.5,
+      "foodies": 0.7,
+      "tourists": 0.4
+    },
+    "suggestedPrice": 950,
+    "blurb": "Shaken hard until it's frothy on top. (Grown-ups only.)"
+  }
+]
