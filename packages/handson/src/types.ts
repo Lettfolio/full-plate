@@ -52,7 +52,7 @@ export type CookMethod = "stove" | "oven" | "fryer" | "none" | "pour";
 
 export interface DishProfile {
   name: string;
-  /** ≤ 12 characters for ticket slips. */
+  /** ≤ 14 characters for ticket slips. */
   short: string;
   method: CookMethod;
   /** Food cost of one plate (pence): what a drop costs. */

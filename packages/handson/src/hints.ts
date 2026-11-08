@@ -32,8 +32,8 @@ export function nextHint(session: HandsOnSession, state: GameState): Hint | unde
     if (c?.kind === "prepped") {
       const m = profile(s, c.dishId).method;
       if (m === "none") return { text: "Cold dish — take it straight to the pass and plate it", stationId: "pass" };
-      const where = m === "stove" ? "hob" : m;
-      return { text: `Cook it on the ${where}`, stationId: m };
+      const where = m === "stove" ? "on the hob" : m === "oven" ? "in the oven" : "in the fryer";
+      return { text: `Cook it ${where}`, stationId: m };
     }
     if (c?.kind === "cooked") return { text: "Plate it at the pass — shout “Service!”", stationId: "pass" };
     const next = openFoodTickets(s, state)[0];

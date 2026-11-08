@@ -114,9 +114,39 @@ export function cookMethod(dishId: DishId, course?: DishDef["course"]): CookMeth
 
 const titleCase = (id: string) => id.split(/[_-]/).filter(Boolean).map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" ");
 
+const LEAD = /^(Roasted|Cheesy|Sticky|Loaded|Crispy|Wild|Seared|Slow-cooked|Pan-roasted|All-day|Little chef's|Tiny|Beer-battered|Chunky|Homemade|Pressed|Glass of|Pint of|Pot of|Sirloin|Spaghetti|British|Strawberry|Thai|Chocolate|Cornish-style|Jacket|Buttered)\s+/i;
+const OVERRIDE: Record<string, string> = {
+  "Prawn & veggie noodle stir-fry": "Stir-fry",
+  "Knickerbocker glory": "Sundae",
+  "Cola or lemonade": "Cola",
+  "Sourdough & salted butter": "Bread & butter",
+  "Mushroom & halloumi burger": "Veggie burger",
+  "Tomato bruschetta": "Bruschetta",
+  "Bacon & mushroom pizza": "Bacon pizza",
+  "Wild mushroom risotto": "Risotto",
+  "Seafood linguine": "Linguine",
+  "Steak & ale pie": "Steak pie",
+  "Jacket potato, cheese & beans": "Jacket potato",
+  "Cheesy chips": "Cheesy chips",
+  "Pan-roasted salmon, crushed potatoes": "Roast salmon",
+  "Espresso martini": "Espresso tini",
+  "Asparagus & hollandaise": "Asparagus",
+  "Chicken tikka masala": "Tikka masala",
+  "Chicken & leek gyoza": "Gyoza",
+};
+
+/** A ticket-slip name (≤ 14 characters) that still says what the dish is. */
 export function shortName(name: string): string {
-  const cleaned = name.replace(/^(Roasted|Classic|Homemade|House|Kids'?|Chunky|Sticky)\s+/i, "").replace(/\s+(and|&)\s+/gi, " & ");
-  return cleaned.length <= 12 ? cleaned : cleaned.slice(0, 11).trimEnd() + "…";
+  if (OVERRIDE[name]) return OVERRIDE[name]!;
+  let n = name.split(/,| with /)[0]!.trim();
+  for (let i = 0; i < 2; i++) n = n.replace(LEAD, "");
+  if (n.length > 14 && n.includes(" & ")) n = n.split(" & ")[0]!;
+  if (n.length > 14) {
+    let out = "";
+    for (const w of n.split(" ")) { if ((out ? out.length + 1 : 0) + w.length > 14) break; out = out ? `${out} ${w}` : w; }
+    n = out || n.slice(0, 13) + "…";
+  }
+  return n[0]!.toUpperCase() + n.slice(1);
 }
 
 /** Profiles for every dish the state can mention (menu + live tickets); content gives real names when passed. */

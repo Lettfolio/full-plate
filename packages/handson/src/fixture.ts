@@ -129,7 +129,7 @@ export function createFixture(opts: FixtureOptions): Fixture {
   for (const c of [c1, c2, c4, c6]) fireTickets(f, c, -rng.int(0, 6));
   // one food plate already up on the pass for T2 so a server has something to carry straight away
   const up = s.tickets.find((t) => t.customerId === c2.id && !isDrink(t.dishId));
-  if (up && opts.role !== "chef") { up.ticksRemaining = 0; f.plated[up.id] = QUALITY_AI; }
+  if (up && opts.role === "server") { up.ticksRemaining = 0; f.plated[up.id] = QUALITY_AI; }
   f.rng = rng.getState();
   return f;
 }
@@ -165,8 +165,10 @@ function aiCooks(f: Fixture, dishId: DishId) {
   if (isDrink(dishId)) return f.role !== "bar";
   return f.role !== "chef";
 }
-/** Does an AI colleague carry plates, clear and take payment? */
+/** Does an AI colleague take payment and clear tables? (Only when the human is in the kitchen.) */
 const aiFront = (f: Fixture) => f.role === "chef";
+/** Does an AI server carry this plate? Food: unless the human is the server. Drinks: only when the human is the chef. */
+const aiCarries = (f: Fixture, dishId: DishId) => (isDrink(dishId) ? f.role === "chef" : f.role !== "server");
 
 // ───────────────────────── results → state (the proposed sim semantics) ─────────────────────────
 
@@ -192,8 +194,8 @@ export function applyResults(f: Fixture, results: readonly HandsOnResult[]): Fix
         t.ticksRemaining = 0;
         t.quality = r.quality;
         next.plated[t.id] = r.quality;
-        // in chef mode the AI server collects after a short beat
-        if (aiFront(next)) next.ai[`carry:${t.id}`] = s.tick + 2;
+        // the AI server collects after a short beat when the human isn't carrying this kind of plate
+        if (aiCarries(next, t.dishId)) next.ai[`carry:${t.id}`] = s.tick + 2;
         break;
       }
       case "TABLE_SERVED": {
@@ -290,7 +292,7 @@ function tickFixture(f: Fixture): Fixture {
       t.ticksRemaining--;
       if (t.ticksRemaining <= 0) {
         f.plated[t.id] = QUALITY_AI + rng.int(-6, 6);
-        if (aiFront(f) || (isDrink(t.dishId) && f.role === "bar")) f.ai[`carry:${t.id}`] = s.tick + 2;
+        if (aiCarries(f, t.dishId)) f.ai[`carry:${t.id}`] = s.tick + 2;
       }
     }
   }

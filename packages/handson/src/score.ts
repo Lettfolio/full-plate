@@ -31,9 +31,9 @@ export interface ShiftSummary {
 
 /** Points that earn 1/2/3 stars in a 3-minute shift, per role (tuned on the demo fixture; see HANDSON-NOTES). */
 const STAR_BARS: Record<HandsOnRole, [number, number, number]> = {
-  chef: [150, 400, 700],
-  server: [200, 500, 850],
-  bar: [150, 400, 700],
+  chef: [250, 650, 1150],
+  server: [200, 550, 1000],
+  bar: [200, 550, 1000],
 };
 
 export function summarise(session: HandsOnSession): ShiftSummary {

@@ -55,7 +55,7 @@ export function createSession(state: GameState, role: HandsOnRole, opts: Session
     prevInteract: false,
     prevCancel: false,
     toasts: [],
-    opts: { ...(opts.playerStaffId ? { playerStaffId: opts.playerStaffId } : {}), carryLimit: role === "server" ? 3 : 1 },
+    opts: { ...(opts.playerStaffId ? { playerStaffId: opts.playerStaffId } : {}), carryLimit: role === "server" ? 3 : role === "bar" ? 2 : 1 },
   };
 }
 
@@ -247,9 +247,10 @@ function plan(s: HandsOnSession, state: GameState, st: Station, results: HandsOn
     }
     case "bar": {
       if (role === "bar") {
+        if (carrying?.kind === "plates") return pickupPlan(s, state, st, "bar", act);
         if (carrying) return no("Hands full");
         const next = openDrinkTickets(s, state)[0];
-        if (!next) return no("No drinks ordered");
+        if (!next) return readyGroups(s, state, "bar").length ? pickupPlan(s, state, st, "bar", act) : no("No drinks ordered");
         const tn = tableNumberOf(s, state, next.customerId);
         return {
           ...base, verb: "pour", label: `Hold to pour ${profile(s, next.dishId).short}${tn ? ` (T${tn})` : ""}`, enabled: true,
@@ -308,7 +309,7 @@ function pickupPlan(s: HandsOnSession, state: GameState, st: Station, where: "pa
   if (carrying && carrying.kind !== "plates") return { ...base, label: carrying.kind === "dirty" ? "Drop the dirty plates first" : "Hands full", enabled: false };
   const have = carrying?.kind === "plates" ? carrying.plates.length : 0;
   const room = s.opts.carryLimit - have;
-  if (room <= 0) return { ...base, label: `Hands full (${s.opts.carryLimit} plates)`, enabled: false };
+  if (room <= 0) return { ...base, label: `Hands full (${s.opts.carryLimit} ${s.opts.carryLimit === 1 ? "plate" : "plates"})`, enabled: false };
   const groups = readyGroups(s, state, where);
   // prefer more for a party already in hand, then the oldest
   const inHand = new Set(carrying?.kind === "plates" ? carrying.plates.map((p) => p.customerId) : []);
