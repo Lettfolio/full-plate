@@ -89,7 +89,7 @@ export const fixtureContent: ContentPack = {
       name: "High Street",
       monthlyRent: 350_000,
       depositMonths: 3,
-      footfall: 330,
+      footfall: 40, // potential parties per day
       segmentMix: { families: 0.65, foodies: 0.35 },
       seasonCurve: [0.7, 0.75, 0.9, 1, 1.05, 1.1, 1.15, 1.15, 1, 0.95, 0.85, 1.05],
       blurb: "Steady shoppers, families at the weekend.",

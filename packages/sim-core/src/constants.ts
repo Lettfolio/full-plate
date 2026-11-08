@@ -31,9 +31,7 @@ export const DIFFICULTY: Record<Difficulty, { footfallMult: number; costMult: nu
 };
 
 // ── arrivals ──
-/** District footfall is people; potential parties = footfall / this. */
-export const PEOPLE_PER_POTENTIAL_PARTY = 2.2;
-export const ENTRY_BIAS = -4.8;
+export const ENTRY_BIAS = -3.2;
 export const APPEAL_WEIGHT = 1.2;
 /** Σ baseAppeal over the active menu is capped here before weighting. */
 export const APPEAL_CAP = 2.5;

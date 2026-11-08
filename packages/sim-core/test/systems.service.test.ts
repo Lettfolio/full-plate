@@ -1,7 +1,7 @@
 /** Focused tests for the per-tick service systems. */
 import { describe, expect, it } from "vitest";
 import { MENU_READ_TICKS, PATIENCE_DECAY, PATIENCE_SPEED_BASE } from "../src/constants";
-import { arrivalSystem, entryLogit, expectedSpendPerHead, offeredDishes, planArrivals, potentialPeople } from "../src/systems/arrival";
+import { arrivalSystem, entryLogit, expectedSpendPerHead, offeredDishes, planArrivals, potentialParties } from "../src/systems/arrival";
 import { clearingSystem, dirtyTicksFor } from "../src/systems/clearing";
 import { assignTickets, cookTicks, cooksOnShift, kitchenSystem, plateQuality } from "../src/systems/kitchen";
 import { chooseForGuest, dishWeight, orderSystem } from "../src/systems/order";
@@ -18,9 +18,9 @@ const foodies = C.segments[1]!;
 describe("ArrivalSystem", () => {
   it("footfall scales with popularity and footfall mods", () => {
     const s = ready();
-    const base = potentialPeople(C, s);
-    expect(potentialPeople(C, { ...s, reputation: { ...s.reputation, popularity: 100 } })).toBeGreaterThan(base);
-    expect(potentialPeople(C, { ...s, footfallMods: [{ mult: 2, daysRemaining: 1 }] })).toBeCloseTo(base * 2);
+    const base = potentialParties(C, s);
+    expect(potentialParties(C, { ...s, reputation: { ...s.reputation, popularity: 100 } })).toBeGreaterThan(base);
+    expect(potentialParties(C, { ...s, footfallMods: [{ mult: 2, daysRemaining: 1 }] })).toBeCloseTo(base * 2);
   });
 
   it("over-priced menus lower the entry logit for price-sensitive segments", () => {

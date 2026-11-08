@@ -70,28 +70,43 @@ A rejected command returns the same state plus one `LOG` event (`kind: "bad"`) w
 
 ## Deviations from ARCHITECTURE.md formulas
 1. **Value weight in satisfaction**: the doc says `(1 − priceSensitivity) × value`. That makes bargain-hunters *ignore* value, so value is weighted by `priceSensitivity` instead (`payment.ts`, `satisfactionOf`).
-2. **Arrivals** follow the doc's formula for potential parties per day, spread over ticks with each segment's arrival curve (Poisson). The entry logit = `ENTRY_BIAS + 1.2·min(2.5, Σappeal) − priceGap·4 + prestige pull − 0.35·queueLength`. The doc doesn't give a bias or weights; these are in constants.ts.
+2. **Arrivals** follow the doc's formula for potential parties per day (footfall = parties), split by `segmentMix` and spread over ticks with each segment's arrival curve (Poisson). The entry logit = `ENTRY_BIAS + 1.2·min(2.5, Σappeal) − priceGap·4 + prestige pull − 0.35·queueLength`, where priceGap = clamp((expected spend/head − budget)/budget) × priceSensitivity. The doc doesn't give a bias or weights; these are in constants.ts.
 3. **Finance** adds two real UK lines the doc omitted: **VAT** (1/6 of VAT-inclusive takings, settled daily) and **overheads** (£80/day utilities/rates/insurance + 1.5% card fees). Without them the fixture was trivially profitable.
 4. **Waste**: prep trim is physically removed from stock, scaled by chef skill. Spoilage bins whole batches whose `day + shelfLife ≤ tomorrow`. Plate waste comes from satisfaction below 60. Content `wasteShares` scale each stream relative to the WRAP 45/34/21 split.
 5. **Insolvency line** uses the *current rota's* monthly wage bill (+ rent × difficulty cost multiplier), times 3 months.
 6. **Mood** also drifts toward 60, and a manager on shift gives +1/day. Staff below mood 12 have a 25% chance of quitting each evening.
 
-## Fixture balance (headless, 100 seeds × 365 days, normal unless stated)
-Fixture: one High Street district, footfall 330, rent £3,500/month, £20k cash + £30k loan, £35k fit-out.
+## Balance observed (headless, balanced strategy, 100 seeds × 365 days)
+`district.footfall` = **potential parties per day** before multipliers, matching ARCHITECTURE.md and CONTENT-NOTES.md. Entry conversion is `sigmoid(entryLogit − 0.35·queue)`, with `ENTRY_BIAS = −3.2`.
+
+**Fixture** (test/fixtureContent.ts: 1 High Street district, footfall 40, rent £3,500/month, £20k cash + £30k loan, £35k fit-out):
 
 | run | survival | covers/day | avg rating | month-12 cash p10 / median / p90 |
 |---|---|---|---|---|
-| balanced | 79% | 36.6 | 3.57 | −£28.4k / £4.5k / £13.3k |
-| cheap (−15% prices) | 34% | 39.2 | 3.65 | −£34.3k / −£24.5k / £4.6k |
-| premium (+25%, skilled hires) | 95% | 33.0 | 3.86 | −£26.0k / £18.6k / £34.6k |
-| balanced, hard | 54% | 33.4 | 3.58 | −£33.2k / −£13.9k / £12.4k |
-| balanced, cosy | 100% | 46.3 | 3.71 | −£0.2k / £18.8k / £48.5k |
+| balanced, normal | 70% | 33.4 | 3.48 | −£30.7k / −£0.3k / £11.6k |
+| cheap (−15% prices), normal | 7% | 30.6 | 3.68 | −£33.8k / −£27.0k / −£21.3k |
+| premium (+25%, skilled hires), normal | 88% | 29.8 | 3.76 | −£40.0k / £3.3k / £13.6k |
+| balanced, hard | 36% | 29.4 | 3.50 | −£33.3k / −£25.4k / £4.6k |
+| balanced, cosy | 100% | 42.9 | 3.63 | −£0.1k / £11.5k / £28.0k |
 
-Failures cluster in months 9–12 (Dec–Mar, from the season curve), which is the intended "first winter" teaching beat.
-**Balance flag:** pricing up beats pricing down on this fixture. A capacity-limited restaurant earns more by raising prices than by filling seats. If the content agent wants volume play to compete, the levers are `PRICE_GAP_WEIGHT` (stronger price elasticity), larger `seatsPerTable`/`maxTables`, or segment budgets.
+**Real content pack** (`--content ../content/src/index.ts`, seeds spread round-robin over the 4 districts):
 
-Performance: about 0.1 s per simulated year on one core. The headless CLI spreads seeds across worker threads (`--workers N`, default = cores, max 8): 100 × 365 takes about 13–18 s on 2 cores.
-`--content <module>` loads any module exporting `content` (or default), e.g. `--content ../content/src/index.ts`.
+| run | survival | covers/day | avg rating | month-12 p10 / median / p90 |
+|---|---|---|---|---|
+| normal | 44% | 63.1 | 4.18 | −£46.9k / −£33.1k / £3.7k |
+| hard | 47% | 60.6 | 4.08 | −£43.6k / −£27.9k / £8.5k |
+| cosy | 100% | 82.5 | 4.23 | −£0.3k / £3.4k / £87.9k |
+
+By district (24 seeds, normal): High Street 4/6 survive, Business Park 5/6, Seaside 1/6 (deep Jan trough), **Student Quarter 0/6**: about 38 covers at ~£13/head can't cover ~£420/day of labour plus rent. Hard ≈ normal on the real pack is seed noise (the same seeds map to the same districts); the difficulty multipliers are small (footfall ×0.95, costs ×1.05).
+
+Failures cluster in months 6–12 (the season curves' winter), which is the intended "first winter" beat.
+**Balance flags for the content/balance agent:**
+- Pricing up beats pricing down: a capacity-limited restaurant earns more per seat. Levers: `PRICE_GAP_WEIGHT` (price elasticity), `seatsPerTable`/`maxTables`, segment budgets.
+- Real pack normal is 44%, below the 70–80% target. The cheapest levers are Student Quarter footfall/budgets, +£5k `startingCash`, or `ENTRY_BIAS` in constants.ts (+0.3 ≈ +10% covers).
+- The headless owner hires 1 chef + 1 server, and a second of each above £15k cash. Labour then becomes ~40–55% of revenue, the main drain.
+
+Performance: about 0.1–0.2 s per simulated year on one core. The headless CLI spreads seeds across worker threads (`--workers N`, default = cores, max 8). 100 × 365 takes ~12 s on the fixture and ~22 s on the real pack (71 dishes) on this 2-core box.
+`--content <module>` loads any module exporting `content` (or default).
 
 ## Known gaps / next steps
 - No critics (prestige only moves on reviews and events); no inflation; the loan is fixed at game start.

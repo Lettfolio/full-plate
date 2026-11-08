@@ -11,7 +11,6 @@ import {
   LAST_SEATING_TICK,
   MAX_QUEUE_PARTIES,
   PATIENCE_START,
-  PEOPLE_PER_POTENTIAL_PARTY,
   PRESTIGE_APPEAL_WEIGHT,
   PRICE_GAP_WEIGHT,
   QUEUE_PENALTY_PER_PARTY,
@@ -35,8 +34,8 @@ export function offeredDishes(content: ContentPack, state: GameState): Offered[]
   return out;
 }
 
-/** Potential people passing today: footfall × season × popularity × mods × weekend × difficulty. */
-export function potentialPeople(content: ContentPack, state: GameState): number {
+/** Potential parties passing today: footfall × season × popularity × mods × weekend × difficulty (ARCHITECTURE.md). */
+export function potentialParties(content: ContentPack, state: GameState): number {
   const district = districtOf(content, state);
   const season = district.seasonCurve[monthOf(state.day) - 1] ?? 1;
   const popularity = 0.5 + state.reputation.popularity / 100;
@@ -79,7 +78,7 @@ export function entryLogit(segment: SegmentDef, offered: readonly Offered[], pre
 /** Per-segment arrival plan for today. Called at START_SERVICE and after EIGHTY_SIX. */
 export function planArrivals(content: ContentPack, state: GameState): ServiceTally["arrivals"] {
   const district = districtOf(content, state);
-  const parties = potentialPeople(content, state) / PEOPLE_PER_POTENTIAL_PARTY;
+  const parties = potentialParties(content, state);
   const offered = offeredDishes(content, state);
   const plan: ServiceTally["arrivals"] = [];
   for (const [segId, share] of Object.entries(district.segmentMix)) {
