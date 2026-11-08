@@ -37,7 +37,7 @@ export const HINT_DECOY = 0.015;
 
 // ── guide decision (Fat Duck rule) ──
 /** Mean visit score needed for 1/2/3 stars. */
-export const STAR_THRESHOLDS: readonly [number, number, number] = [76, 83, 89];
+export const STAR_THRESHOLDS: readonly [number, number, number] = [78, 85, 91];
 /** A promotion is normally +1 star per guide; +2 when the score clears the target threshold by this much over ≥ 3 visits. */
 export const DOUBLE_JUMP_MARGIN = 3;
 export const DOUBLE_JUMP_MIN_VISITS = 3;
@@ -113,7 +113,7 @@ export const BURNOUT_PRESTIGE = -8;
 export const BURNOUT_FOOTFALL = { mult: 0.85, days: 30 };
 
 // ── head chef & the Smyth arc ──
-export const REPUTATION_GAIN_BASE = 0.02;
+export const REPUTATION_GAIN_BASE = 0.01;
 export const REPUTATION_GAIN_PER_STAR = 0.025;
 export const SMYTH_MIN_REPUTATION = 70;
 export const SMYTH_MIN_TENURE = 3 * 360;

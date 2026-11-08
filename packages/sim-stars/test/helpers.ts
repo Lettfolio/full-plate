@@ -2,7 +2,7 @@ import { content } from "@full-plate/content";
 import type { DayResult, GameState, Staff } from "@full-plate/sim-core";
 import { newGame } from "@full-plate/sim-core";
 import { closedDay, newStarsState, stepStarsDay } from "../src";
-import type { StarsState } from "../src";
+import type { StarsEvent, StarsState } from "../src";
 
 export { content };
 
@@ -26,9 +26,9 @@ export function dayResult(day: number, covers = 40): DayResult {
 }
 
 /** Steps `days` days at constant quality (or closed when quality is undefined). */
-export function run(stars0: StarsState, from: number, days: number, quality: number | ((d: number) => number | undefined), dishes?: Record<string, number>, staff?: Staff[]) {
+export function run(stars0: StarsState, from: number, days: number, quality: number | undefined | ((d: number) => number | undefined), dishes?: Record<string, number>, staff?: Staff[]) {
   let s = stars0;
-  const events = [];
+  const events: StarsEvent[] = [];
   for (let d = from; d < from + days; d++) {
     const q = typeof quality === "function" ? quality(d) : quality;
     const r = q === undefined ? stepStarsDay(content, s, closedDay(d), eveningState(d, 0, {}, staff)) : stepStarsDay(content, s, dayResult(d), eveningState(d, q, dishes, staff));

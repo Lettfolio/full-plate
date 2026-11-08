@@ -3,7 +3,7 @@
  * sim-core's public API (newGame / applyCommand / runDay-equivalent ticks) with the Stars layer mounted exactly as
  * docs/STARS-NOTES.md describes.
  *
- *   pnpm --filter @full-plate/sim-stars headless [--years 6] [--seed 1] [--seeds 1] [--refit-year 0] [--quiet]
+ *   pnpm --filter @full-plate/sim-stars headless [--years 6] [--seed 1] [--seeds 1] [--refit-year 0] [--profile stars|bistro] [--quiet]
  *
  * Prints, per year: stars after guide day, the year's (now revealed) inspector visits, stress, the prestige tracks
  * and cash; then whether the five-year three-star win triggered.
@@ -21,7 +21,9 @@ import { newStarsState, starsView } from "./state";
 import { closedDay, stepStarsDay } from "./step";
 import type { StarsCommand, StarsEvent, StarsState } from "./types";
 
-export interface HeadlessOptions { years: number; seed: number; refitYear: number; districtId: string }
+/** "stars": the ambitious perfectionist. "bistro": a good neighbourhood place (popular menu, any decent chef, no Stars investments). */
+export type Profile = "stars" | "bistro";
+export interface HeadlessOptions { years: number; seed: number; refitYear: number; districtId: string; profile?: Profile }
 
 export interface YearRow {
   year: number;
@@ -45,12 +47,20 @@ export interface YearRow {
   notes: string[];
 }
 
-export interface HeadlessRun { seed: number; rows: YearRow[]; final: { state: GameState; stars: StarsState }; win: boolean; ending?: string; events: StarsEvent[] }
+export interface HeadlessRun { seed: number; profile: Profile; rows: YearRow[]; final: { state: GameState; stars: StarsState }; win: boolean; ending?: string; events: StarsEvent[] }
 
 /**
  * Quality menu: the most technically demanding food with a quality ceiling ≥ 88 (3 mains, a starter, a dessert)
  * plus the best drink, at 1.2× suggested. Ambition is what the technique criterion rewards.
  */
+export function bistroMenu(content: ContentPack, districtId: string): { dishId: string; price: number }[] {
+  const district = content.districts.find((d) => d.id === districtId)!;
+  const appeal = (d: (typeof content.dishes)[number]) => Object.entries(district.segmentMix).reduce((a, [seg, w]) => a + w * (d.baseAppeal[seg] ?? 0), 0);
+  const pool = [...content.dishes].sort((a, b) => appeal(b) - appeal(a) || (a.id < b.id ? -1 : 1));
+  const pick = (course: string, n: number) => pool.filter((d) => d.course === course).slice(0, n);
+  return [...pick("main", 3), ...pick("starter", 1), ...pick("dessert", 1), ...pick("drink", 1)].map((d) => ({ dishId: d.id, price: d.suggestedPrice }));
+}
+
 export function qualityMenu(content: ContentPack): { dishId: string; price: number }[] {
   const pool = content.dishes.filter((d) => d.qualityCeiling >= 88).sort((a, b) => b.skillRequired - a.skillRequired || (a.id < b.id ? -1 : 1));
   const pick = (course: string, n: number) => pool.filter((d) => d.course === course).slice(0, n);
@@ -100,7 +110,7 @@ export function profit30(s: GameState): number {
 }
 const COVER_ROTA = [false, false, false, false, false, false, true];
 
-function staffUp(content: ContentPack, s0: GameState, step: (s: GameState, c: Command) => GameState): GameState {
+function staffUp(content: ContentPack, s0: GameState, step: (s: GameState, c: Command) => GameState, profile: Profile): GameState {
   let s = s0;
   for (const role of ["chef", "server"] as const) {
     const want = s.cash > 150_000 ? 2 : 1;
@@ -108,14 +118,18 @@ function staffUp(content: ContentPack, s0: GameState, step: (s: GameState, c: Co
     const pool = candidates(content, s)
       .map((c, i) => ({ c, i }))
       .filter((x) => x.c.role === role && !x.c.hired)
-      .sort((a, b) => b.c.skill + (role === "server" ? b.c.charm : b.c.speed) / 2 - (a.c.skill + (role === "server" ? a.c.charm : a.c.speed) / 2));
+      .sort((a, b) =>
+        profile === "stars"
+          ? b.c.skill + (role === "server" ? b.c.charm : b.c.speed) / 2 - (a.c.skill + (role === "server" ? a.c.charm : a.c.speed) / 2)
+          : (b.c.skill + b.c.speed) / b.c.wage - (a.c.skill + a.c.speed) / a.c.wage,
+      );
     const best = pool[0];
     if (best) s = step(s, { type: "HIRE", candidateIndex: best.i });
   }
   // Consistency needs two strong chefs: swap the weakest for a candidate 15+ points better when cash allows.
   const chefs = s.staff.filter((x) => x.role === "chef").sort((a, b) => a.skill - b.skill);
   const weakest = chefs[0];
-  if (chefs.length >= 2 && weakest && s.cash > 600_000) {
+  if (profile === "stars" && chefs.length >= 2 && weakest && s.cash > 600_000) {
     const better = candidates(content, s).map((c, i) => ({ c, i })).filter((x) => x.c.role === "chef" && !x.c.hired && x.c.skill >= weakest.skill + 15).sort((a, b) => b.c.skill - a.c.skill)[0];
     if (better) {
       const hired = step(s, { type: "HIRE", candidateIndex: better.i });
@@ -131,7 +145,7 @@ function staffUp(content: ContentPack, s0: GameState, step: (s: GameState, c: Co
     if (second && second.rota.join() !== rota.join()) s = step(s, { type: "SET_ROTA", staffId: second.id, rota });
   }
   // Courses for a chef on their day off, when the business can afford it.
-  if (s.cash > 800_000 && profit30(s) > 0) {
+  if (profile === "stars" && s.cash > 800_000 && profit30(s) > 0) {
     const off = s.staff.find((x) => x.role === "chef" && x.skill < x.potential && !x.rota[(s.day + 2) % 7]);
     if (off) s = step(s, { type: "TRAIN", staffId: off.id });
   }
@@ -186,7 +200,8 @@ function decide(content: ContentPack, stars: StarsState, s: GameState, opts: Hea
 export function runHeadless(content: ContentPack, opts: HeadlessOptions): HeadlessRun {
   const step = (st: GameState, c: Command) => applyCommand(content, st, c).state;
   let s = newGame(content, { type: "NEW_GAME", seed: opts.seed, districtId: opts.districtId, restaurantName: "The Larder", difficulty: "normal" });
-  for (const item of qualityMenu(content)) s = step(s, { type: "ADD_MENU_ITEM", dishId: item.dishId, price: item.price });
+  const profile = opts.profile ?? "stars";
+  for (const item of profile === "stars" ? qualityMenu(content) : bistroMenu(content, opts.districtId)) s = step(s, { type: "ADD_MENU_ITEM", dishId: item.dishId, price: item.price });
   let stars = newStarsState(content, s);
   const rows: YearRow[] = [];
   const allEvents: StarsEvent[] = [];
@@ -204,8 +219,8 @@ export function runHeadless(content: ContentPack, opts: HeadlessOptions): Headle
       qN = 0;
     }
     // ── morning ──
-    s = staffUp(content, s, step);
-    for (const cmd of decide(content, stars, s, opts)) {
+    s = staffUp(content, s, step, profile);
+    for (const cmd of profile === "stars" ? decide(content, stars, s, opts) : []) {
       const r = applyStarsCommand(content, stars, cmd, { day: s.day, cash: s.cash, state: s });
       stars = r.stars;
       for (const e of r.events) if (e.type === "REJECTED") row.notes.push(`d${s.day} ${cmd.type} rejected: ${e.reason}`);
@@ -270,6 +285,7 @@ export function runHeadless(content: ContentPack, opts: HeadlessOptions): Headle
   if (row) rows.push(row);
   return {
     seed: opts.seed,
+    profile,
     rows,
     final: { state: s, stars },
     win: !!stars.ending?.win,
@@ -283,7 +299,7 @@ const starStr = (n: number) => (n ? "★".repeat(n) : "—");
 
 export function report(run: HeadlessRun): string {
   const lines: string[] = [];
-  lines.push(`seed ${run.seed}`);
+  lines.push(`seed ${run.seed} — ${run.profile}`);
   lines.push("yr  guide  stars    score  visits (day:total)                         stress end/max  prestige  50Best  G&M   GFG  critic  quality  covers   cash");
   for (const r of run.rows) {
     const visits = r.visits.map((v) => `${v.day}:${v.total.toFixed(0)}`).join(" ");
@@ -326,12 +342,15 @@ if (invokedDirectly) {
   const seeds = arg("seeds", 1);
   const refitYear = arg("refit-year", 0);
   const quiet = process.argv.includes("--quiet");
+  const pi = process.argv.indexOf("--profile");
+  const profile: Profile = pi >= 0 && process.argv[pi + 1] === "bistro" ? "bistro" : "stars";
   const t0 = performance.now();
   const runs: HeadlessRun[] = [];
   for (let k = 0; k < seeds; k++) {
-    const run = runHeadless(realContent, { years, seed: seed + k, refitYear, districtId: "high_street" });
+    const run = runHeadless(realContent, { years, seed: seed + k, refitYear, districtId: "high_street", profile });
     runs.push(run);
     if (!quiet || k === 0) console.log(report(run) + "\n");
+    else if (run.ending?.startsWith("gameover")) console.log(`seed ${run.seed}: ${run.ending} on day ${run.final.state.day}`);
   }
   if (seeds > 1) {
     const peak = runs.map((r) => Math.max(0, ...r.rows.map((x) => x.starsAfter)));
