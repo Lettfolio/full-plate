@@ -138,6 +138,11 @@ export interface ContentPack {
   events: EventDef[];
   /** Global balance knobs. */
   balance: BalanceDef;
+  /**
+   * [sim-core addition] Optional review text templates keyed by rating "1".."5".
+   * Placeholders: {dish}, {restaurant}, {segment}. sim-core has built-in fallbacks.
+   */
+  reviewTemplates?: Record<string, string[]>;
 }
 
 export interface BalanceDef {
@@ -173,6 +178,8 @@ export interface MenuItem {
   /** Rolling 7-day stats for the menu matrix. */
   sold7d: number;
   margin7d: Pence;
+  /** [sim-core addition] Last ≤7 days of {sold, margin}, newest last; sold7d/margin7d are its sums. */
+  recent?: { sold: number; margin: Pence }[];
 }
 
 export interface Staff {
@@ -207,6 +214,25 @@ export interface Customer {
   tip: Pence;
   /** Set when stage === "left": did they leave before being served. */
   walkedOut?: boolean;
+  // ── sim-core additions (all optional, sim always sets them on new customers) ──
+  /** Tick at which the customer entered its current stage. */
+  stageTick?: number;
+  /** Plates delivered so far (order.length when complete). */
+  platesReady?: number;
+  /** Sum of plated qualities, for the average. */
+  qualitySum?: number;
+  /** Tick at which the last plate reached the table. */
+  servedTick?: number;
+  /** Tick at which an eating party finishes. */
+  eatUntil?: number;
+  /** Tick at which the customer reached stage "left"; removed by ClearingSystem a tick later. */
+  leftTick?: number;
+  /** Ingredient cost of the plates ordered. */
+  foodCost?: Pence;
+  /** True after COMP_TABLE: the meal is free and satisfaction is boosted. */
+  comped?: boolean;
+  /** Final 1-5 rating once paid. */
+  rating?: number;
 }
 
 export interface Table {
@@ -225,6 +251,8 @@ export interface KitchenTicket {
   ticksRemaining: number;
   chefId?: StaffId;
   quality: number;                               // computed when plated
+  /** [sim-core addition] Ingredient freshness/season bonus captured when stock was consumed. */
+  freshness?: number;
 }
 
 export interface Review {
@@ -233,6 +261,8 @@ export interface Review {
   rating: number;                                // 1-5
   text: string;
   dishId?: DishId;
+  /** [sim-core addition] Average plate quality behind the review (drives prestige). */
+  quality?: number;
 }
 
 export interface DayResult {
@@ -245,6 +275,10 @@ export interface DayResult {
   labourCost: Pence;
   rent: Pence;                                   // apportioned daily
   loanPayment: Pence;
+  /** [sim-core addition] Utilities, insurance, business rates and card fees. Included in profit. */
+  overheads?: Pence;
+  /** [sim-core addition] VAT owed on today's takings (menu prices are VAT-inclusive). Included in profit. */
+  vat?: Pence;
   waste: { prep: Pence; plate: Pence; spoil: Pence };
   profit: Pence;
   averageSpend: Pence;
@@ -262,6 +296,8 @@ export interface Stock {
   qty: number;
   /** Day the oldest batch was delivered; used for spoilage. */
   oldestDay: number;
+  /** [sim-core addition] FIFO delivery batches, oldest first; qty is their sum. */
+  batches?: { qty: number; day: number }[];
 }
 
 export interface Loan {
@@ -311,6 +347,49 @@ export interface GameState {
   footfallMods: { mult: number; daysRemaining: number }[];
   log: LogEntry[];                               // last ~200 entries for the UI ticker
   stats: { totalCovers: number; totalRevenue: Pence; daysOpen: number };
+  // ── sim-core additions (optional so older saves stay valid) ──
+  /** Dishes pulled for today via EIGHTY_SIX (manual or out-of-stock). Cleared at END_DAY. */
+  eightySixed?: DishId[];
+  /** Candidate indices already hired today. Cleared at END_DAY. */
+  hiredCandidates?: number[];
+  /** Consecutive evenings spent below the insolvency line (normal/hard). */
+  distressDays?: number;
+  /** Running tallies for the current service; reset at START_SERVICE. */
+  service?: ServiceTally;
+  /** Recent events, for deck cooldowns. */
+  eventHistory?: { eventId: EventId; day: number }[];
+  /** Why the game ended, when phase === "gameover". */
+  gameOverReason?: string;
+}
+
+/** [sim-core addition] Per-service accumulators used to build the DayResult. */
+export interface ServiceTally {
+  parties: number;
+  ratingSum: number;          // Σ rating × partySize
+  satisfactionSum: number;    // Σ satisfaction × partySize
+  ratedCovers: number;
+  qualitySum: number;         // Σ plate quality
+  plates: number;
+  /** Per dish: plates sold (paid for), plates cooked, Σ plate quality, Σ margin. */
+  dishes: Record<DishId, { sold: number; plated: number; qualitySum: number; margin: Pence }>;
+  /** Potential parties expected today (arrival system), for the UI and stats. */
+  potentialParties: number;
+  /** Per-segment arrival inputs fixed at START_SERVICE (recomputed on EIGHTY_SIX). */
+  arrivals: { segment: SegmentId; potentialParties: number; entryLogit: number }[];
+  nextCustomer: number;       // id counters
+  nextTicket: number;
+  /** Front-of-house actions gained per tick (fixed for the service). */
+  actionsPerTick: number;
+  /** Front-of-house actions left this tick (fraction carries over, capped at 1). */
+  actionsLeft: number;
+  plateWaste: Pence;
+  walkoutParties: number;
+  /** Tips earned by front of house today (tips are staff money, not revenue). */
+  serverTips: Pence;
+  /** Portions of each ingredient consumed today (prep waste basis). */
+  ingredientsUsed: Record<IngredientId, number>;
+  /** One entry per paying party, for review sampling. */
+  paid: { segment: SegmentId; partySize: number; rating: number; quality: number; dishId?: DishId }[];
 }
 
 export interface LogEntry { day: number; tick: number; text: string; kind: "info" | "good" | "bad" | "money" }
@@ -359,6 +438,8 @@ export interface Candidate {
   traits: string[];
   /** Fuzzy band shown to the player, e.g. "promising". */
   potentialHint: string;
+  /** [sim-core addition] True once hired today; the index stays stable but cannot be hired again. */
+  hired?: boolean;
 }
 
 /** Menu-matrix classification for the UI. */
