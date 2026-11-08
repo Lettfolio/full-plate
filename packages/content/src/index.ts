@@ -25,6 +25,7 @@ import staffArchetypesJson from "../data/staffArchetypes.json";
 import traitsJson from "../data/traits.json";
 import eventsJson from "../data/events.json";
 import balanceJson from "../data/balance.json";
+import reviewTemplatesJson from "../data/reviewTemplates.json";
 
 const SERVICE_TICKS = 120; // mirrors sim-core SERVICE_TICKS; kept local so this file imports types only
 const COURSES = ["starter", "main", "dessert", "drink", "side"];
@@ -36,6 +37,8 @@ const EVENT_EFFECT_KEYS = ["cash", "popularity", "prestige", "staffMood", "footf
 /** UK National Living Wage (21+) from April 2026, in pence per hour. */
 export const NATIONAL_LIVING_WAGE: number = 1271;
 const SUM_TOLERANCE = 0.01;
+const REVIEW_KEYS = ["1", "2", "3", "4", "5"];
+const REVIEW_PLACEHOLDERS = ["{dish}", "{restaurant}", "{segment}"];
 
 // ───────── small guards ─────────
 type Problems = string[];
@@ -308,6 +311,27 @@ export function validateContent(pack: unknown): string[] {
       p.push("balance: startingCash + loanPrincipal − fitOutCost cannot cover even the cheapest rent deposit");
   }
 
+  // review templates (optional on ContentPack, always shipped here)
+  if (pack.reviewTemplates !== undefined) {
+    const rt = pack.reviewTemplates;
+    if (!isObj(rt)) p.push("reviewTemplates: expected an object keyed \"1\"–\"5\"");
+    else {
+      for (const k of Object.keys(rt)) if (!REVIEW_KEYS.includes(k)) p.push(`reviewTemplates: unknown rating key "${k}"`);
+      for (const k of REVIEW_KEYS) {
+        const lines = rt[k];
+        if (!Array.isArray(lines) || lines.length === 0) {
+          p.push(`reviewTemplates.${k}: expected a non-empty array of strings`);
+          continue;
+        }
+        lines.forEach((line, j) => {
+          if (!str(p, `reviewTemplates.${k}[${j}]`, line)) return;
+          for (const ph of line.match(/\{[^}]*\}/g) ?? [])
+            if (!REVIEW_PLACEHOLDERS.includes(ph)) p.push(`reviewTemplates.${k}[${j}]: unknown placeholder ${ph}`);
+        });
+      }
+    }
+  }
+
   return p;
 }
 
@@ -322,6 +346,7 @@ function assemble(): ContentPack {
     traits: traitsJson as TraitDef[],
     events: eventsJson as EventDef[],
     balance: balanceJson as BalanceDef,
+    reviewTemplates: reviewTemplatesJson as Record<string, string[]>,
   };
 }
 

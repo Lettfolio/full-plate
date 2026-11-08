@@ -2,10 +2,10 @@
   {
     "id": "students",
     "name": "Students",
-    "priceSensitivity": 0.9,
+    "priceSensitivity": 0.8,
     "qualityWeight": 0.35,
     "speedWeight": 0.45,
-    "averageBudget": 900,
+    "averageBudget": 1150,
     "partySizeWeights": [
       0.25,
       0.35,
@@ -142,7 +142,7 @@
     "priceSensitivity": 0.65,
     "qualityWeight": 0.5,
     "speedWeight": 0.6,
-    "averageBudget": 1400,
+    "averageBudget": 1500,
     "partySizeWeights": [
       0.02,
       0.18,
@@ -279,7 +279,7 @@
     "priceSensitivity": 0.3,
     "qualityWeight": 0.6,
     "speedWeight": 0.9,
-    "averageBudget": 1800,
+    "averageBudget": 1900,
     "partySizeWeights": [
       0.3,
       0.4,
@@ -553,7 +553,7 @@
     "priceSensitivity": 0.5,
     "qualityWeight": 0.55,
     "speedWeight": 0.5,
-    "averageBudget": 2000,
+    "averageBudget": 2100,
     "partySizeWeights": [
       0.1,
       0.5,

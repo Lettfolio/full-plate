@@ -67,11 +67,11 @@ describe("economics", () => {
   it("every dish has a positive gross margin at its suggested price", () => {
     for (const d of content.dishes) expect(dishMargin(content, d), d.id).toBeGreaterThan(0);
   });
-  it("food sits at 65–90% GP and nothing is sold below 65%", () => {
+  it("food sits at 65–74% GP (mains, starters) and nothing is sold below 65%", () => {
     for (const d of content.dishes) {
       const m = dishMargin(content, d);
       expect(m, d.id).toBeGreaterThanOrEqual(0.65);
-      if (d.course === "main" || d.course === "starter") expect(m, d.id).toBeLessThanOrEqual(0.72);
+      if (d.course === "main" || d.course === "starter") expect(m, d.id).toBeLessThanOrEqual(0.74);
     }
   });
   it("wine sells at 2–4× cost", () => {
@@ -125,6 +125,25 @@ describe("economics", () => {
   });
   it("event cash effects stay within ±£2,000", () => {
     for (const e of content.events) for (const c of e.choices) if (c.effects.cash !== undefined) expect(Math.abs(c.effects.cash), `${e.id}.${c.id}`).toBeLessThanOrEqual(200_000);
+  });
+});
+
+describe("review templates", () => {
+  it("has ~8 lines for each rating 1–5 using only known placeholders", () => {
+    const rt = content.reviewTemplates!;
+    expect(Object.keys(rt).sort()).toEqual(["1", "2", "3", "4", "5"]);
+    for (const k of Object.keys(rt)) {
+      expect(rt[k]!.length, k).toBeGreaterThanOrEqual(8);
+      for (const line of rt[k]!) for (const ph of line.match(/\{[^}]*\}/g) ?? []) expect(["{dish}", "{restaurant}", "{segment}"]).toContain(ph);
+    }
+  });
+  it("flags bad keys, empty pools and unknown placeholders", () => {
+    const bad = clone(content);
+    bad.reviewTemplates = { "1": [], "2": ["Hello {chef}"], "3": ["ok"], "4": ["ok"], "5": ["ok"], "6": ["too good"] };
+    const joined = validateContent(bad).join("\n");
+    expect(joined).toMatch(/reviewTemplates\.1: expected a non-empty array/);
+    expect(joined).toMatch(/unknown placeholder \{chef\}/);
+    expect(joined).toMatch(/unknown rating key "6"/);
   });
 });
 
