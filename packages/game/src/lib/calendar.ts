@@ -2,6 +2,7 @@ import { DAYS_PER_MONTH, MINUTES_PER_TICK, SERVICE_TICKS, isWeekend, monthOf, we
 
 /** Calendar labels. All the rules (start month, weekday of day 0, weekend) come from sim-core. */
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** Rota index for a day: 0 = Monday … 6 = Sunday (sim-core `weekdayOf`). */

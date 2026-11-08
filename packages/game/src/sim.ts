@@ -30,3 +30,30 @@ export const {
   monthOf,
   shiftCost,
 } = sim;
+
+// ── round 2: optional exports the sim agent is adding in parallel ──
+// Read by name so the game typechecks and runs whether or not they have landed yet.
+const optional = sim as unknown as Record<string, unknown>;
+const firstNumber = (...names: string[]): number | undefined => {
+  for (const n of names) if (typeof optional[n] === "number") return optional[n] as number;
+  return undefined;
+};
+
+/** Fee for one TRAIN day, if sim-core exports it (undefined → the UI shows "£—"). */
+export const TRAINING_FEE: number | undefined = firstNumber("TRAINING_FEE", "TRAIN_FEE", "TRAINING_COST", "TRAIN_COST");
+
+type OrderLine = { ingredientId: string; qty: number };
+/**
+ * sim-core's own restock suggestion (`suggestedOrder(content, state)`), normalised to order lines, or
+ * null while it hasn't landed (callers then fall back to the UI forecast in screens/planning/stockNeeds).
+ * Accepts either a Record<ingredientId, qty> or an array of { ingredientId, qty }.
+ */
+export function simSuggestedOrder(state: sim.GameState): OrderLine[] | null {
+  const fn = optional.suggestedOrder;
+  if (typeof fn !== "function") return null;
+  const raw = (fn as (c: ContentPack, s: sim.GameState) => unknown)(content, state);
+  const lines: OrderLine[] = Array.isArray(raw)
+    ? (raw as OrderLine[]).map((l) => ({ ingredientId: l.ingredientId, qty: l.qty }))
+    : raw && typeof raw === "object" ? Object.entries(raw as Record<string, number>).map(([ingredientId, qty]) => ({ ingredientId, qty })) : [];
+  return lines.filter((l) => typeof l.ingredientId === "string" && Number.isInteger(l.qty) && l.qty > 0);
+}

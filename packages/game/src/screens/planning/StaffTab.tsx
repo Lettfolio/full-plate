@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import type { Candidate, Command, GameState, Staff, StaffRole } from "@full-plate/sim-core";
-import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, RECRUITMENT_FEE, shiftCost } from "../../sim";
+import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, RECRUITMENT_FEE, shiftCost, TRAINING_FEE } from "../../sim";
 import { Bar } from "../../components/Bar";
 import { MoneyText } from "../../components/MoneyText";
 import { traitName } from "../../lib/content";
 import { WEEKDAYS, weekdayIndex } from "../../lib/calendar";
-import { coverage, initials, moodFace, moodWord, ROLE_LABEL, SHIFT_HOURS } from "../../lib/staff";
+import { coverage, initials, isTrainingToday, moodFace, moodWord, ROLE_LABEL, SHIFT_HOURS, trainBlocker } from "../../lib/staff";
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
@@ -20,7 +20,29 @@ function TraitTags({ ids }: { ids: string[] }) {
   );
 }
 
-function PersonCard({ s, today, send }: { s: Staff; today: number; send: Props["send"] }) {
+function TrainButton({ s, game, today, send }: { s: Staff; game: GameState; today: number; send: Props["send"] }) {
+  const blocked = trainBlocker(game, s, today);
+  const poor = TRAINING_FEE !== undefined && game.cash < TRAINING_FEE;
+  const why = blocked ?? (poor ? "Not enough cash for the course" : null);
+  const first = s.name.split(" ")[0];
+  if (isTrainingToday(game, s)) return <span className="tag tag--train">📚 Training today</span>;
+  return (
+    <span className="train">
+      <button
+        className="btn btn--ghost btn--sm"
+        disabled={!!why}
+        aria-describedby={why ? `train-why-${s.id}` : undefined}
+        onClick={() => send({ type: "TRAIN", staffId: s.id })}
+        title={why ?? `A day on a course: ${first} gets better at the job but isn't working today (still paid)`}
+      >
+        📚 Train · {TRAINING_FEE !== undefined ? <MoneyText pence={TRAINING_FEE} whole /> : "£—"}
+      </button>
+      {why && <span id={`train-why-${s.id}`} className="xs muted train__why">{why}</span>}
+    </span>
+  );
+}
+
+function PersonCard({ s, game, today, send }: { s: Staff; game: GameState; today: number; send: Props["send"] }) {
   const [confirm, setConfirm] = useState(false);
   const shifts = s.rota.filter(Boolean).length;
   return (
@@ -60,6 +82,7 @@ function PersonCard({ s, today, send }: { s: Staff; today: number; send: Props["
           ))}
         </div>
       </div>
+      <TrainButton s={s} game={game} today={today} send={send} />
       <div className="row">
         <span className="xs faint spacer">With you since day {s.hiredDay + 1}</span>
         {confirm ? (
@@ -117,7 +140,7 @@ export function StaffTab({ game, send }: Props) {
           <span className="small muted">Today's wages ≈ <b><MoneyText pence={wageBill} /></b></span>
         </div>
         {game.staff.length === 0 ? <div className="empty">Nobody works here yet. Hire a chef and a server →</div> : (
-          <div className="roster">{game.staff.map((s) => <PersonCard key={s.id} s={s} today={today} send={send} />)}</div>
+          <div className="roster">{game.staff.map((s) => <PersonCard key={s.id} s={s} game={game} today={today} send={send} />)}</div>
         )}
         <div className="card" style={{ padding: 12 }}>
           <div className="xs faint" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Who's on each day</div>

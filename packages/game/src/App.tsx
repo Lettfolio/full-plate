@@ -5,7 +5,7 @@ import { loadGame, useAutosave } from "./state/save";
 import { content } from "./sim";
 import { TitleScreen } from "./screens/TitleScreen";
 import { NewGame } from "./screens/NewGame";
-import { Planning } from "./screens/Planning";
+import { Planning, type PlanningTab } from "./screens/Planning";
 import { Service } from "./screens/Service";
 import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
@@ -35,8 +35,11 @@ export function App() {
   const send = useCallback((cmd: Command) => dispatch({ type: "command", cmd }), []);
   const runTicks = useCallback((n: number) => dispatch({ type: "ticks", n }), []);
   const dismissToast = useCallback(() => dispatch({ type: "dismissToast" }), []);
+  const notify = useCallback((text: string) => dispatch({ type: "toast", text, tone: "info" }), []);
+  const [planTab, setPlanTab] = useState<PlanningTab>("menu");
 
   const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
+    setPlanTab("menu");
     dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty } });
     setShell({ view: "game" });
   };
@@ -44,6 +47,13 @@ export function App() {
     setSaved(loadGame());
     dispatch({ type: "quit" });
     setShell({ view: "title" });
+  };
+
+  // Evening → tomorrow morning (via the morning post on event days). Tomorrow opens on the Menu tab
+  // unless a shortcut ("Hire", "Buy a table") picked another.
+  const nextDay = () => {
+    if (game?.phase === "event") setEventOpen(true);
+    else send({ type: "END_DAY" });
   };
 
   if (shell.view === "title" || (shell.view === "game" && !game)) {
@@ -83,13 +93,14 @@ export function App() {
     <div className="app">
       <StatusBar game={game} onMenu={game.phase === "service" ? undefined : quitToTitle} />
       <main className={`screen ${game.phase === "service" ? "screen--fixed" : ""}`}>
-        {game.phase === "planning" && <Planning game={game} send={send} />}
-        {game.phase === "service" && <Service game={game} app={app} send={send} runTicks={runTicks} />}
+        {game.phase === "planning" && <Planning game={game} send={send} tab={planTab} onTab={setPlanTab} goalsJustDone={app.goalsJustDone} />}
+        {game.phase === "service" && <Service game={game} app={app} send={send} runTicks={runTicks} notify={notify} />}
         {(game.phase === "evening" || game.phase === "event") && (
           <Evening
             game={game}
             result={game.history.at(-1) ?? app.lastResult}
-            onNext={() => (game.phase === "event" ? setEventOpen(true) : send({ type: "END_DAY" }))}
+            onNext={nextDay}
+            onGoTo={(tab) => { setPlanTab(tab); nextDay(); }}
             nextLabel={game.phase === "event" ? "Read the morning post →" : "Next day →"}
             send={send}
           />

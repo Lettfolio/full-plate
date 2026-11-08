@@ -24,14 +24,16 @@ export function TitleScreen({ saved, onNew, onContinue }: Props) {
           )}
           {saved && (
             <div className="title__save">
-              {saved.restaurantName} · Day {saved.day + 1} · {dateLabel(saved.day)} · <MoneyText pence={saved.cash} whole />
+              <b>{saved.restaurantName}</b>
+              <div className="title__savemeta">Day {saved.day + 1} · <MoneyText pence={saved.cash} whole /></div>
+              <div className="xs muted">{dateLabel(saved.day)}</div>
             </div>
           )}
           <button className={saved ? "btn" : "btn btn--primary btn--xl"} onClick={onNew} autoFocus={!saved}>
             New game
           </button>
         </div>
-        <p className="title__foot">Milestone 1 · one restaurant, one district</p>
+        <p className="title__foot">One restaurant, one district</p>
       </div>
     </div>
   );

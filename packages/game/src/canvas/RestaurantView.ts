@@ -33,9 +33,9 @@ const C = {
   road: "#8d8a84",
   table: "#c99a63",
   tableEdge: "#a2733f",
-  tomato: "#e0533d",
+  tomato: "#c4412b",
   tomatoDeep: "#b93c29",
-  basil: "#4d8f47",
+  basil: "#3c7a37",
   basilDeep: "#376a33",
   amber: "#e9a23b",
   amberDeep: "#b97a17",
@@ -176,8 +176,17 @@ interface Sprite {
 interface StaffSprite { id: string; x: number; y: number; path: Pt[]; target: Pt | null; task?: string; until: number }
 interface Floaty { x: number; y: number; text: string; colour: string; born: number; life: number }
 
+/** Things to ring with a pulsing halo (live incidents). `strong` ids pulse harder (hovered incident card). */
+export interface Highlight {
+  tableIds: TableId[];
+  customerIds: CustomerId[];
+  staffIds: string[];
+  strong?: string[];
+}
+
 export interface RenderOptions {
   content: ContentPack;
+  highlight?: Highlight;
   /** Sim speed multiplier (0 = paused). Scales walking speed so people keep up at 4x. */
   speed: number;
   selected?: CustomerId | null;
@@ -251,6 +260,7 @@ export class RestaurantView {
     this.drawStaff(game, L, opts, dt);
     this.drawPeople(game, L, opts);
     this.drawQueueBadges(game, L);
+    this.drawHighlights(game, L, opts);
     this.drawFloaties(opts.now);
     this.firstFrame = false;
   }
@@ -659,6 +669,42 @@ export class RestaurantView {
         ctx.fillStyle = patienceColour(c.patience); ctx.strokeStyle = C.paper; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(x, y - r * 1.55, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
+    }
+  }
+
+  /** Pulsing tomato rings around an incident's table / waiting party / staff member. */
+  private drawHighlights(game: GameState, L: Layout, opts: RenderOptions) {
+    const h = opts.highlight;
+    if (!h || (!h.tableIds.length && !h.customerIds.length && !h.staffIds.length)) return;
+    const ctx = this.ctx;
+    const t = (Math.sin(opts.now / 220) + 1) / 2; // 0..1
+    const ring = (x: number, y: number, r: number, id: string) => {
+      const strong = h.strong?.includes(id);
+      ctx.save();
+      ctx.strokeStyle = C.tomato;
+      ctx.globalAlpha = 0.45 + 0.5 * t;
+      ctx.lineWidth = strong ? 5 : 3.5;
+      ctx.beginPath(); ctx.arc(x, y, r + t * (strong ? 7 : 4), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.18 * (1 - t);
+      ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(x, y, r + 8 + t * 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      // a "!" badge so it reads without colour too
+      ctx.fillStyle = C.tomatoDeep;
+      ctx.beginPath(); ctx.arc(x + r * 0.75, y - r * 0.75, 8, 0, Math.PI * 2); ctx.fill();
+      label(ctx, "!", x + r * 0.75, y - r * 0.75 + 4, { align: "center", size: 12, weight: 900, colour: C.paper });
+    };
+    for (const id of new Set(h.tableIds)) {
+      const s = L.tables.get(id);
+      if (s) ring(s.x, s.y, s.r + L.person * 2.8, id);
+    }
+    for (const id of new Set(h.customerIds)) {
+      const sp = this.sprites.get(`${id}:0`);
+      if (sp) ring(sp.x, sp.y, L.person * 2, id);
+    }
+    for (const id of new Set(h.staffIds)) {
+      const sp = this.staffSprites.get(id);
+      if (sp) ring(sp.x, sp.y, 16, id);
     }
   }
 

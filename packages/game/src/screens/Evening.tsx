@@ -1,7 +1,11 @@
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
-import { content } from "../sim";
-import { shortfall, stockNeeds } from "./planning/stockNeeds";
+import { content, TABLE_COST } from "../sim";
+import { restockLines } from "./planning/stockNeeds";
+import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
+import { incidentLines, INCIDENT_ICON } from "../lib/incidents";
+import { coveringPhrase } from "../lib/staff";
+import type { PlanningTab } from "./Planning";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
 import { Bar } from "../components/Bar";
@@ -15,16 +19,17 @@ interface Props {
   result: DayResult | null;
   /** END_DAY on a normal evening; opens the event modal when tomorrow has a card (phase "event"). */
   onNext: () => void;
+  /** Go to tomorrow's planning on a given tab (Hire → Staff, Buy a table → Restaurant). */
+  onGoTo?: (tab: PlanningTab) => void;
   nextLabel: string;
   send: (cmd: Command) => void;
 }
 
 /** Orders tomorrow's shortfall now (ORDER_STOCK is allowed in the evening; deliveries land next morning). */
 function Restock({ game, send }: { game: GameState; send: (cmd: Command) => void }) {
-  const needs = stockNeeds(content, game);
-  const gap = shortfall(needs);
-  const lines = Object.entries(gap);
-  const cost = lines.reduce((a, [id, q]) => a + q * (needs.find((n) => n.ingredientId === id)?.unitCost ?? 0), 0);
+  const lines = restockLines(game);
+  const unit = (id: string) => content.ingredients.find((i) => i.id === id)?.unitCost ?? 0;
+  const cost = lines.reduce((a, [id, q]) => a + q * unit(id), 0);
   const ordered = game.orders.length > 0;
   return (
     <div className="card restock">
@@ -62,7 +67,22 @@ export function Delta({ v, digits = 1, suffix = "" }: { v: number; digits?: numb
   );
 }
 
-export function Evening({ game, result, onNext, nextLabel, send }: Props) {
+function Worst({ game, r }: { game: GameState; r: DayResult }) {
+  // In the evening the state still holds today's service tally (per-dish sold + quality).
+  const w = r.day === game.day ? worstDish(dishDays(content, game), r.worstDish) : null;
+  return (
+    <div className="dishpick dishpick--worst">
+      <span className="dishpick__icon" aria-hidden="true">🥀</span>
+      <div>
+        <div className="dishpick__k">{w?.reason === "unpopular" ? "Least popular" : w ? "Lowest quality" : "Worst dish"}</div>
+        <div className="dishpick__name">{w ? dishName(content, w.dishId) : "—"}</div>
+        <div className="xs muted">{w ? w.text : "Nothing stood out (dishes that sold fewer than 3 plates don't count)."}</div>
+      </div>
+    </div>
+  );
+}
+
+export function Evening({ game, result, onNext, onGoTo, nextLabel, send }: Props) {
   if (!result) {
     return (
       <div className="page">
@@ -79,6 +99,10 @@ export function Evening({ game, result, onNext, nextLabel, send }: Props) {
   const ofRev = (v: number) => (r.revenue > 0 ? pct(v / r.revenue) : "—");
   const good = r.profit >= 0;
   const moods = Object.entries(r.staffMoodDelta);
+  const happened = incidentLines(r, game);
+  const covered = r.ownerCovered ?? [];
+  const staffed = covered.length ? lastStaffedDay(game.history, r.day) : undefined;
+  const moreTables = r.walkouts > WALKOUTS_FOR_TABLE_TIP && game.tables.length < content.balance.maxTables;
 
   return (
     <div className="page">
@@ -94,6 +118,30 @@ export function Evening({ game, result, onNext, nextLabel, send }: Props) {
 
         <div className="stack">
           {game.phase !== "gameover" && <Restock game={game} send={send} />}
+          {covered.length > 0 && (
+            <div className="card tip tip--amber">
+              <span className="tip__icon" aria-hidden="true">🧑‍🍳</span>
+              <div className="spacer">
+                <b>You covered {coveringPhrase(covered)} yourself today.</b>
+                <div className="small">
+                  {staffed
+                    ? <>Day {staffed.day + 1}, with a full team: {staffed.covers} served, {staffed.walkouts} walked out, {staffed.averageRating.toFixed(1)}★. Today: {r.covers} served, {r.walkouts} walked out, {r.averageRating.toFixed(1)}★.</>
+                    : <>Today: {r.covers} served, {r.walkouts} walked out, {r.averageRating.toFixed(1)}★. A proper team cooks better and faster, and you'll get tired doing it all.</>}
+                </div>
+              </div>
+              {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>Hire →</button>}
+            </div>
+          )}
+          {moreTables && (
+            <div className="card tip">
+              <span className="tip__icon" aria-hidden="true">🪑</span>
+              <div className="spacer">
+                <b>{r.walkouts} people walked out.</b>
+                <div className="small">Another table (<MoneyText pence={TABLE_COST} whole />) seats more of the queue — if the kitchen can keep up.</div>
+              </div>
+              {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("restaurant")}>Buy a table →</button>}
+            </div>
+          )}
           <div className="card">
             <div className="card__title"><h3>Today's takings</h3><span className="xs faint">% of revenue</span></div>
             <table className="pnl">
@@ -138,11 +186,25 @@ export function Evening({ game, result, onNext, nextLabel, send }: Props) {
               <span className="dishpick__icon" aria-hidden="true">🏆</span>
               <div><div className="dishpick__k">Best dish</div><div className="dishpick__name">{r.bestDish ? dishName(content, r.bestDish) : "—"}</div></div>
             </div>
-            <div className="dishpick dishpick--worst">
-              <span className="dishpick__icon" aria-hidden="true">🥀</span>
-              <div><div className="dishpick__k">Worst dish</div><div className="dishpick__name">{r.worstDish ? dishName(content, r.worstDish) : "—"}</div></div>
-            </div>
+            <Worst game={game} r={r} />
           </div>
+
+          {happened.length > 0 && (
+            <div className="card">
+              <div className="card__title"><h3>What happened today</h3><span className="small muted">{happened.length}</span></div>
+              <ul className="happened">
+                {happened.map((h, i) => (
+                  <li key={i} className={`happened__row ${h.ignored ? "happened__row--bad" : ""}`}>
+                    <span aria-hidden="true">{INCIDENT_ICON[h.kind] ?? "❗"}</span>
+                    <div>
+                      <div><b>{h.title}</b> <span className="xs muted">· {h.choice}</span></div>
+                      {h.outcome && <div className="small">{h.outcome}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="card">
             <div className="card__title"><h3>What people said</h3><span className="small muted">{r.reviews.length} review{r.reviews.length === 1 ? "" : "s"}</span></div>

@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Command, GameState } from "@full-plate/sim-core";
+import { GoalsCard } from "../components/GoalsCard";
+import { HelpPopover } from "../components/HelpPopover";
+import { GOAL_TAB } from "../lib/goals";
 import { Tabs, type TabDef } from "../components/Tabs";
 import { content } from "../sim";
 import { MenuTab } from "./planning/MenuTab";
@@ -10,17 +13,22 @@ import { stockNeeds } from "./planning/stockNeeds";
 import { weekdayIndex, WEEKDAYS } from "../lib/calendar";
 import { unplateable } from "../lib/plateable";
 
-type TabId = "menu" | "staff" | "stock" | "restaurant";
+export type PlanningTab = "menu" | "staff" | "stock" | "restaurant";
+type TabId = PlanningTab;
 
 interface Props {
   game: GameState;
   send: (cmd: Command) => void;
+  /** Controlled by App so the evening screen can send the player straight to a tab ("Hire", "Buy a table"). */
+  tab: PlanningTab;
+  onTab: (t: PlanningTab) => void;
+  /** Goal ids completed today, for the flash. */
+  goalsJustDone?: readonly string[];
 }
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }
 
-export function Planning({ game, send }: Props) {
-  const [tab, setTab] = useState<TabId>("menu");
+export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }: Props) {
   const today = weekdayIndex(game.day);
   const active = game.menu.filter((m) => m.active);
   const onShift = game.staff.filter((s) => s.rota[today]);
@@ -40,6 +48,11 @@ export function Planning({ game, send }: Props) {
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
   if (!hints.length) hints.push({ text: "Everything looks ready", tone: "good" });
 
+  // Goals go in a sidebar when the sim provides them. First run (empty menu): the card is spotlit
+  // and comes first in reading order, so it's what the eye lands on.
+  const hasGoals = (game.goals ?? []).some((g) => !g.done) || goalsJustDone.length > 0;
+  const firstRun = hasGoals && game.menu.length === 0;
+
   const tabs: TabDef<TabId>[] = [
     { id: "menu", label: "Menu", badge: active.length },
     { id: "staff", label: "Staff", badge: !chefs ? "!" : game.staff.length, badgeTone: !chefs ? "warn" : "info" },
@@ -55,12 +68,25 @@ export function Planning({ game, send }: Props) {
           <h1 style={{ marginBottom: 6 }}>Get ready for {WEEKDAYS[today]}</h1>
         </div>
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
+        <div className="planning__help"><HelpPopover /></div>
       </div>
-      <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === "menu" && <MenuTab game={game} send={send} />}
-        {tab === "staff" && <StaffTab game={game} send={send} />}
-        {tab === "stock" && <StockTab game={game} send={send} needs={needs} />}
-        {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
+      <div className={`planning__body ${hasGoals ? "planning__body--goals" : ""}`}>
+        {hasGoals && (
+          <aside className="planning__side" aria-label="Goals">
+            <GoalsCard
+              goals={game.goals}
+              justDone={goalsJustDone}
+              spotlight={firstRun}
+              onShow={(g) => { const t = GOAL_TAB[g.kind]; if (t) setTab(t); }}
+            />
+          </aside>
+        )}
+        <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {tab === "menu" && <MenuTab game={game} send={send} />}
+          {tab === "staff" && <StaffTab game={game} send={send} />}
+          {tab === "stock" && <StockTab game={game} send={send} needs={needs} />}
+          {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
+        </div>
       </div>
       <div className="openbar">
         <div className="openbar__hints">

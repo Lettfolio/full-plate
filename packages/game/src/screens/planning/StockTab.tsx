@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Command, GameState, IngredientId } from "@full-plate/sim-core";
 import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
-import { expectedCovers, shortfall, type StockNeed } from "./stockNeeds";
+import { expectedCovers, restockLines, type StockNeed } from "./stockNeeds";
 
 interface Props { game: GameState; send: (cmd: Command) => void; needs: StockNeed[] }
 
@@ -24,7 +24,7 @@ export function StockTab({ game, send, needs }: Props) {
   const rows = [...needs].sort((a, b) => (b.need > 0 ? 1 : 0) - (a.need > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   const basket = rows.reduce((a, r) => a + (qty[r.ingredientId] ?? 0) * r.unitCost, 0);
   const ordered = game.orders.reduce((a, o) => a + o.cost, 0);
-  const fillShort = () => setQty({ ...qty, ...shortfall(rows) });
+  const fillShort = () => setQty({ ...qty, ...Object.fromEntries(restockLines(game)) });
   const place = () => {
     for (const r of rows) {
       const q = qty[r.ingredientId] ?? 0;

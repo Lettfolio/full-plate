@@ -1,5 +1,5 @@
 import type { ContentPack, DishCourse, GameState, IngredientId } from "@full-plate/sim-core";
-import { COURSE_ORDER_CHANCE } from "../../sim";
+import { COURSE_ORDER_CHANCE, content as pack, simSuggestedOrder } from "../../sim";
 import { dishById, ingredientUsage } from "../../lib/content";
 
 export interface StockNeed {
@@ -92,4 +92,14 @@ export function shortfall(needs: StockNeed[]): Record<IngredientId, number> {
     if (r.need > 0 && gap > 0) out[r.ingredientId] = Math.ceil(gap / 5) * 5;
   }
   return out;
+}
+
+/**
+ * Tomorrow's order as [ingredientId, qty] lines: sim-core's `suggestedOrder` once it exists, else the
+ * UI's own forecast above. Used by the evening "Restock for tomorrow" and the Stock tab's "Fill what's short".
+ */
+export function restockLines(game: GameState): [IngredientId, number][] {
+  const sim = simSuggestedOrder(game);
+  if (sim) return sim.map((l) => [l.ingredientId, l.qty]);
+  return Object.entries(shortfall(stockNeeds(pack, game)));
 }

@@ -3,6 +3,7 @@ import { content } from "../sim";
 import { dateLabel } from "../lib/calendar";
 import { Bar } from "./Bar";
 import { MoneyText } from "./MoneyText";
+import { SettingsMenu } from "./Settings";
 
 interface Props {
   game: GameState;
@@ -36,6 +37,7 @@ export function StatusBar({ game, onMenu }: Props) {
       <div className="status__end">
         <span className={`pill pill--${game.difficulty}`}>{game.difficulty}</span>
         {onMenu && <button className="btn btn--ghost btn--sm" onClick={onMenu}>Save &amp; quit</button>}
+        <SettingsMenu />
       </div>
     </header>
   );
