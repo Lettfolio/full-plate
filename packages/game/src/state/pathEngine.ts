@@ -274,7 +274,8 @@ export function eveningHooks(game: GameState, meta: PathMeta): { game: GameState
 
   if (m.stars) {
     const cooking = withSignatures(content, m.stars);
-    const r = stepStarsDay(cooking, m.stars, result.covers > 0 ? result : closedDay(result.day), g);
+    // A 0-cover night that was not CLOSE_TODAY goes in as itself: a stock-out is a failed service (sim-stars SHORT_MENU).
+    const r = stepStarsDay(cooking, m.stars, result.closed ? closedDay(result.day) : result, g);
     const fx = applyStarsEffects(g, r.stars);
     g = fx.state;
     let stars = fx.stars;

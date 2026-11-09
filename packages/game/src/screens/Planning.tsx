@@ -15,7 +15,9 @@ const EmpireTab = lazy(() => import("./paths/EmpireTab").then((m) => ({ default:
 const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
 import { StockTab } from "./planning/StockTab";
 import { RestaurantTab } from "./planning/RestaurantTab";
-import { stockNeeds } from "./planning/stockNeeds";
+import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
+import { StockWarning } from "./planning/StockWarning";
+import { inSeason } from "@full-plate/sim-stars";
 import { weekdayIndex, WEEKDAYS } from "../lib/calendar";
 import { unplateable } from "../lib/plateable";
 import type { PathKind } from "../lib/library";
@@ -68,6 +70,10 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const shortName = shortDelivery ? content.ingredients.find((i) => i.id === shortDelivery.ingredientId)?.name ?? shortDelivery.ingredientId : "";
 
   const closedForRefit = !!meta?.stars && (meta.stars.refitUntil ?? -1) > game.day;
+  // Round 3 review P1: say before service when the larder won't cover the forecast (louder in inspection season).
+  const risk = useMemo(() => tonightRisk(content, game), [game]);
+  const showRisk = !opening && !closedForRefit && game.phase === "planning" && risk.dishes.length > 0;
+  const inspection = !!meta?.stars && !meta.stars.ending && inSeason(meta.stars, game.day);
   const hints: Hint[] = [];
   if (!active.length) hints.push({ text: "Step 1: add dishes to your menu", tone: "bad", tab: "menu" });
   // With nobody on, the owner covers the role (slowly) — a warning, not a blocker.
@@ -104,8 +110,19 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
         <div className="planning__help"><HelpPopover /></div>
       </div>
-      {(opening || shortDelivery || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING) && (
+      {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING) && (
         <div className="planning__notices">
+          {showRisk && (
+            <StockWarning
+              game={game}
+              risk={risk}
+              send={send}
+              inspection={inspection}
+              stars={meta?.stars?.guides.michelin.stars ?? 0}
+              canClose={!!meta?.stars && HOOKS.closeToday}
+              {...(tab !== "stock" ? { onStock: () => setTab("stock") } : {})}
+            />
+          )}
           {opening && game.menu.length > 0 && (
             <p className="callout" role="note">
               <b>📦 Your larder is empty — that's fine.</b> Opening stock for today's menu is bought automatically when you open (up to <MoneyText pence={openingStockBudget(content)} whole />). Orders you place now arrive tomorrow morning.

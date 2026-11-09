@@ -251,6 +251,11 @@ export type StarsEvent =
   | { type: "SATELLITE_CHEF_TRAINED"; satelliteId: string }
   | { type: "REFIT_STARTED"; day: number; until: number }
   | { type: "ENDING"; ending: Ending }
+  /**
+   * Tonight's menu was short (≥ SHORT_MENU_MIN_86 food dishes 86'd): it entered the consistency window as an off night.
+   * `text` is a player-facing sentence naming the dishes; `quality` is what the window recorded.
+   */
+  | { type: "SHORT_MENU"; day: number; dishIds: DishId[]; inspectionSeason: boolean; quality: number; text: string }
   | { type: "REJECTED"; reason: string }
   | { type: "LOG"; day: number; text: string; tone: "good" | "bad" | "info" | "money" };
 

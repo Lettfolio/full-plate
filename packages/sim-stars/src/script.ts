@@ -283,7 +283,8 @@ export class ScriptedRun {
     }
     // ── evening: Stars step on today's result, then fold its effects back ──
     const result: DayResult = s.history.at(-1)!;
-    const r = stepStarsDay(cooking, stars, result.covers > 0 ? result : closedDay(result.day), s);
+    // A 0-cover night that was not CLOSE_TODAY goes in as itself: a stock-out is a failed service, not a day off.
+    const r = stepStarsDay(cooking, stars, result.closed ? closedDay(result.day) : result, s);
     stars = r.stars;
     dayEvents.push(...r.events);
     noteEvents(row, s.day, r.events);

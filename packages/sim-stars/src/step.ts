@@ -39,6 +39,8 @@ import {
   SATELLITES,
   SATELLITE_STAR_UPLIFT,
   SEASON_DAYS,
+  SHORT_MENU_DROP_PER_DISH,
+  SHORT_MENU_MIN_86,
   SIGNATURE_FOOTFALL_CAP,
   SIGNATURE_FOOTFALL_EACH,
   SMYTH_DAILY_CHANCE,
@@ -77,7 +79,7 @@ import {
   YEAR_DAYS,
 } from "./constants";
 import { decideGuide, emptyAssessment, inSeason, makeVisit, nextMonthStart, scheduleVisits, starsForScore } from "./inspector";
-import { CRITERIA_KEYS, clamp, criteriaTotal, dayCriteria, dayInputs, r2, windowStats } from "./proxies";
+import { CRITERIA_KEYS, clamp, criteriaTotal, dayCriteria, dayInputs, pulledFoodDishes, r2, windowStats } from "./proxies";
 import { Rng } from "./rng";
 import { pickHeadChef, startingReputation } from "./state";
 import { criticVisit, prestigeTarget, stepTracks } from "./tracks";
@@ -217,31 +219,48 @@ export function stepStarsDay(content: ContentPack, stars0: StarsState, result: D
   // 2. proxies
   const open = result.covers > 0 && !isClosed(s, day);
   const inputs = dayInputs(content, result, state);
+  // Short menu (round 3 review P1): ≥ SHORT_MENU_MIN_86 food dishes 86'd is an off night for consistency, whatever the
+  // plates that did go out tasted like. A night that ran out of everything (0 covers, but not CLOSE_TODAY / a refit)
+  // is a failed service, not a day off: it enters the window too (inspectors and the rest still treat it as shut).
+  const pulled = result.closed || isClosed(s, day) ? [] : pulledFoodDishes(content, state, day);
+  const short = pulled.length >= SHORT_MENU_MIN_86;
+  const failed = !open && short && !result.closed && !isClosed(s, day);
   let criteria: Criteria | undefined;
-  if (open) {
+  if (open || failed) {
     const before = windowStats(s.consistencyWindow);
-    const window = [...s.consistencyWindow, inputs.quality].slice(-CONSISTENCY_WINDOW_DAYS);
+    const base = open ? inputs.quality : before.n ? before.mean : 0;
+    const q = short ? r2(Math.max(0, base - SHORT_MENU_DROP_PER_DISH * pulled.length)) : inputs.quality;
+    const window = [...s.consistencyWindow, q].slice(-CONSISTENCY_WINDOW_DAYS);
     const windowDays = [...(s.consistencyDays ?? []), day].slice(-window.length);
-    criteria = dayCriteria(content, s, inputs, window);
-    const total = criteriaTotal(criteria);
     const a = s.assessment;
-    const q = inputs.quality;
-    s = {
-      ...s,
-      consistencyWindow: window,
-      consistencyDays: windowDays,
-      lastCriteria: criteria,
-      dailyScoreEma: r2(s.dailyScoreEma + (total - s.dailyScoreEma) * DAILY_SCORE_ALPHA),
-      assessment: {
-        ...a,
-        openDays: a.openDays + 1,
-        criteriaSum: addCriteria(a.criteriaSum, criteria),
-        qN: a.qN + 1,
-        qSum: r2(a.qSum + q),
-        qSumSq: r2(a.qSumSq + q * q),
-        qOff: a.qOff + (before.n >= 5 && q < before.mean - OFF_NIGHT_DROP ? 1 : 0),
-      },
+    const qStats = {
+      qN: a.qN + 1,
+      qSum: r2(a.qSum + q),
+      qSumSq: r2(a.qSumSq + q * q),
+      qOff: a.qOff + (before.n >= 5 && q < before.mean - OFF_NIGHT_DROP ? 1 : 0),
     };
+    if (open) {
+      criteria = dayCriteria(content, s, inputs, window);
+      const total = criteriaTotal(criteria);
+      s = {
+        ...s,
+        consistencyWindow: window,
+        consistencyDays: windowDays,
+        lastCriteria: criteria,
+        dailyScoreEma: r2(s.dailyScoreEma + (total - s.dailyScoreEma) * DAILY_SCORE_ALPHA),
+        assessment: { ...a, openDays: a.openDays + 1, criteriaSum: addCriteria(a.criteriaSum, criteria), ...qStats },
+      };
+    } else s = { ...s, consistencyWindow: window, consistencyDays: windowDays, assessment: { ...a, ...qStats } };
+    if (short) {
+      const names = pulled.map((id) => content.dishes.find((d) => d.id === id)?.name ?? id);
+      const list = names.length > 3 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} more` : names.join(", ").replace(/, ([^,]*)$/, " and $1");
+      const season = inSeason(s, day);
+      const text =
+        `${failed ? "Nothing left to cook tonight" : "A short menu tonight"}: ${pulled.length} dishes were off (${list}). ` +
+        `The guide counts that as an off night, and your steadiness slips${season ? " — in inspection season, when an inspector may have been in" : ""}. Restock every evening.`;
+      events.push({ type: "SHORT_MENU", day, dishIds: pulled, inspectionSeason: season, quality: q, text });
+      log(text, "bad");
+    }
   }
 
   // 3. inspectors (hidden)

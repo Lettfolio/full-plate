@@ -739,3 +739,10 @@ button, input { font: inherit; color: inherit; }
 .careerlog__line--good { background: var(--basil-wash); border-color: var(--basil); }
 .careerlog__line--bad { background: var(--tomato-wash); border-color: var(--tomato); }
 .careerlog__line--money { background: var(--amber-wash); border-color: var(--amber); }
+
+/* Round 3 review (Stars agent): stock warning before service, Stars hints */
+.stockwarn { display: flex; flex-direction: column; gap: 4px; }
+.stockwarn--loud { border-width: 2px; }
+.stockwarn__head { font-size: var(--fs-md, 1rem); }
+.starhints { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.starhints li { display: flex; gap: 8px; align-items: baseline; }

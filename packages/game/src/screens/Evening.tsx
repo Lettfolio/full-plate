@@ -18,6 +18,7 @@ import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { ShiftSummary } from "@full-plate/handson";
 import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
 import { compactMeals } from "../components/StatusBar";
+import { inSeason } from "@full-plate/sim-stars";
 
 interface Props {
   game: GameState;
@@ -34,7 +35,7 @@ interface Props {
   shiftSummary?: ShiftSummary | null;
 }
 
-const STARS_LINE: Partial<Record<string, string>> = { CRITIC_REVIEW: "🎩", INSPECTOR_HINT: "🕵️", STRESS_WARNING: "😰", BURNOUT: "🔥", RESEARCH_DONE: "🧪", SMYTH_ARC_STARTED: "🧑‍🍳", HEAD_CHEF_LEFT: "👋", STAGIAIRE_SCANDAL: "📰", FIFTY_BEST: "🌍", GAULT_MILLAU: "🎩", GOOD_FOOD: "📗", INSPECTION_SEASON: "🗓️" };
+const STARS_LINE: Partial<Record<string, string>> = { CRITIC_REVIEW: "🎩", INSPECTOR_HINT: "🕵️", STRESS_WARNING: "😰", BURNOUT: "🔥", RESEARCH_DONE: "🧪", SMYTH_ARC_STARTED: "🧑‍🍳", HEAD_CHEF_LEFT: "👋", STAGIAIRE_SCANDAL: "📰", FIFTY_BEST: "🌍", GAULT_MILLAU: "🎩", GOOD_FOOD: "📗", INSPECTION_SEASON: "🗓️", SHORT_MENU: "📉" };
 
 /** Round 3 cards: the Empire's evening (meals, HQ, move cash), the Stars' news, and the hands-on score. */
 function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; meta?: PathMeta; sendEmpire?: (cmd: EmpireCommand) => void; shiftSummary?: ShiftSummary | null }) {
@@ -53,7 +54,8 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
       : ev.type === "FIFTY_BEST" ? (ev.hallOfFame ? "The World's 50 Greatest Tables: number one — into the hall of fame!" : ev.rank ? `The World's 50 Greatest Tables: number ${ev.rank}.` : "Not on the World's 50 Greatest Tables list this year.")
       : ev.type === "GAULT_MILLAU" ? `The Toque Guide gives you ${ev.points.toFixed(1)}/20.`
       : ev.type === "GOOD_FOOD" ? (ev.tier ? `The Good Table Guide lists you at ${ev.tier}/10.` : "Not in the Good Table Guide this year.")
-      : ev.type === "INSPECTION_SEASON" ? `Inspection season: ${ev.daysToGuide} days to guide day.` : "";
+      : ev.type === "INSPECTION_SEASON" ? `Inspection season: ${ev.daysToGuide} days to guide day.`
+      : ev.type === "SHORT_MENU" ? ev.text : "";
     return text ? [{ icon, text }] : [];
   });
   const lastMeals = e?.history.at(-1);
@@ -99,15 +101,16 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
 }
 
 /** Orders tomorrow's shortfall now (ORDER_STOCK is allowed in the evening; deliveries land next morning). */
-function Restock({ game, send }: { game: GameState; send: (cmd: Command) => void }) {
+function Restock({ game, send, inspection = false, stars = 0 }: { game: GameState; send: (cmd: Command) => void; inspection?: boolean; stars?: number }) {
   const lines = restockLines(game);
   const unit = (id: string) => content.ingredients.find((i) => i.id === id)?.unitCost ?? 0;
   const cost = lines.reduce((a, [id, q]) => a + q * unit(id), 0);
   const ordered = game.orders.length > 0;
   return (
-    <div className="card restock">
+    <div className={`card restock ${inspection && lines.length > 0 ? "callout--warn" : ""}`}>
       <div className="spacer">
         <h3>Stock for tomorrow</h3>
+        {inspection && lines.length > 0 && <div className="small"><b>🕵️ Inspectors are about.</b> Run out tomorrow and a short menu could cost you {stars > 0 ? "the star" : "a star"}.</div>}
         <div className="small muted">
           {lines.length === 0
             ? ordered ? "Order placed — it arrives in the morning." : "The larder looks fine for tomorrow."
@@ -191,7 +194,7 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, s
         </div>
 
         <div className="stack">
-          {game.phase !== "gameover" && <Restock game={game} send={send} />}
+          {game.phase !== "gameover" && <Restock game={game} send={send} inspection={!!meta?.stars && !meta.stars.ending && inSeason(meta.stars, game.day + 1)} stars={meta?.stars?.guides.michelin.stars ?? 0} />}
           <PathCards game={game} {...(meta ? { meta } : {})} {...(sendEmpire ? { sendEmpire } : {})} shiftSummary={shiftSummary ?? null} />
           {covered.length > 0 && (
             <div className="card tip tip--amber">

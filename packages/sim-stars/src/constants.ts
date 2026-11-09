@@ -62,6 +62,18 @@ export const OFF_NIGHT_DROP = 8;
  */
 export const CONSISTENCY_SD_WEIGHT = 2;
 export const CONSISTENCY_OFF_WEIGHT = 40;
+/**
+ * Round 3 review P1 (short menu): a service with at least SHORT_MENU_MIN_86 food dishes 86'd (out of stock or pulled)
+ * for most of the night (see SHORT_MENU_EARLY_SHARE) enters the consistency window SHORT_MENU_DROP_PER_DISH points lower per dish off, so it always reads as an off
+ * night. A night that ran out of everything (0 covers, not CLOSE_TODAY) counts too, from the window's own mean.
+ */
+export const SHORT_MENU_MIN_86 = 3;
+export const SHORT_MENU_DROP_PER_DISH = 8;
+/**
+ * A dish counts as "off" only if it plated less than this share of its usual night (sold7d over the recent nights).
+ * Selling out late on a busy night is fine: the scripted perfectionist does that ~40 nights a year with 3–5 dishes.
+ */
+export const SHORT_MENU_EARLY_SHARE = 0.5;
 /** Consistency also slips when the level itself is below this (a steady 60 is not "consistent" in Michelin terms). */
 export const CONSISTENCY_LEVEL_FLOOR = 80;
 export const CONSISTENCY_LEVEL_WEIGHT = 0.6;

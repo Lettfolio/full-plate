@@ -45,6 +45,7 @@ import {
   PERSONALITY_REPUTATION_WEIGHT,
   PERSONALITY_SIGNATURE_WEIGHT,
   RELAUNCH_PERSONALITY_BONUS,
+  SHORT_MENU_EARLY_SHARE,
   STAGIAIRE_CONSISTENCY,
   STAGIAIRE_MAX,
   STRESS_CONSISTENCY_FROM,
@@ -106,6 +107,30 @@ export function dayInputs(content: ContentPack, result: DayResult, state?: GameS
   const plated = dishes.reduce((a, d) => a + (d.quality !== undefined ? d.plated : 0), 0);
   const quality = plated > 0 ? dishes.reduce((a, d) => a + (d.quality ?? 0) * d.plated, 0) / plated : 0;
   return { day: result.day, open, covers: result.covers, quality: r2(quality), dishes };
+}
+
+/**
+ * Food dishes that were off tonight's menu for most of the service: on the active menu, on today's 86 list (out of
+ * stock at the door, run out, or pulled by hand; from the evening GameState's `eightySixed`, which sim-core clears at
+ * END_DAY), and plated fewer than SHORT_MENU_EARLY_SHARE of their usual night (`sold7d` over the `recent` days; any
+ * plate at all counts as usual when there is no history). A dish that sells out late on a busy night is not "off".
+ * Empty without an evening state for `day`. Content order, so the result is stable.
+ */
+export function pulledFoodDishes(content: ContentPack, state: GameState | undefined, day: number): string[] {
+  if (!state || state.day !== day) return [];
+  const pulled = new Set(state.eightySixed ?? []);
+  if (!pulled.size) return [];
+  const menu = new Map(state.menu.filter((m) => m.active).map((m) => [m.dishId, m]));
+  return content.dishes
+    .filter((d) => {
+      const m = menu.get(d.id);
+      if (!isFood(d) || !m || !pulled.has(d.id)) return false;
+      const nights = m.recent?.length ?? 0;
+      const usual = nights > 0 ? m.sold7d / nights : 0;
+      const plated = state.service?.dishes[d.id]?.plated ?? 0;
+      return usual > 0 ? plated < SHORT_MENU_EARLY_SHARE * usual : plated === 0;
+    })
+    .map((d) => d.id);
 }
 
 // ── consistency ──
