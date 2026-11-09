@@ -13,7 +13,8 @@ import { Bar } from "../components/Bar";
 import { dishName } from "../lib/content";
 import { pct, signed } from "../lib/format";
 import { dateLabel, WEEKDAY_NAMES, weekdayIndex } from "../lib/calendar";
-import { initials, moodFace } from "../lib/staff";
+import { moodFace } from "../lib/staff";
+import { Avatar } from "../components/Avatar";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { ShiftSummary } from "@full-plate/handson";
 import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
@@ -238,6 +239,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const ofRev = (v: number) => (r.revenue > 0 ? pct(v / r.revenue) : "—");
   const good = r.profit >= 0;
   const moods = Object.entries(r.staffMoodDelta);
+  const levelUps = game.log.filter((l) => l.day === r.day && l.text.startsWith("Level up!")).map((l) => l.text);
   const happened = incidentLines(r, game);
   const covered = r.ownerCovered ?? [];
   const staffed = covered.length ? lastStaffedDay(game.history, r.day) : undefined;
@@ -356,14 +358,21 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
           </Panel>
 
           <Panel title="How the team feels">
+            {/* Round 10: a level-up line for anyone who finished a training level today (sim-core logs "Level up! …"). */}
+            {levelUps.map((l) => (
+              <p key={l} className="levelup" data-testid="level-up"><Icon name="graduation" size={20} /><span>{l}</span></p>
+            ))}
             {moods.length === 0 ? <div className="empty small">No mood changes today.</div> : (
               <div className="moodlist">
                 {moods.map(([id, d]) => {
                   const s = game.staff.find((x) => x.id === id);
                   return (
                     <div key={id} className="moodrow">
-                      <span className={`avatar avatar--${s?.role ?? "manager"}`} aria-hidden="true">{initials(s?.name ?? "?")}</span>
-                      <span><b>{s?.name ?? "Former staff"}</b> <span aria-hidden="true">{s ? moodFace(s.mood) : ""}</span></span>
+                      {s ? <Avatar person={s} size={32} mood={s.mood} /> : <span />}
+                      <span>
+                        <b>{s?.name ?? "Former staff"}</b> <span aria-hidden="true">{s ? moodFace(s.mood) : ""}</span>
+                        {s?.moodWhy && Math.abs(d) >= 0.5 && <span className="moodrow__why xs muted" data-testid="mood-why">{s.moodWhy.text}</span>}
+                      </span>
                       {s ? <Bar value={s.mood} tone="auto" size="sm" /> : <span />}
                       <Delta v={d} digits={0} />
                     </div>

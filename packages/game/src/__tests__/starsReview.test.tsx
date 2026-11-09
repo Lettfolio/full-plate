@@ -160,11 +160,14 @@ describe("P2: one hire-cost rule (sim.ts hireCheck over sim-core exports)", () =
     const c = candidates(content, g0)[0]!;
     const { needed } = hireCheck(g0, c);
     render(<StaffTab game={{ ...g0, cash: needed - 1 }} send={noop} />);
+    // Round 10: hiring is a sheet opened from the staff room.
+    fireEvent.click(screen.getByRole("button", { name: /Hire someone/ }));
     const btn = screen.getByText(c.name).closest(".candidate")!.querySelector("button")!;
     expect(btn.disabled).toBe(true);
     expect(btn.title).toBe(`Needs £${Math.ceil(needed / 100)} in the bank`);
     cleanup();
     render(<StaffTab game={{ ...g0, cash: needed }} send={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: /Hire someone/ }));
     expect(screen.getByText(c.name).closest(".candidate")!.querySelector("button")!.disabled).toBe(false);
   });
 });

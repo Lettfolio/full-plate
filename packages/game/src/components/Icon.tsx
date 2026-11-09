@@ -70,6 +70,12 @@ export const ICONS = {
   save: <><path d="M5 4h11.5L20 7.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" /><path d="M8 4v5h7V4M7.5 20v-6h9v6" /></>,
   folder: <path d="M3.5 7V18a1.5 1.5 0 0 0 1.5 1.5h14A1.5 1.5 0 0 0 20.5 18V9.5A1.5 1.5 0 0 0 19 8h-7.2L9.6 5.5H5A1.5 1.5 0 0 0 3.5 7z" />,
   download: <><path d="M12 4v11.5M7.5 11L12 15.5l4.5-4.5" /><path d="M4.5 15v4.5h15V15" /></>,
+  // Round 10 (B): the staff room (people / heart were already here).
+  user: <><circle cx="12" cy="8.5" r="3.8" /><path d="M4.8 20.5a7.2 7.2 0 0 1 14.4 0" /></>,
+  thumbsUp: <><path d="M7.5 10.5v9.5H4.5v-9.5z" /><path d="M7.5 10.5l3.6-6.3a1.8 1.8 0 0 1 3.3 1.3l-.9 3.7h5a1.8 1.8 0 0 1 1.8 2.1l-1.2 6.8a2 2 0 0 1-2 1.7H7.5" /></>,
+  thumbsDown: <><path d="M7.5 13.5V4H4.5v9.5z" /><path d="M7.5 13.5l3.6 6.3a1.8 1.8 0 0 0 3.3-1.3l-.9-3.7h5a1.8 1.8 0 0 0 1.8-2.1l-1.2-6.8a2 2 0 0 0-2-1.7H7.5" /></>,
+  graduation: <><path d="M2.5 9.5L12 5l9.5 4.5L12 14z" /><path d="M6.5 11.5v4.2c1.4 1.5 3.3 2.3 5.5 2.3s4.1-.8 5.5-2.3v-4.2M21.5 9.5v5" /></>,
+  bolt: <path d="M13.5 3L5.5 13.5h6L10.5 21l8-10.5h-6z" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;

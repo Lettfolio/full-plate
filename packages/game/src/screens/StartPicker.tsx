@@ -4,6 +4,8 @@ import type { CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
 import { districtIcon } from "./NewGame";
 import { DIFFICULTY_CHOICES, DifficultyPicker } from "../components/DifficultyPicker";
 import { Icon, type IconName } from "../components/Icon";
+import { Avatar } from "../components/Avatar";
+import { PLAYER_LOOKS, playerAvatar, type StaffRole } from "@full-plate/sim-core";
 
 /** The five starts from BRIEF "Starting levels: the career ladder". */
 export type StartKind = "owner" | CareerTrack;
@@ -42,7 +44,12 @@ export interface CareerStartOptions {
   playerName: string;
   difficulty: Difficulty;
   districtId: string;
+  /** Round 10: portrait look (sim-core PLAYER_LOOKS index). */
+  look: number;
 }
+
+/** The clothes each career start wears in the look picker. */
+const TRACK_ROLE: Record<CareerTrack, StaffRole> = { chef: "chef", bar: "bar", waiter: "server", manager: "manager" };
 
 interface Props {
   content: ContentPack;
@@ -58,8 +65,9 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
   const [districtId, setDistrictId] = useState(content.districts[0]?.id ?? "");
   const [strategy, setStrategy] = useState<OwnerStrategy>("balanced");
   const [name, setName] = useState("");
+  const [look, setLook] = useState(0);
   const def = STARTS.find((s) => s.id === start)!;
-  const go = () => (start === "owner" ? onOwner(difficulty, districtId) : onCareer({ track: start, strategy, playerName: name.trim() || "You", difficulty, districtId }));
+  const go = () => (start === "owner" ? onOwner(difficulty, districtId) : onCareer({ track: start, strategy, playerName: name.trim() || "You", difficulty, districtId, look }));
 
   return (
     <div className="page">
@@ -118,6 +126,16 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
                   <span className="field__label">Your name</span>
                   <input className="input" value={name} maxLength={24} placeholder="Alex" onChange={(e) => setName(e.target.value)} />
                 </label>
+                <div className="field">
+                  <span className="field__label" id="look-l">How you look</span>
+                  <div className="lookpick" role="radiogroup" aria-labelledby="look-l">
+                    {PLAYER_LOOKS.map((_, i) => (
+                      <button key={i} role="radio" aria-checked={look === i} aria-label={`Look ${i + 1}`} className="lookpick__opt" onClick={() => setLook(i)}>
+                        <Avatar spec={playerAvatar(i, TRACK_ROLE[start as CareerTrack] ?? "chef")} size={52} mood={80} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="field">
                   <span className="field__label" id="boss-l">Your first boss</span>
                   <div className="difficulty" role="radiogroup" aria-labelledby="boss-l">

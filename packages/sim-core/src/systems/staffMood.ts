@@ -132,8 +132,14 @@ function personalityToday(content: ContentPack, s: Staff, day: number, ctx: DayC
   });
 }
 
-const note = (factors: readonly MoodFactor[], delta: number): Staff["moodWhy"] => {
-  const main = mainReason(factors);
+/**
+ * The day's main reason. Personality reasons (a like, a dislike, a friend or a clash) win when they moved mood by at
+ * least 1, so the staff room shows who people are ("had Sunday off", "worked with Ellie"), not "the guests loved it"
+ * every night; otherwise the biggest reason of all.
+ */
+const note = (factors: readonly MoodFactor[], delta: number, personal: readonly MoodFactor[] = []): Staff["moodWhy"] => {
+  const own = mainReason(personal);
+  const main = own && Math.abs(own.delta) >= 1 ? own : mainReason(factors);
   return { text: main?.text ?? (Math.abs(delta) < 0.5 ? "an ordinary day" : delta > 0 ? "a good day" : "a long day"), delta: round2(delta) };
 };
 
@@ -145,7 +151,7 @@ export function updateStaffMember(content: ContentPack, s: Staff, day: number, c
     const mood = round2(clamp(s.mood + delta, 0, 100));
     const track = s.trainingTrack && trackById(s.trainingTrack);
     const why = [...pf, { delta: TRAINING_MOOD, text: track ? `learning ${track.name.toLowerCase()}` : "a day on a training course" }];
-    return { ...rest, mood, moodWhy: note(why, mood - s.mood) };
+    return { ...rest, mood, moodWhy: note(why, mood - s.mood, pf) };
   }
   const { breakUntilTick: _b, ...rest } = s;
   s = rest;
@@ -154,7 +160,7 @@ export function updateStaffMember(content: ContentPack, s: Staff, day: number, c
   const pf = personalityToday(content, s, day, ctx, worked, fatigue, false);
   const mood = round2(clamp(s.mood + moodChange(content, s, worked, ctx, fatigue) + personalityMood(pf), 0, 100));
   const skill = worked ? round2(Math.min(s.potential, s.skill + SKILL_GROWTH_PER_SHIFT)) : s.skill;
-  return { ...s, fatigue, mood, skill, moodWhy: note([...baseMoodFactors(s, worked, ctx, fatigue, day), ...pf], mood - s.mood) };
+  return { ...s, fatigue, mood, skill, moodWhy: note([...baseMoodFactors(s, worked, ctx, fatigue, day), ...pf], mood - s.mood, pf) };
 }
 
 /** Owner fatigue after today: up for each role covered (and busier days), down on a day the team ran it. */

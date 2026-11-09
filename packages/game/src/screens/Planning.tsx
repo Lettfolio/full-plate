@@ -9,7 +9,9 @@ import { FatigueNote } from "../components/FatigueNote";
 import { MoneyText } from "../components/MoneyText";
 import { isOpeningDay } from "../lib/calendar";
 import { MenuTab } from "./planning/MenuTab";
-import { StaffTab, type KnownPerson } from "./planning/StaffTab";
+import type { KnownPerson } from "./planning/StaffTab";
+// Round 10: the staff room (portrait cards, hiring sheet, training) loads on first open too.
+const StaffTab = lazy(() => import("./planning/StaffTab").then((m) => ({ default: m.StaffTab })));
 // Round 3 review: the path tabs load on first open (code-split).
 const EmpireTab = lazy(() => import("./paths/EmpireTab").then((m) => ({ default: m.EmpireTab })));
 const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
@@ -157,7 +159,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
-          {tab === "staff" && <StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} />}
+          {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
           <Suspense fallback={<div className="empty small muted">Loading…</div>}>

@@ -1,7 +1,7 @@
 import type { GameState } from "@full-plate/sim-core";
 import { MoneyText } from "../../components/MoneyText";
 import { WEEKDAYS, WEEKDAY_NAMES } from "../../lib/calendar";
-import { initials } from "../../lib/staff";
+import { Avatar } from "../../components/Avatar";
 import { daysPhrase, doubledShifts, losingFortnight, rotaWeek } from "../../lib/dayLoop";
 
 /**
@@ -35,7 +35,7 @@ export function RotaWeek({ game, today }: { game: GameState; today: number }) {
                 : `${WEEKDAY_NAMES[c.day]}: ${c.people.map((p) => p.name).join(" and ")}${c.doubled ? ` — ${c.people.length} ${row.label.toLowerCase()}s on one day` : ""}`;
               return (
                 <span role="cell" key={c.day} className={`rotaweek__cell rotaweek__cell--${state} ${c.day === today ? "is-today" : ""}`} data-state={state} aria-label={label} title={label}>
-                  {c.empty ? <span className="rotaweek__you">You</span> : c.people.map((p) => <span key={p.id} className={`avatar avatar--${p.role} rotaweek__face`} aria-hidden="true">{initials(p.name)}</span>)}
+                  {c.empty ? <span className="rotaweek__you">You</span> : c.people.map((p) => <Avatar key={p.id} person={p} size={30} mood={p.mood} className="rotaweek__face" />)}
                   {c.doubled && <span className="rotaweek__x" aria-hidden="true">×{c.people.length}</span>}
                 </span>
               );
