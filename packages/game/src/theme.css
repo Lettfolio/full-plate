@@ -1765,6 +1765,23 @@ h3 { line-height: var(--lh-heading); }
 .citybar__part + .citybar__part { box-shadow: inset 2px 0 0 var(--surface-panel); }
 .nights__strip { gap: 2px; }
 
+/* ───────── panel and stat-tile components (components/Panel.tsx) ───────── */
+.panel__title { display: inline-flex; align-items: center; gap: var(--space-2); }
+.panel__icon, .goals__icon { color: var(--tomato); }
+.goals .card__title h3 { display: inline-flex; align-items: center; gap: var(--space-2); }
+.panel__action { margin-left: auto; }
+.card__title > .card__sub:not(:last-child) { margin-right: auto; }
+.card__title > h3 + .card__sub:last-child { margin-left: auto; }
+.stat-tile { display: flex; flex-direction: column; gap: 2px; }
+.gameover h1 { font-size: var(--fs-display); line-height: var(--lh-display); }
+.gameover__stats .stat-tile { align-items: center; text-align: center; }
+.gameover__stats .kpi__v { justify-content: center; }
+.stocktable thead th { vertical-align: bottom; line-height: 1.25; }
+.candidate__wanted { display: flex; align-items: center; gap: 6px; }
+.menuview__btn .icon { margin: -2px 0; }
+.planning__help .btn { gap: var(--space-2); }
+.banner .icon { color: var(--amber-deep); }
+
 /* ───────── motion: hover/press 150 ms, sheets 200 ms; off for anyone who asks ───────── */
 @media (prefers-reduced-motion: reduce) {
   .btn, .continue, .start, .tab, .seg__opt, .switch, .stepper__btn, .iconbtn, .diffpick__opt, .sums > summary::after { transition: none; }

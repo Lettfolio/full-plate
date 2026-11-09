@@ -1,5 +1,6 @@
 import type { GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
+import { StatTile } from "../components/Panel";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
 import { gameOverCause } from "../lib/dayLoop";
@@ -31,12 +32,12 @@ export function GameOver({ game, reason, onRetrySameSeed, onNewSeed, onTitle }: 
         <p className="gameover__cause" data-testid="gameover-cause">{cause}</p>
         <p className="gameover__reason small">{reason ?? "The money ran out. It happens to the best of them."}</p>
         <div className="gameover__stats">
-          <div className="kpi"><div className="kpi__k">Days open</div><div className="kpi__v">{game.stats.daysOpen}</div></div>
-          <div className="kpi"><div className="kpi__k">Guests fed</div><div className="kpi__v">{game.stats.totalCovers.toLocaleString("en-GB")}</div></div>
-          <div className="kpi"><div className="kpi__k">Takings</div><div className="kpi__v"><MoneyText pence={game.stats.totalRevenue} whole /></div></div>
-          <div className="kpi"><div className="kpi__k">Avg rating</div><div className="kpi__v">{avg ? <>{avg.toFixed(1)} <Stars rating={avg} size={14} /></> : "—"}</div></div>
-          <div className="kpi"><div className="kpi__k">Best day</div><div className="kpi__v">{best ? <MoneyText pence={best.profit} tone whole /> : "—"}</div></div>
-          <div className="kpi"><div className="kpi__k">Final cash</div><div className="kpi__v"><MoneyText pence={game.cash} tone whole /></div></div>
+          <StatTile label="Days open" value={game.stats.daysOpen} />
+          <StatTile label="Guests fed" value={game.stats.totalCovers.toLocaleString("en-GB")} />
+          <StatTile label="Takings" value={<MoneyText pence={game.stats.totalRevenue} whole />} />
+          <StatTile label="Avg rating" value={avg ? <>{avg.toFixed(1)} <Stars rating={avg} size={14} /></> : "—"} />
+          <StatTile label="Best day" value={best ? <MoneyText pence={best.profit} tone whole /> : "—"} />
+          <StatTile label="Final cash" value={<MoneyText pence={game.cash} tone whole />} />
         </div>
         <div className="gameover__buttons">
           <button className="btn btn--ghost" onClick={onTitle}>Title screen</button>
