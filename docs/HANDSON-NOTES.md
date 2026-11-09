@@ -469,3 +469,170 @@ x, y)` → a station (padded targets, nearest centre wins) or the rail, `railTar
 press to use). `input.ts` ignores keys aimed at buttons and fields (`onControl`).
 
 `ShiftSummary.nextStarAt`: the points the next star needs (absent at three), for the score card.
+
+## Round 8 — C (floor & kitchen art)
+
+The owner's request: "better maps, more professional interface". Both canvas maps — the hands-on kitchen (`render.ts`)
+and the owner's floor during service (`game/src/canvas/RestaurantView.ts`) — get one art direction, a shared character
+sprite, cached static layers and a palette module each. **Render only**: no session/state field, sim rule, timing,
+result or pacing changed; station geometry (`viewMetrics`, `stationRect`, `hitTest`) is untouched, so touch, the R7
+onboarding spotlights and the sous chef's walk land where they did.
+
+### The tile style: clean top-down with a 3/4 tilt (one rule, everywhere)
+- Every solid thing shows its **top and a darker south face** (`FACE` = 0.3 of a tile on counters), **light from the
+  top-left**, so every drop shadow (`C.shadow`) falls down-right by the same few px. Walls are a lit cap over a darker
+  face; floors carry ambient occlusion where they meet a wall.
+- One **outline weight** for characters and small props (`C.outline`, a warm near-black, `r × 0.13`); furniture is
+  edged with a darker tone of its own material instead of black.
+- **Kitchen**: half-tile non-slip tiles with grout and a drain; a tiled splash-back wall band on row 0; a tall
+  double-door fridge whose top stands over the splash-back; steel counters with front faces; the prep board has end
+  grain, a knife, a tomato and a carrot; the hob has grates and knobs (a lit burner glows, a pan sits on it, steam
+  rises); the oven has a door window that glows orange when it's cooking; the fryer has two oil wells with baskets
+  (bubbles when frying); the sink has water and a gooseneck tap; the pass is a steel shelf under a heat-lamp gantry;
+  swing doors stand open in the partition. **Dining**: staggered oak planks with grain, warm light pools under each
+  table, round tables with rim and highlight, chairs with backrests turned to the table, place settings on clean
+  tables, a door mat; **bar side**: narrow dark boards, an oak bar with taps and a brass foot rail, a back-bar of
+  bottles, a till with a screen; **office**: carpet, desk with monitor and papers, chair, filing cabinet, notice board;
+  **front wall**: windows with mullions, an open doorway, the awning (in `--awning`'s two colours) outside.
+- **Characters** (`sprites.ts → drawPerson`, shared with RestaurantView via `@full-plate/handson/sprites`): shadow,
+  stepping feet, swinging hands, body with apron/shirt/neckerchief shading, head with hair that shows the facing
+  (fringe facing down, back of the head facing up, profile left/right), eyes, cheeks, headwear (toque, cap, beanie,
+  beret, sun hat, bows). Looks: the player (whites, tomato neckerchief), colleagues (basil neckerchief), the sous chef
+  (charcoal jacket, amber), the commis's helper (pale blue), servers (dark waistcoat, white shirt, bow tie, basil cap),
+  bar (plum), guests by segment (`guestLook`, same as the owner's floor). Facing comes from movement (`facingFrom`;
+  standing still keeps the last facing). The walk bob is `|sin|` of the phase × 0.16 r.
+- **Held items are in her hands**, not in a bubble: a wicker basket of veg (raw), a steel bowl of chopped veg
+  (prepped), a pan (cooked, burnt shows), a steel tray of plates or glasses, a tub of dirty plates. Facing up, the item
+  is drawn before her so her head is in front. The dish name floats over her head as before.
+- **Plates read at 32 px tiles**: radius 0.26 of a tile on the pass with a dark rim line, a drop shadow and a main
+  colour from the dish (`foodColour`: brown for brownies/burgers, gold for chips, red for tomato dishes, green for
+  salads), plus garnish.
+- Seated guests on the far side of a table are drawn before the table top, the near side after it, so they sit
+  round it. Badges moved off the seats: the table number sits on the rim top-centre, the mood face bottom-centre, the
+  course cloche in the middle of the table.
+
+### Palette modules
+- `handson/src/palette.ts`: `DEFAULT_PALETTE` (tokens + art colours), `TOKEN_VARS` (palette key → theme.css
+  variable), `readPalette(canvas | getter)`, `readTokens`/`awningColours` (generic), live `C` swapped by
+  `applyPalette` (bumps `paletteVersion`, part of the layer key). Token reads: `--ink --ink-soft --ink-faint --paper
+  --cream --cream-deep --tomato --tomato-deep --basil --basil-deep --amber --amber-deep --plum --sky --sky-deep --star
+  --star-edge --cheer`, and the two stripe colours parsed out of `--awning`. A variable that is missing, empty or not a
+  colour keeps its default (`toHex` accepts `#rgb`, `#rrggbb[aa]`, `rgb()/rgba()`).
+- `game/src/canvas/floorPalette.ts`: the same for the owner's floor (`FLOOR_DEFAULTS`, `FLOOR_TOKENS`,
+  `readFloorPalette`) plus its own art colours (paving, kerb, road, night tint).
+- Read **once per resize**: HandsOnShift's `resize` passes `view.palette`; `RestaurantView.resize` reads it itself.
+
+### Static-layer cache (`layers.ts`)
+- `LayerCache.draw(target, name, key, w, h, dpr, paint)`: paints a layer into an `OffscreenCanvas` (or a detached
+  `<canvas>`) at `w·dpr × h·dpr` when its key changes, then `drawImage`s it each frame. Key = `layerKey(w, h, dpr,
+  paletteVersion, layout)`; the layout part is a number folded from stations, props and table seats (`artKey`), so
+  no per-frame strings. Where no surface can be made (node, stubbed contexts) it paints straight onto the frame — the
+  same picture, uncached — so every existing text-recording test still sees the labels.
+- **One opaque "scene" layer per canvas** (floor art then furniture art), blitted as an `ImageBitmap`
+  (`transferToImageBitmap`) with **no clearRect**. A first cut had separate floor and furniture layers so the glows
+  could sit between them; in Chrome's software raster a full-canvas blit costs ~6 ms at 2560×1600 under a 4× CPU
+  throttle (more than the old 1,800 tile rects), so they were merged: station glows and mood halos are now
+  translucent *bands* drawn over the scene, and the evening light pools are drawn live (`lighter`, dusk strength).
+  Hands-on scene: floors, walls, rugs, light pools, counters, appliances at rest, pass gantry, bar, till, office,
+  tables, chairs, fixed labels. Owner's scene: tiles, splash-back, planks, light pools, pavement, road, walls,
+  windows, back counter and hobs, fridge, sink, pass, bar, tables, chairs, plants, planters, awning, name board, OPEN.
+- **People are cached too** (`SpriteCache` in sprites.ts): each (look, facing, walk frame of 8, seated, carrying,
+  size, dpr) is drawn once into a small offscreen canvas and blitted, snapped to device pixels; `handsYOf` gives the
+  hand position without drawing. ≤ 400 entries, then it starts over.
+- `layersFor(ctx)` (a WeakMap per context) is the default; `HandsOnView.layers` overrides it (tests).
+- `devicePixelRatio` is capped at 2 on both canvases (`lib/perfMeter.ts canvasDpr`).
+- `handson/package.json` now says `"sideEffects": false` (the module-level WeakMap made Rollup keep render.ts in the
+  main chunk via gameReducer's `commisStation` import) and exports `./sprites`, `./palette`, `./layers` subpaths
+  for RestaurantView (no handson index in the main chunk).
+
+### Reduced motion
+`HandsOnView.reducedMotion` / `RenderOptions.reducedMotion` (from one `matchMedia` list, `prefersReducedMotion()`):
+no walk bob or stepping, no idle sway, no slip sway, steady glows (no pulse), no flame flicker or steam, no
+paying-coin bob, no wobble shake (the red tray ring stays), the low-time clock is steady red, the selection brackets
+don't turn. Pinned by `r8.render.test.ts` (two frames 0.25 s apart of a walking player draw identical shapes).
+
+### `?perf=1`
+`lib/perfMeter.ts`: frame JS time (sim + render) and frame interval, rolling over 120 frames in fixed typed arrays,
+drawn bottom-left on the hands-on canvas and top-left on the floor; also on `window.__fpPerf.{handson,floor}`.
+Off by default.
+
+### The owner's floor (RestaurantView) — what changed
+- Geometry, `pick()`, `Highlight`, the incident rings, the accessible label (Service.tsx) and the R5 draw order
+  (numbers after people and staff, before highlights — `canvasOrder.test.ts`) are kept.
+- Guests and staff are the shared sprite (staff 1.15× a guest, name tags; chefs wear theirs beside them, clear of the
+  ticket rail). Guests face where they walk, face the door in the queue and face their table when seated; far-side
+  guests sit behind the table top (occupied tops are redrawn live). Waiters carry a plate when they come via the pass
+  and a bill to a paying table.
+- **Readable paths** (`aislePath`): staff and guests walk along the nearest aisle (the walkway under the pass,
+  between table rows, along the front wall), then straight to the spot — L-shaped routes instead of beelines through
+  tables. Guests walk 1.8× the old speed, so a party isn't still walking in when its food lands.
+- **Selection**: a gold ring with four dark-edged gold corner brackets that turn slowly (still under reduced motion)
+  over a stronger mood band. Hover: a dashed paper ring.
+- **Day/evening**: the sim's clock is `game.tick` (5 min a tick from 12:00); from 18:00 (`tick` 72) to 21:00 the street
+  darkens (`night` at 0.34), the room slightly (0.16), and lamp pools come up over the street lamps, the tables, the
+  door, the windows and the bar.
+- A **bar** (oak counter, taps, foot rail, four stools, a back shelf of bottles) appears on the right when the tables
+  leave ≥ 44 px (`Layout.bar`); otherwise a plant stands there.
+- Tickets hang from a steel rail with drop shadows; plates under the heat lamps have food on them; lit burners glow
+  with a pan on the left ring.
+
+### Performance (Playwright, headless Chromium — software raster, no GPU)
+Every `requestAnimationFrame` callback timed (sim + render JS, summed per frame) and the frame interval, over 5 s
+with the autopilot playing (hands-on: `?autopilot=0.55,0.5`, career commis; floor: an owner's day 1 at 1× and 4×).
+Before = master `7a4fe8f`'s dist, after = this branch. **4× CPU throttle** (a mid laptop
+is ~2–4× slower than this container), dpr 1 unless noted. ms JS per frame / ms between frames:
+
+| | before | after |
+|---|---|---|
+| hands-on 1280 (early / mid shift) | 2.51 / 16.7 · 5.13 / 17.2 | 2.11 / 16.8 · 2.15 / 16.7 |
+| hands-on 1024 (early / mid) | 2.21 / 16.7 · 2.43 / 16.8 | 2.91 / 16.8 · 2.35 / 16.7 |
+| hands-on 1280 dpr 2 (early / mid) | 1.55 / 19.2 · 1.18 / 22.0 | 4.21 / 32.4 · 1.25 / 20.5 |
+| floor 1280 (1× / 4×) | 1.38 / 17.1 · 1.57 / 17.5 | 1.70 / 17.0 · 2.42 / 17.8 |
+| floor 1024 (1× / 4×) | 1.01 / 16.7 · 1.44 / 17.2 | 1.91 / 16.7 · 2.44 / 17.9 |
+| floor 1280 dpr 2 (1× / 4×) | 1.08 / 20.2 · 1.61 / 28.4 | 1.22 / 17.8 · 2.94 / 27.7 |
+
+Unthrottled (the final playtests): hands-on 1.0–1.6 ms JS a frame at 1280 and 1024, floor 0.5–1.5 ms; every run a
+steady 16.7 ms interval. Reading it: at dpr 1 both canvases hold 60 fps at both widths even throttled 4×; JS per
+frame is within noise for the kitchen and ~0.5–1 ms up on the floor at 4× sim speed (more art per guest). At dpr 2 the
+software rasteriser is the bottleneck before and after (the "early" dpr-2 sample includes building the scene and
+sprite caches); on a GPU-rastered laptop the blits are texture copies. The intermediate two-layer build was
+measurably worse at dpr 2 (46–53 ms intervals) — that's what drove the one-layer + sprite-cache design.
+`?perf=1` shows the live numbers in the corner.
+
+### Bundle
+HandsOnShift chunk 96.1 → **109.9 kB** (budget 170; gzip 34.4 → 39.3). Main chunk 195.2 → 219.1 kB (RestaurantView's
+art + the shared sprite, palette and layer modules).
+
+### Tests
+`handson/test/r8.render.test.ts` (10): palette fallbacks (no CSS, partial, unparseable, throwing reader, `--awning`
+stripes), LayerCache builds once per key and rebuilds on resize / dpr / palette, render blits one cached scene a frame
+and rebuilds on resize, the no-offscreen fallback still draws the labels, `facingFrom`, walk bob only while moving,
+reduced motion draws a walking player identically 0.25 s apart, SpriteCache builds once per pose (8 walk frames) and
+reports the same hands as `drawPerson`. `game/src/__tests__/round8.restaurantView.test.ts` (5): renders in jsdom with
+a stubbed context, labels every table, one cached blit a frame, rebuilds on resize, dpr capped at 2, evening light
+without an extra layer, aisle paths, floor palette fallbacks. All 894 tests pass.
+
+### Playtests (`vite preview` of the built dist, scratchpad `shots/r8/c/`)
+`final/kid-1280-fullshift`, `final/kid-1024-fullshift` (career commis, `?autopilot=1`, whole shifts: 172 s and 215 s,
+0 errors), `final/kid-1280-reducedmotion`, `final/owner-1280`, `final/owner-1024` (floor at 1×, 4×, a selected table,
+20:40 evening, then "On the pass"), `touch/` (1024×768 `hasTouch`, viewport shots: tap the fridge → USE → tap the
+board → chop → "Cook it in the oven"), `iter5/` (owner "On the floor" jump-in: plates on the pass at 32 px tiles),
+`perf-before/`, `perf-after/`. Type audit: 29 screens, 0 text runs below 13 px, 0 page errors.
+
+### What a future artist would replace
+- `art.ts` and RestaurantView's `paintFloor`/`paintFurniture` are the tile set: each appliance is one function on a
+  tile footprint — swap it for a sprite-sheet blit at the same rectangle (the layer cache doesn't care).
+- `sprites.ts → drawPerson` is the character sheet: replace it with frames keyed by (look, facing, walk frame);
+  `SpriteCache` already asks for exactly that tuple.
+- `foodColour`/`plate` (one colour per dish family) → real dish icons; the carried items (basket, bowl, pan, tray,
+  tub) → item sprites.
+- The palette's art colours (wood, steel, tiles, glass, paving) are placeholders tuned by eye; the tokens come from B.
+
+### Seams / still open
+- Token names read: `--ink --ink-soft --ink-faint --paper --cream --cream-deep --tomato --tomato-deep --basil
+  --basil-deep --amber --amber-deep --plum --sky --sky-deep --star --star-edge --cheer --awning`. If B renames any,
+  the canvas silently keeps its default (by design) — update `TOKEN_VARS`/`FLOOR_TOKENS`.
+- `--amber-deep` (#9a5c0c) now drives the hands-on "enabled" glow stroke and money toasts (was #b97a17).
+- Guests walking in still take a few seconds at 1× along the aisles; at 4× the sim can seat and serve a party before
+  its sprites arrive (as before, slightly more often).
+- The `drawPeople` list allocates a few closures a frame (≤ 6); everything else per frame is as before.
