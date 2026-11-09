@@ -4,7 +4,7 @@ The multi-site, franchising, real-estate and expansion layer. Pure TypeScript an
 
 ```
 pnpm --filter @full-plate/sim-empire typecheck   # src + demo
-pnpm --filter @full-plate/sim-empire test        # 48 tests, ~7s (includes runDay calibration + 5,000-site perf)
+pnpm --filter @full-plate/sim-empire test        # 58 tests, ~25s (includes model-vs-focused 90-day runs + 5,000-site perf)
 pnpm --filter @full-plate/sim-empire build       # tsc + static demo → packages/sim-empire/dist
 pnpm --filter @full-plate/sim-empire demo        # http://localhost:5301  (?style=franchise|company|innout&years=10&seed=2)
 pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--perf]
@@ -13,8 +13,8 @@ pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style 
 Files:
 - `src/types.ts`: the contract.
 - `src/constants.ts`: every tunable value, each anchored to the brief.
-- `src/model.ts`: the closed-form site model and `calibrate`.
-- `src/engine.ts`: `newEmpire`, `forkFromGameState`, `stepEmpireDay`, `applyEmpireCommand`, `forceEvent`.
+- `src/model.ts`: the closed-form site model and `calibrate`. Its demand and capacity come from sim-core's `src/capacity.ts` (round 3).
+- `src/engine.ts`: `newEmpire`, `forkFromGameState`, `stepEmpireDay`, `applyEmpireCommand`, `forceEvent`, `newGameFromSite`, `recalibrateFromSite`.
 - `src/world.ts`: 12 invented cities, 5 regions and 4 suppliers.
 - `src/strategies.ts`: the scripted styles. They are browser-safe.
 - `src/headless.ts`: the CLI.
@@ -37,9 +37,9 @@ const empire = forkFromGameState(content, gameState, {
 ```
 
 `forkFromGameState`:
-- Calibrates the aggregate model on `gameState.history` (`calibrate`, see §3). It needs at least 14 trading days.
+- Calibrates the aggregate model on `gameState.history` and the GameState itself (`calibrate`, see §3). It needs at least 14 trading days.
 - Creates HQ with `hq.day = gameState.day`, so seasons and weekdays line up with sim-core.
-- Creates **site `s1` = the player's restaurant**: company-owned, in the home city Harbourton, `districtId = gameState.districtId`, `focused: true`.
+- Creates **site `s1` = the player's restaurant**: company-owned, in the home city Harbourton, `districtId = gameState.districtId`, `focused: true`. It keeps its own room: `tables` (if the player bought any), `staffQuality` (the crew's shift-weighted skill), `popularity` and `prestige`.
 - Seeds the brand formula from the restaurant's active menu. It starts unlocked at standardisation 30.
 
 ### Which sim-core state is the focused site
@@ -54,13 +54,22 @@ const { empire: next, events } = stepEmpireDay(content, empire, dayResult);   //
 // next.hq.day === d + 1. The focused site's covers/revenue/meals come from dayResult; every other site from the model.
 ```
 - Call it once per sim-core day, in the evening, with that day's `DayResult`. Without a `DayResult` (map-only fast-forward), the focused site falls back to the model.
+- **Off-premise on top (round 3).** sim-core runs the dining room. The takeaway counter (standardisation), drive-thru and app are not simulated there, so `stepEmpireDay` multiplies the focused DayResult's covers, sales, VAT, food and labour by the same `offPremise(site, brand)` the model uses. The Sites panel shows the split ("~140 covers today: 100 in the dining room + 40 takeaway").
+- **Brand pull.** A focused GameState carries a footfall mod tagged `BRAND_PULL_SOURCE` ("brand") equal to `siteBrandPull(content, empire, siteId)`: recognition, consistency, city size, champions, saturation, effects. The game refreshes it every evening (`pathEngine.refreshBrandPull`), so a famous brand fills the hands-on room the way it fills the model's.
 - When the player is on the map with nothing focused, fast-forward with `stepEmpireDays(content, empire, n)`. It costs about 13 ms/day at 5,000 sites.
 - `events` (`EmpireEvent[]`, each with `tone` and an optional `siteId`/`cityId`/`regionId`) feed the morning mail and the map ticker. `empire.events` keeps the last 200.
 
 ### Switching focus (promote / demote)
 1. **Demote** the current site: `FOCUS_SITE {}`. The game may keep its GameState as a save, or drop it.
-2. **Recalibrate (optional but recommended):** `recalibrateFromSite(content, empire, oldSiteId, gameState.history)` refits the model on everything the player just played. It normalises the fit back to the reference state so other sites keep their own factors.
-3. **Promote** a site: `FOCUS_SITE { siteId }`. The game builds a GameState for it with `newGame` (`districtId = site.districtId`, `restaurantName = site.name`). It also seeds the menu from `brand.formula.menuDishIds` at `priceIndex × suggestedPrice`, hires staff in proportion to `site.staffQuality`, and sets popularity from recognition: `popularity ≈ 40 + recognition/3`. A sim-core helper `newGameFromSite` would make this exact; see open questions.
+2. **Recalibrate (optional but recommended):** `recalibrateFromSite(content, empire, oldSiteId, gameState.history, gameState)` refits the model on everything the player just played. With the GameState it sees that room's tables, rota, popularity and brand pull, so `demandScale` stays a property of the sim; costs are normalised back to the reference (cost index, price level), and the site keeps its own `tables`/`staffQuality`/`popularity`/`prestige`.
+3. **Promote** a site: `FOCUS_SITE { siteId }`, then `newGameFromSite(content, empire, site, rng, { difficulty })` (round 3; it used to copy the flagship's staff). It builds exactly what the model assumes for that site:
+   - the site's district and name, `day = hq.day`, no loan, £20k in the till, no goals;
+   - the brand menu at `round(suggestedPrice × priceIndex)` (`brandMenu`);
+   - the brand's box: `startingTables × throughput(standardisation)`, capped at `maxTables` (`boxTables`), or the site's own `tables`;
+   - a **local crew**: two chefs and two servers on rotas A (Wed–Sun) and B (Mon, Tue, Fri–Sun), skill ≈ `staffQuality` ± 4, speed ≈ 60, wages from the content archetypes (`crewWage`);
+   - popularity and prestige from `sitePopularity`/`sitePrestige` (the site's own if it was run before);
+   - a stocked larder (1.5 services of the forecast) and the brand pull footfall mod.
+   The game seeds the rng from `game.seed ^ hash(site.name)`, so promotion is deterministic.
 
 ### Commands the UI needs (`applyEmpireCommand`)
 Invalid commands return the empire unchanged plus one `{kind:"rejected", text}` event. The text is player-facing, so show it as a toast. `associationBlocks(empire, cmd)` tells the UI in advance which buttons the franchisee association has disabled.
@@ -107,46 +116,48 @@ The demo (`demo/main.tsx`) is the proof. The real screen should show:
 
 ## 3. The model
 
-### Closed-form site day (`aggregateSiteDay`)
+### Closed-form site day (`aggregateSiteDay`) — round 3
+A modelled site is the same dining room the focused sim runs, in closed form. Demand and capacity are sim-core's own formulas (`sim-core/src/capacity.ts`), so a modelled site and the GameState `newGameFromSite` builds for it agree on district, menu, prices, tables and crew.
 ```
-covers   = baseCovers × season[district][month] × weekdayProfile[weekday] × D × noise      noise ~ logN(−σ²/2, σ)
-D        = location × recognition × consistency × staff × throughput × price × champion × stale
-           × (1 − saturation) × permanentDemand × effects × [driveThru 1.3] × [app 1.1] × [fresh 1.08]
-           × [breaks dietary rules 0.55] × [tradition 1.1] × Π footfallMods
-location     = footfall[district]/footfall[calDistrict] × (population/2.5m)^0.25
-recognition  = (1 + rec/100) / (1 + 15/100)
-consistency  = (0.8 + 0.4·c/100) / (0.8 + 0.4·0.5)
-staff        = (0.85 + 0.3·q/100) / (0.85 + 0.3·0.5)
-throughput   = 1 + 0.012 × max(0, standardisation − 30)          (Speedee: assembly line serves more from one box)
-price        = priceIndex^−1.2
-champion     = 1 − strength × 0.35 × (1 − rec/200)
-stale        = 1 until 6 years without a remodel, then −4%/yr to a floor of 0.75
-revenue  = covers × spendPerCover × priceIndex × costIndex × priceLevel × [app 1.05] × effects.spend
-food     = covers × foodPerCover × costIndex^0.6 × priceLevel × [fresh 1.12] × Π(1 − supplier discount)
-labour   = labourPerDay × costIndex × priceLevel × (covers/coversMean)^0.85 × (1 − 2% per 10 std above 30)
+demand   = demandScale × marketDemand(district, brand menu, popularity, prestige, day) × pull
+           marketDemand = footfall × season × (0.5 + pop/100) × weekend × Σ segment share × sigmoid(entryLogit) × E[party]
+           (sim-core's arrival system in expectation; price response comes from the entry logit on the real menu prices)
+pull     = (population/2.5m)^0.25 × recognition × consistency × champion × stale × (1 − saturation) × permanentDemand
+           × effects × [fresh 1.08] × [breaks dietary rules 0.55] × [tradition 1.1] × Π site footfallMods
+capacity = softmin(seats, crew) × (0.44 / peakShare)^0.3                 softmin = (a^−3 + b^−3)^(−1/3)
+           seats = tables × 7.7 turns × mean party;  tables = startingTables × throughput(std), ≤ maxTables (or the site's own)
+           crew  = 136 covers × chef+server pairs on shift (1 Mon–Thu, 2 Fri–Sun) × (1 + 0.5 (staffQuality − 50)/100)
+covers   = softCap(demand, capacity) × offPremise × noise       softCap(d, c) = d / √(1 + (d/c)²)
+offPremise = (1 + 0.02 × (std − 30)) × [drive-thru 1.3] × [app 1.1]    takeaway counter, lane and app: on top of the seats
+revenue  = covers × spendScale × basket(district, brand menu) × costIndex × priceLevel × [app 1.05] × effects.spend
+food     = covers × foodScale × plateCost(district, brand menu) × costIndex^0.6 × priceLevel × [fresh 1.12] × Π(1 − supplier discount)
+labour   = standard crew (2 chefs + 2 servers × 5 shifts, wages at staffQuality) × costIndex × priceLevel × offPremise × speedee
 overhead = overheadsFixed × costIndex × priceLevel × (covers/coversMean)^0.85 + cardFee × revenue
 VAT      = vatPct × revenue;     contribution = revenue − VAT − food − labour − overhead
 ```
-Every factor equals 1 at the **reference state**: recognition 15, consistency 50, staff 50, standardisation 30, no saturation, price ×1. The flagship starts exactly there, so with the fork's calibration the model reproduces the player's restaurant.
+- **Popularity and prestige** of a modelled site follow its crew (fitted on `newGameFromSite` runs): popularity ≈ 79 + 0.6 (q − 50), prestige ≈ 45 + 3 (q − 50), clamped. A site that has been run hands-on keeps its own.
+- **Standardisation** (Speedee) no longer multiplies demand. It buys tables in the box (+1 at a locked formula, 10 at the full tree) and the takeaway counter (+40% / +100% of the dining room).
+- **Recognition** is now part of `pull`: it fills the room (and the queue) rather than adding covers without limit. A full room barely grows when demand does; a quiet one tracks it.
+- The capacity constants were fitted to the sim (4-person crew, 6–10 tables, all four districts, saturated demand; RMS 3%). `sim-core/test/capacity.test.ts` replays the sim to keep them honest.
 
-### Calibration (`calibrate(content, history, {districtId})`)
-Ratio estimators keep the means exact:
-- **`weekdayProfile`:** deseasonalised mean covers per weekday ÷ the overall mean, shrunk toward 1 below 4 samples. It captures the weekend uplift, capacity clipping, *and the player's rota*: the days the owner covers alone are slower.
-- **`baseCovers`:** Σ covers ÷ Σ(season × weekdayProfile).
-- **Per cover:** `spendPerCover`, `foodPerCover` (food + prep waste + spoilage) and `labourPerDay` are ratios.
-- **Overheads:** OLS of daily overheads on revenue gives `cardFeePct` and `overheadsFixed`.
-- **`noiseSd`:** the RMS of log(actual ÷ fitted).
+### Calibration (`calibrate(content, history, {districtId, state, lastDays})`)
+- Days with zero covers or `closed` are skipped, and so are **days the owner covered a role** (`ownerCovered`; P2, round 3), when at least 14 fully staffed days remain. Modelled sites have their own crew; the owner's slow Mondays no longer leak into every site.
+- For each remaining day: `marketDemand` with the restaurant's menu, popularity, prestige and difficulty, and `capacityCovers` with its tables and the crew rostered that weekday (from the GameState; without one the standard box and crew).
+- **`demandScale`** is solved (bisection) so that Σ softCap(scale × demand, capacity) = Σ actual covers, then shrunk halfway to 1 (`DEMAND_SCALE_KEEP`): one restaurant's quarter can't separate a model-wide error from its own quirks (a chef of 100, prestige 100), and the closed form is already fitted to the sim.
+- **`spendScale` / `foodScale`:** actual sales (food + waste) ÷ the order model's expected basket (ingredient cost) for those covers. Other districts get their own basket on the brand menu.
+- **Overheads:** OLS of daily overheads on revenue gives `cardFeePct` and `overheadsFixed`. **`noiseSd`:** RMS of log(actual ÷ fitted).
+- `baseCovers`, `weekdayProfile` and `weekendMult` are now informational (the reference site's fitted covers and weekly shape). Pre-round-3 saves have no `demandScale`/`spendScale`: they read as 1 and fall back to the flat `spendPerCover × priceIndex`.
 
-Days with zero covers (closed by an event) are skipped.
+**Accuracy** (round 3). Diagnosis with the headless (seed 2026, High Street flagship on the fast-food menu, balanced owner, fork at day 365, then 90 days): a modelled site against the same site built with `newGameFromSite` and played by a steady operator.
 
-**Accuracy:** `test/calibration.test.ts` plays sim-core's `runDay` for 60 days on the shipped content pack, using a fast-food menu, one chef and one server, and nightly `suggestedOrder`.
-
-| District | Focused covers/day | Aggregate | Focused revenue/day | Aggregate | Error |
+| Site (90 days) | Before: model | Focused | After: model dining room | Focused | Error covers / revenue |
 |---|---|---|---|---|---|
-| high_street | 52.5 | 50.1 | £849 | £811 | −4.6% / −4.5% |
-| student_quarter | 54.7 | 56.6 | £889 | £921 | +3.5% / +3.5% |
+| Campus (Student Quarter), locked, recognition 33, crew 40 | 193 | 84 | 88 | 82 | +7.6% / −0.2% |
+| Business Park, reference state, crew 50 | 100 | 77 | 74 | 73 | +1.6% / +1.8% |
+| Seaside, academy (std 70), crew 65 | 187* | 101* | 106 | 107 | −1.3% / −4.5% |
+| The flagship itself, demoted | 100 | 91 | 92 | 91 | ≤ 10% (test) |
 
-The test also checks that, per weekday, noise-free expected covers are within 15% of the focused mean, and that the food share is within 3 points and the labour total within 10%. Separately, stepping the empire for those 60 days through `stepEmpireDay` gives meals served within 10% of the focused total.
+\* before = the locked + recognition 33 case in that district; the old model had no academy crew to compare. Before the fix, the model's footfall ratio (112 vs 74 = ×1.51), Speedee throughput (×1.24) and recognition (×1.16) multiplied demand with no seat limit, while sim-core's 6-table room saturates near 110 covers and its entry logit turns little extra footfall into covers: **1.4–2.3×** for the same site. `test/calibration.test.ts` asserts ±15% (covers, revenue and labour) on three cases and ±10% for the demoted flagship.
 
 ### Money flows (per open site per day)
 - **Company site:** HQ gets `contribution − market rent (unless HQ owns the plot) − 4% ad fund`. The focused company site sends nothing until it transfers.
@@ -195,47 +206,53 @@ The test also checks that, per weekday, noise-free expected covers are within 15
 - **company:** company sites only, built on the development facility, with plots bought from profit. It saves for the next city once home fills.
 - **innout:** fresh formula and a commissary per region, at most one site a month, and it pauses every 15 sites per commissary to save for the next region.
 
+Round 3 (honest dining room + takeaway counter; the round-2 table is in git history):
 ```
 style      seed  sites (co/fr)  closed  meals      HQ cash   HQ net/yr  avg site/yr  mood  regions  plots  scandals  win
-franchise     1   718 (1/717)       0  532.0m    £578.7m     £148.0m        £2.0m    65      5/5    718         3   yes
-franchise     2   593 (1/592)      46  426.1m    £416.1m     £107.3m        £1.7m    62      3/5    593         0    no
-franchise     3   548 (1/547)     170  467.8m    £366.8m      £87.0m        £1.6m    60      5/5    548         2   yes
-franchise     4   603 (1/602)     115  473.5m    £473.5m     £102.8m        £1.8m    64      5/5    603         0   yes
-franchise     5   700 (1/699)      18  508.5m    £528.5m     £112.8m        £1.7m    62      5/5    700         0   yes
-company       1   481 (481/0)       0  106.5m    £122.1m     £166.4m        £1.7m     —      5/5    108         0   yes
-company       2   437 (437/0)       0   93.6m     £87.9m     £121.1m        £1.5m     —      4/5     80         2    no
-company       3   287 (287/0)      64   54.9m     £24.3m     £124.3m        £1.8m     —      3/5     55         1    no
-company       4   360 (360/0)       0   73.0m     £60.5m     £141.1m        £1.8m     —      3/5     73         2    no
-company       5   288 (288/0)       0   57.1m     £27.8m     £116.3m        £1.8m     —      2/5     29         1    no
-innout        1    69 (69/0)       0   31.8m     £69.1m      £43.9m        £2.7m     —      2/5     69         0    no
-innout        2    69 (69/0)       0   31.8m     £68.9m      £44.2m        £2.7m     —      2/5     69         0    no
-innout        3    58 (58/0)       0   21.2m     £38.4m      £35.6m        £2.5m     —      2/5     58         1    no
-innout        4    61 (61/0)       8   23.4m     £15.9m      £18.1m        £1.6m     —      1/5     61         1    no
-innout        5    69 (69/0)       0   31.8m     £69.1m      £43.9m        £2.7m     —      2/5     69         0    no
+franchise     1   682 (1/681)      36  521.7m    £572.8m     £137.4m        £2.0m    59      4/5    682         3   yes
+franchise     2   627 (1/626)      91  485.2m    £394.5m     £111.5m        £2.0m    63      4/5    627         3   yes
+franchise     3   561 (1/560)     157  490.6m    £442.2m     £104.1m        £1.8m    58      5/5    561         1   yes
+franchise     4   718 (1/717)       0  548.0m    £636.3m     £148.6m        £2.0m    61      5/5    718         2   yes
+franchise     5   718 (1/717)       0  544.9m    £627.2m     £151.5m        £2.1m    62      5/5    718         0   yes
+company       1   503 (503/0)       0  113.6m    £138.9m     £189.7m        £1.8m     —      5/5    112         0   yes
+company       2   497 (497/0)       0  111.3m    £132.3m     £186.5m        £1.8m     —      5/5    110         0   yes
+company       3   305 (305/0)       0   51.5m     £23.5m     £114.3m        £1.7m     —      3/5     47         1    no
+company       4   370 (370/0)      98   89.5m     £91.1m     £168.1m        £2.0m     —      5/5     66         1   yes
+company       5   497 (497/0)       0  109.5m    £118.8m     £177.6m        £1.8m     —      5/5    106         2   yes
+innout        1    56 (56/0)       0   18.6m     £17.0m      £22.8m        £2.0m     —      1/5     56         0    no
+innout        2    56 (56/0)       0   18.4m     £16.7m      £23.0m        £2.0m     —      1/5     56         0    no
+innout        3    37 (37/0)       0    9.3m      £1.0m      £13.9m        £1.9m     —      1/5     25         1    no
+innout        4    52 (52/0)       1   16.7m     £11.2m      £21.1m        £2.0m     —      1/5     52         1    no
+innout        5    56 (56/0)       0   18.0m     £12.5m      £22.5m        £2.0m     —      1/5     56         2    no
 ```
 "closed" counts both forced exits (geopolitics) and collapses below the £400k line.
 
-**Win timing.** Franchise-fast wins on regions in 4 of 5 seeds, at year 4.2–4.6. Company-steady wins in 1 of 5 (year 9.6). In-N-Out-slow wins in none within 10 years. This is the intended shape: franchising is fast and asset-light, company-owned is capital-hungry but keeps every pound, and fresh-and-slow has the best units (£2.5–2.7m per site) and a cult brand but takes decades.
+**Win timing.** Franchise-fast wins on regions in 5 of 5 seeds, at year 4.4–4.9 (round 2: 4 of 5, 4.2–4.6). Company-steady wins in 4 of 5 at year 9.4–9.6 (round 2: 1 of 5). In-N-Out-slow wins in none within 10 years. The intended shape holds: franchising is fast and asset-light, company-owned is capital-hungry, fresh-and-slow takes decades. In-N-Out is weaker than in round 2 (37–56 sites, £2.0m units, was 58–69 and £2.5–2.7m): its fresh formula no longer multiplies covers past the seat cap, only demand.
 
-**No style reaches a billion meals in 10 years.** Franchise-fast gets about 0.4–0.5bn, so the meals win is a 15–20 year goal and the regions win is the faster route. That seems right for a "late game".
+**Where a mature site's covers come from.** A year-10 franchise site serves ~400 covers a day: ~140 in a 10-table dining room (the full tech tree's box) and the rest from the takeaway counter (×2.0), drive-thru (×1.3) and app (×1.1). Hands-on, the player runs the 140; the Empire adds the rest to the focused DayResult.
+
+**No style reaches a billion meals in 10 years.** Franchise-fast gets about 0.5bn, so the meals win is a 15–20 year goal and the regions win is the faster route.
+
+**Early franchising is thin.** An unlocked formula's dining room (~85 covers, £1.3k/day) barely covers a franchisee's rent, royalty, ad fund and bank loan, so mood falls toward the association line; locking the formula (+1 table, +40% takeaway) makes the unit work. That is the honest sim-core economics of a 6-table room, and a lesson worth keeping, but the UI should say it before the first sale (see open question 8).
 
 **Unit economics** at year 10 (mature sites, model, % of net sales):
 
 | Style | Food | Labour | Overheads | Occupancy (market rent) | Site margin after occupancy |
 |---|---|---|---|---|---|
-| Franchise | 32.5% | 24.7% | 7.9% | 3.1% | 31.8% |
-| Company | 34.0% | 24.9% | 7.9% | 3.2% | 30.0% |
-| In-N-Out | 38.1% | 21.4% | 7.1% | 1.7% | 31.8% |
+| Franchise | 32.4% | 22.6% | 7.8% | 2.7% | 34.5% |
+| Company | 33.7% | 22.9% | 7.8% | 2.4% | 33.1% |
+| In-N-Out | 36.5% | 22.2% | 7.3% | 2.3% | 31.7% |
 
-These sit near the brief's QSR anchors (food ~30%, labour ~25%, occupancy ~5%, margin ~25%). Occupancy runs low and margin high because mature drive-thru sites trade at about £1.7m on a rent set when they opened.
+These sit near the brief's QSR anchors (food ~30%, labour ~25%, occupancy ~5%, margin ~25%) and within 3 points of round 2. Labour is now the standard crew's wages (content archetypes), scaled with the off-premise covers.
 
-**Performance** (`--perf`, Node 22, one core): 1,000 sites take 3.4 ms/day and 5,000 sites take 13 ms/day, against a target of under 50 ms. The test asserts the 50 ms limit. A save with about 500 sites is about 320 KB.
+**Performance** (`--perf`, Node 22, one core): 1,000 sites take 6.3 ms/day and 5,000 sites take 16 ms/day (round 2: 3.4 / 13; the market-demand lookups are cached per district, month, weekend, popularity and prestige), against a target of under 50 ms. The test asserts the 50 ms limit.
 
 ## 5. Open questions
-1. **sim-core should export `Rng`.** `src/rng.ts` re-exports `../../sim-core/src/rng` by path because sim-core's index doesn't export it. That is a one-line change in sim-core, after which this file should import from the package.
-2. **`newGameFromSite` in sim-core** would let a promoted site start a GameState that matches the model: `newGame` plus a district override, menu, staff skill from `staffQuality`, popularity from recognition and footfall multipliers from `D`. Until then, a promoted site's first few weeks will differ from its aggregate numbers by the ~5% calibration error plus the staffing guess.
-3. **Seats cap the focused restaurant, but not the model.** sim-core caps covers at about 14 tables. A QSR box serves several hundred covers a day only because standardisation, drive-thru and app multiply the calibrated base. If the lead wants a promoted QSR site to look busy in the agent sim, sim-core needs a "counter service" mode: higher table turnover and takeaway covers without a seat.
-4. **Rota artefacts in the weekday profile.** The fork calibration inherits the player's staffing pattern, for example slow Mondays when the owner covers alone, so every aggregate site copies it. That is faithful to "keep its numbers" but odd for a chain. An option is to calibrate `weekdayProfile` only on fully staffed days.
+1. ~~sim-core should export `Rng`~~ Done: `src/rng.ts` re-exports it from the package.
+2. ~~`newGameFromSite`~~ **Done in round 3**, in sim-empire (`engine.ts`), and used by the game's FOCUS_SITE.
+3. **Seats now cap the model too (round 3).** The off-premise half of a QSR (takeaway counter, drive-thru, app) is still modelled, not simulated: the hands-on player sees the dining room only, and the Empire adds the rest. A sim-core "counter service" mode (`GameState.serviceMode?: "table" | "counter"`: takeaway parties that take a counter spot for a tick instead of a table, faster eat/clear in the room, lower spend per head) would let the hands-on site show the queue at the counter too. It was out of scope for round 3; when it lands, `offPremise` should shrink by the share sim-core now serves.
+4. ~~Rota artefacts in the weekday profile~~ **Done in round 3**: calibrate skips owner-covered days, and every modelled site gets the standard crew and rota.
 5. **Content.** Cities, regions, suppliers, dietary rules and champions live in `src/world.ts`. The content pass should move them to `content/data/empire.json`. There should also be a fast-food dish set: `FAST_FOOD_MENU` uses the existing burgers, chips, shakes and sundae.
 6. **Balance.** The franchise style's late cash pile (£400–600m) has nowhere to go. Late sinks to consider: acquisitions of rival chains, share buybacks and dividends as score, and big-ticket R&D. Mood sits at 60–65 under default terms, and the association only forms when the player squeezes. A recession event (Sonneborn 1967) would test over-expansion.
 7. **Hybrid play.** The ownership mix per region is just per-site choices today. A per-region "slider" UI can be sugar over `OPEN_SITE` and `SELL_FRANCHISE`.
+8. **Round 3 model follow-ups.** (a) The popularity/prestige-by-crew curves and `DEMAND_SCALE_KEEP` were fitted on two flagships; the test cases sit at −5% to +8%, with the worst probe case (crew 40, Student Quarter) at +15% covers / +8% revenue. (b) The brand pull mod is a single footfall multiplier: sim-core can't tell recognition from a bigger city. (c) A franchise sale before the formula is locked loses the operator money; the contract panel should warn. (d) A 10-table box still gets a 4-person crew; a bigger crew for a bigger box (and the same in `newGameFromSite`) is the next lever if late-game units look too lean or too rich.

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  associationBlocks, avgFranchiseeMood, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE, franchiseCashNeeded,
-  openSites, propertyPrice, spendable, TECH_LABEL,
+  associationBlocks, avgFranchiseeMood, boxTables, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE,
+  expectedSiteDay, franchiseCashNeeded, offPremise, openSites, propertyPrice, spendable, TECH_LABEL,
   type City, type EmpireCommand, type EmpireState, type SiteSummary, type Tech,
 } from "@full-plate/sim-empire";
 import { content, extras } from "../../sim";
@@ -298,6 +298,10 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
   return (
     <div className="card stack stack--sm">
       <div className="card__title"><h3>Sites</h3><span className="xs faint">{e.sites.filter((s) => s.status !== "closed").length}</span></div>
+      <p className="xs muted">
+        Each site is a dining room like yours: {boxTables(content, e.brand.formula.standardisation)} tables and a local crew of two chefs and two servers.
+        Hands-on, you run the dining room{offPremiseNote(e)}.
+      </p>
       <ul className="sitelist">
         {list.map((s: SiteSummary) => (
           <li key={s.id} className={`site ${s.focused ? "site--focused" : ""}`}>
@@ -312,6 +316,7 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
                 {s.land === "hqOwned" ? " · you own the plot" : ""}
               </div>
             )}
+            {s.status === "open" && <SiteCovers e={e} s={s} />}
             {s.status === "open" && (
               <div className="row row--wrap" style={{ marginTop: 4 }}>
                 {s.focused ? <span className="pill pill--star">You run this one</span> : <button className="btn btn--sm btn--ghost" onClick={() => onFocusSite(s.id)} title="Run this restaurant yourself from tomorrow morning">Run it hands-on</button>}
@@ -328,6 +333,28 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
   );
 }
 
+/** "takeaway counter, drive-thru and app add N% on top" for the formula's current tech (empty when nothing does). */
+function offPremiseNote(e: EmpireState): string {
+  const parts = [e.brand.formula.standardisation > EMPIRE.REF_STANDARDISATION && "the takeaway counter", e.brand.formula.driveThru && "drive-thru lanes", e.brand.formula.appOrdering && "app orders"].filter(Boolean);
+  if (!parts.length) return "";
+  const lane = Math.round((offPremise({ driveThru: e.brand.formula.driveThru }, e.brand) - 1) * 100);
+  return `; ${parts.join(", ").replace(/, ([^,]*)$/, " and $1")} ${parts.length === 1 ? "adds" : "add"} about ${lane}% on top`;
+}
+
+/** Expected covers today, split into the dining room (what you'd see hands-on) and the off-premise lanes. */
+function SiteCovers({ e, s }: { e: EmpireState; s: SiteSummary }) {
+  const day = expectedSiteDay(content, e, s.id);
+  const off = offPremise(s, e.brand);
+  const room = Math.round(day.covers / off);
+  const lanes = day.covers - room;
+  const tables = s.tables ?? boxTables(content, e.brand.formula.standardisation);
+  return (
+    <div className="xs muted">
+      ~{day.covers} covers today: {room} in the dining room ({tables} tables, crew {Math.round(s.staffQuality)}){lanes > 0 ? ` + ${lanes} takeaway` : ""}
+    </div>
+  );
+}
+
 function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => void }) {
   const f = e.brand.formula;
   const next = (["academy", "driveThru", "appOrdering"] as Tech[]).find((t) => !f[t]);
@@ -338,7 +365,11 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
       <div className="card stack stack--sm">
         <div className="card__title"><h3>The formula</h3><span className="xs faint">standardisation {f.standardisation}</span></div>
         <Bar value={f.standardisation} tone="accent" size="sm" label="Standardisation" showValue />
-        <p className="small muted">{f.locked ? "Locked: every site cooks the same menu the same way." : "Not locked yet: each site does its own thing."} {f.fresh ? "Fresh, never frozen." : ""}</p>
+        <p className="small muted">
+          {f.locked ? "Locked: every site cooks the same menu the same way." : "Not locked yet: each site does its own thing."} {f.fresh ? "Fresh, never frozen." : ""}{" "}
+          Standardisation fits more tables in the box ({boxTables(content, f.standardisation)} now) and runs a takeaway counter
+          (+{Math.round(EMPIRE.TAKEAWAY_PER_STD * 100)}% of the dining room per point above {EMPIRE.REF_STANDARDISATION}).
+        </p>
         <div className="row row--wrap">
           {!f.locked && <button className="btn btn--primary btn--sm" onClick={() => send({ type: "SET_FORMULA", locked: true })}>Lock the formula</button>}
           {f.locked && next && !e.brand.research && <Blockable e={e} send={send} cost={Math.round(EMPIRE.TECH[next].cost * e.hq.priceLevel)} cmd={{ type: "RESEARCH", tech: next }}>Research {TECH_LABEL[next].toLowerCase()} · <MoneyText pence={Math.round(EMPIRE.TECH[next].cost * e.hq.priceLevel)} whole /></Blockable>}

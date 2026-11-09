@@ -2,7 +2,9 @@
  * Round 3 (REVIEW P2): "Run it hands-on" builds a fresh GameState for the site via sim-empire's newGameFromSite
  * (its district, the brand menu, a locally hired crew), instead of copying the flagship's staff.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { EmpireTab } from "../screens/paths/EmpireTab";
 import type { GameState } from "@full-plate/sim-core";
 import { BRAND_PULL_SOURCE } from "@full-plate/sim-empire";
 import { appReducer, initialAppState, type AppState } from "../state/gameReducer";
@@ -65,5 +67,17 @@ describe("Run it hands-on", () => {
     const a = appReducer(forkedEmpire(), { type: "focusSite", siteId: "s2" }).game!;
     const b = appReducer(forkedEmpire(), { type: "focusSite", siteId: "s2" }).game!;
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+});
+
+describe("EmpireTab sites copy (round 3)", () => {
+  afterEach(cleanup);
+  it("splits each site's covers into the dining room you'd run hands-on and the takeaway lanes", () => {
+    let s = forkedEmpire();
+    s = appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } });
+    render(<EmpireTab game={s.game!} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Sites" }));
+    expect(screen.getByText(/Hands-on, you run the dining room; the takeaway counter adds about 40% on top/)).toBeTruthy();
+    expect(screen.getAllByText(/covers today: \d+ in the dining room \(\d+ tables, crew \d+\) \+ \d+ takeaway/).length).toBeGreaterThan(0);
   });
 });

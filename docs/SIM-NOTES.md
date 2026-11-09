@@ -346,3 +346,11 @@ The sim backs off whatever the human's role covers, but a slow fallback keeps fo
 |---|---|---|---|---|
 | typical | **83%** | 90.3 | 4.23 | 80.5 |
 | balanced | 100% | 87.5 | 4.42 | 87.5 |
+
+## Round 3 (Empire calibration): closed-form demand and capacity (`src/capacity.ts`)
+Additive; the tick pipeline doesn't use it. sim-empire's aggregate model is built on it (EMPIRE-NOTES §3), so a modelled site produces what this sim produces for the same district, menu, prices, tables and crew.
+- `marketDemand(content, {districtId, menu, day, popularity, prestige?, difficulty?, footfallMult?, setMenu?})` and `expectedDemand(content, state)`: expected covers walking in with a free table always waiting (the arrival system without the queue penalty), plus `meanParty`, `peakShare` (share of parties in the busiest 30 ticks), and the order model's expected `spendPerCover` and `foodPerCover` (base unit costs).
+- `capacityCovers({tables, seatsPerTable?, meanParty, crewUnits, crewSkill, peakShare?})` and `serviceCapacity(content, state)`: seats = tables × 7.7 turns × mean party; crew = 136 covers per chef+server pair on shift × (1 + 0.5 (skill − 50)/100); soft minimum (k = 3) × (0.44 / peakShare)^0.3. Constants in `CAPACITY`, fitted to this sim (RMS 3% at saturation).
+- `softCap(demand, capacity) = d / √(1 + (d/c)²)` and its inverse `uncapped`. `crewOnShift(state)` counts the owner covering a missing role as half a pair.
+- `test/capacity.test.ts` plays the real pack against the closed form (saturated and ordinary footfall, within 12%). If service physics change (eat ticks, turns, kitchen parallelism), refit `CAPACITY` there.
+- No `types.ts` changes.
