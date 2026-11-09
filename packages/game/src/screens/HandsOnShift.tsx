@@ -180,17 +180,21 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Round 7: autopilot playtests page through the onboarding on their own.
-  useEffect(() => {
-    if (onboard === null || !AUTOPILOT) return;
-    const id = window.setTimeout(() => next(), AUTOPILOT_STEP_SECS * 1000);
-    return () => window.clearTimeout(id);
-  });
 
   const s = sessionRef.current;
   const steps = s ? onboardingSteps({ role, touch, ...(station ? { station: { appliance: yourStations(s)[0] } } : {}) }) : [];
   const finish = useCallback(() => { markOnboardSeen(storage, game.seed, role); setOnboard(null); canvasRef.current?.focus(); }, [storage, game.seed, role]);
   const next = () => (onboard === null ? undefined : onboard + 1 >= steps.length ? finish() : setOnboard(onboard + 1));
+
+  // Round 7: autopilot playtests page through the onboarding on their own.
+  // R7 review: keyed on the step — with no deps the 500 ms HUD re-render reset the timer forever, so an autopilot
+  // first shift sat on step 1 with the clock held (0 plates, and the onboarding never marked as seen).
+  useEffect(() => {
+    if (onboard === null || !AUTOPILOT) return;
+    const id = window.setTimeout(() => next(), AUTOPILOT_STEP_SECS * 1000);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboard, steps.length]);
 
   const onPointerDown = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === "touch" && !touch) setTouch(true);
