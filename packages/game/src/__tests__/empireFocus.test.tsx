@@ -107,7 +107,7 @@ describe("round 4 review: the contract panel warns before the formula is locked"
     let s = forkedEmpire();
     panel(s);
     // Unlocked: the honest verdict.
-    expect(outlook()).toMatch(/^Your franchisee would lose about £[\d,]+ a year — they'll lose money\./);
+    expect(outlook()).toMatch(/^Your franchisee would lose about £[\d,]+ a year in your best spot \(.+\) — they'll lose money\./);
     cleanup();
     s = appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } });
     for (const sup of s.meta.empire!.suppliers) s = appReducer(s, { type: "empire", cmd: { type: "SIGN_SUPPLIER", supplierId: sup.id, exclusive: sup.failureRisk < 0.05 } });
@@ -115,7 +115,8 @@ describe("round 4 review: the contract panel warns before the formula is locked"
     // Street calibration so the line reads a proven formula.
     s = { ...s, meta: { ...s.meta, empire: { ...s.meta.empire!, calibration: defaultCalibration(content) } } };
     panel(s);
-    expect(outlook()).toMatch(/^Your franchisee should clear about £[\d,]+,000 a year — (fair|they'll only just get by)\./);
+    expect(outlook()).toMatch(/^Your franchisee should clear about £[\d,]+,000 a year in your best spot \([A-Za-z ]+, Harbourton\) — (fair|they'll only just get by)\./);
+    expect(outlook()).toMatch(/Other places differ/);
     cleanup();
     // Squeeze the terms: the line turns.
     s = appReducer(s, { type: "empire", cmd: { type: "SET_CONTRACT", contract: { royaltyPct: 0.12, rentPctOfSales: 0.16 }, applyTo: "new" } });
@@ -151,5 +152,22 @@ describe("round 5: the Empire side panel is three cards and keeps every control"
     expect(screen.getByRole("button", { name: "Lower fee" })).toBeTruthy();
     const royalty = screen.getByText("Money the brand gets from each shop").closest(".term")!;
     expect(royalty.querySelector(".term__real")!.textContent).toBe("royalty");
+  });
+});
+
+describe("round 5 review: each district says how a franchisee would do; the collapse line is today's", () => {
+  afterEach(cleanup);
+  it("a verdict beside every Franchise button, and the city's sales line in today's pounds", () => {
+    let s = forkedEmpire();
+    s = appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } });
+    const e0 = s.meta.empire!;
+    const e = { ...e0, calibration: defaultCalibration(content), applicants: e0.applicants.length ? e0.applicants : [{ id: "a1", name: "Sam Applicant", cash: 50_000_000, competence: 60, honesty: 90 } as never] };
+    const { container } = render(<EmpireTab game={{ ...s.game!, cash: 5_000_000 }} meta={{ ...s.meta, empire: e }} empire={e} send={() => {}} onFocusSite={() => {}} />);
+    const home = e.cities.find((c) => c.id === e.hq.homeCityId)!;
+    const words = home.districts.map((d) => screen.getByLabelText(new RegExp(`^Franchise outlook ${content.districts.find((x) => x.id === d)!.name}$`)).textContent);
+    expect(words).toHaveLength(home.districts.length);
+    for (const w of words) expect(w).toMatch(/^they'd (do fine|only just get by|lose money)$/);
+    expect(container.textContent).not.toContain("collapse below");
+    expect(container.textContent).toMatch(/a shop below £[\d,]+ is in trouble/);
   });
 });

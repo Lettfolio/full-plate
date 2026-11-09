@@ -16,6 +16,8 @@ const PAIRS: [string, string][] = [
   ["tomato", "cream"], ["tomato", "paper"], ["tomato-deep", "tomato-wash"], ["tomato-deep", "#fde9e4"], ["basil", "cream"], ["basil-deep", "basil-wash"],
   ["#ffffff", "tomato"], ["#ffffff", "tomato-deep"], ["#ffffff", "basil"], ["#ffffff", "basil-deep"], ["#ffffff", "sky-deep"], ["#ffffff", "amber-deep"], ["#ffffff", "plum"], ["#ffffff", "ink-soft"],
   ["#7a4f0a", "amber-wash"], ["#6b4508", "amber-wash"], ["#8a5a0b", "#fdf0c9"], ["#2d6788", "sky-wash"], ["#1f5577", "sky-wash"], ["#6a3f7d", "plum-wash"], ["#5d3a6c", "plum-wash"], ["#ffffff", "#2c5f80"],
+  // Round 5 review: the per-district franchise verdict on the Empire side panel (paper card).
+  ["basil-deep", "paper"], ["amber-deep", "paper"], ["tomato-deep", "paper"],
 ];
 
 describe("colour contrast (WCAG AA, normal text)", () => {

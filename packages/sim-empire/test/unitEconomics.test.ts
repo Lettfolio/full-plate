@@ -114,6 +114,27 @@ describe("franchiseOutlook: the contract panel's year-one line (round 5)", () =>
     expect(franchiseOutlook(content, empire(), { districtId: "high_street" }).verdict).toBe("loses");
   });
 
+  it("round 5 review: agrees with the probe on every district of every city, not only the home city's first", () => {
+    let e = lockedHome();
+    for (const s of e.suppliers) e = must(e, { type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: s.failureRisk < 0.05 });
+    e = { ...e, hq: { ...e.hq, cash: 10_000_000_000 } };
+    for (const c of e.cities) if (!c.entered) e = must(e, { type: "ENTER_CITY", cityId: c.id });
+    const verdict = (x: number) => (x >= 0.04 ? "fair" : x >= 0 ? "thin" : "loses");
+    let n = 0;
+    for (const city of e.cities) for (const districtId of city.districts) {
+      const o = franchiseOutlook(content, e, { cityId: city.id, districtId });
+      const p = probeUnitEconomics(content, e, { cityId: city.id, districtId });
+      // Measured (34 districts): the outlook reads 0.4–1.8 points under the probe where a franchise is viable, up to
+      // 3.8 under where it loses a third of its sales (no localised menu). It is never the optimistic side.
+      expect(o.netPct).toBeLessThanOrEqual(p.netPct + 0.002);
+      expect(p.netPct - o.netPct).toBeLessThan(p.netPct > -0.1 ? 0.02 : 0.045);
+      // Away from a verdict line, the panel's word is the probe's word.
+      if (Math.abs(p.netPct - 0.04) > 0.02 && Math.abs(p.netPct) > 0.02) expect(o.verdict).toBe(verdict(p.netPct));
+      n++;
+    }
+    expect(n).toBeGreaterThan(30);
+  }, 120_000);
+
   it("is pure on a frozen empire", () => {
     const e = lockedHome();
     const before = JSON.stringify(e);

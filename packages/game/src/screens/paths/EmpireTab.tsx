@@ -3,8 +3,9 @@ import type { GameState } from "@full-plate/sim-core";
 import {
   associationBlocks, avgFranchiseeMood, boxTables, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE,
   expectedSiteDay, franchiseCashNeeded, franchiseOutlook, offPremise, openSites, propertyPrice, spendable, TECH_LABEL,
-  type City, type EmpireCommand, type EmpireState, type SiteSummary, type Tech,
+  type City, type EmpireCommand, type EmpireState, type FranchiseOutlook, type SiteSummary, type Tech,
 } from "@full-plate/sim-empire";
+import type { DistrictId } from "@full-plate/sim-core";
 import { content, extras } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
@@ -265,7 +266,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
         <dt>Population</dt><dd>{(city.population / 1e6).toFixed(1)}m</dd>
         <dt><Term id="costIndex" /></dt><dd>×{city.costIndex.toFixed(2)}</dd>
         <dt>Sites</dt><dd>{live.length}{sites.length > live.length ? ` (+${sites.length - live.length} building)` : ""}</dd>
-        <dt><Term id="takings">Sales a year (average)</Term></dt><dd>{live.length ? <MoneyText pence={avgRev} whole /> : "—"} <span className="xs muted">(collapse below £400k)</span></dd>
+        <dt><Term id="takings">Sales a year (average)</Term></dt><dd>{live.length ? <><MoneyText pence={avgRev} whole /> <span className="xs muted">(a shop below <MoneyText pence={Math.round(EMPIRE.COLLAPSE_REVENUE_YEAR * e.hq.priceLevel)} whole /> is in trouble)</span></> : "no shops yet"}</dd>
         <dt><Term id="saturation" /></dt><dd>{Math.round(sat * 100)}%</dd>
         {city.localChampion && <><dt>Local champion</dt><dd>{city.localChampion} ({Math.round(city.championStrength * 100)}%)</dd></>}
       </dl>
@@ -302,6 +303,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
                     Franchise to {applicant.name.split(" ")[0]}
                   </Blockable>
                 )}
+                {applicant && <DistrictOutlook e={e} cityId={city.id} districtId={d} />}
               </div>
             ))}
           </div>
@@ -473,6 +475,19 @@ function UnlockedFormulaWarning({ e }: { e: EmpireState }) {
   );
 }
 
+/** The home city's district where a new franchisee does best under the current terms (ties: the city's order). */
+export function bestHomeOutlook(e: EmpireState): FranchiseOutlook {
+  const home = e.cities.find((c) => c.id === e.hq.homeCityId)!;
+  return home.districts.map((d) => franchiseOutlook(content, e, { cityId: home.id, districtId: d })).reduce((a, b) => (b.net > a.net ? b : a));
+}
+
+/** Round 5 review: a franchisee's year one in this district, in a child's words (beside its Franchise button). */
+const OUTLOOK_WORDS: Record<FranchiseOutlook["verdict"], string> = { fair: "they'd do fine", thin: "they'd only just get by", loses: "they'd lose money" };
+function DistrictOutlook({ e, cityId, districtId }: { e: EmpireState; cityId: string; districtId: DistrictId }) {
+  const o = useMemo(() => franchiseOutlook(content, e, { cityId, districtId }), [e, cityId, districtId]);
+  return <span className={`xs opensite__outlook opensite__outlook--${o.verdict}`} aria-label={`Franchise outlook ${districtName(districtId)}`}>{OUTLOOK_WORDS[o.verdict]}</span>;
+}
+
 function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => void }) {
   const c = e.contract;
   const set = (patch: Partial<typeof c>) => send({ type: "SET_CONTRACT", contract: patch, applyTo: "new" });
@@ -486,9 +501,12 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
     </div>
   );
   const attract = contractAttractiveness(c);
-  // Round 5: a new franchisee's year one under these terms (home city, HQ holding the lease), rounded to £1,000.
-  const outlook = useMemo(() => franchiseOutlook(content, e), [e]);
+  // Round 5: a new franchisee's year one under these terms (HQ holding the lease), rounded to £1,000. Round 5 review:
+  // the home city's best district, named — its first district was arbitrary, and districts differ by ±5 points (each
+  // city's Franchise buttons carry their own verdict).
+  const outlook = useMemo(() => bestHomeOutlook(e), [e]);
   const about = Math.round(Math.abs(outlook.net) / 100_000) * 100_000;
+  const where = `${districtName(outlook.districtId)}, ${e.cities.find((x) => x.id === outlook.cityId)?.name ?? ""}`;
   return (
     <div className="card stack stack--sm">
       <div className="card__title"><h3>Franchise contract</h3><span className="xs faint">for new deals</span></div>
@@ -504,8 +522,10 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
       <Bar label="Applicants like it" value={Math.min(1.5, attract)} max={1.5} tone={attract < 0.6 ? "accent" : attract < 1 ? "amber" : "basil"} size="sm" />
       <p className="small" aria-label="Franchisee outlook">
         {outlook.net >= 0 ? <>Your franchisee should clear about <b><MoneyText pence={about} whole /></b> a year</> : <>Your franchisee would lose about <b><MoneyText pence={about} whole /></b> a year</>}
+        {` in your best spot (${where})`}
         {outlook.verdict === "fair" ? " — fair." : outlook.verdict === "thin" ? " — they'll only just get by." : " — they'll lose money."}
         {outlook.verdict !== "fair" && e.suppliers.some((s) => !s.signed) ? " Supply deals would cut their food bill." : ""}
+        {" Other places differ: each city shows it next to the Franchise buttons."}
       </p>
       <p className="small muted"><Term id="take" inline>You take</Term> <b>{(contractTake(c) * 100).toFixed(1)}%</b> of sales. Higher take = more money per store and fewer, angrier franchisees. Rent income: <MoneyText pence={rentIncome} whole />/month.</p>
     </div>

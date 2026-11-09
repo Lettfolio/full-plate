@@ -713,6 +713,10 @@ button, input { font: inherit; color: inherit; }
 .facts dd { margin: 0; font-weight: 700; }
 .opensite { display: flex; flex-direction: column; gap: 6px; }
 .opensite__row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.opensite__outlook { font-weight: 600; }
+.opensite__outlook--fair { color: var(--basil-deep); }
+.opensite__outlook--thin { color: var(--amber-deep); }
+.opensite__outlook--loses { color: var(--tomato-deep); }
 .site { padding: 8px 10px; border-radius: var(--r-sm); background: var(--cream); }
 .site--focused { background: var(--amber-wash); }
 .site__dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
