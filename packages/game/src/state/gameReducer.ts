@@ -192,7 +192,11 @@ function reduce(s: AppState, a: AppAction): AppState {
     }
     case "load": {
       const meta = a.meta ?? initialMeta("owner");
-      return { ...initialAppState, game: a.game, lastResult: a.game.history.at(-1) ?? null, meta: { ...meta, lastPathDay: Math.max(meta.lastPathDay, a.game.history.at(-1)?.day ?? -1) } };
+      // The envelope drops the live hands-on session (meta.handsOn); drop the sim's side too, or a reload mid-shift
+      // leaves sim-core holding plates at the pass for a player who is no longer at the canvas.
+      let game = a.game;
+      if (game.handsOn && game.phase === "service" && HOOKS.handsOn) game = applyCommand(content, game, asCommand({ type: "SET_HANDS_ON", role: null })).state;
+      return { ...initialAppState, game, lastResult: game.history.at(-1) ?? null, meta: { ...meta, lastPathDay: Math.max(meta.lastPathDay, game.history.at(-1)?.day ?? -1) } };
     }
     case "quit":
       return initialAppState;
