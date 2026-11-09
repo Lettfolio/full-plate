@@ -8,6 +8,7 @@ import { Bar } from "./Bar";
 import { MoneyText } from "./MoneyText";
 import { SettingsMenu } from "./Settings";
 import { pathBadges, type PathMeta } from "../state/paths";
+import { Icon } from "./Icon";
 
 interface Props {
   game: GameState;
@@ -26,7 +27,7 @@ function CashTrend({ game }: { game: GameState }) {
   const label = game.phase === "planning" ? "yesterday" : "today";
   return (
     <span className={`status__trend status__trend--${up ? "up" : "down"}`}>
-      <span aria-hidden="true">{up ? "▲" : "▼"}</span> {up ? "made" : "lost"} <MoneyText pence={Math.abs(last.profit)} whole /> {label}
+      <Icon name={up ? "trendUp" : "trendDown"} size={16} /> {up ? "made" : "lost"} <MoneyText pence={Math.abs(last.profit)} whole /> {label}
     </span>
   );
 }
@@ -91,18 +92,18 @@ export function StatusBar({ game, meta, onQuit, onNewGame }: Props) {
           </>
         )}
         <div className="status__end">
-          <span className={`pill pill--${game.difficulty}`}>{game.difficulty}</span>
+          <span className={`pill pill--${game.difficulty}`}><Icon name={game.difficulty === "cosy" ? "heart" : game.difficulty === "hard" ? "chilli" : "speed"} size={16} />{game.difficulty}</span>
           <SettingsMenu onQuit={onQuit} onNewGame={onNewGame} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
         </div>
       </div>
       {e && (
         <div className="pathstrip pathstrip--empire" aria-label="Empire summary">
-          <span className="pathstrip__brand">🍔 {e.brand.name}</span>
+          <span className="pathstrip__brand"><Icon name="empire" size={18} />{e.brand.name}</span>
           <span><b>{openSites(e).length}</b> site{openSites(e).length === 1 ? "" : "s"}{e.sites.some((x) => x.status === "building") ? ` (+${e.sites.filter((x) => x.status === "building").length} building)` : ""}</span>
           <span><b>{compactMeals(e.mealsServedTotal)}</b> meals served</span>
           <span>HQ <MoneyText pence={e.hq.cash} whole className={e.hq.cash < 0 ? "money--neg" : ""} /></span>
           <span>Franchisee mood <b>{franchised ? Math.round(avgFranchiseeMood(e)) : "—"}</b></span>
-          {e.association.active && <span className="pathstrip__warn">⚠ Franchisee association</span>}
+          {e.association.active && <span className="pathstrip__warn"><Icon name="warning" size={18} />Franchisee association</span>}
         </div>
       )}
       {sv && (

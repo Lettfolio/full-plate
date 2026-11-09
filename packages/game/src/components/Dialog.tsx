@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { Icon } from "./Icon";
 
 interface DialogProps {
   /** Heading text; also the dialog's accessible name. */
@@ -40,7 +41,7 @@ export function Dialog({ title, kicker, stamp, onClose, children, wide, role = "
             {kicker && <div className="modal__kicker">{kicker}</div>}
             <h2 id={`${id}-t`}>{title}</h2>
           </div>
-          <button className="iconbtn iconbtn--tap" aria-label="Close" onClick={onClose}>✕</button>
+          <button className="iconbtn iconbtn--tap" aria-label="Close" onClick={onClose}><Icon name="close" size={22} /></button>
         </div>
         <div className="modal__body">{children}</div>
       </div>
@@ -62,7 +63,7 @@ interface ConfirmProps {
 /** "Are you sure?" with the safe choice focused first. */
 export function ConfirmDialog({ title, body, confirmLabel, cancelLabel = "Go back", onConfirm, onCancel, danger }: ConfirmProps) {
   return (
-    <Dialog title={title} stamp={danger ? "⚠️" : "🤔"} onClose={onCancel} role="alertdialog" className="confirm">
+    <Dialog title={title} stamp={<Icon name={danger ? "warning" : "help"} size={28} />} onClose={onCancel} role="alertdialog" className="confirm">
       <div className="confirm__body">{body}</div>
       <div className="confirm__buttons">
         <button className="btn btn--tap" data-autofocus onClick={onCancel}>{cancelLabel}</button>

@@ -1,4 +1,5 @@
 import { Dialog } from "./Dialog";
+import { Icon } from "./Icon";
 
 /** A town of little shops, each with a pin: the Empire path. Original art, decorative. */
 export function EmpirePicture({ className }: { className?: string }) {
@@ -71,7 +72,7 @@ const PATHS = [
  */
 export function GoalExplainer({ onClose, atFork = false }: { onClose: () => void; atFork?: boolean }) {
   return (
-    <Dialog title="How do I win?" kicker="Two ways to win" stamp="🏆" onClose={onClose} wide className="goals-explain">
+    <Dialog title="How do I win?" kicker="Two ways to win" stamp={<Icon name="trophy" size={28} />} onClose={onClose} wide className="goals-explain">
       <p className="goals-explain__first">
         {atFork
           ? "You've run your restaurant for a whole year. Now you pick one of two dreams:"

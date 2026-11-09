@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon, type IconName } from "../components/Icon";
 import type { Command, CustomerId, GameState, Incident, TableId } from "@full-plate/sim-core";
 import { RestaurantView, type Highlight } from "../canvas/RestaurantView";
 import { content, MINUTES_PER_TICK, SERVICE_TICKS } from "../sim";
@@ -25,7 +26,7 @@ export function hourTrend(samples: ReadonlyMap<number, number>, tick: number, no
   return then === undefined || tick < HOUR_TICKS ? undefined : now - then;
 }
 
-const SPEED_ICON: Record<number, string> = { 0: "❚❚", 1: "▶", 2: "▶▶", 4: "▶▶▶" };
+const SPEED_ICON: Record<number, IconName> = { 0: "pause", 1: "play", 2: "fastForward", 4: "fastest" };
 const SPEED_WORD: Record<number, string> = { 0: "Pause", 1: "Normal", 2: "Fast", 4: "Fastest" };
 
 interface Props {
@@ -311,7 +312,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           <div className="speeds speeds--deck" role="group" aria-label="Speed" style={{ marginTop: 12 }}>
             {SPEEDS.map((sp) => (
               <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => setSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
-                <span className="speed__icon" aria-hidden="true">{SPEED_ICON[sp]}</span>
+                <span className="speed__icon" aria-hidden="true"><Icon name={SPEED_ICON[sp]!} size={20} /></span>
                 <span className="speed__word">{sp === 0 ? (speed === 0 ? "Paused" : "Pause") : `${sp}×`}</span>
               </button>
             ))}
@@ -320,23 +321,23 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
 
         {covering.length > 0 && (
           <div className="banner banner--amber" role="status">
-            <span aria-hidden="true">🧑‍🍳</span>
+            <Icon name="warning" size={22} />
             <span>You're covering {coveringPhrase(covering)} yourself — expect slow food.</span>
           </div>
         )}
 
         {/* Round 7: the live summary — four things a child can read at a glance, each with what changed this hour. */}
         <div className="livesum" aria-label="Service so far">
-          <LiveTile icon="🍽️" label={<Term id="covers" inline>Served</Term>} value={covers} trend={trend.covers} good="up" />
-          <LiveTile icon="😊" label="Happy" value={app.ratings.count ? <><span className="livesum__stars"><Stars rating={avg} size={15} /></span> {avg.toFixed(1)}</> : "—"} />
-          <LiveTile icon="⏳" label="Waiting" value={queueing} trend={trend.queue} good="down" />
-          <LiveTile key={`walk-${walkouts}`} icon="🚶" label="Walked out" value={walkouts} trend={trend.walk} good="down" bad={walkouts > 0} flashKey={walkouts} />
+          <LiveTile icon="service" label={<Term id="covers" inline>Served</Term>} value={covers} trend={trend.covers} good="up" />
+          <LiveTile icon="smile" label="Happy" value={app.ratings.count ? <><span className="livesum__stars"><Stars rating={avg} size={15} /></span> {avg.toFixed(1)}</> : "—"} />
+          <LiveTile icon="timer" label="Waiting" value={queueing} trend={trend.queue} good="down" />
+          <LiveTile key={`walk-${walkouts}`} icon="walkOut" label="Walked out" value={walkouts} trend={trend.walk} good="down" bad={walkouts > 0} flashKey={walkouts} />
         </div>
         <div className="livesum__till">Takings so far <MoneyText pence={t.revenue ?? 0} whole countUp="change" /></div>
         {!watch && onJumpIn && (
           <div className="card jumpin">
             <div className="row">
-              <span aria-hidden="true">🧑‍🍳</span>
+              <Icon name="chefHat" size={22} />
               <b className="spacer">Jump in</b>
               <span className="xs faint">for the rest of service</span>
             </div>
@@ -432,17 +433,17 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
 }
 
 /** One live-summary tile: icon, label, big value, and "▲ 3 this hour" coloured by whether up is good. */
-function LiveTile({ icon, label, value, trend, good, bad = false, flashKey }: { icon: string; label: React.ReactNode; value: React.ReactNode; trend?: number | undefined; good?: "up" | "down"; bad?: boolean; flashKey?: number }) {
+function LiveTile({ icon, label, value, trend, good, bad = false, flashKey }: { icon: IconName; label: React.ReactNode; value: React.ReactNode; trend?: number | undefined; good?: "up" | "down"; bad?: boolean; flashKey?: number }) {
   const dir = trend === undefined || trend === 0 ? "flat" : trend > 0 ? "up" : "down";
   const tone = dir === "flat" ? "flat" : (dir === good ? "good" : "bad");
   return (
     <div className={`livesum__tile ${bad ? "livesum__tile--bad" : ""}`} data-flash={flashKey ? "1" : undefined}>
-      <span className="livesum__icon" aria-hidden="true">{icon}</span>
+      <span className="livesum__icon" aria-hidden="true"><Icon name={icon} size={22} /></span>
       <div className="livesum__k">{label}</div>
       <div className="livesum__v">{value}</div>
       {trend !== undefined && (
         <div className={`livesum__trend livesum__trend--${tone}`}>
-          {dir === "up" ? "▲" : dir === "down" ? "▼" : "•"} {dir === "flat" ? "steady" : `${Math.abs(trend)} this hour`}
+          {dir !== "flat" && <Icon name={dir === "up" ? "trendUp" : "trendDown"} size={16} />}{dir === "flat" ? "steady" : `${Math.abs(trend)} this hour`}
         </div>
       )}
     </div>

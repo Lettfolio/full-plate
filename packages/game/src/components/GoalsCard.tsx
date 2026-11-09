@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "./Icon";
 import type { Goal } from "@full-plate/sim-core";
 import { MoneyText } from "./MoneyText";
 import { GOAL_TAB, goalFraction, visibleGoals } from "../lib/goals";
@@ -61,13 +62,13 @@ export function GoalsCard({ goals, justDone = [], collapsible = false, spotlight
     <section className={`card goals ${spotlight ? "goals--spotlight" : ""} ${collapsible ? "goals--compact" : ""}`} aria-labelledby="goals-title">
       {collapsible ? (
         <button className="goals__toggle" aria-expanded={open} aria-controls="goals-body" onClick={() => setOpen(!open)}>
-          <span aria-hidden="true">🎯</span>
+          <Icon name="target" size={20} className="goals__icon" />
           <h4 id="goals-title" className="spacer">Goals</h4>
           <span className="xs muted">{todo[0] && !open ? todo[0].title : `${todo.length} to go`}</span>
           <span aria-hidden="true">{open ? "▴" : "▾"}</span>
         </button>
       ) : (
-        <div className="card__title"><h3 id="goals-title"><span aria-hidden="true">🎯 </span>Goals</h3><span className="xs muted">{todo.length} to go</span></div>
+        <div className="card__title"><h3 id="goals-title"><Icon name="target" size={24} className="goals__icon" />Goals</h3><span className="xs muted">{todo.length} to go</span></div>
       )}
       {open && <div id="goals-body">{body}</div>}
     </section>

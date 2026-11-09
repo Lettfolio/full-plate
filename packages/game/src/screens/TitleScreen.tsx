@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../components/Dialog";
 import { dateLabel } from "../lib/calendar";
 import type { Loaded } from "../state/save";
 import { rungDef } from "@full-plate/sim-career";
+import { Icon } from "../components/Icon";
 
 interface Props {
   /** Owner save (round 1–2 games and owner starts). */
@@ -23,7 +24,7 @@ function ContinueButton({ label, game, sub, primary, onClick, autoFocus }: { lab
   const id = `save-${label.replace(/\s+/g, "-").toLowerCase()}`;
   return (
     <button className={`continue ${primary ? "continue--primary" : ""}`} onClick={onClick} autoFocus={autoFocus} aria-label={label} aria-describedby={id}>
-      <span className="continue__go">{label} <span aria-hidden="true">→</span></span>
+      <span className="continue__go">{label} <Icon name="forward" size={24} /></span>
       <span className="continue__save title__save" id={id}>
         <b className="continue__name">{game.restaurantName}</b>
         {sub && <span className="continue__sub">{sub}</span>}
@@ -59,7 +60,7 @@ export function TitleScreen({ saved, career, onNew, onContinue, onContinueCareer
               New game
             </button>
             <button className="btn btn--ghost btn--tap title__goal" onClick={() => setGoals(true)}>
-              <span aria-hidden="true">🏆</span> How do I win?
+              <Icon name="trophy" size={20} />How do I win?
             </button>
           </div>
           <p className="title__foot">Owner, chef, bar, waiter or manager: every road leads to a place of your own.</p>

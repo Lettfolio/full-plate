@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Icon } from "../../components/Icon";
 import type { GameState } from "@full-plate/sim-core";
 import {
   canAskPromotion, mentorSessionAvailable, openingBudget, perHour, PLAYER_ID, promotionChecklist, raiseAvailable, rungDef,
@@ -148,7 +149,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
         <ul className="checklist checklist--progress">
           {list.items.map((i) => (
             <li key={i.key} className={i.met ? "checklist__item checklist__item--met" : "checklist__item"}>
-              <span aria-hidden="true">{i.met ? "✅" : "⬜"}</span>
+              <span className={`checkmark${i.met ? " checkmark--on" : ""}`} aria-hidden="true">{i.met && <Icon name="check" size={16} />}</span>
               <span className="spacer">
                 {i.key === "stat" ? `${i.label} (play your shifts hands-on to learn faster)` : i.label}
                 <span className="checklist__meter"><Bar value={progressOf(i, career)} max={1} tone={i.met ? "basil" : "amber"} size="sm" title={`${i.label}: ${valueText(i)} of ${i.target}`} /></span>
@@ -219,7 +220,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           </table>
         )}
         {career.canOpenOwn && !opening && (
-          <button className="btn btn--primary" style={{ marginTop: 10 }} onClick={() => setOpening(true)}>🔑 Open my own place…</button>
+          <button className="btn btn--primary" style={{ marginTop: 10 }} onClick={() => setOpening(true)}><Icon name="key" size={20} />Open my own place…</button>
         )}
         {opening && (
           <div className="openown" role="group" aria-label="Open your own place">

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Icon } from "../../components/Icon";
 import type { Candidate, Command, GameState, Staff, StaffRole } from "@full-plate/sim-core";
 import { candidates, content, hireCheck, recruitmentFeeOf, shiftCost, TRAINING_FEE, TRAINING_SKILL_GAIN } from "../../sim";
 import { Bar } from "../../components/Bar";
@@ -114,7 +115,7 @@ function CandidateCard({ c, game, onHire, wanted = false }: { c: Candidate; game
   const { fee, perShift, needed, canAfford } = hireCheck(game, c);
   return (
     <div className={`candidate ${wanted ? "candidate--wanted" : ""}`}>
-      {wanted && <div className="candidate__wanted">🎯 The {ROLE_LABEL[c.role].toLowerCase()} your goal asks for</div>}
+      {wanted && <div className="candidate__wanted"><Icon name="target" size={18} /> The {ROLE_LABEL[c.role].toLowerCase()} your goal asks for</div>}
       <div className="row">
         <span className={`avatar avatar--${c.role}`} style={{ width: 34, height: 34, fontSize: 14 }} aria-hidden="true">{initials(c.name)}</span>
         <div className="spacer">

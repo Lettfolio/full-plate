@@ -493,3 +493,84 @@ district gets a plum edge and "🕵️ Inspectors are about". Nothing hidden is 
   and Bigger. Probe (`r8a/probe-maps.mjs`, the R7 probe's metrics) on the world map, zoomed, tooltip, city map, a
   city not entered and the Stars map at 1280/1024 × normal/Bigger: 0 targets < 44 px, 0 text < 13 px, 0 contrast
   failures, 0 sideways scroll. "Covered" hits left are the Map key sitting under the action dock until scrolled.
+
+## Round 8 — B (interface system)
+
+Brief: make the whole game look designed, not generated, while staying light, friendly and high-contrast for a
+10-year-old. Structure from round 7 is kept (pinned bottom-right primary, day strip above the tabs, settings sheet
+holding the clock); this round is tokens, icons, components and a restyle. Styles: the token block at the top of
+`theme.css` (rewritten, add-only) and one block at the end under `/* R8-B */`.
+
+### The look in one paragraph
+
+A faint kitchen-tile grid on the **page tier only**; flat paper **panels** with one header row over a hairline; the
+**header is a dark ink band** under the awning stripe — the game's HUD — with cream text and lighter "HUD" steps of
+tomato/basil/plum; chunky **sticker buttons** (2 px ink outline, hard offset shadow) at 44 px, 52–56 px for the one
+primary; **drawn icons** in currentColor instead of emoji chrome; **sentence-case labels** above big Fredoka numbers;
+tabular figures in every table.
+
+### Token reference (theme.css `:root`)
+
+Older names stay the source values (`--cream`, `--paper`, `--ink*`, `--line*`, the accents and washes, `--fs-*`,
+`--r*`, `--shadow*`, `--gap`, `--beat-*`, `--tap`, `--awning`, `--hero-num`, `--cheer`, `--verdict-*`). The first
+`--name: #hex` / `--fs-x: Npx` of each must stay a literal: `contrast.test.ts` and `typeScale.test.ts` parse them.
+
+| Group | Tokens | Notes |
+| --- | --- | --- |
+| Type roles | `--fs-display` 40 (44 Bigger) / `--lh-display` 1.05 · `--fs-title` = h1 / `--lh-title` 1.12 · `--fs-heading` = h3 / `--lh-heading` 1.2 · `--fs-body` = base / `--lh-body` 1.45 · `--fs-small` = xs / `--lh-small` 1.35 · `--fs-num` 26 (29 Bigger) · `--fw-label` 800 | Roles alias the `--fs-*` sizes, so Bigger text scales them. One `<h1>` per screen at `--fs-title`; game over uses `--fs-display`. |
+| Spacing | `--space-1…10` = 4, 8, 12, 16, 20, 24, 32, 40 | 4 px base. |
+| Radius | `--radius-xs` 6 · `-sm` 8 · `-md` 14 · `-lg` 20 · `-pill` | Smaller things, smaller corners. |
+| Elevation | `--elev-1` (= `--shadow`, resting) · `--elev-2` (= `--shadow-lift`, raised/dock) · `--elev-3` (dialogs, toasts) | Warm brown, never grey. |
+| Surfaces | `--surface-page` · `-panel` · `-raised` (#fff) · `-inset` (#f7eedc, zebra/wells) · `-ink` (header) · `--on-ink` / `--on-ink-soft` · `--border-subtle` / `-strong` / `-ink` | Only the page tier is textured. |
+| Semantic | `--money-up/-down` · `--success/-fill/-wash` · `--warning…` · `--danger…` · `--info…` · `--own` / `--franchise` / `--licence` · `--hud-up/-down/-pop/-prestige` | Text uses the plain names (deep steps, ≥ 4.5:1); fills use `-fill`. HUD steps are ≥ 6:1 on the band. |
+| Charts | `--chart-grid` · `--chart-axis` · `--chart-up` / `-down` · `--chart-1…4` (tomato, amber, plum, sky) | Categorical order fixed, never cycled. own/franchise/licence validated with the dataviz validator: CVD ΔE ≥ 20; amber is < 3:1 on paper so it is always labelled. |
+| Controls, motion | `--control-h` 44 · `--control-h-lg` 52 · `--focus-ring` (sky-deep, 4.7:1) · `--focus-ring-on-ink` · `--dur-fast` 150 ms · `--dur` 200 ms · `--ease` | |
+
+### Icons (`components/Icon.tsx`)
+
+24 px grid, 1.75 px round stroke, `currentColor`; play/pause/fast-forward are solid. `<Icon name="x" />` is
+decorative (`aria-hidden`, `focusable=false`) — the button or label carries the name; `<Icon name="x" title="…" />`
+is `role="img"` with a `<title>`. `ArrowLabel` turns an old `"Next day →"` string into the words plus a drawn arrow
+(the name is just the words).
+
+Set: menu, stock, rota, people, chefHat, money (£ coin), stars, empire (globe), shop, restaurant (table), settings,
+sound, soundOff, textSize, speed (gauge), pause, play, fastForward, fastest, close, back, forward, chevronDown, plus,
+minus, info, help, warning, check, pin, trendUp, trendDown, sun, service (cloche), moon, trophy, smile, timer, walkOut,
+key, knife, glass, clipboard, gamepad, heart, chilli, balance, target, chart, calendar.
+
+Where they replaced emoji: planning and Empire side tabs (`TAB_ICONS` now maps ids to icon names; emoji labels still
+work as a fallback), the header (Settings, difficulty chip, cash trend, Empire strip), the settings sheet options and
+stamp, dialog close/stamps, toasts, the day strip, the speed deck (❚❚ ▶ ▶▶ ▶▶▶), the live tiles, the stock forecast and
+order-sheet status, the Menu list/matrix toggle and ✕, steppers (− +), Goals, "What do I do?", Jump in, the covering
+banner, the start cards, the difficulty picker (heart / gauge / chilli badges in the difficulty's colour instead of
+🧸 🙂 🌶️), title/back buttons, game over, Evening's best/worst dish and money arrow, the career checklist and the
+handover stamp. **Emoji stay as content**: dishes, districts, incidents and their evening lines, staff moods, review
+sources, advice tips, the win journey, Stars news.
+
+### Component patterns
+
+| Pattern | Use |
+| --- | --- |
+| `Panel` (components/Panel.tsx) | `.card` + `.card__title` header row: title (h3, optional icon), `sub` in soft ink, `action` pushed right, a hairline under it. Old `.card__title` markup gets the same look. |
+| `StatTile` | `.kpi` label (sentence case, `--fw-label`, ink-soft) above a `--fs-num` number; optional delta chip (`.chip--up/down/flat`) with a trend icon **and** words. `.kpi`, `.bignum`, `.counter`, `.livesum__tile` share the tile look. |
+| Buttons | `.btn` secondary (paper, ink outline) · `.btn--primary` · `.btn--green` (money confirm) · `.btn--ghost` · `.btn--danger` (new, outlined red) · `.btn--xl` = the screen's one primary. All `min-height: var(--control-h)`; xl `--control-h-lg` (56 in the dock). Hover lifts 1 px, press sinks. |
+| Chips | `.pill` is now sentence case (capitalised), with an optional 16 px icon; `.chip` for deltas; `.diffchip--{cosy,normal,hard}`. |
+| Tables | Caption (sr-only is fine) + `scope="col"` headers + a `scope="row"` first cell; 2 px ink rule under the header; zebra on `--surface-inset`; totals row with a 2 px ink rule above in Fredoka. `.pnl` and `.stocktable` follow it. |
+| Controls | Steppers 2 px outline with Fredoka value; `.seg` toggles on an inset track; `.switch` = an `appearance:none` checkbox drawn as a 72×44 switch (was a 26 px box, the probe's one small target). |
+| Callouts / hints | Wash + 1.5 px border + a 5 px edge on the reading side; hints are pills. |
+| Charts | A 2 px axis at zero, gridlines in `--chart-grid`, 4 px rounded data ends anchored at the baseline, today ringed with a paper gap. Empire month bars get the same baseline/grid; stacked city bars get a 2 px paper gap between parts. |
+| Dialogs / toast | Modal: 2 px ink outline, `--elev-3`, paper banner with a round stamp holding an icon. Toast: ink pill, tone-coloured icon disc. Both animate 200 ms, none under reduced motion. |
+
+### Do / don't (for later rounds)
+
+- **Do** use the R8 token names in new CSS; **don't** rename or delete an older token (A's map.css and C's canvas read
+  them via `getComputedStyle`).
+- **Do** put an `Icon` in chrome; **don't** add emoji to buttons, tabs, headers or labels. Emoji are for content.
+- **Don't** write all-caps tracked labels. Labels are sentence case, bold, `--ink-soft`. (The brief asked for small caps
+  above stat numbers; synthesized small caps in Nunito render at ~11 px glyph height, under the 13 px floor in spirit,
+  so labels are sentence-case bold instead.)
+- **Don't** scope header rules as `.status <descendant>`: the settings sheet renders inside `.status`. Scope to
+  `.status__stat`, `.status__end > …`, and keep `.modal { color: var(--ink) }`.
+- **Do** keep one primary per screen (`.btn--xl`, bottom-right dock). **Don't** add a second tomato button beside it.
+- **Do** put a caption and scopes on any new `<table>`; numbers right-aligned with `tabular-nums`.
+- **Do** give every hover/press transition a `prefers-reduced-motion` off switch (the R8 block has one list).

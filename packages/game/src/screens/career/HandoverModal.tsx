@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Icon } from "../../components/Icon";
 import type { HandoverSummary } from "@full-plate/sim-career";
 import { MoneyText } from "../../components/MoneyText";
 import { HOOKS } from "../../sim";
@@ -12,7 +13,7 @@ export function HandoverModal({ summary, onClose }: { summary: HandoverSummary; 
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="ho-title">
       <div className="modal">
         <div className="modal__banner">
-          <span className="modal__stamp" aria-hidden="true">🔑</span>
+          <span className="modal__stamp" aria-hidden="true"><Icon name="key" size={28} /></span>
           <div>
             <div className="modal__kicker">From {summary.rungTitle.toLowerCase()} to owner</div>
             <h2 id="ho-title">Welcome to {summary.restaurantName}</h2>

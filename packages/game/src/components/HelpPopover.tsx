@@ -1,4 +1,5 @@
 import { usePopover } from "../lib/usePopover";
+import { Icon } from "./Icon";
 
 const STEPS: { title: string; body: string }[] = [
   { title: "Pick a menu", body: "Menu tab → \"Use a suggested starter menu\", or add 6–8 dishes yourself. Mains matter most." },
@@ -14,7 +15,7 @@ export function HelpPopover() {
   return (
     <div className="popwrap" ref={root}>
       <button className="btn btn--ghost btn--tap" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}>
-        <span aria-hidden="true">❓</span> What do I do?
+        <Icon name="help" size={20} />What do I do?
       </button>
       {open && (
         <div className="popover popover--right help" role="dialog" aria-label="Your first week">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "./Icon";
 import type { Command, Incident } from "@full-plate/sim-core";
 import { MoneyText } from "./MoneyText";
 import { countdownFraction, INCIDENT_ICON } from "../lib/incidents";
@@ -25,7 +26,7 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
     return (
       <section className={`incident incident--leaving ${inc.resolution === "ignored" ? "incident--bad" : "incident--good"}`} aria-label={`${inc.title}: resolved`}>
         <div className="incident__head">
-          <span className="incident__icon" aria-hidden="true">{inc.resolution === "ignored" ? "⌛" : "✔️"}</span>
+          <span className="incident__icon" aria-hidden="true"><Icon name={inc.resolution === "ignored" ? "timer" : "check"} size={26} /></span>
           <div className="spacer">
             <h4>{inc.title}</h4>
             <p className="small">{inc.outcome || (inc.resolution === "ignored" ? "Nobody dealt with it." : "Sorted.")}</p>

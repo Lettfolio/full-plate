@@ -24,6 +24,8 @@ import { AdviceCard } from "../components/AdviceCard";
 import { DayRhythm } from "../components/DayRhythm";
 import { lastNights, versusYesterday } from "../lib/dayLoop";
 import { formatPence } from "../lib/format";
+import { ArrowLabel, Icon } from "../components/Icon";
+import { Panel } from "../components/Panel";
 
 /**
  * Round 7 (B): tonight's money as one big friendly figure (count-up, ▲/▼, green/red), what that is against last
@@ -39,7 +41,7 @@ export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
       <div className="tonight__main">
         <div className="tonight__k">{up ? "Tonight you made" : "Tonight you lost"}</div>
         <div className="tonight__v">
-          <span className="tonight__arrow" aria-hidden="true">{up ? "▲" : "▼"}</span>
+          <span className="tonight__arrow" aria-hidden="true"><Icon name={up ? "trendUp" : "trendDown"} size={44} /></span>
           <MoneyText pence={Math.abs(r.profit)} whole countUp="mount" />
         </div>
         {vs !== undefined && (
@@ -202,7 +204,7 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   const w = r.day === game.day ? worstDish(dishDays(content, game), r.worstDish) : null;
   return (
     <div className="dishpick dishpick--worst">
-      <span className="dishpick__icon" aria-hidden="true">🥀</span>
+      <span className="dishpick__icon" aria-hidden="true"><Icon name="trendDown" size={26} /></span>
       <div>
         <div className="dishpick__k">{w?.reason === "unpopular" ? "Least popular" : w ? "Lowest quality" : "Worst dish"}</div>
         <div className="dishpick__name">{w ? dishName(content, w.dishId) : "—"}</div>
@@ -283,6 +285,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
           <details className="card sums">
             <summary className="sums__summary"><h3>Where the money went</h3><span className="small muted">tap to see the sums</span></summary>
             <table className="pnl">
+              <caption className="sr-only">Where tonight's money went: sales, then each cost, then {good ? "profit" : "loss"}</caption>
               <tbody>
                 <tr><td>Food & drink sales</td><td><MoneyText pence={r.revenue} /></td></tr>
                 <tr className="pnl__cost"><td>VAT to the taxman <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
@@ -295,7 +298,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                 <tr className="pnl__cost"><td>Waste <span className="pnl__pct">{ofRev(wasteCost)}</span></td><td><MoneyText pence={-wasteCost} /></td></tr>
                 <tr className="pnl__sub"><td>Prep trimmings</td><td><MoneyText pence={-r.waste.prep} /></td></tr>
                 <tr className="pnl__sub"><td>Spoiled stock</td><td><MoneyText pence={-r.waste.spoil} /></td></tr>
-                <tr className="pnl__total"><td>{good ? "Profit" : "Loss"}</td><td><MoneyText pence={r.profit} tone signed /></td></tr>
+                <tr className="pnl__total"><th scope="row">{good ? "Profit" : "Loss"}</th><td><MoneyText pence={r.profit} tone signed /></td></tr>
               </tbody>
             </table>
             <p className="xs faint" style={{ marginTop: 8 }}>
@@ -303,27 +306,25 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
             </p>
           </details>
 
-          <div className="card">
-            <div className="card__title"><h3>Reputation</h3></div>
+          <Panel title="Reputation" sub="how the town sees you">
             <div className="repgrid">
               <div className="reprow"><Term id="popularity">Popularity</Term><Bar value={game.reputation.popularity} tone="accent" /><Delta v={r.popularityDelta} /></div>
               <div className="reprow"><Term id="prestige">Prestige</Term><Bar value={game.reputation.prestige} tone="plum" /><Delta v={r.prestigeDelta} /></div>
             </div>
-          </div>
+          </Panel>
         </div>
 
         <div className="stack">
           <div className="dishpair">
             <div className="dishpick dishpick--best">
-              <span className="dishpick__icon" aria-hidden="true">🏆</span>
+              <span className="dishpick__icon" aria-hidden="true"><Icon name="trophy" size={26} /></span>
               <div><div className="dishpick__k">Best dish</div><div className="dishpick__name">{r.bestDish ? dishName(content, r.bestDish) : "—"}</div></div>
             </div>
             <Worst game={game} r={r} />
           </div>
 
           {happened.length > 0 && (
-            <div className="card">
-              <div className="card__title"><h3>What happened today</h3><span className="small muted">{happened.length}</span></div>
+            <Panel title="What happened today" sub={`${happened.length} thing${happened.length === 1 ? "" : "s"}`}>
               <ul className="happened">
                 {happened.map((h, i) => (
                   <li key={i} className={`happened__row ${h.ignored ? "happened__row--bad" : ""}`}>
@@ -335,11 +336,10 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                   </li>
                 ))}
               </ul>
-            </div>
+            </Panel>
           )}
 
-          <div className="card">
-            <div className="card__title"><h3>What people said</h3><span className="small muted">{r.reviews.length} review{r.reviews.length === 1 ? "" : "s"}</span></div>
+          <Panel title="What people said" sub={`${r.reviews.length} review${r.reviews.length === 1 ? "" : "s"}`}>
             {r.reviews.length === 0 ? <div className="empty small">Nobody wrote anything today.</div> : (
               <div className="reviews">
                 {r.reviews.map((rv, i) => (
@@ -353,10 +353,9 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                 ))}
               </div>
             )}
-          </div>
+          </Panel>
 
-          <div className="card">
-            <div className="card__title"><h3>How the team feels</h3></div>
+          <Panel title="How the team feels">
             {moods.length === 0 ? <div className="empty small">No mood changes today.</div> : (
               <div className="moodlist">
                 {moods.map(([id, d]) => {
@@ -372,13 +371,13 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                 })}
               </div>
             )}
-          </div>
+          </Panel>
         </div>
       </div>
       {/* Round 7: the same bottom-right place as Planning's "Open for service". */}
       <div className="actiondock actiondock--page">
         <span className="actiondock__note small muted">Average spend <b><MoneyText pence={r.averageSpend} /></b> a guest</span>
-        <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>{nextLabel}</button>
+        <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus><ArrowLabel text={nextLabel} /></button>
       </div>
     </div>
   );

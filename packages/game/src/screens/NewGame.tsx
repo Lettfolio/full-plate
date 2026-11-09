@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Icon } from "../components/Icon";
 import type { ContentPack, Difficulty, DistrictDef } from "@full-plate/sim-core";
 import { Bar } from "../components/Bar";
 import { MoneyText } from "../components/MoneyText";
@@ -52,7 +53,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
     <div className="page">
       <div className="newgame">
         <div className="newgame__head">
-          <button className="btn btn--ghost btn--tap" onClick={onBack}>← Back</button>
+          <button className="btn btn--ghost btn--tap" onClick={onBack}><Icon name="back" size={20} />Back</button>
           <h1>Where will you open?</h1>
         </div>
 
@@ -119,7 +120,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
               <DifficultyPicker value={difficulty} onChange={setDifficulty} labelId="ng-diff" />
             ) : (
               <span className="row" aria-labelledby="ng-diff">
-                <b className="spacer"><span aria-hidden="true">{chosen?.icon}</span> {chosen?.name}</b>
+                <b className="spacer">{chosen && <span className={`diffchip diffchip--${chosen.id}`} aria-hidden="true"><Icon name={chosen.icon} size={18} /></span>} {chosen?.name}</b>
                 <button type="button" className="btn btn--ghost btn--tap" onClick={() => setAskDifficulty(true)}>Change</button>
               </span>
             )}
