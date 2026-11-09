@@ -151,3 +151,30 @@ describe("P2: one hire-cost rule (sim.ts hireCheck over sim-core exports)", () =
     expect(screen.getByText(c.name).closest(".candidate")!.querySelector("button")!.disabled).toBe(false);
   });
 });
+
+describe("round 4 review: hireCheck agrees with sim-core's HIRE for every candidate (property)", () => {
+  it("over seeds × districts × difficulty × fee perk × cash around the edge", () => {
+    const districts = ["high_street", "seaside", "student_quarter"] as const;
+    const difficulties = ["cosy", "normal", "hard"] as const;
+    let checked = 0;
+    for (let seed = 1; seed <= 8; seed++) {
+      const base = appReducer(initialAppState, { type: "new", cmd: { type: "NEW_GAME", seed, districtId: districts[seed % 3]!, restaurantName: "P", difficulty: difficulties[seed % 3]! } }).game!;
+      for (const fee of [undefined, 0, 2_000, 15_000]) {
+        const g = fee === undefined ? base : { ...base, recruitmentFee: fee };
+        const cands = candidates(content, g);
+        cands.forEach((c, i) => {
+          const { needed } = hireCheck(g, c);
+          for (const cash of [0, needed - 1, needed, needed + 1, needed * 3, 1_000_000]) {
+            const at = { ...g, cash };
+            const r = applyCommand(content, at, { type: "HIRE", candidateIndex: i });
+            const accepted = !r.events.some((e) => e.type === "LOG" && e.entry.kind === "bad");
+            expect(hireCheck(at, c).canAfford, `seed ${seed} fee ${fee} cand ${i} cash ${cash}`).toBe(accepted);
+            if (accepted) expect(at.cash - r.state.cash).toBe(hireCheck(at, c).fee);
+            checked++;
+          }
+        });
+      }
+    }
+    expect(checked).toBeGreaterThan(300);
+  });
+});
