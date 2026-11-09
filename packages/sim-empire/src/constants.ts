@@ -83,7 +83,7 @@ export const OVERHEAD_SCALE_EXP = 0.85;
 export const LABOUR_EFFICIENCY_PER_10_STD = 0.02;
 
 // ── demand model factors (all normalised to 1 at the calibration reference state) ──
-export const REC_BASE = 1;               // recognition factor = (REC_BASE + rec/100) / (REC_BASE + ref/100)
+export const REC_BASE = 1;               // recognition factor = (1 + rec/100) / (1 + ref/100)
 export const CONSISTENCY_BASE = 0.8;       // (0.8 + 0.4·c/100) / ref
 export const CONSISTENCY_SLOPE = 0.4;
 export const STAFF_BASE = 0.85;            // (0.85 + 0.3·q/100) / ref
