@@ -1715,7 +1715,7 @@ h3 { line-height: var(--lh-heading); }
 .modal__banner .modal__stamp { width: 52px; height: 52px; background: var(--amber-wash); border: 2px solid var(--ink); color: var(--ink); }
 .modal__kicker { font-size: var(--fs-xs); color: var(--ink-soft); }
 .modal__banner .iconbtn--tap { border-color: var(--border-strong); }
-.confirm .modal__stamp { background: var(--tomato-wash); }
+.confirm .modal__stamp:has(.icon--warning) { background: var(--tomato-wash); }
 .sheet__row { min-height: var(--control-h); }
 .sheet__label { color: var(--ink); }
 
