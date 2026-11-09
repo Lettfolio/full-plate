@@ -210,7 +210,8 @@ function RoomCanvas({ game }: { game: GameState }) {
   useEffect(() => {
     let view: RestaurantView;
     try { view = new RestaurantView(canvas.current!); } catch { return; } // no 2D canvas (tests, very old browsers): cards still work
-    const fit = () => { const r = wrap.current!.getBoundingClientRect(); view.resize(r.width, r.height, canvasDpr()); };
+    // the canvas fills the frame's content box (inside its border), so size the drawing to that, not the border box
+    const fit = () => { const el = wrap.current!; view.resize(el.clientWidth, el.clientHeight, canvasDpr()); };
     fit();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : undefined;
     ro?.observe(wrap.current!);

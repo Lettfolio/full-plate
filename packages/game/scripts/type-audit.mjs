@@ -188,6 +188,12 @@ try {
   await tab(/^Staff/); await audit("11-planning-staff");
   await tab(/^Stock/); await audit("12-planning-stock");
   await tab(/^Restaurant/); await audit("13-planning-restaurant");
+  // Round 10: the Decorate tab — catalogue cards and the live room preview (canvas), previewing a lavish item.
+  await resetCanvas();
+  await tab(/^Decorate/); await page.waitForTimeout(900);
+  await page.getByRole("group", { name: "Choose what to decorate" }).getByRole("button", { name: /^Sign/ }).click();
+  await page.locator("li.decorate__card").last().hover(); await page.waitForTimeout(500);
+  await audit("13b-planning-decorate", { canvas: true });
   await page.getByRole("button", { name: /What do I do/ }).click(); await page.waitForTimeout(200);
   await audit("14-planning-help");
   await page.keyboard.press("Escape");
