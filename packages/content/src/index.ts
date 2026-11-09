@@ -26,6 +26,24 @@ import traitsJson from "../data/traits.json";
 import eventsJson from "../data/events.json";
 import balanceJson from "../data/balance.json";
 import reviewTemplatesJson from "../data/reviewTemplates.json";
+import dishTagsJson from "../data/dishTags.json";
+import libraryHiddenJson from "../data/libraryHidden.json";
+import formulasJson from "../data/formulas.json";
+import tastingMenusJson from "../data/tastingMenus.json";
+import wineListJson from "../data/wineList.json";
+import citiesJson from "../data/cities.json";
+import countriesJson from "../data/countries.json";
+import criticTextJson from "../data/criticText.json";
+import careerTextJson from "../data/careerText.json";
+import incidentTextJson from "../data/incidentText.json";
+import goalTextJson from "../data/goalText.json";
+import type {
+  CareerText, CountriesData, CriticText, DietaryRule, DishTag, DishTags, Extras, FormulaDef, GoalTextData, IncidentTextData,
+  TastingMenuDef, WineDef, WorldData,
+} from "./extras";
+import { validateExtras } from "./extras";
+
+export * from "./extras";
 
 const SERVICE_TICKS = 120; // mirrors sim-core SERVICE_TICKS; kept local so this file imports types only
 const COURSES = ["starter", "main", "dessert", "drink", "side"];
@@ -335,8 +353,11 @@ export function validateContent(pack: unknown): string[] {
   return p;
 }
 
-/** Assemble the shipped JSON into a pack (unvalidated). */
-function assemble(): ContentPack {
+/** Dish ids kept out of the starter library and the default pack (Round 3 path dishes). */
+export const LIBRARY_HIDDEN_DISH_IDS: readonly string[] = (libraryHiddenJson as { dishIds: string[] }).dishIds;
+
+/** Assemble the shipped JSON into the FULL pack, path dishes included (unvalidated). */
+function assembleFull(): ContentPack {
   return {
     ingredients: ingredientsJson as IngredientDef[],
     dishes: dishesJson as DishDef[],
@@ -350,19 +371,105 @@ function assemble(): ContentPack {
   };
 }
 
-/** Load and validate; throws one Error listing every problem. */
-export function loadContent(): ContentPack {
-  const pack = assemble();
-  const problems = validateContent(pack);
+/**
+ * The library pack: the full pack minus `libraryHidden` dishes and any ingredient only they use.
+ * This is exactly the round-2 pack, so sim-core balance and headless results are unchanged.
+ */
+export function libraryPack(full: ContentPack, hidden: readonly string[] = LIBRARY_HIDDEN_DISH_IDS): ContentPack {
+  const hide = new Set(hidden);
+  const dishes = full.dishes.filter((d) => !hide.has(d.id));
+  const used = new Set(dishes.flatMap((d) => d.ingredients.map((i) => i.id)));
+  return { ...full, dishes, ingredients: full.ingredients.filter((i) => used.has(i.id)) };
+}
+
+function throwIfProblems(what: string, problems: string[]): void {
   if (problems.length) {
-    throw new Error(`Full Plate content is invalid (${problems.length} problem${problems.length === 1 ? "" : "s"}):\n  - ${problems.join("\n  - ")}`);
+    throw new Error(`Full Plate ${what} is invalid (${problems.length} problem${problems.length === 1 ? "" : "s"}):\n  - ${problems.join("\n  - ")}`);
   }
+}
+
+/** Load and validate the library pack; throws one Error listing every problem. */
+export function loadContent(): ContentPack {
+  const pack = libraryPack(assembleFull());
+  throwIfProblems("content", validateContent(pack));
   return pack;
 }
 
-/** The validated, shipped content pack. */
+/** Load and validate the full pack (library + fast-food + fine-dining dishes and their ingredients). */
+export function loadFullContent(): ContentPack {
+  const pack = assembleFull();
+  throwIfProblems("full content", validateContent(pack));
+  return pack;
+}
+
+/** The validated, shipped content pack (starter library; what sim-core, headless and the owner game use by default). */
 export const content: ContentPack = loadContent();
 export default content;
+
+/**
+ * The validated full pack: `content` plus the Round 3 path dishes (fast food for the Empire, fine dining and wines for
+ * the Stars). Cook with this once a path is chosen, or everywhere and hide `LIBRARY_HIDDEN_DISH_IDS` in the menu editor.
+ */
+export const fullContent: ContentPack = loadFullContent();
+
+/** Assemble Round 3 extras from the shipped JSON (unvalidated). Notes keys ("_…") are dropped. */
+function assembleExtras(): Extras {
+  const { _placeholders: _a, ...criticText } = criticTextJson as Record<string, unknown>;
+  const { _placeholders: _b, ...careerText } = careerTextJson as Record<string, unknown>;
+  const { _breakersNote: _c, ...countries } = countriesJson as Record<string, unknown>;
+  return {
+    dishTags: dishTagsJson as DishTags,
+    libraryHidden: [...LIBRARY_HIDDEN_DISH_IDS],
+    formulas: formulasJson as FormulaDef[],
+    tastingMenus: tastingMenusJson as TastingMenuDef[],
+    wineList: wineListJson as WineDef[],
+    world: citiesJson as WorldData,
+    countries: countries as unknown as CountriesData,
+    criticText: criticText as unknown as CriticText,
+    careerText: careerText as unknown as CareerText,
+    incidentText: incidentTextJson as IncidentTextData,
+    goalText: goalTextJson as GoalTextData,
+  };
+}
+
+/** Load and validate the extras against the full pack; throws one Error listing every problem. */
+export function loadExtras(): Extras {
+  const x = assembleExtras();
+  throwIfProblems("extras", validateExtras(x, fullContent));
+  return x;
+}
+
+/** Validated Round 3 extras: path data and text that sit beside the ContentPack. */
+export const extras: Extras = loadExtras();
+
+// ───────── typed getters ─────────
+export const dishTags: DishTags = extras.dishTags;
+export const formulas: readonly FormulaDef[] = extras.formulas;
+export const tastingMenus: readonly TastingMenuDef[] = extras.tastingMenus;
+export const wineList: readonly WineDef[] = extras.wineList;
+export const world: WorldData = extras.world;
+export const countries: CountriesData = extras.countries;
+export const criticText: CriticText = extras.criticText;
+export const careerText: CareerText = extras.careerText;
+export const incidentText: IncidentTextData = extras.incidentText;
+export const goalText: GoalTextData = extras.goalText;
+
+/** UI flag: false for dishes the starter library should hide. */
+export const inLibrary = (dishId: string): boolean => !LIBRARY_HIDDEN_DISH_IDS.includes(dishId);
+/** Tags of a dish ([] when untagged). */
+export const tagsOf = (dishId: string): readonly DishTag[] => extras.dishTags[dishId] ?? [];
+/** Dishes in the full pack carrying a tag, in pack order. */
+export const dishesWithTag = (tag: DishTag): DishDef[] => fullContent.dishes.filter((d) => tagsOf(d.id).includes(tag));
+export const formulaById = (id: string): FormulaDef | undefined => extras.formulas.find((f) => f.id === id);
+export const tastingMenuById = (id: string): TastingMenuDef | undefined => extras.tastingMenus.find((m) => m.id === id);
+export const cityById = (id: string) => extras.world.cities.find((c) => c.id === id);
+export const countryByName = (name: string) => extras.countries.countries.find((c) => c.name === name);
+/** Player-facing rule lines for a city's country (the country-entry puzzle). */
+export const rulesTextForCity = (cityId: string): string[] => {
+  const c = cityById(cityId);
+  return (c && countryByName(c.country)?.rules) ?? [];
+};
+export const dietaryRuleText = (rule: DietaryRule) => extras.countries.dietaryRules[rule];
 
 /** Ingredient cost of one plate of a dish, in pence (rounded). */
 export function dishCost(pack: ContentPack, dish: DishDef): number {
