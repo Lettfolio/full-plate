@@ -13,7 +13,7 @@ export function HelpPopover() {
   const { open, setOpen, root } = usePopover();
   return (
     <div className="popwrap" ref={root}>
-      <button className="btn btn--ghost btn--sm" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}>
+      <button className="btn btn--ghost btn--tap" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}>
         <span aria-hidden="true">❓</span> What do I do?
       </button>
       {open && (
