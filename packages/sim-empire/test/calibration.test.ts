@@ -9,7 +9,7 @@ import { candidates, newGame, runDay, runStrategyDay, suggestedOrder, weekdayOf,
 import { playService, resolveEvent, restock, STRATEGIES, stepper } from "../../sim-core/src/strategies";
 import {
   aggregateSiteDay, applyEmpireCommand, calibrate, expectedSiteDay, forkFromGameState, newGameFromSite, offPremise, recalibrateFromSite,
-  siteDayFromResult, siteDemandAndCapacity, stepEmpireDay, type EmpireState, type SiteSummary,
+  siteDayFromResult, siteDemandAndCapacity, stepEmpireDay, EMPIRE, type EmpireState, type SiteSummary,
 } from "../src/index";
 import { Rng } from "../src/rng";
 import { FAST_FOOD_MENU } from "../src/headless";
@@ -126,7 +126,7 @@ describe("aggregate vs focused (round 3 P1)", () => {
       expect(Math.abs(mr / fr - 1)).toBeLessThan(0.15);
       // Labour comes from the same crew on both sides.
       const fl = mean(focused.map((h) => h.labourCost));
-      const ml = mean(model.map((r) => r.labourCost)) / off ** 0.5;
+      const ml = mean(model.map((r) => r.labourCost)) / off ** EMPIRE.OFF_PREMISE_LABOUR_EXP;
       expect(Math.abs(ml / fl - 1)).toBeLessThan(0.15);
     });
   }

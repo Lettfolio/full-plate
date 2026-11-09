@@ -111,8 +111,8 @@ export const CREW_ROTA_B: readonly boolean[] = [true, true, false, false, true, 
 export const CREW_WAGE_BASE = 1_271;
 export const CREW_WAGE_PER_SKILL = 9;
 export const SERVER_WAGE_PER_SKILL = 2;
-/** Labour for off-premise covers (takeaway counter, drive-thru, app) scales as off^this: a counter is lean. */
-export const OFF_PREMISE_LABOUR_EXP = 0.5;
+/** Labour for off-premise covers (takeaway counter, drive-thru, app) scales as off^this: the same labour per cover as the room. */
+export const OFF_PREMISE_LABOUR_EXP = 1;
 /** Popularity a modelled site trades at when the calibration has none (a well-run sim-core restaurant). */
 export const DEFAULT_POPULARITY = 85;
 /** Popularity of a standard crew at staff quality 50, and per point away from 50 (sim-core ratings follow the crew). */
@@ -302,7 +302,7 @@ export const DEFAULT_CALIBRATION = {
   baseCovers: 72,
   coversMean: 80,
   spendPerCover: 1_500,
-  foodPerCover: 410,
+  foodPerCover: 450,
   labourPerDay: 36_000,
   overheadsFixed: 8_000,
   cardFeePct: 0.015,
