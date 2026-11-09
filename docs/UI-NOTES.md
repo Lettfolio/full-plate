@@ -601,3 +601,35 @@ HANDSON-NOTES "Round 8 — C". Where this section and theirs disagree, this one 
 - **Chrome glyphs are Icons**: the city map's Back and Open here use `back` / `plus` like the rest of the game.
 - **Empire totals** are six tiles at ≥ 1181 px and three a row below (`.empire__stats`).
 - **Type audit** measures canvas text drawn into offscreen layers too (C's cached scenes), at the layer's dpr.
+
+## Round 9 — saves
+
+Design and storage: docs/SAVES.md. UI conventions added this round:
+
+- **Title.** The Continue card plays the most recently played slot (its name, day, cash, date; a path or the
+  restaurant's name underneath when the slot's name differs). Under it: **Your games** (folder icon + count) and New game.
+  One line under the buttons says where games are kept: "Your games are saved to your account ✓" / "Saved on this device
+  only — sign in to keep it everywhere" / "Not saved — this browser won't keep games. Use Save to a file." With no
+  games, a ghost "Load a save file" button opens the picker.
+- **Your games** (`screens/SlotPicker.tsx`, lazy, styles in `screens/slots.css`) is a wide `Dialog`: a card per slot
+  (name as h3, path pill, Day N + cash in Fredoka 20, date, "Played 2 days ago · On your account / This device only")
+  and dashed "Empty slot" cards up to six. Actions are 44 px: Continue (primary), Rename (inline input), Save to a file,
+  Delete (red text; the round-7 `ConfirmDialog` with "Keep it" focused first). Load a save file sits under a dashed rule.
+  In "new" mode (New game) it is "Where shall we save your new game?": **Start in an empty slot** first, then each game
+  with "Replace with a new game" (asks first).
+- **Which one shall we play?** (`ConflictDialog`): two big option cards, the newer one outlined green with a "Newer"
+  pill and focused; one line promises the other is kept as a backup.
+- **Header save mark** (`components/SaveIndicator.tsx`): a `.shellbtn` before the difficulty chip — cloud "Saved ✓"
+  (`--hud-up`), "Saving…" (`--on-ink-soft`), cloud-off "This device only" (`--on-ink`), warning "Not saved"
+  (`--hud-down`). Text hides below 1181 px like Settings (44 px icon button, the name stays in `aria-label`). Tap → a
+  small sheet (lazy `SaveSheet.tsx`) with one sentence of why and Save to a file.
+- **Settings › Save & quit** shows "Saving…" (disabled), then a status line with an icon — "Saved to your account ✓" /
+  "Saved on this device only — sign in to keep it everywhere" — and quits 0.9 s later. When nothing can keep the game it
+  stays open on "Not saved — use Save to a file to keep this game" with Save to a file and "Quit without saving".
+- **Icons:** `cloud`, `cloudOff`, `save`, `folder`, `download` joined `Icon.tsx`. The picker's pencil / trash / upload are
+  drawn the same way inside SlotPicker.tsx to keep them out of the main chunk.
+- **Copy:** "Saved to your account ✓", "Saved on this device only — sign in to keep it everywhere", "Save to a file",
+  "Load a save file". Sentence case; nothing under 13 px (the type audit has the new screens).
+- **Chunks:** main JS +10.5 kB (182.8 → 193.2 kB). The store core, the account, packing, files, the picker and the mark
+  sheet are lazy chunks; don't import `saveCore`/`saveCloud`/`saveFiles`/`saveCodec` statically from main-chunk code
+  (type imports are fine).
