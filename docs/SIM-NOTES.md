@@ -248,3 +248,99 @@ M1 numbers came from owners who left Mon/Tue to the owner, which was then *profi
 - About a third of the difference is simply 14% more covers.
 - Fixes so far: one canonical GameState shape during service (`canonicalState`, −20%), and local stock tracking in OrderSystem.
 - Next candidates: foldLog/LOG events per tick, and per-tick `{...tally}` copies in seating/payment.
+
+# Round 3 hooks
+
+These are the hooks requested in EMPIRE/STARS/CAREER/HANDSON-NOTES and CONTENT-NOTES "Round 3". Every new state field is optional, so **the save version stays 1** (the `MIGRATIONS[1]` normaliser is still the identity). When none of the hooks are used, the sim is **bit-identical** to round 2: final cash, history and RNG state match for seeds 1–4 × 120 days, typical/normal on the real pack.
+
+## Exports (`@full-plate/sim-core`)
+| Name | What |
+|---|---|
+| `Rng`, `hashSeed`, `seedState`, `type RngState` | The sim's xoshiro128** RNG (`Rng.fromSeed`, `new Rng(state)`, `getState`). sim-stars, handson and sim-career can drop their relative `../../sim-core/src/rng` imports. |
+| `strategies` (namespace) | The scripted owners from `src/strategies.ts`, which is browser-safe (the node CLI stays in `headless.ts`): `STRATEGIES`, `runStrategyDay`, `playOne`, `playService`, `setUpMenu`, `staffing`, `rotas`, `restock`, `buyTables`, `resolveEvent`, `respondToIncidents`, `INCIDENT_POLICY`, `stepper`, types `Strategy`, `StrategyName`, `RunResult`, `Step`. |
+| `runStrategyDay(content, state, strat)`, `STRATEGIES`, `Strategy`, `StrategyName` | Also exported at top level. `runStrategyDay` plays one owner day from planning (or mid-service) to the next morning's planning: menu if empty, staffing, rotas, tables, service with incident responses, restock, END_DAY/RESOLVE_EVENT. |
+| `setFootfallMod(state, source, mod \| null)` | Replaces the footfall mod tagged `source`, or removes it with `null`. Untagged mods and other sources are left alone. |
+| `recruitmentFeeOf(state)` | The fee HIRE charges. |
+| `incidentTextOf`, `incidentLinesOf`, `goalLadderOf`, `goalLinesOf` (content) | The text in effect for a pack. |
+| `HANDS_ON`, `PLAYER_COOK_ID` (`"player"`), `CLOSED_DAY_WAGE_SHARE` (0.5), `SET_MENU_SEGMENTS` (`foodies`, `business`), `SET_MENU_BUDGET_MULT` (`{ foodies: 1.6 }`), `SET_MENU_MAX_DISHES` (12) | Constants. |
+
+## New commands (all rejected with LOG "bad" and the state unchanged when invalid)
+| Command | Phase | Effect |
+|---|---|---|
+| `PLAYER_COOKED { ticketId, quality }` | service | The ticket is plated now with `clamp(quality, 0, 100)`. It is booked like an AI plate: `DISH_PLATED`, tally plates/quality/dish/per-cook/freshness. If hands-on holds that kind of plate (see below), it goes to the pass (`atPass`, `platedAtTick`, `ticksRemaining 0`, `chefId` = `handsOn.staffId ?? "player"`); otherwise it reaches the table now. Rejected if the ticket is unknown or already at the pass. |
+| `PLAYER_SERVED { customerId, ticketId, speedBonus }` | service | A held plate reaches its party (`servedTick` is set on the last plate, so they eat next tick). `satisfactionBonus += clamp(speedBonus,0,1) × 8 / order.length`, so a party served at full speed on every plate gets +8. Rejected unless the ticket is at the pass and belongs to that live party. |
+| `PLAYER_CLEARED { tableId }` | service | Sets `dirtyTicks = 0` on a free dirty table. |
+| `PLAYER_TOOK_PAYMENT { customerId }` | service | Settles that `paying` party now (the same `settleParty` as PaymentSystem: rating, tip, VIP verdict, tally, cash). It costs no FOH action and uses one draw from the main RNG (charm upgrade). |
+| `PLAYER_DROPPED { ticketIds, cost }` | service | Charges `cost` (integer pence, capped at `HANDS_ON.maxDropCost` = £50) to cash, `tally.plateWaste` (→ `DayResult.waste.plate`) and `tally.foodCost` (→ `DayResult.foodCost`, so it reaches profit). Each listed ticket goes back on the rail (`ticksRemaining = prepTicks`, quality/chef/pass cleared, `createdTick` kept so the wait shows); no new stock is used. A dropped held plate is taken back off the plate/quality books. |
+| `SET_HANDS_ON { role \| null, staffId? }` | planning, service | Sets `GameState.handsOn = { role, since: tick (0 in planning), staffId? }`. `null` clears it, and held plates go out on the next tick. `staffId` (career) must be a staff member; the human's plates are attributed to it in `perChef`. Cleared automatically at close of service and at END_DAY. |
+| `CLOSE_TODAY` | planning | Moves to evening/event without a service (see below). |
+| `SET_SET_MENU { dishIds, price, active }` | planning | Stores `GameState.setMenu`: 1–12 distinct known dishes, price whole pence ≤ £1,000. `dishIds: [], active: false` removes it. Set dishes don't need to be on the à-la-carte menu. |
+| `SET_OWNER_PROFILE { skill, speed, charm }` | planning, evening, event | `GameState.ownerProfile`, each value clamped 0–100. |
+
+## Hands-on fallback rules (`HANDS_ON` in constants.ts)
+The sim backs off whatever the human's role covers, but a slow fallback keeps food from being stranded if the child wanders off.
+- **Server (`role: "server"`)**
+  - Every plate, AI- or human-cooked, waits at the pass (`atPass: true`, `platedAtTick`).
+  - An AI colleague carries a held plate once `tick − platedAtTick ≥ passHoldTicks` (**4 ticks**).
+  - AI front of house takes a party's payment only once it has waited `payHoldTicks` (**4**) in `paying`. The human's PLAYER_TOOK_PAYMENT is immediate. Waiting to pay costs no satisfaction (`waitTicks` ends at `servedTick`).
+  - Seating, ordering and table clearing stay AI as before. PLAYER_CLEARED just makes clearing instant.
+- **Bar (`role: "bar"`)**
+  - Same as server, but only drink plates are held.
+  - It also reserves drinks for the human (next rule, drinks only).
+- **Chef (`role: "chef"`)**
+  - The oldest unassigned food tickets are reserved for the human, up to `reserveTickets` (**3**) of them. AI chefs (and the owner covering) take only tickets beyond those three.
+  - A reserved ticket becomes fair game once `tick − max(createdTick, handsOn.since) ≥ reserveFallbackTicks` (**4**). In practice the AI stops pulling new tickets while the human has < 3 waiting, and catches up after 4 ticks.
+  - Tickets the human cooked never count down on their own. A ticket an AI already started stays with that AI.
+  - Plates are delivered straight away, with no pass hold.
+- **porter / manager**: accepted for the UI's sake; no back-off.
+- **At close**: held plates are delivered before parties settle, so nothing is lost. `handsOn` is cleared.
+- `DayResult.perChef` keys the human as `handsOn.staffId` or `"player"`, the owner as `"owner"`, and AI cooks by Staff id.
+
+## Closed day (`CLOSE_TODAY`)
+- The evening systems run on an empty tally with `todays.closed`. The DayResult has `closed: true`, 0 covers, revenue, walk-outs and reviews, and empty `ownerCovered`.
+- Rent, the loan instalment and fixed overheads (no card fees) are charged as usual.
+- **Wages: rostered staff are paid 50%** (`CLOSED_DAY_WAGE_SHARE`), which is notice pay for a shut day. To pay nothing, take people off the rota before closing.
+- Every staff member gets a rest day (fatigue down, rest-day mood), and the owner recovers.
+- Stock keeps ageing and spoils, and reputation drifts toward 50 as usual. Insolvency is still checked, and an event card can still be drawn.
+- `stats.daysOpen` and the 7-day menu window are not advanced. `expectedCovers` returns **0** that evening (so `suggestedOrder` is empty), and closed days are left out of later forecasts.
+- A game that closes before it ever opens still gets its opening stock at the first real START_SERVICE.
+- sim-stars can replace the ×0 footfall trick in `prepareService` with `CLOSE_TODAY`.
+
+## Set menu (`GameState.setMenu`)
+- **Who takes it.** While `active`, a foodie or business party takes the set menu if the larder can plate every set dish for every guest. Each guest gets every set dish, fired as normal tickets. Otherwise they order à la carte, so a sold-out set never strands a party. Other segments always order à la carte.
+- **Bill and satisfaction.** One sale: `spend = price × partySize`, `Customer.setMenu = true`. Satisfaction uses the mean plate quality as usual. The value score compares price per head with `averageBudget × SET_MENU_BUDGET_MULT[segment]`, which is **1.6× for foodies** (a tasting-menu budget) and 1× for business.
+- **Arrivals.** For set segments, the entry logit adds the set dishes' appeal (capped as usual), compares the set price with the same ×1.6 budget, and uses markup = set price ÷ Σ set dishes' suggested price − 1.
+- **Per-dish takings.** Set takings are split across the set's plates in proportion to suggested price. `perDish[].revenue` sums to the day's revenue.
+- **Forecast.** `platesPerGuest` adds each set dish × the district's foodie+business share, so `suggestedOrder` stocks for it.
+- **Off means off.** An inactive set menu changes nothing.
+
+## Owner profile, recruitment fee, footfall sources
+- `ownerStats` uses `state.ownerProfile ?? OWNER` for skill, speed and charm. Fatigue and two-places-at-once penalties still apply; `serverActions` and `chefTickets` stay at OWNER's values. The cook cache keys on it.
+- HIRE charges `state.recruitmentFee ?? RECRUITMENT_FEE`, and the affordability check uses the same fee. This can replace sim-career's `applyWithPerks` rebate.
+- `footfallMods[]` entries take an optional `source`. It survives the morning countdown; use `setFootfallMod` to replace your own entry.
+
+## DayResult extras (optional; always set by this version)
+- `perDish: Record<DishId, { sold, plated, qualityMean, revenue, foodCost }>` covers dishes ordered today, with ids sorted. `foodCost` is the stock price paid for the plates fired; drop costs are not included (they are in the day's `foodCost`).
+- `perChef: Record<StaffId | "owner" | "player", { plates, qualityMean }>` counts plates excluding remakes. A remake swaps its quality into the cook who made it.
+- `freshnessMean` is the mean freshness/season bonus (quality points) of today's plates.
+- `closed` is set by CLOSE_TODAY only.
+
+## Content packs
+- `ContentPack.incidentText?` and `goalText?` are new optional fields, shaped like content's `incidentText`/`goalText` exports (`{ INCIDENT_TEXT, INCIDENT_LINES }`, `{ GOAL_LADDER, GOAL_LINES }`). Pass `{ ...fullContent, incidentText, goalText }`.
+- Text is merged key by key over the built-in text, so a missing kind, option or line falls back.
+- A non-empty `GOAL_LADDER` replaces the built-in one, skipping entries with an unknown kind or a malformed shape.
+- With content's own JSON the game plays byte-identically to the built-in text (tested).
+- Nothing in sim-core assumes the library size. The tests play `fullContent` (125 dishes) for 20 days.
+
+## Tests and performance
+- `test/round3.hooks.test.ts` has 42 tests: every command's happy path and rejections, pass hold and both fallbacks, a full service with an idle human server, closed-day costs and forecast, set-menu ordering/value/forecast/no-op, owner-profile plate quality, recruitment fee, DayResult extras consistency, setFootfallMod, content-text fallback and identity, fullContent, mid-service save round-trip with every new field (continues identically), and determinism of the hands-on commands.
+- Whole suite: 180 tests pass.
+- The smoke test's 3 s wall-clock assertion is now a soft benchmark: it logs `[bench] …` and fails only past 30 s. It was ~0.9 s here.
+- Throughput is unchanged: 1.64–1.81 ms per simulated day for both HEAD and this change, in back-to-back runs on the 2-core box.
+- The per-tick mutable tally builder (REVIEW.md (c)) was **not** done. It is a cross-cutting refactor of every service system, and today's numbers don't need it.
+
+## Headless (100 seeds × 365 days, real pack, normal) — unchanged from round 2 / CONTENT-NOTES
+| strategy | survival | covers/day | rating | final popularity |
+|---|---|---|---|---|
+| typical | **83%** | 90.3 | 4.23 | 80.5 |
+| balanced | 100% | 87.5 | 4.42 | 87.5 |
