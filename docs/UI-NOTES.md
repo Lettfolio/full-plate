@@ -240,3 +240,11 @@ Three tabs instead of four: **🏪 My shops** (the picked city: facts, country r
 ### Contrast
 
 WCAG AA (4.5:1) is checked in `src/__tests__/contrast.test.ts` against the live tokens. Changes: `--ink-faint` `#72675c → #6a5f54` (was 4.4–4.5:1 on cream-deep and the tomato/plum washes); new `--sky-deep` (porter avatar, white 5.1:1; was 3.5:1) and `--amber-deep` (score-card "work on" badge, white 5.4:1; was 2.2:1); canvas faint labels use `#6a5f54` / ink-soft (were `#8f857a`, 3.3:1 on the kitchen tiles); menu-matrix axis labels use ink-soft. Tomato `#c4412b` and basil `#3c7a37` already pass (4.6 / 4.8:1 on cream; white on them 5.1 / 5.2:1).
+
+### Round 5 review
+
+- **`<Term>` tooltips are keyboard-accessible.** The explanation was a `title` attribute (never shown on focus, unreliable in screen readers; the block form wasn't focusable). Both forms are now `tabIndex=0` with `aria-describedby` → a `role="tooltip"` span shown on `:hover`/`:focus`/`:focus-within` (no fade: a fading tip read through to the text beneath). In tests, strip `.term__tip` before matching `textContent` (`visibleText` in `empireFocus.test.tsx`).
+- **Service canvas:** table numbers draw after people and staff (`drawTableNumbers`, paper ring); a full room hid 7 of 11 badges.
+- **Menu matrix:** labels try above then below their dot, avoid the quadrant titles, the axis label and other dots, are clamped inside the chart and cut at 22 characters (`shortName`); hover still labels any dot.
+- **Empire:** the city card's "(collapse below £400k)" (stale: it ignored the price level and showed with no shops) → "(a shop below £X is in trouble)" in today's pounds, or "no shops yet". Each Franchise button carries a verdict ("they'd do fine / only just get by / lose money"; basil-deep / amber-deep / tomato-deep on paper, all ≥ 4.5:1).
+- Audit after these: 25 screens, 0 text runs below 13 px, 0 page errors.

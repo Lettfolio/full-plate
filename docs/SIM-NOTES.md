@@ -377,3 +377,20 @@ REVIEW R4 P1: a played commis shift cost ~15% of covers. A child's station ticke
 | after | 77.3 / 1.4 | **80.9 / 1.3** (104.7%) | 78.8 / 0.0 | 75.5 / 0.0 | 79.5 / 0.4 |
 
 30 seeds: day off 77.8 / 0.9; half speed 79.0 / 1.0 (101.5%); full speed 81.4 / 0.4; idle 80.0 / 0.8. Per-seed outcomes swing ±10 covers (the arrival stream is chaotic: any change in RNG draw order changes the day), so judge on means. `test/round5.station.test.ts` (12) and `test/round5.claims.test.ts` (2) cover the rules.
+
+## Round 5 review: the "trim the rota" tip and the `learner` owner (`src/advice.ts`)
+
+Typical/hard survived **0/100** in year 1 — before round 5 too (checked at `edfc23c` in a worktree; identical since R2.3). Diagnosis (50 seeds, typical variants on hard): menu of 6 → 8%; stock 1.3 days → 4%; hiring/table thresholds like balanced → 28%; the typical flag off (trims the rota, notices cover, answers every incident) → **44%**. The killer is doubled-up shifts kept through losing weeks, and nothing in the game said so.
+
+- `rotaAdvice(state, end?)`: after a losing fortnight (`ROTA_ADVICE_DAYS` = 14, mean daily profit < 0), the later hire in a role whose rota days overlap a colleague's in the same role (most expensive first), with the weekly cost of those shifts. Pure; `end` reads history up to an index.
+- The game's Evening shows it (owner, Empire and Stars; not career, where the player can't set the rota) with **Change the rota →**.
+- `STRATEGIES.learner` = typical + `readsTips`: trims once the tip has named that person `TYPICAL_NOTICE_DAYS` (6) evenings running. `typical` is unchanged (it models a player who ignores advice), so every published table stays comparable.
+- DIFFICULTY.hard is unchanged. A sweep showed any easing moves balanced far faster than typical: (footfall, cost) 0.85/1.15 → typical 16%, balanced 90%; 0.9/1.2 → 7% / 75%; 0.8/1.1 → 23% / 94%.
+
+| owner year 1, 100 seeds, real pack | cosy | normal | hard |
+|---|---|---|---|
+| typical | 100% | 83% | 0% |
+| balanced | 100% | 100% | 45% |
+| learner (typical + reads the tip) | 100% | 100% | 33% |
+
+`test/round5.advice.test.ts` (4).

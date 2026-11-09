@@ -371,8 +371,9 @@ widens it (30 seeds: half speed 101.5%, full speed 104.6%, idle 102.8%). Single 
 plates a shift, half speed 7–11, shifts 154–252 s, the rail dry < 25 s.
 
 ### Still open
-- "Sent out by the sous chef" is 15–25 a shift: the station gets ~30 tickets and a child cooks 7–20. It is honest
-  (those plates did go out on her section) but a big number; the canvas rail could show the sous chef taking one.
+- ~~"Sent out by the sous chef" is 15–25 a shift~~ **Round 5 review:** the browser playtest read "Plates cooked 7 ·
+  Sent out by the sous chef 10" for a child who never stopped working. The line is now "Sous chef helped: 7 while you
+  were busy, 3 while you were away" (`idleCovers` split out); only the "away" part is a note to work on.
 - The cover rules are mirrored in two places (sim-core `humanTickets`/`ticketsToCover`, handson
   `stationTickets`/`coverDueTick`); a plan saved before round 5 has no `coursed`, so the view would show one ticket
   fewer than the sim reserves until the next shift (an envelope reload ends the station anyway).

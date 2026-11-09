@@ -772,3 +772,93 @@ Top three next steps:
 1. **Station in sim-time.** Cover a rail ticket by its age in *ticks* (≈ prepTicks + a few) and slow the tempo while the child has work, or serve desserts as a second course so a late dessert never holds a table. Target: a half-speed child's shift within 5% of a skipped shift's covers.
 2. **Early franchise economics.** A royalty holiday or a cost-only rent floor for the first units (or a crew sized to covers) so a locked first franchise clears ~+5–8%; re-run the 10-year table.
 3. **Kid-size the Empire panel.** Bigger type, plain words ("profit this week", "how alike your sites are"), and one suggested next move.
+
+# Round 5: integration review, balance and playtest (station in sim time, franchise economics, kid-size UI)
+
+Reviewer: lead. Date: 9 Nov 2026. Covers `b2d4c6d` … `1655e8a` (three parallel streams: A station in sim time, B franchise economics, C kid-size UI). Fixes are `2476d29` … `d5ad373`, one commit per fix.
+
+**Status at the end of this pass:**
+- `pnpm -r typecheck` ✓ (7 packages). `pnpm -r test` ✓: sim-core 211, content 51, handson 62, sim-career 61, sim-stars 67, sim-empire 82, game 194 (**728**; the streams landed at 702, +26 this pass).
+- `pnpm --filter @full-plate/game build` ✓. Type audit (`node packages/game/scripts/type-audit.mjs`): 25 screens, **0** text runs below 13 px, 0 page errors.
+- The tree was already clean (no `zz*.test.ts` probes left) and typecheck/tests/build were green before any fix; no merge damage in App.tsx, pathEngine.ts, EmpireTab.tsx or render.ts.
+- **Perf test:** the 5,000-site/50 ms check in `sim-empire/test/core.test.ts` is now a **soft benchmark**: it warns over 50 ms/day and fails only at 5× (an algorithmic regression); `STRICT_PERF=1` restores the hard budget.
+
+Artefacts (scratchpad): `shots/r5/r5kid.cjs`, `r5paths.cjs`; screenshots in `shots/r5/{kid,kid-after,paths,paths-after}/` with a `log.json` per run; probes in `r5rev/` (`sweep.ts`, `diag.ts`, `own.ts`, `outlook.txt`, `bal-final.txt`; a round-4 worktree at `r5rev/wt-r4`).
+
+## R5.1 What landed
+- **A (station in sim time):** coursing (station starters/sides/desserts are their own course: `Customer.courseOut`), cover by ticket age in ticks (commis 8 → head chef 5) or at patience ≤ 40, station dilation (`Customer.dueTick`), the commis's AI hands keep cooking as `<staffId>~ai`, host pacing 3 s/tick while the child holds a ticket, `PLAYER_CLAIMED` on an AI-held ticket fails with a LOG. Half-speed child: 104.7% of a day off's covers.
+- **B (franchise economics):** rent by plot with a 20% markup, counter labour at 30% of a room cover, QSR crew wages, a 9-month ramp with a 75-day honeymoon, mood from the franchisee's own net, `franchiseOutlook` on the contract panel. Locked year-1 franchise +5% with supply deals.
+- **C (kid-size UI):** 13 px floor and the audit, the Empire side panel as My shops / The brand / Money, `<Term>` + glossary, WCAG AA tokens, hands-on header 80 px.
+
+## R5.2 Integration seams (code review, with tests)
+- **(a) `~ai`** (`1d14ada`): it is a derived `Cook` in `cooksOnShift`, never a Staff record. Over a whole played shift it never enters `state.staff` or an envelope's staff, payroll (`labourCost`) equals a day off's to the penny, staff mood/fatigue run over `state.staff` only, and it appears only as a `perChef` key (nothing reads that). The tick after `handsOnStop` or an envelope reload no ticket holds a `~ai` chefId (orphans re-home to a present cook) and the shift runs out to the evening. The "slight buff" is real and accepted: the commis's day-off capacity plus her station.
+- **(b) Coursing × 86** (`1d14ada`): `EIGHTY_SIX` doesn't cancel fired tickets, so a coursed dessert 86'd while its party eats the mains still goes out once, the party pays (an 86 never strands a `courseOut` party), the dish is on the 86 list once and `plated ≤ tickets`. The short-menu rule reads a set of pulled dish ids, so it can't count one twice. 3 seeds.
+- **(c) `franchiseOutlook` vs the probe on every district** (`e21e322`): 34 districts, with and without deals. The outlook is never optimistic; 0.4–1.8 points under where viable, up to 3.8 under in the cities that lose a third of their sales (unlocalised menus). But the panel read only Harbourton High Street (+4.4%) while home districts range −4…+7% and foreign ones to −32%. Fixed: the sentence names the home city's best spot and each Franchise button carries "they'd do fine / only just get by / lose money".
+- **(d) Save/reload** (`1d14ada`): a mid-shift state with both `courseOut` and `dueTick` set round-trips through `serialize` and the envelope byte-identically and continues identically to the evening; the four round-3 mode tests still pass.
+- **(e) Purity** (`d16db54`): `franchiseOutlook`, `probeUnitEconomics` (incl. `skipDays`) and `openingFactor` on a deep-frozen empire; the round-4 frozen station shift (now coursing) still passes; no `Math.random`/`Date` in any sim package (source-scan tests).
+- **(f) `<Term>`** (`66c52bd`, `d5ad373`): the explanation was a `title` (never shown on focus; the block form wasn't focusable). Both forms are now `tabIndex=0` + `aria-describedby` → `role="tooltip"`, shown on hover and focus; verified by keyboard in Chromium (`paths-after/19-term-focus-y2.png`).
+
+## R5.3 Fixes in this pass
+| Commit | Fix |
+|---|---|
+| `2476d29` | 5,000-site perf test → soft benchmark (warn > 50 ms, fail at 5×; `STRICT_PERF=1`). |
+| `1d14ada` | Tests: `~ai` seams, coursing × 86, mid-shift save with the new Customer fields. |
+| `e21e322` | Contract sentence names its district; per-district verdict beside every Franchise button; "collapse below £400k" → "a shop below £X is in trouble" (today's pounds; "no shops yet"). Outlook-vs-probe test over 34 districts. |
+| `d16db54` | Round-5 Empire functions on a deep-frozen empire. |
+| `66c52bd`, `d5ad373` | Keyboard-accessible `<Term>` tooltips. |
+| `43ce28b` | **Balance:** Evening "trim the rota" tip (`rotaAdvice`) and the `learner` owner. See R5.4. |
+| `9624661` | **Balance:** sim-empire maturity drag. See R5.4. |
+| `f2b2b91` | Shift card: "Sent out by the sous chef 10" → "Sous chef helped: 7 while you were busy, 3 while you were away". |
+| `ad6244c` | Service canvas: table numbers on top of the guests (a full room hid 7 of 11). |
+| `bb759d1` | Menu matrix: labels avoid titles/axis/dots, stay inside the chart, cut at 22 characters. |
+
+## R5.4 Balance
+**(a) Owner year 1 (100 seeds, real pack):**
+
+| | cosy | normal | hard |
+|---|---|---|---|
+| typical | 100% | 83% | **0%** |
+| balanced | 100% | 100% | 45% |
+| learner (typical + acts on the rota tip) | 100% | 100% | 33% |
+
+Typical/hard was **0% before round 5** (round-4 docs commit in a worktree: 0 / 83 / 100, balanced/hard 45%) — pre-existing, not A's doing (A's owner headless is byte-identical). Diagnosis over 50 seeds: restoring the rota trimming/noticing alone → 44%; balanced's hiring thresholds → 28%; a leaner menu or stock → 4–8%. **Decision:** don't tune DIFFICULTY.hard — every easing moved balanced far faster than typical (0.85/1.15: 16% vs 90%; 0.8/1.1: 23% vs 94%), so hard would stop being hard. The real defect was that the game never told a player where the money went: the Evening now says "Two weeks of losing money (about £X a day). Bo works Friday, Saturday and Sunday, when another chef is already on. Those shifts cost £Y a week. Take them off the rota until things pick up?" A typical owner who acts on it after six evenings survives hard **33%** — the 30–50% band — while `typical` stays the advice-ignoring baseline so normal keeps its 83%.
+
+**(b) Empire mature units.** Confirmed rich: 10-year runs put fully mature franchisees at 19–21% net and mature company sites at ~31%. Added a maturity drag (years 2→5: 80% of store margin above 28% of net sales, as wage creep + upkeep/lost trade; +7% corporate labour on non-fresh company sites). Margin-proportional so a no-tech brand isn't sunk (its year-6 franchisee still nets ~5%).
+
+| | before | after |
+|---|---|---|
+| mature franchisee net (median, 3 seeds) | 19.4–21.1% | **9.3–10.1%** |
+| mature company site net | 31.0–31.2% | **17.0–19.3%** |
+| franchisee mood at year 10 | ~89–97 | 72–76 |
+
+**Empire 10 years × 5 seeds (after):** franchise **4/5 at y4.9–6.3**; company **4/5 at y7.1–7.8**; In-N-Out **3/5 at y8.9–9.8** — the same shape as B's (4/5 4.9–6.3; 4/5 7.0–7.7; 3/5 8.9–9.9).
+
+## R5.5 Playtests (`vite preview` of the built dist, Chromium via Playwright; 0 page errors and 0 console errors on every screen)
+
+**A. Apprentice chef, cosy, `?autopilot=0.55,0.5`, 3 worked shifts** (`kid/`, after the fix `kid-after/`). 197–216 s a shift; 7–9 own plates, 87–88% quality; 2–3 stars; +0.8–0.9 skill a shift; skill 22 → 24, Shifts 3/10. The rail reads "COMMIS STATION · Sides · Desserts" with one slip ("TABLE 1 · Brownie"); `d1-h28-112s.png` shows a coursed Brownie on the burner while table 1 eats its mains — the course works as intended. The sous chef's toast ("I've sent table 1's Chips — grab your next ticket!") is friendly. But the evening line read **"Plates cooked 7 · … · Sent out by the sous chef 10"** (13 on day 4) for a bot that never stopped working: it reads as her failing. Now "Sous chef helped 13 while you were busy" (`kid-after/`).
+
+**B. Empire** (`paths/10–19`, start and the year-2 save): three tabs render; contract sentence "Your franchisee should clear about £47,000 a year in your best spot (Seaside, Harbourton) — fair. Other places differ…"; the Lock warning shows until the lock; at year 2 the four Harbourton districts read "do fine / do fine / only just get by (Business Park) / do fine"; the city card reads "£1,073,476 (a shop below £420,250 is in trouble)".
+
+**C. Stars and Planning** (`paths/01–05`): Planning short-larder warning and the inspection-season alert with **Close tonight instead** render; the Stars hints card ("PERSONALITY … INGREDIENTS … Also worth a look (2)") renders after C's type changes.
+
+| Sev | Finding | State |
+|---|---|---|
+| **P1** | Typical owner on hard: 0% survival, and nothing in the game says the doubled-up rota is the leak (pre-existing since round 2). | Fixed in-game (`43ce28b`); typical script deliberately unchanged |
+| **P1** | Mature Empire units 20% / 31% net; franchisee mood saturates, so the association never threatens. | Fixed (`9624661`) |
+| P2 | Contract panel's year-one line read one arbitrary district; foreign cities can lose −20…−32%. | Fixed (`e21e322`) |
+| P2 | "Sent out by the sous chef 10" beside "Plates cooked 7". | Fixed (`f2b2b91`) |
+| P2 | `<Term>` explanations unreachable by keyboard. | Fixed (`66c52bd`) |
+| P3 | Guest sprites covered most table numbers on the Service canvas. | Fixed (`ad6244c`) |
+| P3 | Menu-matrix labels over "Stars ★" and off both edges. | Fixed (`bb759d1`) |
+| P3 | "(collapse below £400k)" ignored inflation and showed with no shops. | Fixed (`e21e322`) |
+| P3 | The outlook sits 0.4–1.8 points under the probe (pessimistic); 5/68 verdicts differ near a line. | Open, acceptable |
+| P3 | The top-right Star on the matrix can lose its label when both spots collide (hover shows it). | Open |
+| P3 | The flagship (no `openedTrading`) never matures, so it stays the richest site. | Open, by design for old saves |
+
+## R5.6 Is it fun yet?
+**Career: yes.** Playing no longer costs the restaurant, the course rhythm (mains out, her dessert lands during the meal) feels like a real kitchen, and the card now credits her rather than the sous chef. **Stars: yes**, unchanged. **Empire: closer** — a first franchise pays, mature units are believable, and the per-district verdict turns "where do I open next?" into a readable choice; the mid-game still lacks a rhythm.
+
+Top three next steps:
+1. **Show the course on the canvas.** A small "dessert coming" marker on a table eating its mains and a sous-chef sprite taking a ticket off the rail, so the child sees the help instead of reading a number.
+2. **An Empire monthly "board meeting" card** (income by source, one question: raise royalty? localise Vasant? buy the Campus plot?) — with maturity drag the late game now has real trade-offs to put on it.
+3. **Teach the owner levers in-game the way the rota tip does:** the same evening-tip pattern for over-stock (spoilage), a dog on the menu, and an idle second chef, each measured by a `learner` variant in the headless table.
