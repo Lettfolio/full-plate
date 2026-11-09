@@ -73,6 +73,14 @@ export function App() {
   const notify = useCallback((text: string) => dispatch({ type: "toast", text, tone: "info" }), []);
   const [planTab, setPlanTab] = useState<PlanningTab>("menu");
   const [lastShift, setLastShift] = useState<ShiftSummary | null>(null);
+  // Round 6: the evening tip's one-tap action. Planning commands wait for tomorrow morning (after any morning post).
+  const [pending, setPending] = useState<{ commands: Command[]; done: string } | null>(null);
+  useEffect(() => {
+    if (!pending || game?.phase !== "planning") return;
+    pending.commands.forEach(send);
+    if (pending.done) notify(pending.done);
+    setPending(null);
+  }, [pending, game?.phase, send, notify]);
 
   const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
     setPlanTab("menu");
@@ -251,6 +259,7 @@ export function App() {
             result={game.history.at(-1) ?? app.lastResult}
             onNext={nextDay}
             onGoTo={(tab) => { setPlanTab(tab); nextDay(); }}
+            onAct={(commands, tab, done) => { if (commands.length) setPending({ commands, done }); setPlanTab(tab); nextDay(); }}
             nextLabel={game.phase === "event" ? "Read the morning post →" : "Next day →"}
             send={send}
             meta={meta}

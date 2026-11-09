@@ -47,6 +47,9 @@ export const {
   shiftCost,
 } = sim;
 
+// ── round 6: the evening's one tip ──
+export const { eveningAdvice, adviceTextOf, fillAdvice } = sim;
+
 // ── round 2 ──
 export const {
   suggestedOrder,

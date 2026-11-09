@@ -1,4 +1,4 @@
-import { rotaAdvice, type DayResult, type GameState, type Review } from "@full-plate/sim-core";
+import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
 import { content, OWNER_FATIGUE_WARNING, TABLE_COST } from "../sim";
 import { FatigueNote } from "../components/FatigueNote";
@@ -20,6 +20,7 @@ import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
 import { compactMeals } from "../components/StatusBar";
 import { inSeason } from "@full-plate/sim-stars";
 import { Term } from "../components/Term";
+import { AdviceCard } from "../components/AdviceCard";
 
 interface Props {
   game: GameState;
@@ -28,6 +29,8 @@ interface Props {
   onNext: () => void;
   /** Go to tomorrow's planning on a given tab (Hire → Staff, Buy a table → Restaurant). */
   onGoTo?: (tab: PlanningTab) => void;
+  /** [round 6] The tip's one-tap action: end the evening, apply `commands` tomorrow morning, open `tab`. */
+  onAct?: (commands: Command[], tab: PlanningTab, done: string) => void;
   nextLabel: string;
   send: (cmd: Command) => void;
   /** Round 3: path layers (Empire sweep, Stars news) and the hands-on score. */
@@ -159,37 +162,13 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   );
 }
 
-const ROLE_WORD: Record<string, string> = { chef: "chef", server: "waiter", bar: "bartender", porter: "porter", manager: "manager" };
-
 /** "Friday, Saturday and Sunday" */
 export function dayList(days: readonly number[]): string {
   const n = days.map((d) => WEEKDAY_NAMES[d]!);
   return n.length <= 1 ? (n[0] ?? "") : `${n.slice(0, -1).join(", ")} and ${n.at(-1)}`;
 }
 
-/**
- * Round 5 review: a losing fortnight with doubled-up shifts says so (sim-core rotaAdvice). A typical owner who never
- * trimmed the rota went bust on hard every time; nothing in the game had said where the money went.
- */
-export function RotaTip({ game, onGoTo }: { game: GameState; onGoTo?: ((tab: PlanningTab) => void) | undefined }) {
-  const a = rotaAdvice(game);
-  if (!a) return null;
-  const role = ROLE_WORD[a.role] ?? a.role;
-  return (
-    <div className="card tip tip--amber" aria-label="Rota tip">
-      <span className="tip__icon" aria-hidden="true">📅</span>
-      <div className="spacer">
-        <b>Two weeks of losing money (about <MoneyText pence={-a.dailyLoss} whole /> a day).</b>
-        <div className="small">
-          {a.name} works {dayList(a.doubledDays)}, when another {role} is already on. Those shifts cost <MoneyText pence={a.weeklyCost} whole /> a week. Take them off the rota until things pick up?
-        </div>
-      </div>
-      {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>Change the rota →</button>}
-    </div>
-  );
-}
-
-export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, sendEmpire, shiftSummary }: Props) {
+export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, meta, sendEmpire, shiftSummary }: Props) {
   if (!result) {
     return (
       <div className="page">
@@ -223,6 +202,8 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, s
           <span className="spacer" />
           <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>{nextLabel}</button>
         </div>
+        {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
+        {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
 
         <div className="stack">
           {game.phase !== "gameover" && <Restock game={game} send={send} inspection={!!meta?.stars && !meta.stars.ending && inSeason(meta.stars, game.day + 1)} stars={meta?.stars?.guides.michelin.stars ?? 0} />}
@@ -242,7 +223,6 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, s
             </div>
           )}
           {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && game.phase !== "gameover" && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={onGoTo ? () => onGoTo("staff") : undefined} />}
-          {game.phase !== "gameover" && meta?.mode !== "career" && <RotaTip game={game} onGoTo={onGoTo} />}
           {moreTables && (
             <div className="card tip">
               <span className="tip__icon" aria-hidden="true">🪑</span>

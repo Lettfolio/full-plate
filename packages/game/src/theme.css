@@ -395,6 +395,16 @@ button, input { font: inherit; color: inherit; }
 .evening { display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: start; }
 .evening__head { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; }
 .evening__head h1 { flex: 1; }
+/* Round 6: the evening's one tip, first thing under the heading, both columns. Text ≥ 13 px (type audit). */
+.evening__tip { grid-column: 1 / -1; }
+.advice { align-items: flex-start; border-width: 2px; }
+.advice__k { font-size: var(--fs-micro); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.advice__title { display: block; font-size: var(--fs-base); margin-top: 2px; }
+.advice__body { font-size: var(--fs-sm); margin-top: 2px; }
+.advice__why { margin-top: 6px; padding: 2px 0; border: 0; background: none; font: inherit; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); text-decoration: underline; cursor: pointer; }
+.advice__why:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
+.advice__reason { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: 4px; max-width: 70ch; }
+.advice__act { align-self: center; white-space: normal; max-width: 260px; text-align: center; }
 .pnl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .pnl td { padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .pnl td:last-child { text-align: right; font-weight: 700; }

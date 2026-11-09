@@ -20,6 +20,8 @@ export const GLOSSARY = {
   margin: { term: "margin", plain: "Profit per plate", explain: "what you keep from each plate after paying for the food in it." },
   eightySix: { term: "86", plain: "Take off today's menu", explain: "kitchen slang: to 86 a dish means to stop selling it (usually because it ran out)." },
   takings: { term: "takings", plain: "Money in", explain: "everything guests paid today, before any costs." },
+  rota: { term: "rota", plain: "Who works which days", explain: "the weekly timetable of who is on shift; every shift on it gets paid." },
+  spoilage: { term: "spoilage", plain: "Food that goes off", explain: "stock that passed its use-by day before anyone cooked it, so it goes in the bin." },
   tronc: { term: "tronc", plain: "Shared tips", explain: "tips pooled and shared fairly between the team (the law says the owner can't keep them)." },
   // the menu matrix
   mmStar: { term: "Star", plain: "Star dish", explain: "popular and makes good money: keep it just as it is." },
