@@ -1,0 +1,264 @@
+/*
+ * Round 8 (maps): the Empire world map, the city map, the Stars map and the map key.
+ * Imported by WorldMap.tsx (Empire and Stars chunks). Map-only colours live here as variables; everything else uses
+ * the theme's tokens (--ink, --paper, --tomato/--amber/--plum for own/franchise/licence, --basil for "won").
+ * One label style (display font, caps, tracked) for regions; one body style (800 weight, paper halo) for places.
+ */
+.worldmap, .citymap, .starsmap, .legend {
+  --map-sea: #bcdbe9;
+  --map-sea-top: #cce4ef;
+  --map-shallow: rgba(255, 255, 255, 0.42);
+  --map-shelf: rgba(255, 255, 255, 0.2);
+  --map-land: #ece9d3;
+  --map-coast: #6f7f5e;
+  --map-forest: #d3dfbd;
+  --map-tree: #9fb985;
+  --map-desert: #f0dfb4;
+  --map-dune: #c8a964;
+  --map-peak: #ddd2b8;
+  --map-peak-shade: #c3b494;
+  --map-relief: #8a7c60;
+  --map-river: #86b9d4;
+  --map-grid: rgba(58, 115, 152, 0.18);
+  --map-route: #3d4b57;
+  --map-halo: #f2a63a;
+  --map-halo-won: #57a14d;
+  --map-label: #4d5a52;
+  --map-halo-text: rgba(255, 253, 248, 0.92);
+  --map-road: #e4dccb;
+  --map-stroke: 1.2px;
+}
+
+/* ───────── world map ───────── */
+.worldmap { display: flex; flex-direction: column; gap: 8px; }
+.worldmap__frame {
+  position: relative; overflow: hidden; aspect-ratio: 2 / 1; width: 100%;
+  border-radius: calc(var(--r) - 4px); background: var(--map-sea);
+  box-shadow: inset 0 0 0 1.5px rgba(58, 115, 152, 0.25);
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
+}
+.worldmap__frame--zoomed { touch-action: none; }
+.worldmap__frame:active { cursor: grabbing; }
+.worldmap__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.worldmap__grid path { fill: none; stroke: var(--map-grid); stroke-width: 1; stroke-dasharray: 2 5; }
+.worldmap__halo { mix-blend-mode: multiply; }
+.worldmap__shelf { fill: var(--map-shelf); stroke: var(--map-shelf); stroke-width: 34; stroke-linejoin: round; }
+.worldmap__shallows { fill: var(--map-shallow); stroke: var(--map-shallow); stroke-width: 14; stroke-linejoin: round; }
+.worldmap__land { fill: var(--map-land); stroke: var(--map-coast); stroke-width: var(--map-stroke); stroke-linejoin: round; }
+.worldmap__forest { fill: var(--map-forest); }
+.worldmap__desert { fill: var(--map-desert); }
+.worldmap__tree { fill: var(--map-tree); }
+.worldmap__dune, .worldmap__hill { fill: none; stroke: var(--map-dune); stroke-width: 1.2; stroke-linecap: round; }
+.worldmap__hill { stroke: var(--map-relief); opacity: 0.7; }
+.worldmap__peak path { fill: var(--map-peak); stroke: var(--map-relief); stroke-width: 1; stroke-linejoin: round; }
+.worldmap__peak .worldmap__peakshade { fill: var(--map-peak-shade); stroke: none; }
+.worldmap__river { fill: none; stroke: var(--map-river); stroke-width: 1.6; stroke-linecap: round; }
+.worldmap__scandal { fill: none; stroke: var(--tomato); stroke-width: 3; stroke-dasharray: 6 4; }
+.worldmap__route { fill: none; stroke: var(--map-route); stroke-width: 1.8; stroke-dasharray: 6 5; stroke-linecap: round; opacity: 0.75; animation: route-march 1.6s linear infinite; }
+.worldmap__route--commissary { stroke: var(--basil-deep); }
+@keyframes route-march { to { stroke-dashoffset: -22; } }
+.worldmap__compass circle { fill: var(--map-halo-text); stroke: var(--map-coast); stroke-width: 1; }
+.worldmap__compassneedle { fill: var(--map-peak-shade); }
+.worldmap__compassnorth { fill: var(--tomato); }
+
+/* region labels: the one map-label style */
+.worldmap__labels { position: absolute; inset: 0; pointer-events: none; }
+.worldmap__region { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; }
+.worldmap__regionname {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--map-label); text-shadow: 0 0 3px var(--map-halo-text), 0 0 6px var(--map-halo-text);
+}
+.worldmap__known {
+  font-size: var(--fs-micro); font-weight: 800; color: var(--amber-deep); background: var(--map-halo-text);
+  padding: 0 7px; border-radius: 999px; line-height: 1.5;
+}
+.worldmap__known--won { color: var(--basil-deep); }
+
+/* city pins: 44 px buttons, the mark centred on the city */
+.worldmap__pins { position: absolute; inset: 0; pointer-events: none; }
+.mappin {
+  position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; background: none;
+  display: grid; place-items: center; cursor: pointer; pointer-events: auto; color: var(--ink); font: inherit; border-radius: 50%;
+}
+.mappin:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: 0; }
+.mappin__mark { position: relative; display: grid; place-items: center; transition: transform 0.12s ease; }
+.mappin:hover .mappin__mark, .mappin:focus-visible .mappin__mark { transform: scale(1.1); }
+.mappin__dot { width: 14px; height: 14px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); box-shadow: 0 1px 2px rgba(43, 38, 34, 0.35); }
+.mappin--new .mappin__dot { width: 12px; height: 12px; background: var(--map-land); border: 2px solid var(--ink-soft); }
+.mappin--exited .mappin__dot { border-style: dashed; background: var(--map-land); }
+.mappin__donut { position: relative; display: grid; place-items: center; filter: drop-shadow(0 2px 2px rgba(43, 38, 34, 0.3)); }
+.mappin__donut svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mappin__disc { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
+.mappin__n { position: relative; font-size: var(--fs-micro); font-weight: 800; line-height: 1; color: var(--ink); }
+.mappin__hq {
+  position: absolute; top: -19px; left: 50%; transform: translateX(-50%); width: 22px; height: 16px; display: grid; place-items: center; z-index: 1;
+}
+.mappin__hq svg { width: 22px; height: 16px; fill: var(--star); stroke: var(--star-edge); stroke-width: 1.2; stroke-linejoin: round; }
+.mappin__hq--kitchen { font-size: var(--fs-micro); top: -16px; }
+.mappin__building { position: absolute; right: -4px; bottom: -2px; width: 11px; height: 11px; border-radius: 3px; background: repeating-linear-gradient(45deg, var(--amber) 0 3px, var(--ink) 3px 5px); border: 1.5px solid var(--paper); }
+.mappin--picked .mappin__mark::after {
+  content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2.5px solid var(--sky-deep); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7);
+}
+.mappin__label {
+  position: absolute; white-space: nowrap; font-size: var(--fs-xs); font-weight: 800; line-height: 1.1; color: var(--ink);
+  text-shadow: 0 0 2px var(--paper), 0 0 4px var(--paper), 0 0 6px var(--paper); pointer-events: auto;
+}
+.mappin--new .mappin__label, .mappin--exited .mappin__label { color: var(--ink-soft); font-weight: 700; }
+.mappin--r .mappin__label { left: calc(50% + 18px); top: 50%; transform: translateY(-50%); }
+.mappin--l .mappin__label { right: calc(50% + 18px); top: 50%; transform: translateY(-50%); }
+.mappin--b .mappin__label { top: calc(50% + 18px); left: 50%; transform: translateX(-50%); }
+.mappin--t .mappin__label { bottom: calc(50% + 18px); left: 50%; transform: translateX(-50%); }
+.mappin--has.mappin--b .mappin__label { top: calc(50% + 22px); }
+.mappin--has.mappin--t .mappin__label { bottom: calc(50% + 24px); }
+.mappin--has.mappin--r .mappin__label { left: calc(50% + 23px); }
+.mappin--has.mappin--l .mappin__label { right: calc(50% + 23px); }
+
+/* tooltip */
+.maptip {
+  position: absolute; z-index: 3; transform: translate(-50%, calc(-100% - 26px)); pointer-events: none;
+  min-width: 210px; max-width: 280px; padding: 8px 11px; border-radius: 10px; background: var(--paper);
+  border: 1.5px solid var(--ink); box-shadow: 0 6px 16px -6px rgba(43, 38, 34, 0.45); font-size: var(--fs-xs); line-height: 1.35;
+}
+.maptip--below { transform: translate(-50%, 28px); }
+.maptip__name { font-family: var(--font-display); font-weight: 600; font-size: 17px; }
+.maptip__where, .maptip__soft { color: var(--ink-soft); }
+.maptip__row { margin-top: 2px; }
+
+/* zoom buttons and minimap */
+.worldmap__zoom { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(43, 38, 34, 0.25); }
+.mapbtn {
+  width: var(--tap, 44px); height: var(--tap, 44px); border: 0; border-bottom: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  font: 800 22px/1 var(--font-body); display: grid; place-items: center; cursor: pointer;
+}
+.mapbtn:last-child { border-bottom: 0; }
+.mapbtn svg { width: 18px; height: 18px; }
+.mapbtn:hover:not(:disabled) { background: var(--cream); }
+.mapbtn:disabled { color: var(--ink-faint); background: var(--cream-deep); cursor: default; }
+.mapbtn:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: -3px; }
+.worldmap__mini {
+  position: absolute; right: 10px; bottom: 10px; width: 150px; height: 75px; border-radius: 8px; overflow: hidden;
+  border: 1.5px solid var(--paper); box-shadow: 0 2px 6px rgba(43, 38, 34, 0.3); cursor: pointer;
+}
+.worldmap__minisea { fill: var(--map-sea); }
+.worldmap__miniland { fill: var(--map-land); stroke: var(--map-coast); stroke-width: 3; }
+.worldmap__miniview { fill: rgba(255, 255, 255, 0.25); stroke: var(--tomato); stroke-width: 2; }
+
+/* ───────── map key ───────── */
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.legend__toggle {
+  min-height: var(--tap, 44px); padding: 0 12px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--paper);
+  font: 700 var(--fs-sm) var(--font-body); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.legend__toggle:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: 2px; }
+.legend__chev { display: inline-block; transition: transform 0.15s; }
+.legend--open .legend__chev { transform: rotate(90deg); }
+.legend__items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-xs); flex: 1 1 400px; }
+.legend__items[hidden] { display: none; }
+.legend__item { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; }
+.legend__swatch { display: inline-grid; place-items: center; width: 24px; }
+.legend__dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--ink); }
+.legend__dot--new { background: var(--map-land); border-color: var(--ink-soft); }
+.legend__dot--building { border-radius: 3px; background: repeating-linear-gradient(45deg, var(--amber) 0 3px, var(--ink) 3px 5px); }
+.legend__hq svg { width: 20px; height: 14px; fill: var(--star); stroke: var(--star-edge); stroke-width: 1.2; }
+.legend__route { width: 26px; height: 10px; }
+.legend__route path { stroke: var(--map-route); stroke-width: 2; stroke-dasharray: 5 4; }
+.legend__halo { display: inline-block; width: 22px; height: 16px; border-radius: 50%; background: radial-gradient(closest-side, rgba(242, 166, 58, 0.75), rgba(242, 166, 58, 0)); }
+.legend__star { color: var(--star); text-shadow: 0 1px 0 var(--star-edge); font-size: 16px; }
+
+/* ───────── city map (Empire) and the city board shared with the Stars map ───────── */
+.citymap { display: flex; flex-direction: column; gap: 10px; }
+.citymap__top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.citymap__title { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.citymap__title h3 { font-size: var(--fs-h3); }
+.citymap__where { font-size: var(--fs-xs); color: var(--ink-soft); }
+.citymap__chips { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.mapchip { font-size: var(--fs-xs); font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--cream-deep); color: var(--ink); }
+.mapchip--won { background: var(--basil-wash); color: var(--basil-deep); }
+.citymap__note { margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: var(--fs-sm); }
+
+.cityboard {
+  position: relative; display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: calc(var(--r) - 4px);
+  background: var(--map-road); box-shadow: inset 0 0 0 1.5px rgba(111, 127, 94, 0.35);
+}
+.cityboard--coast { padding-bottom: 34px; }
+.cityboard__row { display: flex; gap: 10px; }
+.cityboard__row > .district { flex: 1 1 0; min-width: 0; }
+.cityboard__sea { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: var(--map-sea); border-radius: 0 0 calc(var(--r) - 4px) calc(var(--r) - 4px); overflow: hidden; }
+.cityboard__sea svg { width: 100%; height: 14px; display: block; }
+.cityboard__sea path { fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 2; }
+
+.district {
+  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  padding: 10px 12px 12px; min-height: 150px; border-radius: 10px; background: var(--map-land); border: 1.5px solid rgba(111, 127, 94, 0.45);
+}
+.district--high_street { background: #f5e6d6; }
+.district--business_park { background: #e2e9ef; }
+.district--student_quarter { background: #ece3f0; }
+.district--seaside { background: #f4ebd0; min-height: 120px; }
+.district__blocks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.district__blocks rect { fill: rgba(43, 38, 34, 0.07); }
+.district__street { stroke: rgba(255, 255, 255, 0.7); stroke-width: 5; fill: none; }
+.district__surf { fill: rgba(188, 219, 233, 0.6); }
+.district > :not(.district__blocks) { position: relative; }
+.district__name { font-size: 17px; font-weight: 600; text-shadow: 0 0 4px var(--paper); }
+.district__hints { display: flex; gap: 6px; flex-wrap: wrap; }
+.district__hint { font-size: var(--fs-micro); font-weight: 700; color: var(--ink-soft); background: rgba(255, 253, 248, 0.88); padding: 1px 8px; border-radius: 999px; }
+.district__shops { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; max-width: 100%; }
+.district__more { font-size: var(--fs-micro); font-weight: 800; background: var(--paper); border-radius: 999px; padding: 0 6px; }
+.district__empty { margin: 0; font-size: var(--fs-xs); color: var(--ink-soft); background: rgba(255, 253, 248, 0.88); padding: 0 6px; border-radius: 6px; }
+.district .district__open { margin-top: auto; }
+.district .district__name { flex: none; }
+.district--free { border-style: dashed; }
+.shopicon { flex: none; filter: drop-shadow(0 1px 0 rgba(43, 38, 34, 0.25)); }
+.shopicon__body { fill: var(--paper); stroke: var(--ink); stroke-width: 1.3; stroke-linejoin: round; }
+.shopicon__awning { stroke: var(--ink); stroke-width: 1.3; stroke-linejoin: round; }
+.shopicon__stripe { stroke: rgba(255, 255, 255, 0.7); stroke-width: 1.4; }
+.shopicon__door { fill: none; stroke: var(--ink); stroke-width: 1.3; }
+.shopicon__star { fill: var(--star); stroke: var(--star-edge); stroke-width: 0.8; }
+.shopicon--building .shopicon__body, .shopicon--building .shopicon__awning { stroke-dasharray: 2 1.5; }
+.shopicon--building .shopicon__body { fill: var(--amber-wash); }
+
+/* ───────── Stars map ───────── */
+.starsmap__layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: start; }
+.starsmap__side { display: flex; flex-direction: column; gap: 10px; font-size: var(--fs-xs); }
+.starsmap__locator { width: 100%; height: auto; display: block; border-radius: 10px; background: var(--map-sea); }
+.starsmap__locator .worldmap__land { vector-effect: non-scaling-stroke; }
+.starsmap__home { fill: var(--tomato); stroke: var(--paper); stroke-width: 3; }
+.starsmap__fig { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.starsmap__cap { font-size: var(--fs-xs); font-weight: 800; }
+.starpins { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.starpin { display: flex; align-items: center; gap: 8px; padding: 5px 9px 5px 5px; border-radius: 999px; background: rgba(255, 253, 248, 0.94); border: 1.5px solid var(--line-strong); max-width: 100%; }
+.starpin__icon { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; background: var(--cream-deep); border: 1.5px solid var(--ink); }
+.starpin--flagship { border-color: var(--ink); box-shadow: 0 2px 0 var(--ink); }
+.starpin--flagship .starpin__icon { background: var(--plum-wash); }
+.starpin--rival .starpin__icon { background: var(--tomato-wash); }
+.starpin__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.starpin__name { font-weight: 800; font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.starpin__sub { font-size: var(--fs-micro); color: var(--ink-soft); }
+.starpin__stars { color: var(--star-empty); letter-spacing: 1px; font-size: 15px; }
+.starpin__stars .on { color: var(--star); text-shadow: 0 1px 0 var(--star-edge); }
+.district--season { box-shadow: inset 0 0 0 3px var(--plum); }
+.district__season { font-size: var(--fs-micro); font-weight: 800; color: #fff; background: var(--plum); padding: 1px 8px; border-radius: 999px; }
+.starsmap__rumours { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.starsmap__rumours li { background: var(--cream); border-radius: 8px; padding: 6px 8px; }
+
+.opensite__row--flash { outline: 3px solid var(--sky-deep); outline-offset: 2px; border-radius: 8px; transition: outline-color 1.4s ease; }
+
+/* theme.css sizes every svg in .empire__map to the card's width (the old one-svg map); put the map's own svgs back. */
+.empire__map .mappin__donut svg { width: 100%; height: 100%; }
+.empire__map .mappin__hq svg { width: 22px; height: 16px; display: inline; }
+.empire__map .legend__hq svg { width: 20px; height: 14px; display: inline; }
+.empire__map .mapbtn svg { width: 18px; height: 18px; }
+.empire__map .worldmap__mini { width: 150px; height: 75px; }
+.empire__map .legend__route { width: 26px; height: 10px; display: inline; }
+.empire__map .district__blocks { width: 100%; height: 100%; }
+.empire__map .cityboard__sea svg { height: 14px; }
+.empire__map .shopicon { width: 24px; height: 24px; display: inline-block; }
+
+@media (max-width: 1180px) {
+  .starsmap__layout { grid-template-columns: minmax(0, 1fr) 200px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .worldmap__route { animation: none; }
+  .mappin__mark, .legend__chev, .opensite__row--flash { transition: none; }
+}
