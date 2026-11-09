@@ -9,6 +9,8 @@ import { Bar } from "../../components/Bar";
 import { dateLabel, weekdayIndex } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
 import { Term } from "../../components/Term";
+import { forDevice, nightCoaching } from "../../lib/coaching";
+import { prefersTouch } from "../../lib/device";
 
 interface Props {
   game: GameState;
@@ -41,14 +43,15 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
         <div className="evening__head">
           <div>
             <div className="xs faint caps">Evening · {r ? `Day ${r.day + 1} · ${dateLabel(r.day)}` : "No shift"}</div>
-            <h1>{promoted ? `Promoted to ${promoted.title.toLowerCase()}!` : worked ? (r && r.averageRating >= 4.3 ? "Great shift!" : "Shift done.") : "A day off."}</h1>
+            {/* Round 7: with the score card up, its own headline is the shout; the page heading just says where you are. */}
+            <h1>{promoted ? `Promoted to ${promoted.title.toLowerCase()}!` : summary && worked ? `Evening at ${career.employer.restaurantName}` : worked ? (r && r.averageRating >= 4.3 ? "Great shift!" : "Shift done.") : "A day off."}</h1>
           </div>
           <span className="spacer" />
           <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>Next day →</button>
         </div>
 
+        {summary && worked && <ShiftScoreCard summary={summary} career={career} grew={grew} name={career.playerName.split(" ")[0] ?? ""} />}
         <div className="stack">
-          {summary && worked && <ShiftScoreCard summary={summary} career={career} grew={grew} name={career.playerName.split(" ")[0] ?? ""} />}
           {promoted && (
             <div className="card promo" role="status">
               <div className="promo__badge" aria-hidden="true">⬆</div>
@@ -69,9 +72,9 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
               </tbody>
             </table>
             {summary && (
-              <div className="shiftscore">
-                <div className="small muted">{summary.lines.map((l) => `${l.label} ${l.value}`).join(" · ")}</div>
-              </div>
+              <dl className="shiftscore shiftscore--list">
+                {summary.lines.map((l) => <div key={l.label}><dt>{l.label}</dt><dd>{l.value}</dd></div>)}
+              </dl>
             )}
             <div className="bars2" style={{ marginTop: 10 }}>
               <Bar label="Mood" value={career.mood} tone="auto" showValue size="sm" />
@@ -138,7 +141,8 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             <ul className="coworkers">
               {game.staff.filter((s) => s.id !== PLAYER_ID).slice(0, 6).map((s) => {
                 const rel = career.relationships.find((x) => x.staffId === s.id);
-                return <li key={s.id} className="coworker"><b className="spacer">{s.name}</b><span className="xs muted">{s.role}{rel?.tag ? ` · ${rel.tag}` : ""} · bond {Math.round(rel?.bond ?? 0)}</span></li>;
+                const bond = Math.round(rel?.bond ?? 0);
+                return <li key={s.id} className="coworker"><b className="spacer">{s.name}</b><span className="xs muted">{s.role}{rel?.tag ? ` · ${rel.tag}` : ""} · {bondWords(bond)}</span></li>;
               })}
             </ul>
           </div>
@@ -150,11 +154,17 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
 
 const HEADLINE = ["Shift done — keep practising!", "Good shift", "Great shift", "Superstar shift"] as const;
 
+/** Round 7: how well you get on, in words ("bond -1" read as jargon). */
+export function bondWords(bond: number): string {
+  return bond >= 20 ? "good friends" : bond >= 5 ? "getting on well" : bond > -5 ? "just met" : "not getting on";
+}
+
 /**
- * Round 4: the end-of-shift score card a 10-year-old reads first. Big stars, three one-line notes, and how this week
- * moved them toward the next rung (checklist ticks, shifts, tonight's skill gain).
+ * Round 4: the end-of-shift score card a 10-year-old reads first. Round 7: it spans the evening; the stars and "next
+ * shift, try this" are the hero — the coach's tip big, with one sentence from tonight's own numbers — then the three
+ * notes and the week's progress toward the next rung.
  */
-export function ShiftScoreCard({ summary, career, grew, name }: { summary: ShiftSummary; career: CareerState; grew?: Extract<CareerEvent, { type: "GREW" }> | undefined; name: string }) {
+export function ShiftScoreCard({ summary, career, grew, name, touch = prefersTouch() }: { summary: ShiftSummary; career: CareerState; grew?: Extract<CareerEvent, { type: "GREW" }> | undefined; name: string; touch?: boolean }) {
   const list = promotionChecklist(career);
   const ticked = list.items.filter((i) => i.met).length;
   const shifts = list.items.find((i) => i.key === "shiftsAtRung");
@@ -165,34 +175,42 @@ export function ShiftScoreCard({ summary, career, grew, name }: { summary: Shift
   const head = HEADLINE[summary.stars];
   return (
     <section className="card shiftcard" role="status" aria-label={`Shift score: ${summary.stars} of 3 stars`}>
-      <div className="shiftcard__stars" aria-hidden="true">
-        {[0, 1, 2].map((i) => <span key={i} className={`shiftcard__star${i < summary.stars ? " shiftcard__star--on" : ""}`}>★</span>)}
-      </div>
-      <h2>{summary.stars > 0 && name ? `${head}, ${name}!` : head}</h2>
-      <div className="shiftcard__sub">{summary.role === "server" ? `${summary.served} served` : `${summary.plates} plates`} · {summary.points} points</div>
-      {notes.length > 0 && (
-        <ul className="shiftcard__notes">
-          {notes.map((n, i) => (
-            <li key={i} className={`shiftcard__note shiftcard__note--${n.tone}`}>
-              <span className="shiftcard__badge" aria-hidden="true">{n.tone === "good" ? "✓" : "!"}</span>
-              <span>{n.text}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {list.nextTitle && (
-        <div className="shiftcard__week">
-          <b>On the way to {list.nextTitle.toLowerCase()}</b>
-          <Bar value={ticked} max={Math.max(1, list.items.length)} tone="basil" label={`${ticked} of ${list.items.length} ticked`} />
-          <div className="shiftcard__chips">
-            {grew && grew.gain > 0 && <span className="shiftcard__chip shiftcard__chip--grow">+{grew.gain.toFixed(1)} {stat} tonight{grew.handsOn > 0 ? " (playing helped!)" : ""}</span>}
-            {shifts && <span className="shiftcard__chip">Shifts {Math.min(shifts.current, shifts.target)}/{shifts.target}</span>}
-            <span className="shiftcard__chip">{reviewIn === 1 ? "Weekly review tomorrow" : `Weekly review in ${reviewIn} days`}</span>
-            {list.ready && <span className="shiftcard__chip shiftcard__chip--grow">Ready for promotion!</span>}
-          </div>
+      <div className="shiftcard__result">
+        <div className="shiftcard__stars" aria-hidden="true">
+          {[0, 1, 2].map((i) => <span key={i} className={`shiftcard__star${i < summary.stars ? " shiftcard__star--on" : ""}`}>★</span>)}
         </div>
-      )}
-      <p className="xs muted shiftcard__tip">Coach's tip: {summary.tip}</p>
+        <h2>{summary.stars > 0 && name ? `${head}, ${name}!` : head}</h2>
+        <div className="shiftcard__sub">{summary.role === "server" ? `${summary.served} served` : `${summary.plates} plates`} · {summary.points} points</div>
+        {notes.length > 0 && (
+          <ul className="shiftcard__notes">
+            {notes.map((n, i) => (
+              <li key={i} className={`shiftcard__note shiftcard__note--${n.tone}`}>
+                <span className="shiftcard__badge" aria-hidden="true">{n.tone === "good" ? "✓" : "!"}</span>
+                <span>{n.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="shiftcard__side">
+        <div className="shiftcard__next">
+          <h3 className="shiftcard__nexthead">Next shift, try this</h3>
+          <p className="shiftcard__nexttip">{forDevice(summary.tip, touch)}</p>
+          <p className="shiftcard__coach">{nightCoaching(summary)}</p>
+        </div>
+        {list.nextTitle && (
+          <div className="shiftcard__week">
+            <b>On the way to {list.nextTitle.toLowerCase()}</b>
+            <Bar value={ticked} max={Math.max(1, list.items.length)} tone="basil" label={`${ticked} of ${list.items.length} ticked`} />
+            <div className="shiftcard__chips">
+              {grew && grew.gain > 0 && <span className="shiftcard__chip shiftcard__chip--grow">+{grew.gain.toFixed(1)} {stat} tonight{grew.handsOn > 0 ? " (playing helped!)" : ""}</span>}
+              {shifts && <span className="shiftcard__chip">Shifts {Math.min(shifts.current, shifts.target)}/{shifts.target}</span>}
+              <span className="shiftcard__chip">{reviewIn === 1 ? "Weekly review tomorrow" : `Weekly review in ${reviewIn} days`}</span>
+              {list.ready && <span className="shiftcard__chip shiftcard__chip--grow">Ready for promotion!</span>}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

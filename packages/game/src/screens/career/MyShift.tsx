@@ -55,6 +55,12 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
   const promoWhy = !employed ? "You need a job first"
     : !list.ready ? (missing.length ? `Tick every box first — still to do: ${missing.join(", ")}` : list.note ?? "Not yet")
     : !canAskPromotion(career) ? "You asked this week — give the boss a few days" : "Ask the boss for the next rung";
+  const promoLine = !employed ? undefined
+    : !list.ready ? (missing.length ? `tick every box first (still to do: ${missing.join(", ")}).` : list.note ?? "not yet.")
+    : !canAskPromotion(career) ? "you asked this week, so give the boss a few days." : undefined;
+  const mentorWhy = !employed ? undefined
+    : !career.mentor ? "work alongside someone more skilled until you get on well, and they'll mentor you."
+    : !mentorSessionAvailable(career) ? "one hour a week, and you've had this week's." : undefined;
   const ownerMorning = meta.ownerMorning.filter((c) => c.type === "HIRE" || c.type === "FIRE" || c.type === "BUY_TABLE" || c.type === "TRAIN");
 
   return (
@@ -74,7 +80,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           ) : training ? (
             <p className="callout"><b>📚 Training course today.</b> The boss is paying for a day of learning instead of a shift.</p>
           ) : working ? (
-            <p className="callout callout--good"><b>You're on today.</b> {station ? <>Your station: <b>{station.label}</b> ({station.title.toLowerCase()}). Red-edged slips on the rail are yours, blue ones a helper's. A silver dome on a table means they're waiting for your course.</> : role ? `You'll be ${role === "chef" ? "on the pass" : role === "bar" ? "behind the bar" : "on the floor"}.` : "You'll run the floor and the office."}</p>
+            <p className="callout callout--good"><b>You're on today.</b> {station ? <>Your station: <b>{station.label}</b> ({station.title.toLowerCase()}). {career.shiftsWorked === 0 ? "Your first shift starts with a quick how-to." : "Red-edged slips are yours; a silver dome means a table is waiting for your course."}</> : role ? `You'll be ${role === "chef" ? "on the pass" : role === "bar" ? "behind the bar" : "on the floor"}.` : "You'll run the floor and the office."}</p>
           ) : (
             <p className="callout"><b>Day off.</b> The team runs the place without you today.</p>
           )}
@@ -117,10 +123,18 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           <button className="btn btn--sm" disabled={!employed || !raiseAvailable(career)} onClick={() => sendCareer({ type: "ASK_FOR_RAISE" })} title={raiseAvailable(career) ? undefined : "You asked recently — wait a few weeks"}>
             Ask for a raise{raiseAvailable(career) ? "" : " (wait)"}
           </button>
-          <button className="btn btn--sm" disabled={!employed || !career.mentor || !mentorSessionAvailable(career)} onClick={() => sendCareer({ type: "MENTOR_SESSION" })}>
+          <button className="btn btn--sm" disabled={!employed || !career.mentor || !mentorSessionAvailable(career)} title={mentorWhy} onClick={() => sendCareer({ type: "MENTOR_SESSION" })}>
             Hour with your mentor
           </button>
         </div>
+        {/* Round 7: a tablet never shows a title tooltip, so say why the buttons are grey in words. */}
+        {employed && (promoLine || mentorWhy) && (
+          <p className="myshift__why">
+            {promoLine ? <><b>Promotion:</b> {promoLine}</> : null}
+            {promoLine && mentorWhy ? " " : null}
+            {mentorWhy ? <><b>Mentor:</b> {mentorWhy}</> : null}
+          </p>
+        )}
       </section>
 
       <section className="card" aria-labelledby="promo-h">
