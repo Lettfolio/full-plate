@@ -15,6 +15,7 @@ import { RestaurantTab } from "./planning/RestaurantTab";
 import { stockNeeds } from "./planning/stockNeeds";
 import { weekdayIndex, WEEKDAYS } from "../lib/calendar";
 import { unplateable } from "../lib/plateable";
+import type { PathKind } from "../lib/library";
 
 export type PlanningTab = "menu" | "staff" | "stock" | "restaurant";
 type TabId = PlanningTab;
@@ -27,6 +28,8 @@ interface Props {
   onTab: (t: PlanningTab) => void;
   /** Goal ids completed today, for the flash. */
   goalsJustDone?: readonly string[];
+  /** The path chosen at the fork (unlocks that path's recipes). */
+  path?: PathKind | undefined;
 }
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }
@@ -36,7 +39,7 @@ function openHireGoalRole(game: GameState): StaffRole | undefined {
   return (game.goals ?? []).find((g) => !g.done && g.kind === "hire_role")?.role;
 }
 
-export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }: Props) {
+export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], path }: Props) {
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
@@ -113,7 +116,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [] }:
           </aside>
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-          {tab === "menu" && <MenuTab game={game} send={send} />}
+          {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
           {tab === "staff" && <StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} />}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}

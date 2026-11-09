@@ -7,8 +7,20 @@ import { Stepper } from "../../components/Stepper";
 import { marginFraction, plateCost } from "../../lib/content";
 import { pct } from "../../lib/format";
 import { MenuMatrix, QUADRANT } from "./MenuMatrix";
+import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
 
-interface Props { game: GameState; send: (cmd: Command) => void }
+interface Props {
+  game: GameState;
+  send: (cmd: Command) => void;
+  /** The path chosen at the fork: unlocks the fast-food (Empire) or fine-dining (Stars) recipes. */
+  path?: PathKind | undefined;
+}
+
+const SECTION_TITLE: Record<LibrarySection, string> = {
+  library: "Recipe book",
+  fast_food: "🍔 The formula kitchen (Empire)",
+  fine_dining: "⭐ Fine dining (Stars)",
+};
 
 export const COURSE_ICON: Record<DishCourse, string> = { starter: "🥗", main: "🍽️", dessert: "🍰", drink: "🥤", side: "🍟" };
 const COURSE_ORDER: DishCourse[] = ["starter", "main", "side", "dessert", "drink"];
@@ -19,7 +31,7 @@ function marginTone(f: number): string {
   return f >= 0.68 ? "margin--good" : f >= 0.55 ? "margin--ok" : "margin--bad";
 }
 
-export function MenuTab({ game, send }: Props) {
+export function MenuTab({ game, send, path }: Props) {
   const [hover, setHover] = useState<DishId | null>(null);
   const quadrants = useMemo(() => classifyMenu(content, game), [game]);
   const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), []);
@@ -31,7 +43,10 @@ export function MenuTab({ game, send }: Props) {
   const items = [...game.menu].sort(byCourse);
   const active = items.filter((m) => m.active);
   const onMenu = new Set(game.menu.map((m) => m.dishId));
-  const library = content.dishes.filter((d) => !onMenu.has(d.id)).sort((a, b) => COURSE_ORDER.indexOf(a.course) - COURSE_ORDER.indexOf(b.course));
+  const library = recipeBook(content, path).filter((d) => !onMenu.has(d.id)).sort((a, b) => COURSE_ORDER.indexOf(a.course) - COURSE_ORDER.indexOf(b.course));
+  const sections = (["fast_food", "fine_dining", "library"] as LibrarySection[])
+    .map((id) => ({ id, dishes: library.filter((d) => sectionOf(d.id) === id) }))
+    .filter((x) => x.dishes.length > 0);
 
   return (
     <div className="stack">
@@ -102,16 +117,16 @@ export function MenuTab({ game, send }: Props) {
         </div>
       </div>
 
-      <section className="library">
-        <div className="row" style={{ marginBottom: 10 }}>
-          <h3 className="spacer">Recipe book</h3>
-          <span className="small muted">Prices start at the suggested price — tweak them after adding.</span>
-        </div>
-        {library.length === 0 ? (
-          <div className="empty">Every recipe is already on your menu.</div>
-        ) : (
+      {library.length === 0 ? (
+        <section className="library"><h3>Recipe book</h3><div className="empty">Every recipe is already on your menu.</div></section>
+      ) : sections.map((sec) => (
+        <section className="library" key={sec.id} aria-label={SECTION_TITLE[sec.id]}>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <h3 className="spacer">{SECTION_TITLE[sec.id]}</h3>
+            <span className="small muted">{sec.id === "library" ? "Prices start at the suggested price — tweak them after adding." : sec.id === "fast_food" ? "Quick, cheap, made for volume." : "Ambitious, seasonal, hard to cook well."}</span>
+          </div>
           <div className="library__grid">
-            {library.map((d) => {
+            {sec.dishes.map((d) => {
               const cost = plateCost(content, d.id);
               const f = marginFraction(d.suggestedPrice, cost);
               return (
@@ -132,8 +147,8 @@ export function MenuTab({ game, send }: Props) {
               );
             })}
           </div>
-        )}
-      </section>
+        </section>
+      ))}
     </div>
   );
 }
