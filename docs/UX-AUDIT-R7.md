@@ -95,3 +95,7 @@ per-week snapshot).
 | P3 | Planning | Inline glossary words (`<Term inline>`) are 17 px tall targets (inline text: exempt, noted). |
 
 **Counts:** 4 P1, 10 P2, 6 P3.
+
+**After (round 7 B, see UI-NOTES "Round 7 — B"):** all 4 P1 and the 10 P2 fixed in this surface, plus the EventModal
+and goals-sidebar P3s. Open: toast anchoring and the shell's 34/32 px buttons (agent C), inline glossary targets
+(exempt), "last Monday" retry (no weekly save exists). Shots `shots/r7/b/after/`.
