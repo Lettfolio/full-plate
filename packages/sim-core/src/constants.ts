@@ -397,6 +397,7 @@ export const MENU_POPULARITY_RULE = 0.7;
  *   waiting to pay this many ticks (the human's PLAYER_TOOK_PAYMENT is immediate). Waiting to pay costs no satisfaction.
  * - speedBonusSatisfaction: PLAYER_SERVED speedBonus 1 on every plate of a party adds this much satisfaction in total.
  * - maxDropCost: PLAYER_DROPPED cost cap (pence) — a drop is a soft failure.
+ * - claimTimeoutTicks: a PLAYER_CLAIMED ticket stays the human's this long before an AI cook may take it.
  */
 export const HANDS_ON = {
   passHoldTicks: 4,
@@ -405,6 +406,11 @@ export const HANDS_ON = {
   reserveFallbackTicks: 4,
   speedBonusSatisfaction: 8,
   maxDropCost: 5_000,
+  /**
+   * Round 3 review: a ticket the human has picked up (PLAYER_CLAIMED) is theirs for this many ticks; then, if it is
+   * still not plated, an AI cook takes it (the child wandered off). A hands-on cook takes 6–10 s ≈ 4–7 ticks.
+   */
+  claimTimeoutTicks: 16,
 } as const;
 /** Key used for the human in DayResult.perChef and KitchenTicket.chefId when SET_HANDS_ON gave no staffId. */
 export const PLAYER_COOK_ID = "player";

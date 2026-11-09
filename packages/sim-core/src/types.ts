@@ -315,6 +315,8 @@ export interface KitchenTicket {
   atPass?: boolean;
   /** [round 3, sim-core] Service tick the plate was plated (set while it is held at the pass). */
   platedAtTick?: number;
+  /** [round 3 review] Service tick the hands-on human picked this ticket up (PLAYER_CLAIMED); chefId is the human's. */
+  claimedAtTick?: number;
 }
 
 export interface Review {
@@ -658,6 +660,8 @@ export type Command =
   | { type: "PLAYER_CLEARED"; tableId: TableId }
   | { type: "PLAYER_TOOK_PAYMENT"; customerId: CustomerId }
   | { type: "PLAYER_DROPPED"; ticketIds: string[]; cost: Pence }
+  /** [round 3 review] The hands-on human picked a ticket up: the AI leaves it alone until HANDS_ON.claimTimeoutTicks. */
+  | { type: "PLAYER_CLAIMED"; ticketId: string }
   | { type: "SET_HANDS_ON"; role: StaffRole | null; staffId?: StaffId } // planning or service; null = human left
   // round 3 — paths and career
   | { type: "CLOSE_TODAY" }                              // planning → evening with a closed DayResult

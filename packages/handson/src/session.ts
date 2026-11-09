@@ -372,6 +372,7 @@ function finishAction(s: HandsOnSession, state: GameState, results: HandsOnResul
       if (!t || !a.ticketId) { say(s, "That ticket's gone"); return; }
       s.claimed[a.ticketId] = true;
       s.carrying = { kind: "raw", ticketId: a.ticketId, dishId: t.dishId };
+      results.push({ type: "TICKET_CLAIMED", ticketId: a.ticketId });
       return;
     }
     case "chop": {

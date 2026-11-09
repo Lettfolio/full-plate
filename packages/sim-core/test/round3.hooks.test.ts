@@ -627,3 +627,48 @@ describe("HIRE_STAFF (round 3 review)", () => {
     rejected(inService(ready(5)), { type: "HIRE_STAFF", staff: known() });
   });
 });
+
+describe("career hands-on chef (round 3 review)", () => {
+  /** A second chef on the rota whose Staff record is the human's (the career player). */
+  function careerChef() {
+    const s0 = withOrder();
+    const ai = s0.staff.find((x) => x.role === "chef")!;
+    const me = { ...ai, id: "player", name: "Mia", skill: 22 };
+    const c = customer("c1", { stage: "ordered", tableId: "T1", order: Array(6).fill("burger"), spend: 6 * 1450, stageTick: 8 });
+    const s = { ...s0, staff: [...s0.staff, me], customers: [c], tickets: [1, 2, 3, 4, 5, 6].map((n) => ticket(`k${n}`, "c1", { createdTick: 10, ticksRemaining: 20 })) };
+    return { s: apply(s, { type: "SET_HANDS_ON", role: "chef", staffId: "player" }).state, ai };
+  }
+
+  it("the human's own Staff record is not an AI cook: no ticket is ever assigned to them by the kitchen", () => {
+    let { s } = careerChef();
+    for (let i = 0; i < 3; i++) s = tickOnce(s);
+    expect(s.tickets.some((t) => t.chefId === "player")).toBe(false);
+    expect(s.tickets.slice(0, 3).every((t) => !t.chefId)).toBe(true); // reserved for the human
+  });
+
+  it("PLAYER_CLAIMED keeps a ticket the human picked up until claimTimeoutTicks, then an AI cook takes it", () => {
+    let { s } = careerChef();
+    s = apply(s, { type: "PLAYER_CLAIMED", ticketId: "k1" }).state;
+    expect(s.tickets[0]).toMatchObject({ chefId: "player", claimedAtTick: s.tick });
+    for (let i = 0; i < HANDS_ON.reserveFallbackTicks + 2; i++) s = tickOnce(s);
+    expect(s.tickets.find((t) => t.id === "k1")!.chefId).toBe("player"); // still theirs past the reserve fallback
+    const r = apply(s, { type: "PLAYER_COOKED", ticketId: "k1", quality: 80 });
+    expect(r.state.service!.chefs!.player).toEqual({ plates: 1, qualitySum: 80 });
+    // a claim the child walks away from goes back to the AI
+    s = apply(s, { type: "PLAYER_CLAIMED", ticketId: "k2" }).state;
+    for (let i = 0; i < HANDS_ON.claimTimeoutTicks + 1; i++) s = tickOnce(s);
+    const k2 = s.tickets.find((t) => t.id === "k2");
+    expect(!k2 || (k2.chefId !== "player" && k2.claimedAtTick === undefined)).toBe(true);
+  });
+
+  it("PLAYER_CLAIMED is rejected without hands-on, for a gone or cooked ticket; released when hands-on stops", () => {
+    const { s } = careerChef();
+    rejected({ ...s, handsOn: undefined }, { type: "PLAYER_CLAIMED", ticketId: "k1" });
+    rejected(s, { type: "PLAYER_CLAIMED", ticketId: "nope" });
+    rejected({ ...s, tickets: s.tickets.map((t) => (t.id === "k1" ? { ...t, ticksRemaining: 0 } : t)) }, { type: "PLAYER_CLAIMED", ticketId: "k1" });
+    let t = apply(s, { type: "PLAYER_CLAIMED", ticketId: "k1" }).state;
+    t = apply(t, { type: "SET_HANDS_ON", role: null }).state;
+    t = tickOnce(t);
+    expect(t.tickets.find((x) => x.id === "k1")!.chefId).not.toBe("player");
+  });
+});

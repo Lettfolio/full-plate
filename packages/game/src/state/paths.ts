@@ -89,6 +89,7 @@ export function handsOnCommands(results: readonly HandsOnResult[]): Command[] {
       case "PLATE_COOKED": out.push(asCommand({ type: "PLAYER_COOKED", ticketId: r.ticketId, quality: Math.round(r.quality) })); break;
       case "TABLE_SERVED": out.push(asCommand({ type: "PLAYER_SERVED", customerId: r.customerId, ticketId: r.ticketId, speedBonus: r.speedBonus })); break;
       case "TABLE_CLEARED": out.push(asCommand({ type: "PLAYER_CLEARED", tableId: r.tableId })); break;
+      case "TICKET_CLAIMED": out.push({ type: "PLAYER_CLAIMED", ticketId: r.ticketId }); break;
       case "PAYMENT_TAKEN": out.push(asCommand({ type: "PLAYER_TOOK_PAYMENT", customerId: r.customerId })); break;
       case "DROPPED": out.push(asCommand({ type: "PLAYER_DROPPED", ticketIds: [...(r.ticketIds ?? [])], cost: Math.round(r.cost) })); break;
     }

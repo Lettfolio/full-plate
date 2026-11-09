@@ -206,6 +206,8 @@ export type HandsOnResult =
     }
   | { type: "TABLE_SERVED"; customerId: CustomerId; ticketId: string; speedBonus: number }
   | { type: "TABLE_CLEARED"; tableId: TableId }
+  /** The player picked a ticket up (fridge grab, or started a pour): the sim should stop an AI cook taking it. */
+  | { type: "TICKET_CLAIMED"; ticketId: string }
   | { type: "PAYMENT_TAKEN"; customerId: CustomerId }
   | { type: "DROPPED"; cost: Pence; item: Item["kind"]; ticketIds?: string[] };
 

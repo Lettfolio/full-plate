@@ -57,9 +57,21 @@ export function cooksOnShift(content: ContentPack, state: GameState): Cook[] {
   const hit = cookCache.get(state.staff);
   const ownerFatigue = state.ownerFatigue ?? 0;
   const profile = state.ownerProfile;
-  if (hit && hit.day === state.day && hit.content === content && hit.ownerFatigue === ownerFatigue && hit.profile === profile) return hit.cooks;
-  const cooks = buildCooks(content, state);
-  cookCache.set(state.staff, { content, day: state.day, ownerFatigue, profile, cooks });
+  let cooks: Cook[];
+  if (hit && hit.day === state.day && hit.content === content && hit.ownerFatigue === ownerFatigue && hit.profile === profile) cooks = hit.cooks;
+  else {
+    cooks = buildCooks(content, state);
+    cookCache.set(state.staff, { content, day: state.day, ownerFatigue, profile, cooks });
+  }
+  // Round 3 review: a career player playing their own shift hands-on is the human, not an AI cook. Without this the
+  // kitchen assigned tickets to the player's Staff record and cooked them at the player's sim stats, so the hands-on
+  // chef never saw a ticket it could start (0 plates on every career shift). When the human was the only chef, the
+  // owner covers what the human's reservation leaves (handled by buildCooks seeing no other chef).
+  const human = state.handsOn?.staffId;
+  if (human && (state.handsOn?.role === "chef" || state.handsOn?.role === "bar")) {
+    const rest = cooks.filter((k) => k.id !== human);
+    if (rest.length !== cooks.length) return rest.some((k) => !k.drinksOnly) || state.handsOn?.role === "bar" ? rest : buildCooks(content, { ...state, staff: state.staff.filter((x) => x.id !== human) });
+  }
   return cooks;
 }
 
@@ -133,7 +145,7 @@ export function assignTickets(
   for (const t of tickets) if (t.chefId && !t.atPass && present.has(t.chefId)) load.set(t.chefId, (load.get(t.chefId) ?? 0) + 1);
   const ordered = [...cooks].sort((a, b) => Number(b.drinksOnly) - Number(a.drinksOnly));
   return mapIfChanged(tickets, (t) => {
-    if (t.atPass || t.chefId === PLAYER_COOK_ID) return t;
+    if (t.atPass || t.chefId === PLAYER_COOK_ID || t.claimedAtTick !== undefined) return t;
     const orphan = t.chefId !== undefined && !present.has(t.chefId);
     if (t.chefId && !orphan) return t;
     if (!orphan && reserved?.has(t.id)) return t; // left on the rail for the hands-on human
@@ -203,6 +215,20 @@ export function reservedForHuman(content: ContentPack, state: GameState): Readon
   return out;
 }
 
+/**
+ * Human-claimed tickets (PLAYER_CLAIMED) go back on the rail when the claim is older than HANDS_ON.claimTimeoutTicks
+ * or nobody is hands-on any more, so a child who wanders off (or leaves) never strands an order.
+ */
+export function releaseStaleClaims(state: GameState): readonly KitchenTicket[] {
+  return mapIfChanged(state.tickets, (t) => {
+    if (t.claimedAtTick === undefined || t.atPass) return t;
+    const live = !!state.handsOn && state.tick - t.claimedAtTick < HANDS_ON.claimTimeoutTicks;
+    if (live) return t;
+    const { chefId: _c, claimedAtTick: _k, ...rest } = t;
+    return rest as KitchenTicket;
+  });
+}
+
 /** Books one plated plate into the tally (dish plated/quality, per-cook, freshness). Remakes swap quality only. */
 export function tallyPlate(tally: ServiceTally, dishes: ServiceTally["dishes"], t: KitchenTicket, cookId: string, quality: number): ServiceTally {
   const d = dishes[t.dishId] ?? { sold: 0, plated: 0, qualitySum: 0, margin: 0 };
@@ -259,7 +285,7 @@ export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng):
   const cooks = cooksOnShift(content, state);
   const byId = new Map(cooks.map((k) => [k.id, k]));
   const handsOn = state.handsOn;
-  const assigned = assignTickets(content, state.tickets, cooks, handsOn ? reservedForHuman(content, state) : undefined);
+  const assigned = assignTickets(content, releaseStaleClaims(state), cooks, handsOn ? reservedForHuman(content, state) : undefined);
   let tally = tallyOf(state);
   const { steps, carry } = kitchenSteps(state, tally);
   const events: SimEvent[] = [];

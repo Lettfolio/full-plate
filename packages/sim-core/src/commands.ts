@@ -394,12 +394,29 @@ const playerDropped: Handler<"PLAYER_DROPPED"> = (content, state, cmd) => {
   const tickets = state.tickets.map((t): KitchenTicket => {
     if (!ids.has(t.id)) return t;
     if (t.atPass) tally = untallyPlate(tally, t);
-    const { atPass: _a, platedAtTick: _p, chefId: _c, ...rest } = t;
+    const { atPass: _a, platedAtTick: _p, chefId: _c, claimedAtTick: _k, ...rest } = t;
     return { ...rest, quality: 0, ticksRemaining: findDish(content, t.dishId)?.prepTicks ?? Math.max(1, t.ticksRemaining) };
   });
   // The cost is real money now (a re-cook, breakage): cash, today's food cost and the plate-waste line.
   tally = { ...tally, plateWaste: tally.plateWaste + cost, foodCost: (tally.foodCost ?? 0) + cost };
   return ok({ ...state, cash: state.cash - cost, tickets, service: tally }, cost ? `Dropped! That cost £${(cost / 100).toFixed(2)}.` : undefined, "money");
+};
+
+/**
+ * PLAYER_CLAIMED: the human picked a ticket up (grabbed it from the fridge or started pouring). The kitchen leaves it to
+ * them — even one an AI cook had been given but the human took first — until HANDS_ON.claimTimeoutTicks pass.
+ */
+const playerClaimed: Handler<"PLAYER_CLAIMED"> = (_c, state, cmd) => {
+  const bad = requirePhase(state, SERVICE, "pick that up");
+  if (bad) return bad;
+  if (!state.handsOn) return reject(state, "Nobody is hands-on.");
+  const t = state.tickets.find((x) => x.id === cmd.ticketId);
+  if (!t) return reject(state, "That ticket has already gone.");
+  if (t.atPass || t.ticksRemaining <= 0) return reject(state, "That plate is already cooked.");
+  const human = humanCookId(state);
+  if (t.chefId === human) return ok(state);
+  const tickets = state.tickets.map((x) => (x === t ? { ...x, chefId: human, claimedAtTick: state.tick } : x));
+  return ok({ ...state, tickets });
 };
 
 const setHandsOn: Handler<"SET_HANDS_ON"> = (_c, state, cmd) => {
@@ -457,6 +474,7 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
   REMOVE_MENU_ITEM: removeMenuItem,
   HIRE: hire,
   HIRE_STAFF: hireStaff,
+  PLAYER_CLAIMED: playerClaimed,
   FIRE: fire,
   SET_ROTA: setRota,
   ORDER_STOCK: orderStock,
