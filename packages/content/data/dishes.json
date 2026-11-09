@@ -2666,5 +2666,1837 @@
     },
     "suggestedPrice": 950,
     "blurb": "Shaken hard until it's frothy on top. (Grown-ups only.)"
+  },
+  {
+    "id": "ff_classic_stacker",
+    "name": "Classic Stacker",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "beef_patty",
+        "qty": 1
+      },
+      {
+        "id": "soft_buns",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 1
+      },
+      {
+        "id": "pickles",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      },
+      {
+        "id": "shredded_lettuce",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 68,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.85,
+      "business": 0.45,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 349,
+    "blurb": "One patty, one slice, one squirt of secret sauce. Exactly the same in every town."
+  },
+  {
+    "id": "ff_double_stacker",
+    "name": "Double Stacker",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "beef_patty",
+        "qty": 2
+      },
+      {
+        "id": "soft_buns",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 2
+      },
+      {
+        "id": "pickles",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      },
+      {
+        "id": "onions",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 20,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.95,
+      "families": 0.75,
+      "business": 0.4,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 599,
+    "blurb": "Twice the patty, twice the cheese, twice the napkins."
+  },
+  {
+    "id": "ff_crispy_chicken_bun",
+    "name": "Crispy Chicken Bun",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chicken_fillet_crumbed",
+        "qty": 1
+      },
+      {
+        "id": "soft_buns",
+        "qty": 1
+      },
+      {
+        "id": "shredded_lettuce",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 20,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.85,
+      "business": 0.5,
+      "foodies": 0.1,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 349,
+    "blurb": "Crunchy on the outside, juicy in the middle, gone in a minute."
+  },
+  {
+    "id": "ff_veggie_stacker",
+    "name": "Garden Stacker",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "veggie_patty",
+        "qty": 1
+      },
+      {
+        "id": "soft_buns",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 1
+      },
+      {
+        "id": "shredded_lettuce",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      },
+      {
+        "id": "pickles",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.7,
+      "business": 0.45,
+      "foodies": 0.15,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 349,
+    "blurb": "A spiced veggie patty for the no-meat crowd. Nobody misses out."
+  },
+  {
+    "id": "ff_fish_bun",
+    "name": "Fish Fillet Bun",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "fish_fillet_crumbed",
+        "qty": 1
+      },
+      {
+        "id": "soft_buns",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 0.5
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 20,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.7,
+      "families": 0.75,
+      "business": 0.45,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 349,
+    "blurb": "Crumbed white fish, a half slice of cheese and a dab of tangy sauce."
+  },
+  {
+    "id": "ff_nugget_box",
+    "name": "Nugget Box (6)",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chicken_nuggets",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 2
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 62,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.95,
+      "business": 0.3,
+      "foodies": 0.05,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 349,
+    "blurb": "Six golden nuggets and two dips. Arguments about which dip is best are free."
+  },
+  {
+    "id": "ff_chicken_wrap",
+    "name": "Crispy Chicken Wrap",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chicken_fillet_crumbed",
+        "qty": 1
+      },
+      {
+        "id": "tortilla_wraps",
+        "qty": 1
+      },
+      {
+        "id": "shredded_lettuce",
+        "qty": 1
+      },
+      {
+        "id": "tomatoes",
+        "qty": 0.3
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 20,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.7,
+      "business": 0.6,
+      "foodies": 0.1,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 399,
+    "blurb": "Rolled up tight so it survives the walk back to the office."
+  },
+  {
+    "id": "ff_veggie_wrap",
+    "name": "Garden Wrap",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "veggie_patty",
+        "qty": 1
+      },
+      {
+        "id": "tortilla_wraps",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 1
+      },
+      {
+        "id": "shredded_lettuce",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 2,
+    "skillRequired": 15,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.75,
+      "families": 0.6,
+      "business": 0.55,
+      "foodies": 0.15,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 349,
+    "blurb": "The veggie patty, wrapped up with crunchy lettuce and sauce."
+  },
+  {
+    "id": "ff_egg_muffin",
+    "name": "Sunrise Egg Muffin",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "english_muffins",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.75,
+      "business": 0.6,
+      "foodies": 0.1,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 199,
+    "blurb": "A round egg on a toasted muffin. Breakfast, sorted, before the bus comes."
+  },
+  {
+    "id": "ff_sausage_muffin",
+    "name": "Sausage & Egg Muffin",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "english_muffins",
+        "qty": 1
+      },
+      {
+        "id": "pork_sausage_patty",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.75,
+      "business": 0.6,
+      "foodies": 0.1,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 299,
+    "blurb": "The early-bird favourite. Tastes better if you're still a bit sleepy."
+  },
+  {
+    "id": "ff_bacon_muffin",
+    "name": "Bacon Breakfast Muffin",
+    "course": "main",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "english_muffins",
+        "qty": 1
+      },
+      {
+        "id": "bacon",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "burger_sauce",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.7,
+      "business": 0.6,
+      "foodies": 0.1,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 299,
+    "blurb": "Crispy bacon, a soft egg and a squiggle of sauce."
+  },
+  {
+    "id": "ff_kids_nugget_meal",
+    "name": "Little Nugget Meal",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "chicken_nuggets",
+        "qty": 0.67
+      },
+      {
+        "id": "frozen_fries",
+        "qty": 0.6
+      },
+      {
+        "id": "apple_slices",
+        "qty": 1
+      },
+      {
+        "id": "toy_surprise",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 64,
+    "baseAppeal": {
+      "students": 0.3,
+      "families": 1.0,
+      "business": 0.05,
+      "foodies": 0.05,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 399,
+    "blurb": "Four nuggets, small fries, apple slices and a little toy. The box is the best bit."
+  },
+  {
+    "id": "ff_kids_burger_meal",
+    "name": "Little Stacker Meal",
+    "course": "main",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "beef_patty",
+        "qty": 1
+      },
+      {
+        "id": "soft_buns",
+        "qty": 1
+      },
+      {
+        "id": "frozen_fries",
+        "qty": 0.6
+      },
+      {
+        "id": "apple_slices",
+        "qty": 1
+      },
+      {
+        "id": "toy_surprise",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 64,
+    "baseAppeal": {
+      "students": 0.3,
+      "families": 0.95,
+      "business": 0.05,
+      "foodies": 0.05,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 449,
+    "blurb": "A mini burger, small fries, apple slices and a toy surprise."
+  },
+  {
+    "id": "ff_fries_regular",
+    "name": "Skinny Fries",
+    "course": "side",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "frozen_fries",
+        "qty": 1
+      },
+      {
+        "id": "oil",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.85,
+      "business": 0.45,
+      "foodies": 0.1,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 99,
+    "blurb": "Hot, salty and gone before you sit down."
+  },
+  {
+    "id": "ff_fries_large",
+    "name": "Big Fries",
+    "course": "side",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "frozen_fries",
+        "qty": 1.6
+      },
+      {
+        "id": "oil",
+        "qty": 0.7
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.9,
+      "families": 0.75,
+      "business": 0.35,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 199,
+    "blurb": "For sharing. Or not sharing. We won't tell."
+  },
+  {
+    "id": "ff_cheesy_fries",
+    "name": "Cheesy Fries",
+    "course": "side",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "frozen_fries",
+        "qty": 1
+      },
+      {
+        "id": "oil",
+        "qty": 0.5
+      },
+      {
+        "id": "cheese_slices",
+        "qty": 2
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 65,
+    "baseAppeal": {
+      "students": 0.95,
+      "families": 0.75,
+      "business": 0.3,
+      "foodies": 0.1,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 199,
+    "blurb": "Fries under a melty blanket of cheese."
+  },
+  {
+    "id": "ff_hash_brown",
+    "name": "Hash Brown",
+    "course": "side",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "hash_browns",
+        "qty": 1
+      },
+      {
+        "id": "oil",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 64,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.75,
+      "business": 0.55,
+      "foodies": 0.1,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 99,
+    "blurb": "A golden potato rectangle. Crunch level: excellent."
+  },
+  {
+    "id": "ff_soft_serve",
+    "name": "Swirl Cone",
+    "course": "dessert",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "soft_serve_mix",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 0.2
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.75,
+      "families": 0.95,
+      "business": 0.2,
+      "foodies": 0.1,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 99,
+    "blurb": "A tall swirl in a crunchy cone. Eat fast on hot days."
+  },
+  {
+    "id": "ff_choc_cookie",
+    "name": "Gooey Chocolate Cookie",
+    "course": "dessert",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "flour",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "chocolate",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 15,
+    "qualityCeiling": 70,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.85,
+      "business": 0.4,
+      "foodies": 0.15,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 349,
+    "blurb": "Warm from the oven with chocolate puddles in the middle."
+  },
+  {
+    "id": "ff_vanilla_shake",
+    "name": "Vanilla Thick Shake",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "shake_mix",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.9,
+      "business": 0.2,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 199,
+    "blurb": "So thick the straw stands up on its own."
+  },
+  {
+    "id": "ff_chocolate_shake",
+    "name": "Chocolate Thick Shake",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "shake_mix",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      },
+      {
+        "id": "chocolate",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.9,
+      "business": 0.2,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 349,
+    "blurb": "Chocolatey, cold and very hard to share."
+  },
+  {
+    "id": "ff_strawberry_shake",
+    "name": "Strawberry Thick Shake",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "shake_mix",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 66,
+    "baseAppeal": {
+      "students": 0.8,
+      "families": 0.9,
+      "business": 0.2,
+      "foodies": 0.1,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 199,
+    "blurb": "Pink, sweet and brain-freeze cold."
+  },
+  {
+    "id": "ff_fountain_drink",
+    "name": "Fizzy Fountain Drink",
+    "course": "drink",
+    "cuisine": "american",
+    "ingredients": [
+      {
+        "id": "fountain_syrup",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 55,
+    "baseAppeal": {
+      "students": 0.85,
+      "families": 0.8,
+      "business": 0.5,
+      "foodies": 0.05,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 99,
+    "blurb": "Pick a flavour and press the button. Refills not included."
+  },
+  {
+    "id": "ff_counter_coffee",
+    "name": "Counter Coffee",
+    "course": "drink",
+    "cuisine": "cafe",
+    "ingredients": [
+      {
+        "id": "coffee_beans",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 10,
+    "qualityCeiling": 62,
+    "baseAppeal": {
+      "students": 0.6,
+      "families": 0.45,
+      "business": 0.8,
+      "foodies": 0.1,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 149,
+    "blurb": "Hot, quick and in a cup with a lid. Business people love it."
+  },
+  {
+    "id": "fd_amuse_gougeres",
+    "name": "Warm cheese gougères",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "flour",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "aged_cheese",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 65,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.25,
+      "business": 0.7,
+      "foodies": 0.9,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 695,
+    "blurb": "Tiny, puffy cheese clouds that vanish in one bite."
+  },
+  {
+    "id": "fd_amuse_quail_egg",
+    "name": "Quail egg, truffle & toast soldier",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "quail_eggs",
+        "qty": 1
+      },
+      {
+        "id": "black_truffle",
+        "qty": 0.25
+      },
+      {
+        "id": "sourdough",
+        "qty": 0.5
+      },
+      {
+        "id": "butter",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 75,
+    "qualityCeiling": 94,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.7,
+      "foodies": 0.95,
+      "tourists": 0.45
+    },
+    "suggestedPrice": 745,
+    "blurb": "A dippy egg the size of a marble, with a wisp of winter truffle."
+  },
+  {
+    "id": "fd_amuse_pea_shot",
+    "name": "Chilled pea & mint shot",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "peas",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 0.5
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      },
+      {
+        "id": "micro_herbs",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 65,
+    "qualityCeiling": 89,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.3,
+      "business": 0.65,
+      "foodies": 0.85,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 195,
+    "blurb": "Bright green, very cold and gone in one sip."
+  },
+  {
+    "id": "fd_wye_asparagus",
+    "name": "Wye Valley asparagus, morels & wild garlic",
+    "course": "starter",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "wye_asparagus",
+        "qty": 1
+      },
+      {
+        "id": "morels",
+        "qty": 0.5
+      },
+      {
+        "id": "wild_garlic",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 72,
+    "qualityCeiling": 95,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 1495,
+    "blurb": "Six spears picked yesterday. Spring on a plate, for about six weeks a year."
+  },
+  {
+    "id": "fd_scallop_blood_orange",
+    "name": "Hand-dived scallop, blood orange & hazelnut",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "scallops",
+        "qty": 1
+      },
+      {
+        "id": "blood_oranges",
+        "qty": 1
+      },
+      {
+        "id": "hazelnuts",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 75,
+    "qualityCeiling": 95,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 1595,
+    "blurb": "One perfect scallop, sweet and nutty, with a sharp little burst of orange."
+  },
+  {
+    "id": "fd_langoustine_girolles",
+    "name": "Scottish langoustine, brown butter & girolles",
+    "course": "starter",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "langoustines",
+        "qty": 1
+      },
+      {
+        "id": "girolles",
+        "qty": 0.5
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "micro_herbs",
+        "qty": 0.3
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 78,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 2695,
+    "blurb": "Sweet langoustine tails with golden mushrooms and nutty butter."
+  },
+  {
+    "id": "fd_heritage_beetroot",
+    "name": "Heritage beetroot, aged cheese & hazelnut",
+    "course": "starter",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "root_veg",
+        "qty": 2
+      },
+      {
+        "id": "aged_cheese",
+        "qty": 0.5
+      },
+      {
+        "id": "hazelnuts",
+        "qty": 1
+      },
+      {
+        "id": "micro_herbs",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 65,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.25,
+      "business": 0.65,
+      "foodies": 0.85,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 595,
+    "blurb": "Beetroots in every colour of a sunset, roasted, pickled and raw."
+  },
+  {
+    "id": "fd_turbot_mussels",
+    "name": "Roast turbot, mussels & sea herbs",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "turbot",
+        "qty": 1
+      },
+      {
+        "id": "mussels",
+        "qty": 0.5
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "herbs",
+        "qty": 0.5
+      },
+      {
+        "id": "fine_stock",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 82,
+    "qualityCeiling": 97,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.8,
+      "foodies": 0.95,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 3295,
+    "blurb": "The king of flat fish, roasted on the bone and basted until glossy."
+  },
+  {
+    "id": "fd_lobster_peas",
+    "name": "Native lobster, garden peas & lemon butter",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "lobster",
+        "qty": 1
+      },
+      {
+        "id": "peas",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "lemons",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 80,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.8,
+      "foodies": 0.95,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 3595,
+    "blurb": "Half a lobster, butter-poached, with peas that pop."
+  },
+  {
+    "id": "fd_langoustine_raviolo",
+    "name": "Langoustine raviolo, shellfish bisque",
+    "course": "main",
+    "cuisine": "italian",
+    "ingredients": [
+      {
+        "id": "langoustines",
+        "qty": 1
+      },
+      {
+        "id": "pasta",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 0.5
+      },
+      {
+        "id": "fine_stock",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 6,
+    "skillRequired": 85,
+    "qualityCeiling": 97,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 2395,
+    "blurb": "One big silky parcel in a sauce that took all afternoon."
+  },
+  {
+    "id": "fd_cod_truffle",
+    "name": "Salt-baked cod, truffle & leek",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "cod",
+        "qty": 1
+      },
+      {
+        "id": "black_truffle",
+        "qty": 0.3
+      },
+      {
+        "id": "leeks",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "fine_stock",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 76,
+    "qualityCeiling": 95,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.8,
+      "foodies": 0.9,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1695,
+    "blurb": "Pearly white cod under a snowfall of winter truffle."
+  },
+  {
+    "id": "fd_venison_chocolate",
+    "name": "Wild venison, beetroot & bitter chocolate",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "venison_loin",
+        "qty": 1
+      },
+      {
+        "id": "root_veg",
+        "qty": 1
+      },
+      {
+        "id": "fine_chocolate",
+        "qty": 0.3
+      },
+      {
+        "id": "fine_stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 80,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 2795,
+    "blurb": "Deep, dark and wintry. The chocolate is a secret; don't tell."
+  },
+  {
+    "id": "fd_beef_truffle",
+    "name": "Aged beef fillet, truffle & potato terrine",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "beef_fillet",
+        "qty": 1
+      },
+      {
+        "id": "black_truffle",
+        "qty": 0.5
+      },
+      {
+        "id": "potatoes",
+        "qty": 3
+      },
+      {
+        "id": "butter",
+        "qty": 2
+      },
+      {
+        "id": "fine_stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 6,
+    "skillRequired": 85,
+    "qualityCeiling": 97,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.25,
+      "business": 0.85,
+      "foodies": 0.9,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 4095,
+    "blurb": "A hundred thin layers of potato, a perfect pink fillet and black truffle."
+  },
+  {
+    "id": "fd_beef_girolles",
+    "name": "Aged beef fillet, girolles & bone marrow sauce",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "beef_fillet",
+        "qty": 1
+      },
+      {
+        "id": "girolles",
+        "qty": 0.5
+      },
+      {
+        "id": "potatoes",
+        "qty": 2
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "fine_stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 80,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.25,
+      "business": 0.85,
+      "foodies": 0.9,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 3445,
+    "blurb": "A perfect pink fillet with golden late-summer mushrooms."
+  },
+  {
+    "id": "fd_lamb_wild_garlic",
+    "name": "Spring lamb, wild garlic & morels",
+    "course": "main",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "lamb",
+        "qty": 1
+      },
+      {
+        "id": "wild_garlic",
+        "qty": 1
+      },
+      {
+        "id": "morels",
+        "qty": 0.5
+      },
+      {
+        "id": "fine_stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 75,
+    "qualityCeiling": 95,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.25,
+      "business": 0.75,
+      "foodies": 0.9,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 2095,
+    "blurb": "Lamb with a green wild-garlic crust, from the first warm weeks of the year."
+  },
+  {
+    "id": "fd_duck_rhubarb",
+    "name": "Aged duck, forced rhubarb & turnip",
+    "course": "main",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "duck_breast",
+        "qty": 1
+      },
+      {
+        "id": "forced_rhubarb",
+        "qty": 1
+      },
+      {
+        "id": "root_veg",
+        "qty": 1
+      },
+      {
+        "id": "fine_stock",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 78,
+    "qualityCeiling": 96,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 1695,
+    "blurb": "Rhubarb grown in the dark, pink as a flamingo, cuts through the rich duck."
+  },
+  {
+    "id": "fd_pre_passion_yuzu",
+    "name": "Passion fruit & yuzu sorbet",
+    "course": "dessert",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "passion_fruit",
+        "qty": 1
+      },
+      {
+        "id": "yuzu",
+        "qty": 0.5
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 65,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.15,
+      "families": 0.35,
+      "business": 0.65,
+      "foodies": 0.85,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 395,
+    "blurb": "A tiny, zingy scoop to wake up your taste buds before pudding."
+  },
+  {
+    "id": "fd_pre_rhubarb_custard",
+    "name": "Forced rhubarb & vanilla custard",
+    "course": "dessert",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "forced_rhubarb",
+        "qty": 1
+      },
+      {
+        "id": "vanilla_pods",
+        "qty": 0.25
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      },
+      {
+        "id": "eggs",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 68,
+    "qualityCeiling": 92,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.35,
+      "business": 0.65,
+      "foodies": 0.85,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 495,
+    "blurb": "Rhubarb and custard, like the sweets, but grown up and very pink."
+  },
+  {
+    "id": "fd_chocolate_delice",
+    "name": "Single-origin chocolate, hazelnut & sea salt",
+    "course": "dessert",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "fine_chocolate",
+        "qty": 1
+      },
+      {
+        "id": "hazelnuts",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 1
+      },
+      {
+        "id": "sugar",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 75,
+    "qualityCeiling": 95,
+    "baseAppeal": {
+      "students": 0.15,
+      "families": 0.3,
+      "business": 0.7,
+      "foodies": 0.95,
+      "tourists": 0.55
+    },
+    "suggestedPrice": 895,
+    "blurb": "Chocolate from a single farm, as smooth as a pebble from the beach."
+  },
+  {
+    "id": "fd_vanilla_souffle",
+    "name": "Vanilla soufflé, blood orange",
+    "course": "dessert",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "vanilla_pods",
+        "qty": 0.5
+      },
+      {
+        "id": "eggs",
+        "qty": 2
+      },
+      {
+        "id": "sugar",
+        "qty": 1
+      },
+      {
+        "id": "milk",
+        "qty": 1
+      },
+      {
+        "id": "blood_oranges",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 5,
+    "skillRequired": 85,
+    "qualityCeiling": 97,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.3,
+      "business": 0.7,
+      "foodies": 0.95,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 695,
+    "blurb": "It rises, it wobbles, it must be eaten now. Everybody hold your breath."
+  },
+  {
+    "id": "fd_strawberry_tart",
+    "name": "Garden strawberries, vanilla & tiny tart",
+    "course": "dessert",
+    "cuisine": "british",
+    "ingredients": [
+      {
+        "id": "strawberries",
+        "qty": 1
+      },
+      {
+        "id": "vanilla_pods",
+        "qty": 0.25
+      },
+      {
+        "id": "flour",
+        "qty": 1
+      },
+      {
+        "id": "butter",
+        "qty": 1
+      },
+      {
+        "id": "cream",
+        "qty": 0.5
+      }
+    ],
+    "prepTicks": 4,
+    "skillRequired": 70,
+    "qualityCeiling": 93,
+    "baseAppeal": {
+      "students": 0.15,
+      "families": 0.4,
+      "business": 0.65,
+      "foodies": 0.85,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 695,
+    "blurb": "Strawberries picked this morning on the thinnest, crispest pastry."
+  },
+  {
+    "id": "fd_cheese_trolley",
+    "name": "Mountain cheese trolley",
+    "course": "dessert",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "aged_cheese",
+        "qty": 2
+      },
+      {
+        "id": "sourdough",
+        "qty": 1
+      },
+      {
+        "id": "apples",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 3,
+    "skillRequired": 65,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.85,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1195,
+    "blurb": "Wheeled to the table with a little speech about each cheese."
+  },
+  {
+    "id": "fd_wine_sparkling",
+    "name": "Glass of Downs sparkling",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_albrenn_sparkling",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.25,
+      "business": 0.7,
+      "foodies": 0.8,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 1050,
+    "blurb": "Tiny bubbles from chalky hills, for celebrating. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_loire",
+    "name": "Glass of Loire white",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_loire_white",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.3,
+      "business": 0.7,
+      "foodies": 0.75,
+      "tourists": 0.6
+    },
+    "suggestedPrice": 880,
+    "blurb": "Crisp and zesty, best friends with fish. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_riesling",
+    "name": "Glass of Alsace Riesling",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_alsace_riesling",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.2,
+      "business": 0.6,
+      "foodies": 0.85,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 990,
+    "blurb": "Smells like apples and flowers; sings next to spicy things. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_white_burgundy",
+    "name": "Glass of white Burgundy",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_burgundy_white",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.9,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 1350,
+    "blurb": "Rich and buttery, made for lobster. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_rose",
+    "name": "Glass of Provence rosé",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_provence_rose",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.15,
+      "families": 0.35,
+      "business": 0.6,
+      "foodies": 0.6,
+      "tourists": 0.7
+    },
+    "suggestedPrice": 800,
+    "blurb": "Pale pink and sunny. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_rioja",
+    "name": "Glass of Rioja reserva",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_rioja_red",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.1,
+      "families": 0.3,
+      "business": 0.75,
+      "foodies": 0.75,
+      "tourists": 0.65
+    },
+    "suggestedPrice": 1010,
+    "blurb": "Warm and spicy, aged in oak barrels for years. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_red_burgundy",
+    "name": "Glass of red Burgundy",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_burgundy_red",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.75,
+      "foodies": 0.95,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 1510,
+    "blurb": "Light, silky and fussy to grow: the sommelier's favourite. (Grown-ups only.)"
+  },
+  {
+    "id": "fd_wine_sauternes",
+    "name": "Small glass of Sauternes",
+    "course": "drink",
+    "cuisine": "french",
+    "ingredients": [
+      {
+        "id": "wine_sauternes",
+        "qty": 1
+      }
+    ],
+    "prepTicks": 1,
+    "skillRequired": 30,
+    "qualityCeiling": 90,
+    "baseAppeal": {
+      "students": 0.05,
+      "families": 0.15,
+      "business": 0.6,
+      "foodies": 0.9,
+      "tourists": 0.5
+    },
+    "suggestedPrice": 1120,
+    "blurb": "Golden and honey-sweet, for pudding. (Grown-ups only.)"
   }
 ]

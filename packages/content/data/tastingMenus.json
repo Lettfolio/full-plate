@@ -1,0 +1,142 @@
+[
+  {
+    "id": "spring_garden",
+    "name": "Spring in the Garden",
+    "months": [
+      4,
+      5,
+      6
+    ],
+    "blurb": "Asparagus, wild garlic and morels: the six weeks every chef waits all year for.",
+    "courses": [
+      {
+        "course": "amuse",
+        "dishId": "fd_amuse_pea_shot"
+      },
+      {
+        "course": "starter",
+        "dishId": "fd_wye_asparagus"
+      },
+      {
+        "course": "fish",
+        "dishId": "fd_lobster_peas"
+      },
+      {
+        "course": "meat",
+        "dishId": "fd_lamb_wild_garlic"
+      },
+      {
+        "course": "pre_dessert",
+        "dishId": "fd_pre_passion_yuzu"
+      },
+      {
+        "course": "dessert",
+        "dishId": "fd_chocolate_delice"
+      }
+    ],
+    "winePairing": [
+      "fd_wine_sparkling",
+      "fd_wine_loire",
+      "fd_wine_white_burgundy",
+      "fd_wine_red_burgundy",
+      "fd_wine_sauternes"
+    ],
+    "pricePerHead": 7500,
+    "pairingPrice": 5500
+  },
+  {
+    "id": "summer_coast",
+    "name": "Summer by the Sea",
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "blurb": "Langoustines from the cold north, turbot on the bone and strawberries picked this morning.",
+    "courses": [
+      {
+        "course": "amuse",
+        "dishId": "fd_amuse_gougeres"
+      },
+      {
+        "course": "starter",
+        "dishId": "fd_langoustine_girolles"
+      },
+      {
+        "course": "fish",
+        "dishId": "fd_turbot_mussels"
+      },
+      {
+        "course": "meat",
+        "dishId": "fd_beef_girolles"
+      },
+      {
+        "course": "pre_dessert",
+        "dishId": "fd_pre_passion_yuzu"
+      },
+      {
+        "course": "dessert",
+        "dishId": "fd_strawberry_tart"
+      }
+    ],
+    "winePairing": [
+      "fd_wine_rose",
+      "fd_wine_riesling",
+      "fd_wine_white_burgundy",
+      "fd_wine_rioja",
+      "fd_wine_sauternes"
+    ],
+    "pricePerHead": 9500,
+    "pairingPrice": 4500
+  },
+  {
+    "id": "winter_woods",
+    "name": "Deep Winter",
+    "months": [
+      12,
+      1,
+      2
+    ],
+    "blurb": "Truffle, venison, forced rhubarb and chocolate: big flavours for dark evenings.",
+    "courses": [
+      {
+        "course": "amuse",
+        "dishId": "fd_amuse_quail_egg"
+      },
+      {
+        "course": "starter",
+        "dishId": "fd_scallop_blood_orange"
+      },
+      {
+        "course": "fish",
+        "dishId": "fd_cod_truffle"
+      },
+      {
+        "course": "meat",
+        "dishId": "fd_venison_chocolate"
+      },
+      {
+        "course": "pre_dessert",
+        "dishId": "fd_pre_rhubarb_custard"
+      },
+      {
+        "course": "dessert",
+        "dishId": "fd_chocolate_delice"
+      },
+      {
+        "course": "cheese",
+        "dishId": "fd_cheese_trolley"
+      }
+    ],
+    "winePairing": [
+      "fd_wine_sparkling",
+      "fd_wine_riesling",
+      "fd_wine_red_burgundy",
+      "fd_wine_rioja",
+      "fd_wine_sauternes"
+    ],
+    "pricePerHead": 8000,
+    "pairingPrice": 5000
+  }
+]

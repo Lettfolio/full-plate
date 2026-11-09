@@ -1,0 +1,63 @@
+[
+  {
+    "id": "classic_counter",
+    "name": "The Classic Counter",
+    "blurb": "Burgers, fries and shakes, the same everywhere. Easy to train, easy to copy, easy to love.",
+    "menuDishIds": [
+      "ff_classic_stacker",
+      "ff_double_stacker",
+      "ff_crispy_chicken_bun",
+      "ff_nugget_box",
+      "ff_fries_regular",
+      "ff_vanilla_shake",
+      "ff_fountain_drink",
+      "ff_kids_nugget_meal"
+    ],
+    "priceIndex": 1.0,
+    "fresh": false,
+    "driveThruFriendly": true,
+    "pitch": "Eight items, one fryer, one grill. A new crew can learn it in a week."
+  },
+  {
+    "id": "sunrise_all_day",
+    "name": "Sunrise All Day",
+    "blurb": "Breakfast muffins from the moment you open, wraps at lunch, swirl cones after school.",
+    "menuDishIds": [
+      "ff_egg_muffin",
+      "ff_sausage_muffin",
+      "ff_bacon_muffin",
+      "ff_hash_brown",
+      "ff_chicken_wrap",
+      "ff_counter_coffee",
+      "ff_soft_serve",
+      "ff_strawberry_shake"
+    ],
+    "priceIndex": 0.95,
+    "fresh": false,
+    "driveThruFriendly": true,
+    "pitch": "Busy mornings pay the rent. Commuters, school runs and office lunches."
+  },
+  {
+    "id": "garden_and_chicken",
+    "name": "Garden & Chicken",
+    "blurb": "No beef, no pork: chicken, fish and veggie buns that travel to any city on the map.",
+    "menuDishIds": [
+      "ff_crispy_chicken_bun",
+      "ff_veggie_stacker",
+      "ff_fish_bun",
+      "ff_veggie_wrap",
+      "ff_fries_regular",
+      "ff_cheesy_fries",
+      "ff_chocolate_shake",
+      "ff_choc_cookie"
+    ],
+    "priceIndex": 1.05,
+    "fresh": false,
+    "driveThruFriendly": true,
+    "pitch": "Fewer recipes to change when you cross a border. Cities with no-beef or no-pork rules welcome it as it is.",
+    "dietarySafe": [
+      "no-beef",
+      "no-pork"
+    ]
+  }
+]

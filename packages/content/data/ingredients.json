@@ -472,5 +472,366 @@
     "name": "Spirit measure (25ml)",
     "unitCost": 80,
     "shelfLifeDays": 365
+  },
+  {
+    "id": "frozen_fries",
+    "name": "Frozen skinny fries",
+    "unitCost": 22,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "beef_patty",
+    "name": "Frozen beef patty",
+    "unitCost": 70,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "chicken_fillet_crumbed",
+    "name": "Crumbed chicken fillet (frozen)",
+    "unitCost": 85,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "chicken_nuggets",
+    "name": "Chicken nuggets, bag of six (frozen)",
+    "unitCost": 90,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "veggie_patty",
+    "name": "Spiced veggie patty (frozen)",
+    "unitCost": 65,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "fish_fillet_crumbed",
+    "name": "Crumbed white fish fillet (frozen)",
+    "unitCost": 80,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "pork_sausage_patty",
+    "name": "Pork sausage patty (frozen)",
+    "unitCost": 35,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "soft_buns",
+    "name": "Long-life sesame buns",
+    "unitCost": 15,
+    "shelfLifeDays": 21
+  },
+  {
+    "id": "english_muffins",
+    "name": "Breakfast muffins",
+    "unitCost": 14,
+    "shelfLifeDays": 30
+  },
+  {
+    "id": "tortilla_wraps",
+    "name": "Flour tortilla wraps",
+    "unitCost": 15,
+    "shelfLifeDays": 90
+  },
+  {
+    "id": "cheese_slices",
+    "name": "Melty cheese slices",
+    "unitCost": 10,
+    "shelfLifeDays": 120
+  },
+  {
+    "id": "hash_browns",
+    "name": "Hash browns (frozen)",
+    "unitCost": 12,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "burger_sauce",
+    "name": "Secret burger sauce",
+    "unitCost": 4,
+    "shelfLifeDays": 120
+  },
+  {
+    "id": "pickles",
+    "name": "Sliced pickles",
+    "unitCost": 3,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "shredded_lettuce",
+    "name": "Shredded lettuce",
+    "unitCost": 5,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "shake_mix",
+    "name": "Thick shake mix",
+    "unitCost": 35,
+    "shelfLifeDays": 120
+  },
+  {
+    "id": "soft_serve_mix",
+    "name": "Soft-serve mix",
+    "unitCost": 20,
+    "shelfLifeDays": 60
+  },
+  {
+    "id": "fountain_syrup",
+    "name": "Fizzy drink syrup",
+    "unitCost": 8,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "apple_slices",
+    "name": "Bagged apple slices",
+    "unitCost": 15,
+    "shelfLifeDays": 10
+  },
+  {
+    "id": "toy_surprise",
+    "name": "Little toy surprise (not food!)",
+    "unitCost": 25,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "turbot",
+    "name": "Line-caught turbot",
+    "unitCost": 900,
+    "shelfLifeDays": 2,
+    "seasonality": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  {
+    "id": "venison_loin",
+    "name": "Wild venison loin",
+    "unitCost": 750,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      10,
+      11,
+      12,
+      1,
+      2
+    ]
+  },
+  {
+    "id": "black_truffle",
+    "name": "Winter black truffle (a few shavings)",
+    "unitCost": 600,
+    "shelfLifeDays": 7,
+    "seasonality": [
+      12,
+      1,
+      2
+    ]
+  },
+  {
+    "id": "wye_asparagus",
+    "name": "Wye Valley asparagus",
+    "unitCost": 220,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      4,
+      5,
+      6
+    ]
+  },
+  {
+    "id": "langoustines",
+    "name": "Scottish langoustines",
+    "unitCost": 650,
+    "shelfLifeDays": 1,
+    "seasonality": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  {
+    "id": "beef_fillet",
+    "name": "Dry-aged beef fillet",
+    "unitCost": 850,
+    "shelfLifeDays": 4
+  },
+  {
+    "id": "lobster",
+    "name": "Native lobster",
+    "unitCost": 1100,
+    "shelfLifeDays": 1,
+    "seasonality": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ]
+  },
+  {
+    "id": "morels",
+    "name": "Morel mushrooms",
+    "unitCost": 350,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      3,
+      4,
+      5
+    ]
+  },
+  {
+    "id": "wild_garlic",
+    "name": "Wild garlic",
+    "unitCost": 30,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      3,
+      4,
+      5
+    ]
+  },
+  {
+    "id": "girolles",
+    "name": "Girolle mushrooms",
+    "unitCost": 250,
+    "shelfLifeDays": 3,
+    "seasonality": [
+      7,
+      8,
+      9,
+      10
+    ]
+  },
+  {
+    "id": "forced_rhubarb",
+    "name": "Forced rhubarb",
+    "unitCost": 60,
+    "shelfLifeDays": 5,
+    "seasonality": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": "blood_oranges",
+    "name": "Blood oranges",
+    "unitCost": 40,
+    "shelfLifeDays": 14,
+    "seasonality": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": "passion_fruit",
+    "name": "Passion fruit",
+    "unitCost": 50,
+    "shelfLifeDays": 7
+  },
+  {
+    "id": "yuzu",
+    "name": "Yuzu",
+    "unitCost": 80,
+    "shelfLifeDays": 14
+  },
+  {
+    "id": "vanilla_pods",
+    "name": "Vanilla pods",
+    "unitCost": 120,
+    "shelfLifeDays": 365
+  },
+  {
+    "id": "fine_chocolate",
+    "name": "Single-origin dark chocolate",
+    "unitCost": 150,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "aged_cheese",
+    "name": "Aged mountain cheese",
+    "unitCost": 150,
+    "shelfLifeDays": 60
+  },
+  {
+    "id": "hazelnuts",
+    "name": "Toasted hazelnuts",
+    "unitCost": 30,
+    "shelfLifeDays": 180
+  },
+  {
+    "id": "quail_eggs",
+    "name": "Quail eggs",
+    "unitCost": 40,
+    "shelfLifeDays": 14
+  },
+  {
+    "id": "fine_stock",
+    "name": "Roast bone stock, reduced for two days",
+    "unitCost": 80,
+    "shelfLifeDays": 7
+  },
+  {
+    "id": "micro_herbs",
+    "name": "Tiny garden herbs and flowers",
+    "unitCost": 50,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "wine_albrenn_sparkling",
+    "name": "Sparkling wine from the downs (glass)",
+    "unitCost": 300,
+    "shelfLifeDays": 3
+  },
+  {
+    "id": "wine_loire_white",
+    "name": "Loire Valley white (glass)",
+    "unitCost": 220,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "wine_alsace_riesling",
+    "name": "Alsace Riesling (glass)",
+    "unitCost": 260,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "wine_burgundy_white",
+    "name": "White Burgundy (glass)",
+    "unitCost": 450,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "wine_provence_rose",
+    "name": "Provence rosé (glass)",
+    "unitCost": 200,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "wine_rioja_red",
+    "name": "Rioja reserva (glass)",
+    "unitCost": 280,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "wine_burgundy_red",
+    "name": "Red Burgundy (glass)",
+    "unitCost": 520,
+    "shelfLifeDays": 5
+  },
+  {
+    "id": "wine_sauternes",
+    "name": "Sweet Sauternes (small glass)",
+    "unitCost": 350,
+    "shelfLifeDays": 7
   }
 ]

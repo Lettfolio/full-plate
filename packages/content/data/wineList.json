@@ -1,0 +1,74 @@
+[
+  {
+    "id": "bottle_sparkling",
+    "name": "Downs sparkling",
+    "region": "The Chalk Downs, Albrenn",
+    "glassDishId": "fd_wine_sparkling",
+    "bottleCost": 1500,
+    "bottlePrice": 5500,
+    "note": "Made the slow, careful way; tastes of green apples and toast."
+  },
+  {
+    "id": "bottle_loire",
+    "name": "Loire white",
+    "region": "Loire Valley",
+    "glassDishId": "fd_wine_loire",
+    "bottleCost": 1100,
+    "bottlePrice": 4000,
+    "note": "Crisp as a fresh apple, with a squeeze of lemon. Perfect with fish."
+  },
+  {
+    "id": "bottle_riesling",
+    "name": "Alsace Riesling",
+    "region": "Alsace",
+    "glassDishId": "fd_wine_riesling",
+    "bottleCost": 1300,
+    "bottlePrice": 4500,
+    "note": "Flowery and bright, with just enough sweetness to tame a spicy sauce."
+  },
+  {
+    "id": "bottle_white_burgundy",
+    "name": "White Burgundy",
+    "region": "Burgundy (Côte de Beaune)",
+    "glassDishId": "fd_wine_white_burgundy",
+    "bottleCost": 2250,
+    "bottlePrice": 7000,
+    "note": "Rich, nutty and buttery; lobster's best friend."
+  },
+  {
+    "id": "bottle_rose",
+    "name": "Provence rosé",
+    "region": "Provence",
+    "glassDishId": "fd_wine_rose",
+    "bottleCost": 1000,
+    "bottlePrice": 4000,
+    "note": "Pale pink and sunny, like a summer holiday in a glass."
+  },
+  {
+    "id": "bottle_rioja",
+    "name": "Rioja reserva",
+    "region": "Rioja",
+    "glassDishId": "fd_wine_rioja",
+    "bottleCost": 1400,
+    "bottlePrice": 5000,
+    "note": "Warm vanilla and red berries from years asleep in oak barrels."
+  },
+  {
+    "id": "bottle_red_burgundy",
+    "name": "Red Burgundy",
+    "region": "Burgundy (Côte de Nuits)",
+    "glassDishId": "fd_wine_red_burgundy",
+    "bottleCost": 2600,
+    "bottlePrice": 7000,
+    "note": "Light, silky and famously fussy to grow; sommeliers sigh over it."
+  },
+  {
+    "id": "bottle_sauternes",
+    "name": "Sauternes",
+    "region": "Sauternes, Bordeaux",
+    "glassDishId": "fd_wine_sauternes",
+    "bottleCost": 1750,
+    "bottlePrice": 5000,
+    "note": "Golden and honey-sweet; made from grapes that are allowed to go wrinkly."
+  }
+]

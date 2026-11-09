@@ -1,0 +1,282 @@
+{
+  "ff_classic_stacker": [
+    "fast_food",
+    "counter_service",
+    "burger"
+  ],
+  "ff_double_stacker": [
+    "fast_food",
+    "counter_service",
+    "burger"
+  ],
+  "ff_crispy_chicken_bun": [
+    "fast_food",
+    "counter_service",
+    "burger"
+  ],
+  "ff_veggie_stacker": [
+    "fast_food",
+    "counter_service",
+    "burger",
+    "vegetarian"
+  ],
+  "ff_fish_bun": [
+    "fast_food",
+    "counter_service",
+    "burger"
+  ],
+  "ff_nugget_box": [
+    "fast_food",
+    "counter_service"
+  ],
+  "ff_chicken_wrap": [
+    "fast_food",
+    "counter_service",
+    "wrap"
+  ],
+  "ff_veggie_wrap": [
+    "fast_food",
+    "counter_service",
+    "wrap",
+    "vegetarian"
+  ],
+  "ff_egg_muffin": [
+    "fast_food",
+    "counter_service",
+    "breakfast",
+    "vegetarian"
+  ],
+  "ff_sausage_muffin": [
+    "fast_food",
+    "counter_service",
+    "breakfast"
+  ],
+  "ff_bacon_muffin": [
+    "fast_food",
+    "counter_service",
+    "breakfast"
+  ],
+  "ff_kids_nugget_meal": [
+    "fast_food",
+    "counter_service",
+    "kids_meal"
+  ],
+  "ff_kids_burger_meal": [
+    "fast_food",
+    "counter_service",
+    "kids_meal",
+    "burger"
+  ],
+  "ff_fries_regular": [
+    "fast_food",
+    "counter_service",
+    "fries",
+    "vegetarian"
+  ],
+  "ff_fries_large": [
+    "fast_food",
+    "counter_service",
+    "fries",
+    "vegetarian"
+  ],
+  "ff_cheesy_fries": [
+    "fast_food",
+    "counter_service",
+    "fries",
+    "vegetarian"
+  ],
+  "ff_hash_brown": [
+    "fast_food",
+    "counter_service",
+    "breakfast",
+    "vegetarian"
+  ],
+  "ff_soft_serve": [
+    "fast_food",
+    "counter_service",
+    "vegetarian"
+  ],
+  "ff_choc_cookie": [
+    "fast_food",
+    "counter_service",
+    "vegetarian"
+  ],
+  "ff_vanilla_shake": [
+    "fast_food",
+    "counter_service",
+    "shake",
+    "vegetarian"
+  ],
+  "ff_chocolate_shake": [
+    "fast_food",
+    "counter_service",
+    "shake",
+    "vegetarian"
+  ],
+  "ff_strawberry_shake": [
+    "fast_food",
+    "counter_service",
+    "shake",
+    "vegetarian"
+  ],
+  "ff_fountain_drink": [
+    "fast_food",
+    "counter_service",
+    "vegetarian"
+  ],
+  "ff_counter_coffee": [
+    "fast_food",
+    "counter_service",
+    "breakfast",
+    "vegetarian"
+  ],
+  "fd_amuse_gougeres": [
+    "fine_dining",
+    "amuse"
+  ],
+  "fd_amuse_quail_egg": [
+    "fine_dining",
+    "amuse",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_amuse_pea_shot": [
+    "fine_dining",
+    "amuse",
+    "seasonal"
+  ],
+  "fd_wye_asparagus": [
+    "fine_dining",
+    "starter_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_scallop_blood_orange": [
+    "fine_dining",
+    "starter_course",
+    "seasonal"
+  ],
+  "fd_langoustine_girolles": [
+    "fine_dining",
+    "starter_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_heritage_beetroot": [
+    "fine_dining",
+    "starter_course",
+    "seasonal"
+  ],
+  "fd_turbot_mussels": [
+    "fine_dining",
+    "fish_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_lobster_peas": [
+    "fine_dining",
+    "fish_course",
+    "seasonal"
+  ],
+  "fd_langoustine_raviolo": [
+    "fine_dining",
+    "fish_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_cod_truffle": [
+    "fine_dining",
+    "fish_course",
+    "seasonal"
+  ],
+  "fd_venison_chocolate": [
+    "fine_dining",
+    "meat_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_beef_truffle": [
+    "fine_dining",
+    "meat_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_beef_girolles": [
+    "fine_dining",
+    "meat_course",
+    "seasonal"
+  ],
+  "fd_lamb_wild_garlic": [
+    "fine_dining",
+    "meat_course",
+    "seasonal"
+  ],
+  "fd_duck_rhubarb": [
+    "fine_dining",
+    "meat_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_pre_passion_yuzu": [
+    "fine_dining",
+    "pre_dessert"
+  ],
+  "fd_pre_rhubarb_custard": [
+    "fine_dining",
+    "pre_dessert",
+    "seasonal"
+  ],
+  "fd_chocolate_delice": [
+    "fine_dining",
+    "dessert_course",
+    "signature_candidate"
+  ],
+  "fd_vanilla_souffle": [
+    "fine_dining",
+    "dessert_course",
+    "signature_candidate",
+    "seasonal"
+  ],
+  "fd_strawberry_tart": [
+    "fine_dining",
+    "dessert_course",
+    "seasonal"
+  ],
+  "fd_cheese_trolley": [
+    "fine_dining",
+    "cheese_course",
+    "seasonal"
+  ],
+  "fd_wine_sparkling": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_loire": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_riesling": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_white_burgundy": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_rose": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_rioja": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_red_burgundy": [
+    "fine_dining",
+    "wine"
+  ],
+  "fd_wine_sauternes": [
+    "fine_dining",
+    "wine"
+  ]
+}
