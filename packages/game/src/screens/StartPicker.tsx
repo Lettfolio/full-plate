@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ContentPack, Difficulty } from "@full-plate/sim-core";
 import type { CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
 import { districtIcon } from "./NewGame";
-import { DifficultyPicker } from "../components/DifficultyPicker";
+import { DIFFICULTY_CHOICES, DifficultyPicker } from "../components/DifficultyPicker";
 
 /** The five starts from BRIEF "Starting levels: the career ladder". */
 export type StartKind = "owner" | CareerTrack;
@@ -133,10 +133,17 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
                 </div>
               </>
             )}
-            <button className="btn btn--primary btn--xl" disabled={!districtId} onClick={go}>
-              {start === "owner" ? "Choose a name →" : `Start as ${def.name.toLowerCase()} →`}
-            </button>
           </div>
+        </div>
+        {/* R7 review (A17): the start button is pinned bottom-right like the owner's Open / Next day (B's actiondock);
+            it was ~1,400 px down the page at 1024×768 with Bigger text. */}
+        <div className="actiondock startpick__go">
+          <span className="actiondock__note small muted">
+            {def.name} · {DIFFICULTY_CHOICES.find((d) => d.id === difficulty)?.name} · {content.districts.find((d) => d.id === districtId)?.name}
+          </span>
+          <button className="btn btn--primary btn--xl" disabled={!districtId} onClick={go}>
+            {start === "owner" ? "Choose a name →" : `Start as ${def.name.toLowerCase()} →`}
+          </button>
         </div>
       </div>
     </div>

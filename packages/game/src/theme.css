@@ -1119,7 +1119,7 @@ button, input { font: inherit; color: inherit; }
 .sheet__check input { width: 26px; height: 26px; accent-color: var(--basil); flex: none; }
 .sheet__game { border-top: 2px dashed var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--cream); border: 1.5px solid var(--line); }
-.seg__opt { min-height: 40px; min-width: 64px; padding: 6px 16px; border-radius: 999px; border: 0; background: transparent; font-weight: 800; cursor: pointer; color: var(--ink-soft); }
+.seg__opt { min-height: var(--tap); min-width: 64px; padding: 6px 16px; border-radius: 999px; border: 0; background: transparent; font-weight: 800; cursor: pointer; color: var(--ink-soft); }
 .seg__opt:hover { background: var(--paper); color: var(--ink); }
 .seg__opt[aria-checked="true"] { background: var(--ink); color: var(--paper); }
 .confirm { width: min(480px, 100%); }
@@ -1352,9 +1352,31 @@ button, input { font: inherit; color: inherit; }
   :root[data-text="large"] .tab { font-size: 17px; padding: 10px 8px 9px; }
   :root[data-text="large"] .tab__icon { display: none; }
 }
-@media (max-width: 1180px) {
-  /* R7-C: the Bigger text setting must not push the Menu tab's two columns off the side (scoped to large text only). */
-  :root[data-text="large"] .menu-layout { grid-template-columns: minmax(0, 300px) minmax(0, 1fr); }
-  :root[data-text="large"] .menu-layout > * { min-width: 0; }
-}
 .modal.envelope { width: min(720px, 100%); } .envelope__crit { font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
+
+/* R7 review: the watch view's one action reads as the action (A11) */
+.watchcard__play { min-height: 52px; padding: 10px 22px; font-size: var(--fs-base); flex: 1 1 auto; }
+/* R7 review: the order sheet fits 1024 px beside the goals (Keeps and Unit cost fold under the ingredient's name) */
+.stocktable__narrow { display: none; }
+@media (max-width: 1180px) {
+  .stocktable__wide { display: none; }
+  .stocktable__narrow { display: block; }
+  .stocktable th, .stocktable td { padding-left: 6px; padding-right: 6px; }
+}
+/* R7 review: at 1024 px the menu matrix sits above the dish list (one column) instead of squeezing both
+   (the chart's labels were 12.4 px and the price steppers 24 px wide); this also covers Bigger text, so C's
+   large-text two-column rule is gone. The team and the job hunt stack too, so the rota days stay 44 px wide. */
+@media (max-width: 1180px) {
+  .menu-layout { grid-template-columns: minmax(0, 1fr); }
+  .menu-layout > * { min-width: 0; }
+  .menu-layout .matrix { max-width: 460px; }
+  .planning .staffgrid { grid-template-columns: minmax(0, 1fr); }
+}
+.planning .roster { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.sheet__check { min-height: var(--tap); }
+/* R7 review: a tip that would run off the right edge opens leftwards (Term's placeTip sets data-flip) */
+.term[data-flip] > .term__tip { left: auto; right: 0; }
+/* R7 review: during service the toast sits at the top of the floor (Toast's toastPlacement), never over the queue */
+.toast-region--stage .toast { max-width: min(560px, 60vw); }
+/* R7 review (C's P3): at 1024 px the district wraps as a whole line under the date, never mid-name */
+.status__district { white-space: nowrap; }

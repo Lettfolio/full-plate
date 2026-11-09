@@ -53,7 +53,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame }: Props) {
             {badges.map((b) => <span key={b.id} className={`pathbadge pathbadge--${b.tone}`}>{b.label}</span>)}
           </div>
           <div className="status__when">
-            <span className="status__day">Day {game.day + 1}</span> {dateLabel(game.day)} · {district?.name ?? game.districtId}
+            <span className="status__day">Day {game.day + 1}</span> {dateLabel(game.day)} · <span className="status__district">{district?.name ?? game.districtId}</span>
           </div>
         </div>
         {career ? (

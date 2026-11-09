@@ -62,9 +62,9 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
           <tr>
             <th>Ingredient</th>
             <th className="r">On hand</th>
-            <th>Keeps</th>
+            <th className="stocktable__wide">Keeps</th>
             <th>Next service</th>
-            <th className="r">Unit cost</th>
+            <th className="r stocktable__wide">Unit cost</th>
             <th>Order</th>
             <th className="r">Line cost</th>
           </tr>
@@ -78,15 +78,16 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
                 <td>
                   <b>{r.name}</b>
                   {r.usedBy.length > 0 && <div className="xs faint">{r.usedBy.join(", ")}</div>}
+                  <div className="xs muted stocktable__narrow"><MoneyText pence={r.unitCost} /> each · keeps {r.shelfLifeDays}d</div>
                 </td>
                 <td className="r num"><b>{wholeHave(r.onHand)}</b>{r.incoming > 0 && <div className="xs muted">+{wholeHave(r.incoming)} coming</div>}</td>
-                <td><Shelf days={r.shelfLifeDays} age={r.age} /></td>
+                <td className="stocktable__wide"><Shelf days={r.shelfLifeDays} age={r.age} /></td>
                 <td>
                   <span className={`need need--${line.tone}`} data-testid={`forecast-${r.ingredientId}`}>
                     {line.tone === "short" ? "▲ " : line.tone === "ok" || line.tone === "coming" ? "✓ " : ""}{line.text}
                   </span>
                 </td>
-                <td className="r"><MoneyText pence={r.unitCost} /></td>
+                <td className="r stocktable__wide"><MoneyText pence={r.unitCost} /></td>
                 <td><Stepper label={`order of ${r.name}`} value={q} step={5} bigStep={20} max={500} onChange={(v) => setQty({ ...qty, [r.ingredientId]: v })} /></td>
                 <td className="r">{q > 0 ? <MoneyText pence={q * r.unitCost} /> : <span className="faint">—</span>}</td>
               </tr>

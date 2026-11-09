@@ -4,7 +4,7 @@ import { Bar } from "../components/Bar";
 import { MoneyText } from "../components/MoneyText";
 import { segmentName } from "../lib/content";
 import { Term } from "../components/Term";
-import { DifficultyPicker } from "../components/DifficultyPicker";
+import { DIFFICULTY_CHOICES, DifficultyPicker } from "../components/DifficultyPicker";
 
 interface Props {
   content: ContentPack;
@@ -39,6 +39,9 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
   const [districtId, setDistrictId] = useState(initialDistrictId ?? content.districts[0]?.id ?? "");
   const [name, setName] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty ?? "cosy");
+  // R7 review (C's P3): the start picker already asked; here it's a one-line reminder with Change.
+  const [askDifficulty, setAskDifficulty] = useState(initialDifficulty === undefined);
+  const chosen = DIFFICULTY_CHOICES.find((d) => d.id === difficulty);
   const [seedText, setSeedText] = useState(String(initialSeed));
   const placeholder = useMemo(() => NAME_IDEAS[initialSeed % NAME_IDEAS.length]!, [initialSeed]);
   const seed = Number.parseInt(seedText, 10);
@@ -112,7 +115,14 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
 
           <div className="field">
             <span className="field__label" id="ng-diff">How tricky?</span>
-            <DifficultyPicker value={difficulty} onChange={setDifficulty} labelId="ng-diff" />
+            {askDifficulty ? (
+              <DifficultyPicker value={difficulty} onChange={setDifficulty} labelId="ng-diff" />
+            ) : (
+              <span className="row" aria-labelledby="ng-diff">
+                <b className="spacer"><span aria-hidden="true">{chosen?.icon}</span> {chosen?.name}</b>
+                <button type="button" className="btn btn--ghost btn--tap" onClick={() => setAskDifficulty(true)}>Change</button>
+              </span>
+            )}
           </div>
 
           <label className="field">
