@@ -411,6 +411,14 @@ export const HANDS_ON = {
    * still not plated, an AI cook takes it (the child wandered off). A hands-on cook takes 6–10 s ≈ 4–7 ticks.
    */
   claimTimeoutTicks: 16,
+  /**
+   * Round 4: with a hands-on station (SET_HANDS_ON station), a ticket on the human's rail is theirs; the hands-on
+   * session's sous chef covers an idle child in real seconds. This is only the sim's safety net (the view was closed
+   * without SET_HANDS_ON null): after this many ticks on the rail an AI cook takes it.
+   */
+  stationFallbackTicks: 40,
+  /** Largest rail SET_HANDS_ON accepts. */
+  stationMaxCap: 6,
 } as const;
 /** Key used for the human in DayResult.perChef and KitchenTicket.chefId when SET_HANDS_ON gave no staffId. */
 export const PLAYER_COOK_ID = "player";

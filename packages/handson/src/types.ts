@@ -7,6 +7,7 @@
  * (`render`) only reads. World coordinates are in tiles (1 tile ≈ a person's stride); the renderer scales them.
  */
 import type { CustomerId, DishId, Pence, TableId } from "@full-plate/sim-core";
+import type { StationPlan } from "./station";
 
 /** Roles that can be played hands-on. (Porter/manager have no floor verbs of their own yet.) */
 export type HandsOnRole = "chef" | "server" | "bar";
@@ -128,6 +129,11 @@ export interface HandsOnScore {
   tillWait: number;
   /** Running points total (see score.ts for the table). */
   points: number;
+  /** [round 4] Station tickets the sous chef covered (no points, lower quality); `idleCovers` of them while you idled. */
+  covered?: number;
+  idleCovers?: number;
+  /** [round 4] Plates whose ticket had waited more than COLD_PLATE_SECS ("went cold"). */
+  slowPlates?: number;
 }
 
 export interface Toast { text: string; x: number; y: number; born: number; tone: "good" | "bad" | "info" | "money" }
@@ -154,8 +160,14 @@ export interface HandsOnSession {
   };
   /** Session time until which a second cancel press bins what you're carrying. */
   binArmedUntil?: number;
-  /** Options fixed at creation. */
-  opts: { playerStaffId?: string; carryLimit: number };
+  /** Options fixed at creation. `station`: the career commis station (round 4; see station.ts). */
+  opts: { playerStaffId?: string; carryLimit: number; station?: StationPlan };
+  /** [round 4] Session time of the player's last verb (start or finish): the sous chef's idle clock. */
+  lastActiveAt?: number;
+  /** [round 4] Session time of the last "need a hand?" nudge. */
+  nudgedAt?: number;
+  /** [round 4] Session times of the player's plates (newest last, ≤ 40) for the rolling plates-per-minute. */
+  plateTimes?: number[];
   carrying?: Item;
   activeAction?: ActiveAction;
   stations: Station[];
@@ -203,6 +215,8 @@ export type HandsOnResult =
       station: CookMethod;
       /** Chef/bar speed bonus 0..1 (ticket age when plated). */
       speedBonus: number;
+      /** [round 4] The sous chef plated it for an idle (or swamped) player: same command, lower quality, no points. */
+      covered?: boolean;
     }
   | { type: "TABLE_SERVED"; customerId: CustomerId; ticketId: string; speedBonus: number }
   | { type: "TABLE_CLEARED"; tableId: TableId }

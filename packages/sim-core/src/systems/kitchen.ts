@@ -204,6 +204,7 @@ function humanCooks(content: ContentPack, state: GameState, t: KitchenTicket): b
 export function reservedForHuman(content: ContentPack, state: GameState): ReadonlySet<string> | undefined {
   const h = state.handsOn;
   if (!h || (h.role !== "chef" && h.role !== "bar")) return undefined;
+  if (h.role === "chef" && h.station) return stationRail(state, h.station);
   const out = new Set<string>();
   let n = 0;
   for (const t of state.tickets) {
@@ -211,6 +212,27 @@ export function reservedForHuman(content: ContentPack, state: GameState): Readon
     if (t.chefId || t.atPass || t.ticksRemaining <= 0 || !humanCooks(content, state, t)) continue;
     n++; // counts toward the human's 3 whether or not it has timed out
     if (state.tick - Math.max(t.createdTick, h.since) < HANDS_ON.reserveFallbackTicks) out.add(t.id);
+  }
+  return out;
+}
+
+/**
+ * Round 4 commis station: the human's rail is the oldest `cap` tickets of their station's dishes, counting the ones
+ * they have already picked up (claimed). AI cooks leave these alone except as a safety net after
+ * HANDS_ON.stationFallbackTicks; station tickets beyond the rail, and every other dish, are the AI's as normal.
+ * The hands-on view uses the same rule (handson `stationRail`) to draw the player's rail.
+ */
+export function stationRail(state: GameState, station: { dishIds: readonly string[]; cap: number }): ReadonlySet<string> {
+  const dishes = new Set(station.dishIds);
+  const h = state.handsOn!;
+  const out = new Set<string>();
+  const human = h.staffId ?? PLAYER_COOK_ID;
+  let n = state.tickets.filter((t) => t.claimedAtTick !== undefined && t.chefId === human && !t.atPass).length;
+  for (const t of state.tickets) {
+    if (n >= station.cap) break;
+    if (t.chefId || t.atPass || t.ticksRemaining <= 0 || !dishes.has(t.dishId)) continue;
+    n++;
+    if (state.tick - Math.max(t.createdTick, h.since) < HANDS_ON.stationFallbackTicks) out.add(t.id);
   }
   return out;
 }
@@ -285,7 +307,9 @@ export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng):
   const cooks = cooksOnShift(content, state);
   const byId = new Map(cooks.map((k) => [k.id, k]));
   const handsOn = state.handsOn;
-  const assigned = assignTickets(content, releaseStaleClaims(state), cooks, handsOn ? reservedForHuman(content, state) : undefined);
+  const released = releaseStaleClaims(state);
+  // Reserve against the released rail so a stale claim the human still holds stays on their station (round 4).
+  const assigned = assignTickets(content, released, cooks, handsOn ? reservedForHuman(content, released === state.tickets ? state : { ...state, tickets: released as KitchenTicket[] }) : undefined);
   let tally = tallyOf(state);
   const { steps, carry } = kitchenSteps(state, tally);
   const events: SimEvent[] = [];

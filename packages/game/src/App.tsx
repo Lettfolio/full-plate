@@ -204,6 +204,7 @@ export function App() {
             game={game}
             role={meta.handsOn.role}
             {...(career ? { playerStaffId: PLAYER_ID } : {})}
+            {...(meta.handsOn.station ? { station: meta.handsOn.station } : {})}
             jumpIn={meta.handsOn.jumpIn}
             tutorial={!career || career.shiftsWorked < 10}
             runTicks={runTicks}

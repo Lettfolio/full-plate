@@ -6,7 +6,7 @@
 import type { CareerEvent, CareerState, HandoverSummary, OwnerPerks } from "@full-plate/sim-career";
 import type { EmpireEvent, EmpireState } from "@full-plate/sim-empire";
 import type { GuideResult, InspectorVisit, StarsEvent, StarsState } from "@full-plate/sim-stars";
-import type { ShiftSummary, HandsOnResult, HandsOnRole } from "@full-plate/handson";
+import type { ShiftSummary, HandsOnResult, HandsOnRole, StationPlan } from "@full-plate/handson";
 import type { Command, DayResult, GameState } from "@full-plate/sim-core";
 import { asCommand } from "../sim";
 import type { PathKind } from "../lib/library";
@@ -79,6 +79,8 @@ export interface HandsOnMeta {
   role: HandsOnRole;
   /** Owner "Jump in" (open-ended) vs the employee's whole shift. */
   jumpIn: boolean;
+  /** Round 4: a career chef's commis station (set by the reducer at handsOnStart; also sent to SET_HANDS_ON). */
+  station?: StationPlan;
 }
 
 /** Hands-on results → the round-3 sim-core commands (HANDSON-NOTES "Proposed sim-core commands"). */

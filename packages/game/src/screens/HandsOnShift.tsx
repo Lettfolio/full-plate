@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
   botInput, createInputSource, createSession, render, summarise, updateSession,
-  type HandsOnResult, type HandsOnRole, type HandsOnSession, type ShiftSummary,
+  type HandsOnResult, type HandsOnRole, type HandsOnSession, type ShiftSummary, type StationPlan,
 } from "@full-plate/handson";
 import { content, HOOKS, SERVICE_TICKS } from "../sim";
 import { clockLabel } from "../lib/calendar";
@@ -22,6 +22,8 @@ interface Props {
   role: HandsOnRole;
   /** Career mode: the player's Staff id (the chef only takes their own or unassigned tickets). */
   playerStaffId?: string;
+  /** Career chef: their commis station (round 4); the rail shows only its tickets. */
+  station?: StationPlan;
   /** Owner "Jump in": open-ended, with a "Back to the office" button. */
   jumpIn: boolean;
   tutorial?: boolean;
@@ -41,7 +43,7 @@ const ROLE_LABEL: Record<HandsOnRole, string> = { chef: "On the pass", server: "
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
  * its results into PLAYER_* commands, advances the sim at its own pace and draws. Mirrors handson/demo/main.ts.
  */
-export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
+export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const live = useRef({ game, runTicks, sendResults, onScore });
@@ -56,7 +58,7 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     const input = createInputSource(window);
-    sessionRef.current = createSession(live.current.game, role, { content, tutorial, ...(playerStaffId ? { playerStaffId } : {}) });
+    sessionRef.current = createSession(live.current.game, role, { content, tutorial, ...(playerStaffId ? { playerStaffId } : {}), ...(station ? { station } : {}) });
     let raf = 0;
     let last = performance.now();
     let acc = 0;

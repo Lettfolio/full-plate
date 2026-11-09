@@ -672,3 +672,60 @@ describe("career hands-on chef (round 3 review)", () => {
     expect(t.tickets.find((x) => x.id === "k1")!.chefId).not.toBe("player");
   });
 });
+
+describe("commis station (round 4: SET_HANDS_ON station)", () => {
+  /** Six tickets: soup ×3 (the human's station), burger ×3 (the AI's). */
+  function stationKitchen(cap = 2) {
+    const s0 = withOrder();
+    const ai = s0.staff.find((x) => x.role === "chef")!;
+    const me = { ...ai, id: "player", name: "Mia", skill: 22 };
+    const c = customer("c1", { stage: "ordered", tableId: "T1", order: ["soup", "soup", "soup", "burger", "burger", "burger"], spend: 6 * 1000, stageTick: 8 });
+    const dishes = ["soup", "burger", "soup", "burger", "soup", "burger"];
+    const s = { ...s0, staff: [...s0.staff, me], customers: [c], tickets: dishes.map((d, n) => ticket(`k${n + 1}`, "c1", { dishId: d, createdTick: 10 + n, ticksRemaining: 20 })) };
+    return apply(s, { type: "SET_HANDS_ON", role: "chef", staffId: "player", station: { dishIds: ["soup"], cap } }).state;
+  }
+
+  it("AI cooks never take the human's rail (oldest `cap` station tickets) and are not held back on other dishes", () => {
+    let s = stationKitchen(2);
+    expect(s.handsOn!.station).toEqual({ dishIds: ["soup"], cap: 2 });
+    for (let i = 0; i < 6; i++) s = tickOnce(s);
+    const by = (id: string) => s.tickets.find((t) => t.id === id);
+    expect(by("k1")?.chefId).toBeUndefined(); // soup, on the rail
+    expect(by("k3")?.chefId).toBeUndefined(); // soup, on the rail
+    expect(!by("k5") || by("k5")!.chefId !== undefined).toBe(true); // third soup is beyond the rail: the AI's
+    expect(s.tickets.filter((t) => t.dishId === "burger").every((t) => t.chefId !== undefined)).toBe(true);
+    // the rail holds well past the old 4-tick reserve fallback
+    for (let i = 0; i < HANDS_ON.reserveFallbackTicks * 4; i++) s = tickOnce(s);
+    expect(by("k1")?.chefId).toBeUndefined();
+  });
+
+  it("a claimed ticket counts toward the rail and stays the human's after the claim times out", () => {
+    let s = stationKitchen(2);
+    s = apply(s, { type: "PLAYER_CLAIMED", ticketId: "k1" }).state;
+    for (let i = 0; i < HANDS_ON.claimTimeoutTicks + 2; i++) s = tickOnce(s);
+    const k1 = s.tickets.find((t) => t.id === "k1")!;
+    expect(k1.chefId === undefined || k1.chefId === "player").toBe(true);
+    expect(apply(s, { type: "PLAYER_COOKED", ticketId: "k1", quality: 70 }).state.service!.chefs!.player).toEqual({ plates: 1, qualitySum: 70 });
+  });
+
+  it("the safety net: a rail ticket nobody touches for stationFallbackTicks goes to the AI", () => {
+    let s = stationKitchen(1);
+    for (let i = 0; i < HANDS_ON.stationFallbackTicks + 2 && s.phase === "service"; i++) s = tickOnce(s);
+    const k1 = s.tickets.find((t) => t.id === "k1");
+    expect(!k1 || k1.chefId !== undefined).toBe(true);
+  });
+
+  it("re-sending SET_HANDS_ON with a new rail keeps `since`; bad stations are rejected", () => {
+    let s = stationKitchen(2);
+    const since = s.handsOn!.since;
+    s = tickOnce(tickOnce(s));
+    s = apply(s, { type: "SET_HANDS_ON", role: "chef", staffId: "player", station: { dishIds: ["soup", "crumble"], cap: 3 } }).state;
+    expect(s.handsOn).toMatchObject({ since, station: { dishIds: ["soup", "crumble"], cap: 3 } });
+    rejected(s, { type: "SET_HANDS_ON", role: "chef", station: { dishIds: ["soup"], cap: 0 } });
+    rejected(s, { type: "SET_HANDS_ON", role: "chef", station: { dishIds: ["soup"], cap: 99 } });
+    rejected(s, { type: "SET_HANDS_ON", role: "server", station: { dishIds: ["soup"], cap: 2 } });
+    // without a station the old reserve rule is unchanged
+    const plain = apply(s, { type: "SET_HANDS_ON", role: "chef", staffId: "player" }).state;
+    expect(plain.handsOn!.station).toBeUndefined();
+  });
+});

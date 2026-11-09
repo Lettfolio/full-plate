@@ -25,6 +25,9 @@ export interface ShiftSummary {
   payments: number;
   drops: number;
   dropCost: number;
+  /** [round 4] Station tickets the sous chef covered, and plates that waited past COLD_PLATE_SECS. */
+  covered?: number;
+  slowPlates?: number;
   lines: { label: string; value: string }[];
   tip: string;
 }
@@ -49,6 +52,7 @@ export function summarise(session: HandsOnSession): ShiftSummary {
     lines.push({ label: "Mean quality", value: s.plates ? `${Math.round(meanQuality)}%` : "—" });
     lines.push({ label: "Speed bonus", value: s.speedCount ? `${Math.round(speedPct)}%` : "—" });
     lines.push({ label: "Perfect cooks", value: `${s.perfect}` });
+    if (session.opts.station) lines.push({ label: "Covered by the sous chef", value: String(s.covered ?? 0) });
   } else {
     lines.push({ label: "Plates served", value: String(s.served) });
     if (session.role === "bar") lines.push({ label: "Drinks poured", value: `${s.pours}${s.pours ? ` (${Math.round((s.pourSum / s.pours) * 100)}%)` : ""}` });
@@ -59,7 +63,8 @@ export function summarise(session: HandsOnSession): ShiftSummary {
   lines.push({ label: "Drops", value: s.drops ? `${s.drops} (${money(s.dropCost)})` : "none" });
   return {
     role: session.role, points: s.points, stars, plates: s.plates, meanQuality: Math.round(meanQuality), speedPct: Math.round(speedPct),
-    served: s.served, cleared: s.cleared, payments: s.payments, drops: s.drops, dropCost: s.dropCost, lines, tip: coachingTip(session),
+    served: s.served, cleared: s.cleared, payments: s.payments, drops: s.drops, dropCost: s.dropCost,
+    covered: s.covered ?? 0, slowPlates: s.slowPlates ?? 0, lines, tip: coachingTip(session),
   };
 }
 

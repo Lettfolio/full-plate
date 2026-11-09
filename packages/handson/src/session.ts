@@ -5,7 +5,7 @@
  * randomness (chop-mark jitter, where the green band sits) comes from sim-core's xoshiro Rng whose state lives in the
  * session. The same session + state + input/dt sequence always gives identical sessions and results.
  */
-import type { ContentPack, Customer, GameState, KitchenTicket, TableId } from "@full-plate/sim-core";
+import { weekdayOf, type ContentPack, type Customer, type GameState, type KitchenTicket, type TableId } from "@full-plate/sim-core";
 import { buildLayout, dishProfiles, isBlocked, profileFor, SPAWN } from "./layout";
 import { Rng, hashSeed } from "./rng";
 import { addPoints, emptyScore } from "./score";
@@ -14,6 +14,12 @@ import type {
   Station, UpdateResult, Verb,
 } from "./types";
 import { chefSpeedBonus, chopHit, cookBand, cookQuality, plateExecution, POINTS, pourQuality, serveSpeedBonus, TUNING } from "./verbs";
+import { COVER_EXECUTION, stationTickets, type StationPlan } from "./station";
+
+/** A plate whose ticket waited longer than this (seconds) "went cold" on the end-of-shift notes. */
+export const COLD_PLATE_SECS = 60;
+/** The "need a hand?" nudge comes at this share of the sous chef's idle cover time. */
+export const NUDGE_SHARE = 0.6;
 
 export interface SessionOptions {
   /** Show the next sensible action as a hint with a pointer (default true for the first shift). */
@@ -26,6 +32,11 @@ export interface SessionOptions {
   content?: ContentPack;
   /** Seed for verb variation; defaults to a hash of the state's seed, day and tick. */
   seed?: number;
+  /**
+   * Round 4 career commis station (station.ts `commisStation`): the chef only sees and takes tickets on their own
+   * rail; a sous chef covers when they idle. The game sends the same dishIds/cap to sim-core's SET_HANDS_ON.
+   */
+  station?: StationPlan;
 }
 
 export const PLAYER_RADIUS = 0.32;
@@ -55,7 +66,13 @@ export function createSession(state: GameState, role: HandsOnRole, opts: Session
     prevInteract: false,
     prevCancel: false,
     toasts: [],
-    opts: { ...(opts.playerStaffId ? { playerStaffId: opts.playerStaffId } : {}), carryLimit: role === "server" ? 3 : role === "bar" ? 2 : 1 },
+    opts: {
+      ...(opts.playerStaffId ? { playerStaffId: opts.playerStaffId } : {}),
+      carryLimit: role === "server" ? 3 : role === "bar" ? 2 : 1,
+      ...(opts.station && role === "chef" ? { station: { ...opts.station, dishIds: [...opts.station.dishIds] } } : {}),
+    },
+    lastActiveAt: 0,
+    plateTimes: [],
   };
 }
 
@@ -69,6 +86,7 @@ const byAge = (a: KitchenTicket, b: KitchenTicket) => a.createdTick - b.createdT
 
 /** Food tickets the chef could start now (oldest first). */
 export function openFoodTickets(session: HandsOnSession, state: GameState): KitchenTicket[] {
+  if (session.opts.station) return stationTickets(session, state).filter((t) => !session.claimed[t.id]);
   const pid = session.opts.playerStaffId;
   return state.tickets
     .filter((t) => t.ticksRemaining > 0 && profile(session, t.dishId).method !== "pour" && !session.claimed[t.id] && !session.cooked[t.id]
@@ -354,6 +372,8 @@ function emitPlate(s: HandsOnSession, ticketId: string, dishId: string, executio
   s.cooked[ticketId] = true;
   s.seenAt[`r:${ticketId}`] = s.time;
   s.score.plates++;
+  s.plateTimes = [...(s.plateTimes ?? []), s.time].slice(-40);
+  if (age > COLD_PLATE_SECS) s.score.slowPlates = (s.score.slowPlates ?? 0) + 1;
   s.score.qualitySum += execution * 100;
   s.score.speedBonus += speedBonus;
   s.score.speedCount++;
@@ -365,6 +385,7 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
 function finishAction(s: HandsOnSession, state: GameState, results: HandsOnResult[]) {
   const a = s.activeAction!;
   s.activeAction = undefined;
+  s.lastActiveAt = s.time;
   const at = stationCentre(s, a.stationId);
   switch (a.verb) {
     case "grab": {
@@ -553,6 +574,70 @@ function sync(s: HandsOnSession, state: GameState) {
   for (const t of state.tickets) if (!s.dishes[t.dishId]) s.dishes[t.dishId] = profileFor(t.dishId);
 }
 
+// ───────────────────────── round 4: the sous chef covers an idle commis ─────────────────────────
+
+/** The AI chef who covers (the first other chef on today's floor), for the nudge. */
+function sousName(s: HandsOnSession, state: GameState): string {
+  const pid = s.opts.playerStaffId;
+  const other = state.staff.find((x) => x.role === "chef" && x.id !== pid && x.rota[weekdayOf(state.day)]);
+  return other ? other.name.split(" ")[0]! : "Chef";
+}
+
+/**
+ * With a station, nobody hard-stalls service: if the player has done nothing for `idleCoverSecs` while a ticket sits
+ * on their rail (or in their hands), the sous chef plates it (PLATE_COOKED `covered`, COVER_EXECUTION quality, no
+ * points) with a friendly nudge; a rail ticket left `hardCoverSecs` is covered however busy the player is.
+ * A "need a hand?" nudge comes first, at NUDGE_SHARE of the idle time.
+ */
+function sousChef(s: HandsOnSession, state: GameState, results: HandsOnResult[]) {
+  const st = s.opts.station!;
+  if (s.shift?.over) return;
+  const rail = stationTickets(s, state);
+  const held = s.carrying && "ticketId" in s.carrying ? s.carrying : undefined;
+  const heldTicket = held ? rail.find((t) => t.id === held.ticketId) : undefined;
+  const waiting = rail.filter((t) => t.id !== held?.ticketId);
+  const oldest = waiting[0];
+  const seen = (t: KitchenTicket) => s.seenAt[`t:${t.id}`] ?? s.time;
+  // Idle since the last verb, but never before the work arrived (waiting patiently for a ticket is not idling).
+  const workSince = heldTicket ? 0 : oldest ? seen(oldest) : Infinity;
+  const idleFrom = Math.max(s.lastActiveAt ?? 0, workSince);
+  const idle = s.activeAction ? 0 : s.time - idleFrom;
+  const who = sousName(s, state);
+  if (idle >= st.idleCoverSecs) {
+    const t = heldTicket ?? oldest!;
+    cover(s, state, t, results, true);
+    const tn = tableNumberOf(s, state, t.customerId);
+    say(s, `${who}: “I've plated ${tn ? `table ${tn}'s ` : "the "}${profile(s, t.dishId).short} for you — grab your next ticket!”`, 3.6);
+    s.lastActiveAt = s.time;
+    return;
+  }
+  if (idle >= st.idleCoverSecs * NUDGE_SHARE && (s.nudgedAt ?? -Infinity) < idleFrom) {
+    s.nudgedAt = s.time;
+    say(s, `${who}: “Need a hand? ${heldTicket ? "Keep going with that one" : "Your ticket's on the rail — grab it from the fridge"}!”`, 3);
+  }
+  const stale = waiting.find((t) => s.time - seen(t) >= st.hardCoverSecs);
+  if (stale) {
+    cover(s, state, stale, results, false);
+    const tn = tableNumberOf(s, state, stale.customerId);
+    say(s, `${who}: “I'll take ${tn ? `table ${tn}'s ` : "that "}${profile(s, stale.dishId).short} — you keep going!”`, 3);
+  }
+}
+
+function cover(s: HandsOnSession, state: GameState, t: KitchenTicket, results: HandsOnResult[], idle: boolean) {
+  const prof = profile(s, t.dishId);
+  results.push({ type: "PLATE_COOKED", ticketId: t.id, quality: round2(COVER_EXECUTION * prof.ceiling), execution: COVER_EXECUTION, station: prof.method, speedBonus: 0, covered: true });
+  s.cooked[t.id] = true;
+  delete s.claimed[t.id];
+  if (s.carrying && "ticketId" in s.carrying && s.carrying.ticketId === t.id) {
+    s.carrying = undefined;
+    if (s.activeAction?.ticketId === t.id) s.activeAction = undefined;
+  }
+  s.score.covered = (s.score.covered ?? 0) + 1;
+  if (idle) s.score.idleCovers = (s.score.idleCovers ?? 0) + 1;
+  toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
+  void state;
+}
+
 // ───────────────────────── the update ─────────────────────────
 
 export function updateSession(session: HandsOnSession, state: GameState, input: HandsOnInput, dt: number): UpdateResult {
@@ -571,6 +656,7 @@ export function updateSession(session: HandsOnSession, state: GameState, input: 
 
   sync(s, state);
   if (s.role !== "chef" && payingParties(s, state).length) s.score.tillWait = round6(s.score.tillWait + step);
+  if (s.opts.station) sousChef(s, state, results);
 
   const a = s.activeAction;
   if (a) {
@@ -638,6 +724,7 @@ export function updateSession(session: HandsOnSession, state: GameState, input: 
     s.prompt = p ? { stationId: p.stationId, label: p.label, enabled: p.enabled, ...(p.verb ? { verb: p.verb } : {}) } : undefined;
     if (pressed && p?.enabled && p.start) {
       p.start();
+      s.lastActiveAt = s.time;
       s.prompt = undefined;
     } else if (pressed && p && !p.enabled) {
       say(s, p.label, 1.6);

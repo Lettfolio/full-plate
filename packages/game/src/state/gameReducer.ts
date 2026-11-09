@@ -9,7 +9,7 @@ import {
   careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
   ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
 } from "./pathEngine";
-import type { HandsOnResult, ShiftSummary } from "@full-plate/handson";
+import { commisStation, type HandsOnResult, type ShiftSummary, type StationPlan } from "@full-plate/handson";
 
 export type ToastTone = "bad" | "good" | "info";
 export interface ToastMsg { id: number; text: string; tone: ToastTone }
@@ -264,8 +264,11 @@ function reduce(s: AppState, a: AppAction): AppState {
       let game = s.game;
       // Career: pass the player's staff id so their plates are credited to them (perChef, the weekly review).
       const staffId = s.meta.mode === "career" && !s.meta.career?.handover ? s.meta.career?.playerStaffId : undefined;
-      if (HOOKS.handsOn) game = applyCommand(pack, game, asCommand({ type: "SET_HANDS_ON", role: a.meta.role, ...(staffId ? { staffId } : {}) })).state;
-      return { ...s, game, meta: { ...s.meta, handsOn: a.meta } };
+      // Round 4: an employee chef owns a commis station (wider at higher rungs); the AI never takes its rail.
+      const station = staffId ? careerStation(pack, game, s.meta, a.meta) : undefined;
+      const cmd: Command = { type: "SET_HANDS_ON", role: a.meta.role, ...(staffId ? { staffId } : {}), ...(station ? { station: { dishIds: station.dishIds, cap: station.cap } } : {}) };
+      if (HOOKS.handsOn) game = applyCommand(pack, game, cmd).state;
+      return { ...s, game, meta: { ...s.meta, handsOn: { ...a.meta, ...(station ? { station } : {}) } } };
     }
     case "handsOnStop": {
       if (!s.game) return s;
@@ -351,3 +354,14 @@ function reduce(s: AppState, a: AppAction): AppState {
 
 /** The pack the current game cooks with (exported for screens that call pure sim helpers). */
 export const packOf = (s: AppState): ContentPack => packFor(s.meta);
+
+// ── career hands-on (round 4) ──
+/**
+ * The employee chef's station for today's shift: the commis section at rung 0, wider as they climb (chef track rung =
+ * station level; other tracks never cook). Owner jump-ins share the rail as before (no station).
+ */
+export function careerStation(pack: ContentPack, game: GameState, meta: PathMeta, hm: HandsOnMeta): StationPlan | undefined {
+  const c = meta.career;
+  if (meta.mode !== "career" || !c || c.handover || hm.jumpIn || hm.role !== "chef") return undefined;
+  return commisStation(game, pack, c.track === "chef" ? c.rung : 0);
+}

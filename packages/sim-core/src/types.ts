@@ -296,6 +296,13 @@ export interface Table {
   dirtyTicks: number;
 }
 
+/** [round 4] A hands-on chef's own station (GameState.handsOn.station): the dishes they own and their rail size. */
+export interface HandsOnStation {
+  dishIds: DishId[];
+  /** Tickets of those dishes held on the human's rail at once (1–6), counting ones they have picked up. */
+  cap: number;
+}
+
 export interface KitchenTicket {
   id: string;
   customerId: CustomerId;
@@ -482,6 +489,12 @@ export interface GameState {
      * Staff record still runs as AI for the fallback work (tickets beyond the human's reserve).
      */
     staffId?: StaffId;
+    /**
+     * [round 4, career commis station] The dishes the human's station owns and how many of them sit on their rail at
+     * once. While set, AI cooks never take the oldest `cap` unassigned tickets of these dishes (the human's rail, no
+     * short fallback; HANDS_ON.stationFallbackTicks is the safety net) and other food tickets are not reserved at all.
+     */
+    station?: HandsOnStation;
   };
   /** A fixed-price set/tasting menu (SET_SET_MENU). While active, foodie and business parties order it. */
   setMenu?: SetMenu;
@@ -662,7 +675,7 @@ export type Command =
   | { type: "PLAYER_DROPPED"; ticketIds: string[]; cost: Pence }
   /** [round 3 review] The hands-on human picked a ticket up: the AI leaves it alone until HANDS_ON.claimTimeoutTicks. */
   | { type: "PLAYER_CLAIMED"; ticketId: string }
-  | { type: "SET_HANDS_ON"; role: StaffRole | null; staffId?: StaffId } // planning or service; null = human left
+  | { type: "SET_HANDS_ON"; role: StaffRole | null; staffId?: StaffId; station?: HandsOnStation } // planning or service; null = human left
   // round 3 — paths and career
   | { type: "CLOSE_TODAY" }                              // planning → evening with a closed DayResult
   | { type: "SET_SET_MENU"; dishIds: DishId[]; price: Pence; active: boolean } // planning

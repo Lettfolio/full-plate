@@ -430,7 +430,20 @@ const setHandsOn: Handler<"SET_HANDS_ON"> = (_c, state, cmd) => {
   }
   if (!ROLES.includes(cmd.role)) return reject(state, "Unknown role.");
   if (cmd.staffId !== undefined && !state.staff.some((s) => s.id === cmd.staffId)) return reject(state, "No such staff member.");
-  const handsOn = { role: cmd.role, since: state.phase === "service" ? state.tick : 0, ...(cmd.staffId !== undefined ? { staffId: cmd.staffId } : {}) };
+  const st = cmd.station;
+  if (st !== undefined) {
+    if (cmd.role !== "chef") return reject(state, "Only a chef has a station.");
+    if (!st || !Array.isArray(st.dishIds) || st.dishIds.some((d) => typeof d !== "string") || !isInt(st.cap) || st.cap < 1 || st.cap > HANDS_ON.stationMaxCap) return reject(state, "That station doesn't make sense.");
+  }
+  // Round 4: re-sending the same role/person (a new station or rail size) keeps `since`.
+  const prev = state.handsOn;
+  const same = !!prev && prev.role === cmd.role && prev.staffId === cmd.staffId;
+  const handsOn = {
+    role: cmd.role,
+    since: same ? prev.since : state.phase === "service" ? state.tick : 0,
+    ...(cmd.staffId !== undefined ? { staffId: cmd.staffId } : {}),
+    ...(st ? { station: { dishIds: [...st.dishIds], cap: st.cap } } : {}),
+  };
   return ok({ ...state, handsOn });
 };
 

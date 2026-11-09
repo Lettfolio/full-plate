@@ -39,8 +39,10 @@ export function nextHint(session: HandsOnSession, state: GameState): Hint | unde
     const next = openFoodTickets(s, state)[0];
     if (next) {
       const tn = tableNumberOf(s, state, next.customerId);
-      return { text: `Oldest ticket: ${profile(s, next.dishId).short}${tn ? ` for table ${tn}` : ""} — grab it from the fridge`, stationId: "fridge" };
+      const who = s.opts.station ? "Your ticket" : "Oldest ticket";
+      return { text: `${who}: ${profile(s, next.dishId).short}${tn ? ` for table ${tn}` : ""} — grab it from the fridge`, stationId: "fridge" };
     }
+    if (s.opts.station) return { text: `${s.opts.station.title} is clear — your next ticket is on its way` };
     return { text: "All caught up — wait for the next ticket on the rail" };
   }
 

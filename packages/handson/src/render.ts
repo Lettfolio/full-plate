@@ -10,6 +10,7 @@ import { nextHint } from "./hints";
 import { DOOR, FRONT_WALL_ROW, PASS_ROW, WORLD_H, WORLD_W } from "./layout";
 import { summarise } from "./score";
 import { isReady, profile, readyGroups } from "./session";
+import { stationTickets } from "./station";
 import type { ActiveAction, HandsOnSession, Item, Station } from "./types";
 import { TUNING } from "./verbs";
 
@@ -631,10 +632,21 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
   const railX = 10, railW = m.w - hudW - 20;
   ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(railX, 8); ctx.lineTo(railX + railW, 8); ctx.stroke();
+  // Round 4: a career chef with a station sees only their own rail, behind a station tag.
+  const station = s.role === "chef" ? s.opts.station : undefined;
+  const mine = station ? new Set(stationTickets(s, state).map((t) => t.id)) : undefined;
   const relevant = (t: KitchenTicket) => {
+    if (mine) return mine.has(t.id);
     const drink = profile(s, t.dishId).method === "pour";
     return s.role === "chef" ? !drink : s.role === "bar" ? true : true;
   };
+  const tagW = station ? 132 : 0;
+  if (station) {
+    const tx = railX, ty = 10, th = m.header - 20;
+    ctx.fillStyle = C.tomato; roundRect(ctx, tx, ty, tagW - 8, th, 9); ctx.fill();
+    label(ctx, station.title.toUpperCase(), tx + 8, ty + 14, { size: 9.5, weight: 900, colour: C.paper, spacing: 1, maxW: tagW - 22 });
+    wrap(ctx, station.label, tx + 8, ty + 28, tagW - 24, 12, { size: 10.5, weight: 800, colour: C.paper });
+  }
   const groups = new Map<string, KitchenTicket[]>();
   for (const t of [...state.tickets].sort((a, b) => a.createdTick - b.createdTick || (a.id < b.id ? -1 : 1))) {
     if (!relevant(t) || s.served[t.id]) continue;
@@ -643,10 +655,10 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     groups.set(t.customerId, g);
   }
   const slipW = 112, gap = 6;
-  const max = Math.max(1, Math.floor((railW + gap) / (slipW + gap)));
+  const max = Math.max(1, Math.floor((railW - tagW + gap) / (slipW + gap)));
   const list = [...groups.entries()];
   list.slice(0, max).forEach(([cid, tks], i) => {
-    const x = railX + i * (slipW + gap);
+    const x = railX + tagW + i * (slipW + gap);
     const ageSecs = s.time - Math.min(...tks.map((t) => s.seenAt[`t:${t.id}`] ?? s.time));
     const ageTicks = state.tick - (tks[0]?.createdTick ?? state.tick);
     const age = Math.max(ageSecs / 1.5, ageTicks);
@@ -675,7 +687,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     dot(ctx, x + slipW / 2, 8, 2.5, C.tomato);
   });
   if (list.length > max) label(ctx, `+${list.length - max} more`, railX + railW, 54, { align: "right", size: 11, weight: 900, colour: C.tomatoDeep });
-  if (!list.length) label(ctx, "No tickets on the rail", railX + 4, 32, { size: 12, weight: 800, colour: C.inkFaint });
+  if (!list.length) label(ctx, station ? "Your station is clear — next ticket coming…" : "No tickets on the rail", railX + tagW + 4, 32, { size: 12, weight: 800, colour: C.inkFaint });
 
   // HUD
   const hx = m.w - hudW - 6;
