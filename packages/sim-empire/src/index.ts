@@ -42,6 +42,7 @@ export {
   crewLabourPerDay,
   offPremise,
   offPremiseLabour,
+  openingFactor,
   siteDemandAndCapacity,
   defaultCalibration,
   demandFactor,

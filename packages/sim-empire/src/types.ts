@@ -69,7 +69,12 @@ export interface SiteSummary {
   rentReviewedDay: number;
   driveThru: boolean;
   lastRemodel: number;
-  /** Temporary demand multipliers on this site (grand opening, roadworks...). */
+  /**
+   * [round 5] Day the site first traded: its ramp-up and honeymoon run from here (EMPIRE-NOTES §3). Absent on the
+   * founder's flagship (a two-year-old room) and on pre-round-5 saves, which trade at run-rate.
+   */
+  openedTrading?: number;
+  /** Temporary demand multipliers on this site (roadworks, events...). */
   footfallMods: { mult: number; daysRemaining: number; reason: string }[];
   /** 0-1: share of demand lost to the brand's own neighbours in the city (recomputed daily). */
   saturationPenalty: number;

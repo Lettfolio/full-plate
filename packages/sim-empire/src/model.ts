@@ -398,6 +398,19 @@ export interface SiteDayContext {
 }
 
 /**
+ * [round 5] A new site's first year: underlying demand ramps from RAMP_START to 1 over RAMP_DAYS while the opening
+ * novelty (+HONEYMOON, fading over HONEYMOON_DAYS) carries the first weeks — a shallow J rather than a flat year.
+ * 1 for sites without `openedTrading` (the flagship) and after the ramp.
+ */
+export function openingFactor(site: Pick<SiteSummary, "openedTrading">, day: number): number {
+  if (site.openedTrading === undefined) return 1;
+  const age = Math.max(0, day - site.openedTrading);
+  const ramp = 1 - (1 - K.RAMP_START) * Math.max(0, 1 - age / K.RAMP_DAYS);
+  const honeymoon = 1 + K.HONEYMOON * Math.max(0, 1 - age / K.HONEYMOON_DAYS);
+  return ramp * honeymoon;
+}
+
+/**
  * Brand pull: the demand multiplier for everything sim-core has no physics for (city size, recognition,
  * consistency, champions, a tired room, saturation, product hits, effects, fresh, dietary rules, traditions and the
  * site's own footfall mods). 1 at the reference state. newGameFromSite gives the same number to the promoted
@@ -414,6 +427,7 @@ export function brandPull(content: ContentPack, site: SiteSummary, brand: Brand,
     staleFactor(site, ctx.day) *
     (1 - site.saturationPenalty) *
     brand.permanentDemand *
+    openingFactor(site, ctx.day) *
     (ctx.demandMult ?? 1);
   if (f.fresh) m *= K.FRESH_APPEAL;
   if (ctx.breaksRules) m *= K.DIETARY_PENALTY;

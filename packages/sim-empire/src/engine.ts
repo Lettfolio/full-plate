@@ -571,7 +571,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     if (s.status === "building") {
       if (day >= s.opened) {
         s.status = "open";
-        s.footfallMods.push({ mult: 1.15, daysRemaining: 30, reason: "grand opening" });
+        s.openedTrading = day; // ramp-up and honeymoon (round 5; replaces the flat 30-day "grand opening" +15%)
         emit(x, "site_opened", `${s.name} opens its doors.`, "good", { siteId: s.id, cityId: s.cityId });
       } else continue;
     }

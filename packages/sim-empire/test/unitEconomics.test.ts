@@ -4,7 +4,7 @@
  * 4–5%, ad fund 4–4.5%). A franchisee of a proven brand should clear a modest profit in year one.
  */
 import { describe, expect, it } from "vitest";
-import { EMPIRE as K, probeUnitEconomics, type EmpireState } from "../src/index";
+import { EMPIRE as K, openingFactor, openProbeSite, probeUnitEconomics, type EmpireState } from "../src/index";
 import { content, empire, must } from "./helpers";
 
 const lockedHome = (): EmpireState => must(empire(), { type: "SET_FORMULA", locked: true });
@@ -54,5 +54,38 @@ describe("unit economics: a locked-formula franchise's first year", () => {
     const labourUp = withDeals.labour / unlocked.labour;
     expect(coversUp).toBeGreaterThan(1.25);
     expect(labourUp - 1).toBeLessThan((coversUp - 1) * 0.6);
+  });
+});
+
+describe("a new site's first year: ramp-up and honeymoon (round 5)", () => {
+  it("openingFactor: the opening bump, a dip as the novelty fades, run-rate by month 9; none on the flagship", () => {
+    const at = (age: number) => openingFactor({ openedTrading: 1000 }, 1000 + age);
+    expect(at(0)).toBeCloseTo(K.RAMP_START * (1 + K.HONEYMOON), 6);
+    expect(at(0)).toBeGreaterThan(1);
+    const dip = Math.min(...[60, 75, 90, 120].map(at));
+    expect(dip).toBeLessThan(0.9);
+    expect(at(120)).toBeLessThan(at(240));
+    expect(at(K.RAMP_DAYS)).toBe(1);
+    expect(at(400)).toBe(1);
+    expect(openingFactor({}, 5)).toBe(1);
+  });
+
+  it("is a shallow J: thinner months 2–5 than months 10–12, and a better second year", () => {
+    const e = lockedHome();
+    const y1 = probeUnitEconomics(content, e, { districtId: "high_street", supplyDeals: true });
+    const y2 = probeUnitEconomics(content, e, { districtId: "high_street", supplyDeals: true, skipDays: K.DAYS_PER_YEAR });
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    // Compare against the same months of year two, so the district's seasons cancel out.
+    const gap = (m: number) => y2.monthly[m]! - y1.monthly[m]!;
+    expect(mean([1, 2, 3, 4].map(gap))).toBeGreaterThan(mean([9, 10, 11].map(gap)) + 50_000);
+    expect(y2.netPct).toBeGreaterThan(y1.netPct);
+    expect(y1.netPct).toBeGreaterThan(0.03);
+  });
+
+  it("new sites carry openedTrading from their first day; the flagship and old saves do not ramp", () => {
+    const e = lockedHome();
+    expect(e.sites[0]!.openedTrading).toBeUndefined();
+    const { e: opened, siteId } = openProbeSite(content, e, { districtId: "seaside" });
+    expect(opened.sites.find((s) => s.id === siteId)!.openedTrading).toBe(opened.hq.day - 1);
   });
 });

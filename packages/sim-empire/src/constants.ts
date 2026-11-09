@@ -124,6 +124,16 @@ export const SERVER_WAGE_PER_SKILL = 2;
  */
 export const COUNTER_LABOUR_SHARE = 0.3;
 
+// ── a new site's first year (round 5): ramp-up and the opening honeymoon ──
+/**
+ * New restaurants take 6–12 months to reach their run-rate as locals find them: underlying demand starts at this share
+ * and rises linearly to 1 over RAMP_DAYS.
+ */
+export const RAMP_START = 0.8;
+export const RAMP_DAYS = 270;
+/** The novelty bump: +this on demand on opening day, fading linearly to nothing over HONEYMOON_DAYS (queues round the block). */
+export const HONEYMOON = 0.3;
+export const HONEYMOON_DAYS = 75;
 /** Popularity a modelled site trades at when the calibration has none (a well-run sim-core restaurant). */
 export const DEFAULT_POPULARITY = 85;
 /** Popularity of a standard crew at staff quality 50, and per point away from 50 (sim-core ratings follow the crew). */
