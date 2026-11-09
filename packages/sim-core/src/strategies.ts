@@ -76,7 +76,7 @@ export const STRATEGIES: Record<StrategyName, Strategy> = {
   "learner-underpriced": { ...TYPICAL, name: "learner-underpriced", readsTips: ["underpriced"] },
   // Round 10: the typical owner who decorates over year 1 — a cosy kit, one piece a fortnight, refreshed when worn.
   decorator: {
-    ...TYPICAL, name: "decorator", decorCash: 800_000,
+    ...TYPICAL, name: "decorator", decorCash: 1_000_000,
     decor: ["light_lanterns", "seat_cushions", "sign_chalk", "table_gingham", "music_radio", "walls_stripes", "window_cakes", "plant_baskets", "floor_rugs"],
   },
   nohire: { name: "nohire", priceMult: 1, menuSize: 6, coverCash: Infinity, secondHireCash: Infinity, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value", noHire: true },

@@ -6,37 +6,37 @@
   "cosy": {
    "name": "Cosy café",
    "segments": {
-    "students": 0.1,
-    "families": 0.15,
-    "tourists": 0.1,
-    "foodies": 0.05
+    "students": 0.05,
+    "families": 0.075,
+    "tourists": 0.05,
+    "foodies": 0.025
    }
   },
   "fun": {
    "name": "Fun diner",
    "segments": {
-    "students": 0.2,
-    "families": 0.15,
-    "tourists": 0.05,
-    "business": -0.05
+    "students": 0.1,
+    "families": 0.075,
+    "tourists": 0.025,
+    "business": -0.025
    }
   },
   "smart": {
    "name": "Smart bistro",
    "segments": {
-    "business": 0.2,
-    "foodies": 0.1,
-    "students": -0.05
+    "business": 0.1,
+    "foodies": 0.05,
+    "students": -0.025
    },
    "critic": 2
   },
   "posh": {
    "name": "Posh dining room",
    "segments": {
-    "foodies": 0.2,
-    "business": 0.1,
-    "students": -0.15,
-    "families": -0.05
+    "foodies": 0.1,
+    "business": 0.05,
+    "students": -0.075,
+    "families": -0.025
    },
    "critic": 4
   }
@@ -67,7 +67,7 @@
    "effects": {
     "popularity": 1,
     "comfort": 1,
-    "upkeep": 300
+    "upkeep": 150
    },
    "fitTables": 1,
    "lifeDays": 150,
@@ -237,7 +237,7 @@
    "effects": {
     "popularity": 1,
     "spend": 3,
-    "upkeep": 50
+    "upkeep": 30
    },
    "fitTables": 0,
    "lifeDays": 120,
@@ -295,7 +295,7 @@
     "prestige": 2,
     "stay": 1,
     "spend": 5,
-    "upkeep": 150
+    "upkeep": 100
    },
    "fitTables": 1,
    "lifeDays": 360,
@@ -415,7 +415,7 @@
    ],
    "effects": {
     "popularity": 1,
-    "upkeep": 200
+    "upkeep": 100
    },
    "fitTables": 0,
    "lifeDays": 90,
@@ -450,7 +450,7 @@
    ],
    "effects": {
     "prestige": 1,
-    "upkeep": 600
+    "upkeep": 300
    },
    "fitTables": 0,
    "lifeDays": 120,
@@ -535,7 +535,7 @@
    ],
    "effects": {
     "popularity": 2,
-    "upkeep": 100
+    "upkeep": 60
    },
    "fitTables": 0,
    "lifeDays": 360,
@@ -584,7 +584,7 @@
    ],
    "effects": {
     "comfort": 1,
-    "upkeep": 50
+    "upkeep": 30
    },
    "fitTables": 0,
    "lifeDays": 60,
@@ -603,7 +603,7 @@
    ],
    "effects": {
     "popularity": 1,
-    "upkeep": 150
+    "upkeep": 80
    },
    "fitTables": 0,
    "lifeDays": 120,
@@ -622,7 +622,7 @@
    ],
    "effects": {
     "prestige": 1,
-    "upkeep": 100
+    "upkeep": 50
    },
    "fitTables": 0,
    "lifeDays": 240,
@@ -641,7 +641,7 @@
    "effects": {
     "popularity": 1,
     "comfort": 1,
-    "upkeep": 400
+    "upkeep": 250
    },
    "fitTables": 1,
    "lifeDays": 120,
@@ -709,7 +709,7 @@
    "effects": {
     "popularity": 2,
     "spend": 4,
-    "upkeep": 100
+    "upkeep": 60
    },
    "fitTables": 0,
    "lifeDays": 360,
@@ -730,7 +730,7 @@
     "comfort": 1,
     "stay": 1,
     "spend": 5,
-    "upkeep": 300
+    "upkeep": 150
    },
    "fitTables": 1,
    "lifeDays": 480,
@@ -762,7 +762,7 @@
    "effects": {
     "popularity": 1,
     "spend": 4,
-    "upkeep": 300
+    "upkeep": 200
    },
    "fitTables": 0,
    "lifeDays": 120,
@@ -815,7 +815,7 @@
    ],
    "effects": {
     "prestige": 1,
-    "upkeep": 200
+    "upkeep": 120
    },
    "fitTables": 0,
    "lifeDays": 90,

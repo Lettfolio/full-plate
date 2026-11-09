@@ -75,8 +75,9 @@ export function serviceSystem(content: ContentPack, state: GameState, _rng: Rng)
   let walkoutCovers = 0;
   const charm = state.service?.frontCharm ?? frontCharm(content, state);
   const onHuman = waitingOnHuman(content, state);
-  // Round 10: a comfortable room (lamps, music, soft seats) keeps guests at the table a little longer.
-  const stay = decorEffects(content, state).stay;
+  // Round 10: a comfortable room (lamps, music, soft seats) keeps guests at the table a little longer — but only
+  // while nobody is queueing for a table (staff don't let people linger on a busy night).
+  const stay = state.customers.some((c) => c.stage === "queue") ? 0 : decorEffects(content, state).stay;
   const customers = mapIfChanged(state.customers, (c) => {
     const slow = c.stage === "ordered" && c.servedTick === undefined && onHuman.has(c.id);
     const next = advanceCustomer(content, c, state.tick, charm, slow ? HANDS_ON.stationPatienceMult : 1, stay);

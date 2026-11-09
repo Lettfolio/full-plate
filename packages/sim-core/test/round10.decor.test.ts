@@ -7,6 +7,9 @@ import {
 } from "../src/decor";
 import { DECOR_CAPS, DECOR_SLOTS } from "../src/constants";
 import { nextPopularity, nextPrestige } from "../src/systems/reputation";
+import { eatTicks, serviceSystem } from "../src/systems/service";
+import { newCustomer } from "../src/systems/arrival";
+import { Rng } from "../src/rng";
 import { playOne, STRATEGIES } from "../src/strategies";
 import type { Command, ContentPack, DecorSlot, GameState } from "../src/types";
 
@@ -241,6 +244,20 @@ describe("effects", () => {
     expect((night.overheads ?? 0) - (plain.overheads ?? 0)).toBeGreaterThanOrEqual(findDecorItem(content, "table_linen")!.effects.upkeep! - 50);
     expect(decorEffects(content, decked).comfort).toBe(3);
     expect(decorEffects(content, decked).stay).toBe(2);
+  });
+});
+
+describe("stay: guests linger only while nobody is queueing", () => {
+  it("adds the room's stay ticks to eating time on a quiet floor, none with a queue at the door", () => {
+    const base = start();
+    const seg = content.segments[0]!;
+    const served = { ...newCustomer("c0-1", seg, 2, 0), stage: "ordered" as const, servedTick: 10, tableId: base.tables[0]!.id, order: ["x"] };
+    const decor = { slots: { lighting: { itemId: "light_lanterns", since: 0 }, seating: { itemId: "seat_cushions", since: 0 } } };
+    const s = { ...base, phase: "service" as const, tick: 12, decor, customers: [served] };
+    const quiet = serviceSystem(content, s, new Rng([1, 2, 3, 4])).state.customers[0]!;
+    expect(quiet.eatUntil).toBe(12 + eatTicks(2) + 2);
+    const queued = { ...s, customers: [served, newCustomer("c0-2", seg, 2, 11)] };
+    expect(serviceSystem(content, queued, new Rng([1, 2, 3, 4])).state.customers[0]!.eatUntil).toBe(12 + eatTicks(2));
   });
 });
 

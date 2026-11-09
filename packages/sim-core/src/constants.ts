@@ -459,7 +459,7 @@ export const SET_MENU_MAX_DISHES = 12;
 /** The decor slots in the order the UI and the canvas list them. */
 export const DECOR_SLOTS = ["floor", "walls", "lighting", "seating", "tables", "signage", "plants", "music", "window"] as const;
 /** The whole room's effects are capped here, however lavish (prestige/popularity points, satisfaction points, eating ticks, % extra courses). */
-export const DECOR_CAPS = { prestige: 8, popularity: 6, comfort: 4, stay: 3, spend: 12 } as const;
+export const DECOR_CAPS = { prestige: 8, popularity: 4, comfort: 3, stay: 3, spend: 12 } as const;
 /** An item looks worn (refresh offered) from this share of its lifeDays, and tired at 100%. */
 export const DECOR_WORN_SHARE = 0.75;
 /** A tired item gives half its good effects and drags prestige by this much… */
