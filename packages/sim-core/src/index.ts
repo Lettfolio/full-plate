@@ -140,6 +140,8 @@ export { isWeekend, monthOf, weekdayOf } from "./util";
  * reserves it (the view draws the same rule); `ticketsToCover` what the sim's sous chef plates this tick.
  */
 export { humanTickets as stationRailTickets, ticketsToCover, aiTicks, isCoursed } from "./systems/station";
+/** [round 6 review] The cook id of a hands-on commis's AI hands is `<staffId>${SHADOW_COOK_SUFFIX}` (kitchen.ts cooksOnShift). */
+export { SHADOW_COOK_SUFFIX } from "./systems/kitchen";
 export { STATION_COURSES } from "./constants";
 /** Cost of one rostered shift for a staff member (wage × SHIFT_HOURS × (1 + EMPLOYER_ONCOST)). */
 export { shiftCost } from "./systems/finance";

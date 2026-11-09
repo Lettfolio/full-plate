@@ -10,13 +10,13 @@
  *   with how far through the mains they are (the course is due as they finish).
  * - `helperAtWork`: the commis's AI hands (`<staffId>~ai`) cooking one of her station's dishes, and where.
  */
-import { HANDS_ON, type GameState, type KitchenTicket } from "@full-plate/sim-core";
+import { HANDS_ON, SHADOW_COOK_SUFFIX, type GameState, type KitchenTicket } from "@full-plate/sim-core";
 import { profile } from "./session";
 import { coverDueTick, ownCourse, stationTickets } from "./station";
 import type { HandsOnSession } from "./types";
 
-/** sim-core kitchen.ts SHADOW_COOK_SUFFIX: the cook id of a hands-on commis's AI hands is `<staffId>~ai`. */
-export const HELPER_SUFFIX = "~ai";
+/** The cook id of a hands-on commis's AI hands is `<staffId>~ai`: sim-core's own constant (kitchen.ts), not a copy. */
+export const HELPER_SUFFIX = SHADOW_COOK_SUFFIX;
 
 /** hers: on her rail or in her hands · sous: on her rail, the sim's sous chef sends it within a tick · helper: another cook has it. */
 export type RailOwner = "hers" | "sous" | "helper";
