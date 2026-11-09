@@ -20,6 +20,15 @@ interface Props {
   runTicks: (n: number) => void;
   /** Show a short message (used for incidents at 4x instead of pausing). */
   notify?: (text: string) => void;
+  /**
+   * Round 3, employee shift without hands-on (no sim hook, a manager rung, or a day off): a read-only "watch your
+   * shift". The owner answers incidents, comp and 86 are hidden, and the player's sprite is ringed.
+   */
+  watch?: { title: string; note?: string; playerStaffId?: string; onPlay?: () => void; playLabel?: string };
+  /** Round 3, owner: "Jump in" mounts the hands-on canvas for the rest of the service. */
+  onJumpIn?: (role: "chef" | "server" | "bar") => void;
+  /** "Skip to end of shift": run the remaining ticks now. */
+  onSkip?: () => void;
 }
 
 /** Space/1/2/4 shortcuts must not hijack a focused control: Space on a button should press it. */
@@ -78,7 +87,7 @@ function stageShort(c: GameState["customers"][number]): string {
   return c.stage === "seated" ? "menus" : c.stage === "ordered" ? "waiting" : c.stage === "eating" ? "eating" : c.stage === "paying" ? "bill" : "";
 }
 
-export function Service({ game, app, send, runTicks, notify }: Props) {
+export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, onSkip }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<RestaurantView | null>(null);
@@ -98,7 +107,13 @@ export function Service({ game, app, send, runTicks, notify }: Props) {
     highlight.tableIds.push(...one.tableIds); highlight.customerIds.push(...one.customerIds); highlight.staffIds.push(...one.staffIds);
     if (inc.id === focusIncident) highlight.strong!.push(...one.tableIds, ...one.customerIds, ...one.staffIds);
   }
+  if (watch?.playerStaffId && game.staff.some((x) => x.id === watch.playerStaffId)) {
+    highlight.staffIds.push(watch.playerStaffId);
+    highlight.strong!.push(watch.playerStaffId);
+  }
 
+  const watchRef = useRef(!!watch);
+  watchRef.current = !!watch;
   // latest values for the rAF loop without restarting it
   const live = useRef({ game, speed, selected, hoverTable, runTicks, highlight });
   live.current = { game, speed, selected, hoverTable, runTicks, highlight };
@@ -108,6 +123,7 @@ export function Service({ game, app, send, runTicks, notify }: Props) {
   useEffect(() => {
     if (app.incidentAlert.seq === lastAlert.current) return;
     lastAlert.current = app.incidentAlert.seq;
+    if (watchRef.current) return; // the owner deals with it
     const next = speedAfterIncident(live.current.speed, settings.autoPause);
     if (next.speed !== live.current.speed) setSpeed(next.speed);
     // Paused for a decision: put keyboard focus on the new card's first available option (only if focus isn't
@@ -228,10 +244,37 @@ export function Service({ game, app, send, runTicks, notify }: Props) {
       </div>
 
       <aside className="service__side">
+        {watch && (
+          <div className="card watchcard" role="status">
+            <div className="row">
+              <span aria-hidden="true">👀</span>
+              <b className="spacer">{watch.title}</b>
+            </div>
+            {watch.note && <div className="small muted">{watch.note}</div>}
+            <div className="row row--wrap" style={{ marginTop: 8 }}>
+              {watch.onPlay && <button className="btn btn--primary btn--sm" onClick={watch.onPlay}>{watch.playLabel ?? "Play my shift"}</button>}
+              {onSkip && <button className="btn btn--sm" onClick={onSkip}>Skip to end of shift</button>}
+            </div>
+          </div>
+        )}
+        {!watch && onJumpIn && (
+          <div className="card jumpin">
+            <div className="row">
+              <span aria-hidden="true">🧑‍🍳</span>
+              <b className="spacer">Jump in</b>
+              <span className="xs faint">for the rest of service</span>
+            </div>
+            <div className="row row--wrap" style={{ marginTop: 6 }}>
+              <button className="btn btn--sm" onClick={() => onJumpIn("chef")}>On the pass</button>
+              <button className="btn btn--sm" onClick={() => onJumpIn("server")}>On the floor</button>
+              <button className="btn btn--sm" onClick={() => onJumpIn("bar")}>Behind the bar</button>
+            </div>
+          </div>
+        )}
         {cards.length > 0 && (
           <div className="incidents" aria-label="Problems to deal with">
             {cards.map(({ inc, leaving }) => (
-              <IncidentCard key={inc.id} incident={inc} leaving={leaving} tick={game.tick} cash={game.cash} send={send} onFocusSubject={setFocusIncident} />
+              <IncidentCard key={inc.id} incident={inc} leaving={leaving} tick={game.tick} cash={game.cash} send={watch ? () => {} : send} onFocusSubject={setFocusIncident} readOnly={!!watch} />
             ))}
           </div>
         )}
@@ -289,7 +332,7 @@ export function Service({ game, app, send, runTicks, notify }: Props) {
           </div>
         </div>
 
-        <div className="card actions" style={{ padding: 12 }}>
+        {!watch && <div className="card actions" style={{ padding: 12 }}>
           <h4>Manager's actions</h4>
           {sel ? (
             <div className="selected">
@@ -349,7 +392,7 @@ export function Service({ game, app, send, runTicks, notify }: Props) {
               );
             })}
           </div>
-        </div>
+        </div>}
       </aside>
     </div>
   );

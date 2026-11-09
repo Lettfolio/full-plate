@@ -9,9 +9,12 @@ interface Props {
   initialSeed: number;
   onStart: (seed: number, districtId: string, name: string, difficulty: Difficulty) => void;
   onBack: () => void;
+  /** Preselected by the start picker. */
+  initialDistrictId?: string;
+  initialDifficulty?: Difficulty;
 }
 
-const DIFFICULTIES: { id: Difficulty; name: string; desc: string }[] = [
+export const DIFFICULTIES: { id: Difficulty; name: string; desc: string }[] = [
   { id: "cosy", name: "Cosy", desc: "You can't go bust. Take your time and learn the ropes." },
   { id: "normal", name: "Normal", desc: "Real pressure: keep cash above water or the bank steps in." },
   { id: "hard", name: "Hard", desc: "Tight margins, fussy customers, and the bank is not patient." },
@@ -21,7 +24,7 @@ const NAME_IDEAS = ["The Hungry Fox", "Little Saucepan", "Plates & Co.", "The Go
 const MONTH_INITIALS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
 /** Emoji per district id/name keyword; falls back to a fork-and-knife. */
-function districtIcon(d: DistrictDef): string {
+export function districtIcon(d: DistrictDef): string {
   const k = `${d.id} ${d.name}`.toLowerCase();
   if (k.includes("student")) return "🎒";
   if (k.includes("business") || k.includes("office")) return "💼";
@@ -30,10 +33,10 @@ function districtIcon(d: DistrictDef): string {
   return "🍴";
 }
 
-export function NewGame({ content, initialSeed, onStart, onBack }: Props) {
-  const [districtId, setDistrictId] = useState(content.districts[0]?.id ?? "");
+export function NewGame({ content, initialSeed, onStart, onBack, initialDistrictId, initialDifficulty }: Props) {
+  const [districtId, setDistrictId] = useState(initialDistrictId ?? content.districts[0]?.id ?? "");
   const [name, setName] = useState("");
-  const [difficulty, setDifficulty] = useState<Difficulty>("cosy");
+  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty ?? "cosy");
   const [seedText, setSeedText] = useState(String(initialSeed));
   const placeholder = useMemo(() => NAME_IDEAS[initialSeed % NAME_IDEAS.length]!, [initialSeed]);
   const seed = Number.parseInt(seedText, 10);

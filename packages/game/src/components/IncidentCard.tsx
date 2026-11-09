@@ -13,10 +13,12 @@ interface Props {
   send: (cmd: Command) => void;
   /** Mouse-over / focus on the card highlights its subject on the canvas. */
   onFocusSubject?: (incidentId: string | null) => void;
+  /** Employee view: the owner decides; show the card without buttons. */
+  readOnly?: boolean;
 }
 
 /** One live incident: what happened, how long you have, and 2-3 things you can do about it. */
-export function IncidentCard({ incident: inc, leaving = false, tick, cash, send, onFocusSubject }: Props) {
+export function IncidentCard({ incident: inc, leaving = false, tick, cash, send, onFocusSubject, readOnly = false }: Props) {
   const f = countdownFraction(inc, tick);
   const urgent = f < 0.34;
   if (leaving) {
@@ -51,8 +53,8 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
       <div className="incident__timer" role="meter" aria-label="Time to decide" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(f * 100)}>
         <span style={{ width: `${f * 100}%` }} />
       </div>
-      <div className="xs muted">{inc.ticksLeft * MINUTES_PER_TICK} min to decide, or it sorts itself out (badly).</div>
-      <div className="incident__options">
+      <div className="xs muted">{readOnly ? "The boss is dealing with it." : `${inc.ticksLeft * MINUTES_PER_TICK} min to decide, or it sorts itself out (badly).`}</div>
+      {!readOnly && <div className="incident__options">
         {inc.options.map((o) => {
           // The sim says why an option is impossible right now (no free tables, no stock, not enough cash).
           const why = o.disabled ?? ((o.cost ?? 0) > 0 && o.id !== "comp" && cash < (o.cost ?? 0) ? "Not enough cash" : undefined);
@@ -74,7 +76,7 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
             </button>
           );
         })}
-      </div>
+      </div>}
     </section>
   );
 }

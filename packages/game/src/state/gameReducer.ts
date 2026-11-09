@@ -1,6 +1,15 @@
-import type { Command, DayResult, GameState, Goal, LogEntry, SimEvent } from "@full-plate/sim-core";
-import { applyCommand, content, newGame, tick } from "../sim";
+import type { Command, ContentPack, DayResult, GameState, Goal, LogEntry, SimEvent } from "@full-plate/sim-core";
+import type { CareerCommand, CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
+import type { EmpireCommand } from "@full-plate/sim-empire";
+import type { StarsCommand } from "@full-plate/sim-stars";
+import { applyCommand, asCommand, content, HOOKS, newGame, tick } from "../sim";
 import { formatPence } from "../lib/format";
+import { forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
+import {
+  careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
+  ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
+} from "./pathEngine";
+import type { HandsOnResult } from "@full-plate/handson";
 
 export type ToastTone = "bad" | "good" | "info";
 export interface ToastMsg { id: number; text: string; tone: ToastTone }
@@ -31,11 +40,28 @@ export interface AppState {
   incidentAlert: { seq: number; incidentId: string | null };
   /** Goals completed on the current day (GOAL_COMPLETED), so the Goals card can flash them. Reset when the day changes. */
   goalsJustDone: string[];
+  /** Round 3: career, paths, fork, hands-on and endings (state/paths.ts). */
+  meta: PathMeta;
 }
 
 export type AppAction =
   | { type: "new"; cmd: Extract<Command, { type: "NEW_GAME" }> }
-  | { type: "load"; game: GameState }
+  | { type: "load"; game: GameState; meta?: PathMeta }
+  | { type: "newCareer"; seed: number; track: CareerTrack; strategy: OwnerStrategy; playerName: string; difficulty: GameState["difficulty"]; districtId?: string }
+  | { type: "career"; cmd: CareerCommand }
+  | { type: "empire"; cmd: EmpireCommand }
+  | { type: "stars"; cmd: StarsCommand }
+  | { type: "fork"; choice: "snooze" | "empire" | "stars"; brandName?: string }
+  | { type: "focusSite"; siteId: string }
+  | { type: "openGuide" }
+  | { type: "dismissWin" }
+  | { type: "seenHandover" }
+  | { type: "nextDay" }
+  | { type: "skipShift" }
+  | { type: "handsOnStart"; meta: HandsOnMeta }
+  | { type: "handsOnStop" }
+  | { type: "handsOnResults"; results: HandsOnResult[] }
+  | { type: "tastingMenu"; menuId: string | null }
   | { type: "command"; cmd: Command }
   | { type: "ticks"; n: number }
   | { type: "toast"; text: string; tone?: ToastTone }
@@ -52,6 +78,7 @@ export const initialAppState: AppState = {
   ticksRun: 0,
   incidentAlert: { seq: 0, incidentId: null },
   goalsJustDone: [],
+  meta: initialMeta(),
 };
 
 const TICKER_MAX = 60;
@@ -120,12 +147,52 @@ function serviceRejection(events: SimEvent[]): string | null {
   return only?.type === "LOG" && only.entry.kind === "bad" ? only.entry.text : null;
 }
 
+/**
+ * After any transition: run the path layers' daily hooks. Entering an evening runs career/empire/stars once per day and
+ * decides whether the fork card shows; entering a morning lets the career's AI owner plan and a Stars refit close the doors.
+ */
+function settle(s: AppState): AppState {
+  const g0 = s.game;
+  if (!g0) return s;
+  let game = g0;
+  let meta = s.meta;
+  if (game.phase === "evening" || game.phase === "event" || game.phase === "gameover") {
+    ({ game, meta } = eveningHooks(game, meta));
+    if (!meta.fork.offered && forkDue(game, meta.fork, meta.mode === "career" && meta.career?.handover ? "owner" : meta.mode)) {
+      meta = { ...meta, fork: { ...meta.fork, offered: true, firstOfferDay: meta.fork.firstOfferDay ?? game.day } };
+    }
+    if (meta.handsOn) meta = { ...meta, handsOn: undefined };
+  } else if (game.phase === "planning" && meta.morningDay !== game.day) {
+    ({ game, meta } = careerMorning(game, meta));
+    game = starsMorning(game, meta);
+    meta = { ...meta, morningDay: game.day };
+  }
+  if (game === g0 && meta === s.meta) return s;
+  return { ...s, game, meta };
+}
+
+function rejectToast(s: AppState, why: string | undefined): AppState {
+  return why ? withToast(s, why, "bad") : s;
+}
+
 export function appReducer(s: AppState, a: AppAction): AppState {
+  const next = reduce(s, a);
+  return next === s ? s : settle(next);
+}
+
+function reduce(s: AppState, a: AppAction): AppState {
+  const pack: ContentPack = packFor(s.meta);
   switch (a.type) {
     case "new":
-      return { ...initialAppState, game: newGame(content, a.cmd) };
-    case "load":
-      return { ...initialAppState, game: a.game, lastResult: a.game.history.at(-1) ?? null };
+      return { ...initialAppState, game: newGame(content, a.cmd), meta: initialMeta("owner") };
+    case "newCareer": {
+      const r = startCareer(a);
+      return { ...initialAppState, game: r.game, meta: r.meta };
+    }
+    case "load": {
+      const meta = a.meta ?? initialMeta("owner");
+      return { ...initialAppState, game: a.game, lastResult: a.game.history.at(-1) ?? null, meta: { ...meta, lastPathDay: Math.max(meta.lastPathDay, a.game.history.at(-1)?.day ?? -1) } };
+    }
     case "quit":
       return initialAppState;
     case "toast":
@@ -135,11 +202,12 @@ export function appReducer(s: AppState, a: AppAction): AppState {
     case "command": {
       if (!s.game) return s;
       const before = s.game;
-      const res = applyCommand(content, before, a.cmd);
-      let next: AppState = { ...s, game: res.state };
+      const r = ownerApply(pack, before, s.meta, a.cmd);
+      const res = { state: r.state, events: r.events };
+      let next: AppState = { ...s, game: res.state, meta: r.meta };
       if (res.state.day !== before.day) next = { ...next, goalsJustDone: [] };
       if (a.cmd.type === "START_SERVICE" && res.state.phase === "service") {
-        next = { ...next, ticker: [], ratings: { sum: 0, count: 0 }, toast: null };
+        next = { ...next, ticker: [], ratings: { sum: 0, count: 0 }, toast: null, meta: { ...next.meta, shiftSummary: undefined } };
       } else {
         const why = before.phase === "service" && res.state.phase === "service" ? serviceRejection(res.events) : res.state.phase !== "service" ? rejection(res.events) : null;
         if (why) {
@@ -157,14 +225,120 @@ export function appReducer(s: AppState, a: AppAction): AppState {
       let n = 0;
       // Stop early if the service ends mid-batch (phase changes to evening / event / gameover),
       // or as soon as an incident starts, so the UI can pause on the very tick it appeared.
+      // An employee's owner answers incidents themselves, so career shifts don't stop for them.
+      const career = s.meta.mode === "career" && !s.meta.career?.handover;
       while (n < a.n && game.phase === "service") {
-        const res = tick(content, game);
+        if (career) { const o = ownerResponds(game, s.meta); game = o.game; events.push(...o.events); }
+        const res = tick(pack, game);
         game = res.state;
         events.push(...res.events);
         n++;
-        if (res.events.some((e) => e.type === "INCIDENT_STARTED")) break;
+        if (!career && res.events.some((e) => e.type === "INCIDENT_STARTED")) break;
       }
       return absorb({ ...s, game, ticksRun: s.ticksRun + n }, events);
     }
+    case "skipShift": {
+      // "Skip to end of shift": run every remaining tick; the owner answers incidents (career) or they time out.
+      if (!s.game || s.game.phase !== "service") return s;
+      let game = s.game;
+      const events: SimEvent[] = [];
+      let n = 0;
+      while (game.phase === "service" && n < 1000) {
+        const o = ownerResponds(game, s.meta);
+        game = o.game;
+        events.push(...o.events);
+        const res = tick(pack, game);
+        game = res.state;
+        events.push(...res.events);
+        n++;
+      }
+      return absorb({ ...s, game, ticksRun: s.ticksRun + n, meta: { ...s.meta, handsOn: undefined } }, events);
+    }
+    case "handsOnStart": {
+      if (!s.game || s.game.phase !== "service") return s;
+      let game = s.game;
+      if (HOOKS.handsOn) game = applyCommand(pack, game, asCommand({ type: "SET_HANDS_ON", role: a.meta.role })).state;
+      return { ...s, game, meta: { ...s.meta, handsOn: a.meta } };
+    }
+    case "handsOnStop": {
+      if (!s.game) return s;
+      let game = s.game;
+      if (HOOKS.handsOn && game.phase === "service") game = applyCommand(pack, game, asCommand({ type: "SET_HANDS_ON", role: null })).state;
+      return { ...s, game, meta: { ...s.meta, handsOn: undefined } };
+    }
+    case "handsOnResults": {
+      if (!s.game || s.game.phase !== "service" || !HOOKS.player || !a.results.length) return s;
+      let game = s.game;
+      const events: SimEvent[] = [];
+      for (const cmd of handsOnCommands(a.results)) {
+        const r = applyCommand(pack, game, cmd);
+        // A rejected hands-on command (the session was a tick behind) is harmless: the session prunes its own marks.
+        if (serviceRejection(r.events)) continue;
+        game = r.state;
+        events.push(...r.events);
+      }
+      return absorb({ ...s, game }, events);
+    }
+    case "nextDay": {
+      // Evening → tomorrow. Employees: the AI owner closes the day. Owners: END_DAY (the event modal handles "event").
+      if (!s.game) return s;
+      const m = s.meta;
+      if (m.mode === "career" && m.career && !m.career.handover) {
+        if (m.career.employer.status !== "employed") {
+          const r = careerIdleDay(s.game, m);
+          return { ...s, meta: { ...r.meta, morningDay: undefined } };
+        }
+        const r = careerNextDay(s.game, m);
+        return { ...s, game: r.game, meta: r.meta, goalsJustDone: [] };
+      }
+      return reduce(s, { type: "command", cmd: { type: "END_DAY" } });
+    }
+    case "career": {
+      if (!s.game) return s;
+      const r = careerCommand(s.game, s.meta, a.cmd);
+      let next: AppState = { ...s, game: r.game, meta: r.meta };
+      if (r.rejected) next = withToast(next, r.rejected, "bad");
+      else if (a.cmd.type === "ACCEPT_OFFER" || a.cmd.type === "OPEN_OWN_PLACE") next = { ...next, meta: { ...next.meta, morningDay: undefined }, lastResult: null, ticker: [] };
+      return next;
+    }
+    case "empire": {
+      if (!s.game) return s;
+      const r = empireCommand(s.game, s.meta, a.cmd);
+      const bad = r.events.find((e) => e.kind === "rejected");
+      return rejectToast({ ...s, game: r.game, meta: r.meta }, bad?.text);
+    }
+    case "focusSite": {
+      if (!s.game) return s;
+      const r = focusSite(s.game, s.meta, a.siteId);
+      if ("error" in r) return withToast(s, r.error, "bad");
+      return { ...s, game: r.game, meta: { ...r.meta, morningDay: r.game.day }, lastResult: null, ticker: [] };
+    }
+    case "stars": {
+      if (!s.game) return s;
+      const r = starsCommand(s.game, s.meta, a.cmd);
+      const bad = r.events.find((e): e is Extract<typeof e, { type: "REJECTED" }> => e.type === "REJECTED");
+      return rejectToast({ ...s, game: r.game, meta: r.meta }, bad?.reason);
+    }
+    case "tastingMenu": {
+      if (!s.game) return s;
+      const r = setTastingMenu(s.game, a.menuId);
+      if (!r) return withToast(s, "Tasting menus need the sim's set-menu support (coming soon).", "info");
+      const why = rejection(r.events);
+      return why ? withToast(s, why, "bad") : { ...s, game: r.state };
+    }
+    case "fork": {
+      if (!s.game) return s;
+      const meta = a.choice === "snooze" ? snoozeFork(s.game, s.meta) : a.choice === "empire" ? chooseEmpire(s.game, s.meta, a.brandName) : chooseStars(s.game, s.meta);
+      return { ...s, meta };
+    }
+    case "openGuide":
+      return s.meta.pendingGuide ? { ...s, meta: { ...s.meta, pendingGuide: undefined } } : s;
+    case "dismissWin":
+      return s.meta.win ? { ...s, meta: { ...s.meta, win: { ...s.meta.win, dismissed: true } } } : s;
+    case "seenHandover":
+      return { ...s, meta: { ...s.meta, handoverSeen: true } };
   }
 }
+
+/** The pack the current game cooks with (exported for screens that call pure sim helpers). */
+export const packOf = (s: AppState): ContentPack => packFor(s.meta);

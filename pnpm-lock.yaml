@@ -39,9 +39,21 @@ importers:
       '@full-plate/content':
         specifier: workspace:*
         version: link:../content
+      '@full-plate/handson':
+        specifier: workspace:*
+        version: link:../handson
+      '@full-plate/sim-career':
+        specifier: workspace:*
+        version: link:../sim-career
       '@full-plate/sim-core':
         specifier: workspace:*
         version: link:../sim-core
+      '@full-plate/sim-empire':
+        specifier: workspace:*
+        version: link:../sim-empire
+      '@full-plate/sim-stars':
+        specifier: workspace:*
+        version: link:../sim-stars
       react:
         specifier: ^18.3.1
         version: 18.3.1

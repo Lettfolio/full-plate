@@ -14,6 +14,10 @@ import { dishName } from "../lib/content";
 import { pct, signed } from "../lib/format";
 import { dateLabel } from "../lib/calendar";
 import { initials, moodFace } from "../lib/staff";
+import type { EmpireCommand } from "@full-plate/sim-empire";
+import type { ShiftSummary } from "@full-plate/handson";
+import type { PathMeta } from "../state/paths";
+import { compactMeals } from "../components/StatusBar";
 
 interface Props {
   game: GameState;
@@ -24,6 +28,65 @@ interface Props {
   onGoTo?: (tab: PlanningTab) => void;
   nextLabel: string;
   send: (cmd: Command) => void;
+  /** Round 3: path layers (Empire sweep, Stars news) and the hands-on score. */
+  meta?: PathMeta;
+  sendEmpire?: (cmd: EmpireCommand) => void;
+  shiftSummary?: ShiftSummary | null;
+}
+
+const STARS_LINE: Partial<Record<string, string>> = { CRITIC_REVIEW: "🎩", INSPECTOR_HINT: "🕵️", STRESS_WARNING: "😰", BURNOUT: "🔥", RESEARCH_DONE: "🧪", SMYTH_ARC_STARTED: "🧑‍🍳", HEAD_CHEF_LEFT: "👋", STAGIAIRE_SCANDAL: "📰", FIFTY_BEST: "🌍", GAULT_MILLAU: "🎩", GOOD_FOOD: "📗", INSPECTION_SEASON: "🗓️" };
+
+/** Round 3 cards: the Empire's evening (meals, HQ, move cash), the Stars' news, and the hands-on score. */
+function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; meta?: PathMeta; sendEmpire?: (cmd: EmpireCommand) => void; shiftSummary?: ShiftSummary | null }) {
+  const e = meta?.empire;
+  const news = (meta?.starsEvents ?? []).flatMap((ev) => {
+    const icon = STARS_LINE[ev.type];
+    if (!icon) return [];
+    const text = ev.type === "CRITIC_REVIEW" ? `${ev.review.critic} (${"★".repeat(ev.review.rating)}): “${ev.review.text}”`
+      : ev.type === "INSPECTOR_HINT" ? ev.text
+      : ev.type === "STRESS_WARNING" ? `Your head chef's stress is at ${Math.round(ev.stress)}.`
+      : ev.type === "BURNOUT" ? "Your head chef has burnt out. The kitchen will wobble for a while."
+      : ev.type === "RESEARCH_DONE" ? `The test kitchen finished ${dishName(content, ev.dishId)}: it's a signature now.`
+      : ev.type === "SMYTH_ARC_STARTED" ? "Your head chef wants a place of their own — see the Stars tab."
+      : ev.type === "HEAD_CHEF_LEFT" ? (ev.backed ? "Your head chef has left to open their own place, with your blessing." : `Your head chef has left${ev.rival ? ` to open ${ev.rival}` : ""}.`)
+      : ev.type === "STAGIAIRE_SCANDAL" ? "A newspaper story about unpaid stagiaires. Ouch."
+      : ev.type === "FIFTY_BEST" ? (ev.hallOfFame ? "The World's 50 Greatest Tables: number one — into the hall of fame!" : ev.rank ? `The World's 50 Greatest Tables: number ${ev.rank}.` : "Not on the World's 50 Greatest Tables list this year.")
+      : ev.type === "GAULT_MILLAU" ? `The Toque Guide gives you ${ev.points.toFixed(1)}/20.`
+      : ev.type === "GOOD_FOOD" ? (ev.tier ? `The Good Table Guide lists you at ${ev.tier}/10.` : "Not in the Good Table Guide this year.")
+      : ev.type === "INSPECTION_SEASON" ? `Inspection season: ${ev.daysToGuide} days to guide day.` : "";
+    return text ? [{ icon, text }] : [];
+  });
+  const lastMeals = e?.history.at(-1);
+  const spare = Math.max(0, game.cash - 200_000);
+  return (
+    <>
+      {shiftSummary && (
+        <div className="card tip">
+          <span className="tip__icon" aria-hidden="true">🧑‍🍳</span>
+          <div className="spacer">
+            <b>You jumped in: {"★".repeat(shiftSummary.stars)}{"☆".repeat(3 - shiftSummary.stars)} · {shiftSummary.points} points</b>
+            <div className="small">{shiftSummary.lines.map((l) => `${l.label} ${l.value}`).join(" · ")}</div>
+          </div>
+        </div>
+      )}
+      {e && (
+        <div className="card">
+          <div className="card__title"><h3>🍔 {e.brand.name} tonight</h3><span className="xs faint">{e.sites.filter((x) => x.status === "open").length} sites</span></div>
+          <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · HQ cash <MoneyText pence={e.hq.cash} whole tone /> · HQ net today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
+          {lastMeals && <div className="xs muted">This month so far: {lastMeals.sites} sites trading.</div>}
+          {sendEmpire && spare >= 10_000 && (
+            <button className="btn btn--sm btn--green" style={{ marginTop: 8 }} onClick={() => sendEmpire({ type: "TRANSFER_FROM_FOCUSED", amount: spare })}>Sweep <MoneyText pence={spare} whole /> from the till to HQ</button>
+          )}
+        </div>
+      )}
+      {news.length > 0 && (
+        <div className="card">
+          <div className="card__title"><h3>⭐ News from the guides</h3></div>
+          <ul className="happened">{news.map((n, i) => <li key={i} className="happened__row"><span aria-hidden="true">{n.icon}</span><div className="small">{n.text}</div></li>)}</ul>
+        </div>
+      )}
+    </>
+  );
 }
 
 /** Orders tomorrow's shortfall now (ORDER_STOCK is allowed in the evening; deliveries land next morning). */
@@ -83,7 +146,7 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   );
 }
 
-export function Evening({ game, result, onNext, onGoTo, nextLabel, send }: Props) {
+export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, sendEmpire, shiftSummary }: Props) {
   if (!result) {
     return (
       <div className="page">
@@ -120,6 +183,7 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send }: Props
 
         <div className="stack">
           {game.phase !== "gameover" && <Restock game={game} send={send} />}
+          <PathCards game={game} {...(meta ? { meta } : {})} {...(sendEmpire ? { sendEmpire } : {})} shiftSummary={shiftSummary ?? null} />
           {covered.length > 0 && (
             <div className="card tip tip--amber">
               <span className="tip__icon" aria-hidden="true">🧑‍🍳</span>
