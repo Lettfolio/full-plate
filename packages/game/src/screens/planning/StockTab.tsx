@@ -3,6 +3,7 @@ import type { Command, GameState, IngredientId } from "@full-plate/sim-core";
 import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
 import { expectedCovers, restockLines, type StockNeed } from "./stockNeeds";
+import { forecastLine, wholeHave } from "../../lib/dayLoop";
 
 interface Props { game: GameState; send: (cmd: Command) => void; needs: StockNeed[]; /** Day 0: opening stock arrives at "Open", so nothing reads as short. */ opening?: boolean }
 
@@ -24,6 +25,9 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
   const rows = [...needs].sort((a, b) => (b.need > 0 ? 1 : 0) - (a.need > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   const basket = rows.reduce((a, r) => a + (qty[r.ingredientId] ?? 0) * r.unitCost, 0);
   const ordered = game.orders.reduce((a, o) => a + o.cost, 0);
+  const lines = new Map(rows.map((r) => [r.ingredientId, forecastLine(r, opening)]));
+  const shortCount = [...lines.values()].filter((l) => l.tone === "short").length;
+  const guests = expectedCovers(game);
   const fillShort = () => setQty({ ...qty, ...Object.fromEntries(restockLines(game)) });
   const place = () => {
     for (const r of rows) {
@@ -37,8 +41,15 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
     <div className="stack">
       <div className="row">
         <h3 className="spacer">Larder & order sheet</h3>
-        <span className="small muted">Planning for about <b>{expectedCovers(game)}</b> guests</span>
       </div>
+      {/* Round 7: the forecast in one line a child can read, before the table. */}
+      <p className={`forecast forecast--${opening ? "opening" : shortCount ? "short" : "ok"}`} data-testid="stock-forecast">
+        <span className="forecast__icon" aria-hidden="true">{shortCount && !opening ? "📦" : "✅"}</span>
+        <span>
+          Next service: about <b>{guests}</b> guests.{" "}
+          {opening ? "Today's opening stock is bought for you when you open." : shortCount ? <><b>{shortCount} thing{shortCount === 1 ? "" : "s"}</b> will run short — tap <b>{opening ? "Fill for tomorrow" : "Fill what's short"}</b>, then <b>Place order</b>.</> : "The larder covers it."}
+        </span>
+      </p>
       {opening && (
         <p className="callout" role="note"><b>First day:</b> today's opening stock is bought for you when you open. Anything you order here is for tomorrow.</p>
       )}
@@ -52,7 +63,7 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
             <th>Ingredient</th>
             <th className="r">On hand</th>
             <th>Keeps</th>
-            <th>Needed for menu</th>
+            <th>Next service</th>
             <th className="r">Unit cost</th>
             <th>Order</th>
             <th className="r">Line cost</th>
@@ -61,19 +72,18 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
         <tbody>
           {rows.map((r) => {
             const q = qty[r.ingredientId] ?? 0;
-            const have = r.onHand + r.incoming;
-            const state = r.need === 0 ? "idle" : have >= r.need ? "ok" : opening ? "opening" : "short";
+            const line = lines.get(r.ingredientId)!;
             return (
               <tr key={r.ingredientId}>
                 <td>
                   <b>{r.name}</b>
                   {r.usedBy.length > 0 && <div className="xs faint">{r.usedBy.join(", ")}</div>}
                 </td>
-                <td className="r num"><b>{r.onHand}</b>{r.incoming > 0 && <div className="xs muted">+{r.incoming} coming</div>}</td>
+                <td className="r num"><b>{wholeHave(r.onHand)}</b>{r.incoming > 0 && <div className="xs muted">+{wholeHave(r.incoming)} coming</div>}</td>
                 <td><Shelf days={r.shelfLifeDays} age={r.age} /></td>
                 <td>
-                  <span className={`need need--${state}`}>
-                    {state === "idle" ? "not on menu" : state === "ok" ? `✓ ~${r.need} needed` : state === "opening" ? `~${r.need} needed · opening stock` : `▲ ~${r.need} needed, short ${r.need - have}`}
+                  <span className={`need need--${line.tone}`} data-testid={`forecast-${r.ingredientId}`}>
+                    {line.tone === "short" ? "▲ " : line.tone === "ok" || line.tone === "coming" ? "✓ " : ""}{line.text}
                   </span>
                 </td>
                 <td className="r"><MoneyText pence={r.unitCost} /></td>
@@ -91,7 +101,7 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
         <span>Basket <b><MoneyText pence={basket} /></b></span>
         <button className="btn btn--green" disabled={basket === 0} onClick={place}>Place order</button>
       </div>
-      <p className="xs faint">“Needed” is a rough guess: the busiest recent day, one main per guest plus some starters, sides, desserts and drinks. Prices shown are base prices; seasonal discounts apply at checkout. Fresh food spoils — don't over-order the short-life stuff.</p>
+      <p className="xs faint">“Next service” is a rough guess: the busiest recent day, one main per guest plus some starters, sides, desserts and drinks. Prices shown are base prices; seasonal discounts apply at checkout. Fresh food spoils — don't over-order the short-life stuff.</p>
     </div>
   );
 }
