@@ -16,7 +16,7 @@ export interface SousItem {
 }
 
 /**
- * One trip to act out. `at` is the session time the walk starts (queued behind the previous one). Covers noticed
+ * One trip to act out. `at` is the session time the cover was noticed (or, queued, when the walk starts). Covers noticed
  * before he has taken the slip join the trip (the sim often covers two tickets in one tick), so what he says always
  * matches the line the session shows.
  */
@@ -25,11 +25,18 @@ export interface SousWalk {
   /** Which slip on the header rail it was (left to right, by party), so the slip lifts from where it hung. */
   slot: number;
   at: number;
+  /**
+   * Round 7: he set off for the rail at this session time, when the slip fell due (it turned amber because the sim
+   * sends it at the next tick), and waited there for the tick — so he takes the slip off the rail instead of replaying
+   * it. Absent: he sets off at `at`, as in round 6.
+   */
+  leadFrom?: number;
 }
 
 /** Seconds in each leg of the walk. */
 export const SOUS_WALK = { toRail: 1.1, take: 0.45, toPass: 1.5, set: 0.5, back: 1.3 } as const;
 export const SOUS_WALK_TOTAL = SOUS_WALK.toRail + SOUS_WALK.take + SOUS_WALK.toPass + SOUS_WALK.set + SOUS_WALK.back;
+
 /** Walks kept at once (the oldest finished ones are dropped). */
 const MAX_WALKS = 4;
 
@@ -38,20 +45,54 @@ export const SOUS_POST = { x: 19.4, y: 3.2 } as const;
 export const RAIL_STAND_Y = 2.2;
 export const PASS_STAND = { x: 9.5, y: 4.35 } as const;
 
+/** Round 7: a trip's timeline — sets off, takes the slip (after waiting at the rail if he got there first), ends. */
+export function walkTimes(w: SousWalk): { start: number; takeAt: number; end: number } {
+  const start = w.leadFrom ?? w.at;
+  const takeAt = Math.max(w.at, start + SOUS_WALK.toRail);
+  // A stand-down (no items: she plated the slip herself before the tick) just walks back from the rail.
+  const end = w.items.length ? takeAt + SOUS_WALK.take + SOUS_WALK.toPass + SOUS_WALK.set + SOUS_WALK.back : takeAt + SOUS_WALK.back;
+  return { start, takeAt, end };
+}
+export const walkStart = (w: SousWalk): number => walkTimes(w).start;
+export const walkEnd = (w: SousWalk): number => walkTimes(w).end;
+/** When he is free again after every trip in `walks` (−Infinity when there are none). */
+export const freeAt = (walks: readonly SousWalk[] | undefined): number => (walks ?? []).reduce((a, w) => Math.max(a, walkEnd(w)), -Infinity);
+
 /**
  * Books a cover noticed at `now`. It joins the latest trip if he hasn't taken that slip yet; otherwise a new trip starts
  * when the previous one is over (so at most one trip waits, a few seconds). Returns the new list (finished walks
- * pruned), never mutating `walks`.
+ * pruned), never mutating `walks`. Round 7: `dueSince` (the session time the slip fell due; the game's lead-in) makes
+ * the trip set off then — or as soon as he was free after it — the same start `leadIn` draws before the cover.
  */
-export function bookSousWalk(walks: readonly SousWalk[] | undefined, item: SousItem, slot: number, now: number): SousWalk[] {
-  const live = (walks ?? []).filter((w) => w.at + SOUS_WALK_TOTAL > now);
+export function bookSousWalk(walks: readonly SousWalk[] | undefined, item: SousItem, slot: number, now: number, dueSince?: number): SousWalk[] {
+  const live = (walks ?? []).filter((w) => walkEnd(w) > now);
   const last = live.at(-1);
-  if (last && now < last.at + SOUS_WALK.toRail + SOUS_WALK.take) return [...live.slice(0, -1), { ...last, items: [...last.items, item] }];
-  const prevEnd = live.reduce((a, w) => Math.max(a, w.at + SOUS_WALK_TOTAL), now);
+  if (last && last.items.length && now < walkTimes(last).takeAt + SOUS_WALK.take) return [...live.slice(0, -1), { ...last, items: [...last.items, item] }];
+  if (dueSince !== undefined) return [...live, { items: [item], slot, at: now, leadFrom: Math.max(dueSince, freeAt(walks)) }].slice(-MAX_WALKS);
+  const prevEnd = live.reduce((a, w) => Math.max(a, walkEnd(w)), now);
   return [...live, { items: [item], slot, at: prevEnd }].slice(-MAX_WALKS);
 }
 
-export type SousPhase = "idle" | "toRail" | "take" | "toPass" | "set" | "back";
+/**
+ * Round 7: the slip he was walking to (or waiting under) left the rail without a cover — she plated it herself before the
+ * tick. He walks back from the rail. Nothing to do if he never set off (busy until after `now`).
+ */
+export function standDown(walks: readonly SousWalk[] | undefined, slot: number, now: number, dueSince: number): SousWalk[] {
+  const leadFrom = Math.max(dueSince, freeAt(walks));
+  const live = (walks ?? []).filter((w) => walkEnd(w) > now);
+  if (leadFrom >= now) return live;
+  return [...live, { items: [], slot, at: now, leadFrom }].slice(-MAX_WALKS);
+}
+
+/** Round 7: a slip due at the next tick, its rail slot, and when it fell due (the session stamps it). */
+export interface SousPending { slot: number; dueSince: number }
+
+/** The walk render draws while a due slip waits for its tick: the trip `bookSousWalk` will book, minus the cover time. */
+export function leadIn(walks: readonly SousWalk[] | undefined, pending: SousPending): SousWalk {
+  return { items: [], slot: pending.slot, at: Infinity, leadFrom: Math.max(pending.dueSince, freeAt(walks)) };
+}
+
+export type SousPhase = "idle" | "toRail" | "wait" | "take" | "toPass" | "set" | "back";
 
 export interface SousPose {
   x: number;
@@ -59,7 +100,7 @@ export interface SousPose {
   facing: "up" | "down" | "left" | "right";
   moving: boolean;
   phase: SousPhase;
-  /** The walk being acted out (absent when idle). */
+  /** The walk being acted out (absent when idle or on a lead-in). */
   walk?: SousWalk;
   /** 0..1 through the current leg. */
   t: number;
@@ -75,37 +116,47 @@ const facingOf = (dx: number, dy: number, fallback: SousPose["facing"]): SousPos
 
 /**
  * Where the sous chef is at `time`. `railX(slot)` is the world x (tiles) under that header slip; render supplies it from
- * its own metrics. Idle: at the post, facing down.
+ * its own metrics. Idle: at the post, facing down. Round 7: with `pending` (a slip the sim sends at the next tick) he
+ * sets off when it falls due and waits under it, so the trip booked at the cover carries on without a jump.
  */
-export function sousPose(walks: readonly SousWalk[] | undefined, time: number, railX: (slot: number) => number): SousPose {
-  const w = (walks ?? []).filter((x) => x.at <= time && time < x.at + SOUS_WALK_TOTAL).at(-1);
+export function sousPose(walks: readonly SousWalk[] | undefined, time: number, railX: (slot: number) => number, pending?: SousPending): SousPose {
+  const all = pending ? [...(walks ?? []), leadIn(walks, pending)] : walks ?? [];
+  const w = all.filter((x) => walkStart(x) <= time && time < walkEnd(x)).at(-1);
   const idle: SousPose = { x: SOUS_POST.x, y: SOUS_POST.y, facing: "down", moving: false, phase: "idle", t: 0, carrying: false, talking: false };
   if (!w) return idle;
+  const { start, takeAt } = walkTimes(w);
   const rail = { x: railX(w.slot), y: RAIL_STAND_Y };
   const legs: { phase: SousPhase; dur: number; from: { x: number; y: number }; to: { x: number; y: number } }[] = [
     { phase: "toRail", dur: SOUS_WALK.toRail, from: SOUS_POST, to: rail },
-    { phase: "take", dur: SOUS_WALK.take, from: rail, to: rail },
-    { phase: "toPass", dur: SOUS_WALK.toPass, from: rail, to: PASS_STAND },
-    { phase: "set", dur: SOUS_WALK.set, from: PASS_STAND, to: PASS_STAND },
-    { phase: "back", dur: SOUS_WALK.back, from: PASS_STAND, to: SOUS_POST },
+    { phase: "wait", dur: takeAt - start - SOUS_WALK.toRail, from: rail, to: rail },
+    ...(w.items.length
+      ? [
+          { phase: "take" as const, dur: SOUS_WALK.take, from: rail, to: rail },
+          { phase: "toPass" as const, dur: SOUS_WALK.toPass, from: rail, to: PASS_STAND },
+          { phase: "set" as const, dur: SOUS_WALK.set, from: PASS_STAND, to: PASS_STAND },
+          { phase: "back" as const, dur: SOUS_WALK.back, from: PASS_STAND, to: SOUS_POST },
+        ]
+      : [{ phase: "back" as const, dur: SOUS_WALK.back, from: rail, to: SOUS_POST }]),
   ];
-  let e = time - w.at;
+  let e = time - start;
   for (const leg of legs) {
     if (e < leg.dur) {
-      const t = Math.max(0, Math.min(1, e / leg.dur));
+      const t = leg.dur > 0 ? Math.max(0, Math.min(1, e / leg.dur)) : 1;
       const k = ease(t);
       const dx = leg.to.x - leg.from.x, dy = leg.to.y - leg.from.y;
-      const facing = leg.phase === "take" ? "up" : leg.phase === "set" ? "down" : facingOf(dx, dy, "down");
+      const facing = leg.phase === "take" || leg.phase === "wait" ? "up" : leg.phase === "set" ? "down" : facingOf(dx, dy, "down");
+      const real = w.items.length > 0;
       return {
         x: leg.from.x + dx * k,
         y: leg.from.y + dy * k,
         facing,
         moving: leg.from !== leg.to,
         phase: leg.phase,
-        walk: w,
+        ...(real ? { walk: w } : {}),
         t,
-        carrying: leg.phase === "toPass" || (leg.phase === "take" && t >= 0.5) || (leg.phase === "set" && t < 0.5),
-        talking: leg.phase !== "back",
+        carrying: real && (leg.phase === "toPass" || (leg.phase === "take" && t >= 0.5) || (leg.phase === "set" && t < 0.5)),
+        // He talks once he has the cover to talk about (round 6 talked from setting off; a lead-in has no cover yet).
+        talking: real && leg.phase !== "back" && (w.leadFrom === undefined || time >= w.at),
       };
     }
     e -= leg.dur;
