@@ -48,6 +48,7 @@ export {
   offPremise,
   offPremiseLabour,
   openingFactor,
+  maturity,
   siteDemandAndCapacity,
   defaultCalibration,
   demandFactor,

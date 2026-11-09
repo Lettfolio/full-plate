@@ -410,6 +410,13 @@ export function openingFactor(site: Pick<SiteSummary, "openedTrading">, day: num
   return ramp * honeymoon;
 }
 
+/** [round 5 review] 0 for a site's first MATURE_FROM_DAYS of trading, rising linearly to 1 at MATURE_FULL_DAYS. */
+export function maturity(site: Pick<SiteSummary, "openedTrading">, day: number): number {
+  if (site.openedTrading === undefined) return 0;
+  const age = day - site.openedTrading;
+  return clamp((age - K.MATURE_FROM_DAYS) / (K.MATURE_FULL_DAYS - K.MATURE_FROM_DAYS), 0, 1);
+}
+
 /**
  * Brand pull: the demand multiplier for everything sim-core has no physics for (city size, recognition,
  * consistency, champions, a tired room, saturation, product hits, effects, fresh, dietary rules, traditions and the
@@ -488,6 +495,7 @@ export function aggregateSiteDay(content: ContentPack, site: SiteSummary, brand:
   const { seated, market: mk } = siteDemandAndCapacity(content, site, brand, city, ctx);
   const off = offPremise(site, brand);
   const noise = ctx.noise === false ? 1 : Math.exp(rng.gaussian(-(cal.noiseSd ** 2) / 2, cal.noiseSd));
+  const m = maturity(site, ctx.day);
   const covers = Math.max(0, Math.round(seated * off * noise));
   const f = brand.formula;
   // Basket per cover: the order model's expectation for this district and the brand menu (already at priceIndex),
@@ -499,10 +507,18 @@ export function aggregateSiteDay(content: ContentPack, site: SiteSummary, brand:
   const foodCost = Math.round(covers * plate * city.costIndex ** 0.6 * pl * (f.fresh ? K.FRESH_FOOD_COST : 1) * (ctx.foodMult ?? 1));
   const speedee = 1 - K.LABOUR_EFFICIENCY_PER_10_STD * Math.max(0, (f.standardisation - K.REF_STANDARDISATION) / 10);
   // The site's own crew (P2, round 3): the standard rota at its staff quality, plus hands for the off-premise lane.
-  const labourCost = Math.round(crewLabourPerDay(site.staffQuality) * city.costIndex * pl * offPremiseLabour(site, brand) * speedee);
-  const scale = Math.max(0.3, covers / cal.coversMean);
-  const overheads = Math.round(cal.overheadsFixed * city.costIndex * pl * scale ** K.OVERHEAD_SCALE_EXP + cal.cardFeePct * revenue);
   const vat = Math.round(cal.vatPct * revenue);
+  const netSales = revenue - vat;
+  const crew = crewLabourPerDay(site.staffQuality) * city.costIndex * pl * offPremiseLabour(site, brand) * speedee;
+  const scale = Math.max(0.3, covers / cal.coversMean);
+  const fixed = cal.overheadsFixed * city.costIndex * pl * scale ** K.OVERHEAD_SCALE_EXP + cal.cardFeePct * revenue;
+  // Round 5 review: maturity drag on the margin above a healthy level (constants MATURE_*).
+  const excess = m > 0 && netSales > 0 ? Math.max(0, netSales - foodCost - crew - fixed - K.MATURE_FLOOR * netSales) : 0;
+  const drag = m * K.MATURE_TAKE * excess;
+  // In-N-Out (fresh) runs flat: managers promoted from the crew, no area-manager layer, so no company extra.
+  const companyExtra = site.ownership === "company" && !f.fresh ? m * K.MATURE_COMPANY_EXTRA * netSales : 0;
+  const labourCost = Math.round(crew + drag / 2 + companyExtra);
+  const overheads = Math.round(fixed + drag / 2);
   return { siteId: site.id, covers, revenue, vat, foodCost, labourCost, overheads, contribution: revenue - vat - foodCost - labourCost - overheads };
 }
 

@@ -134,6 +134,26 @@ export const RAMP_DAYS = 270;
 /** The novelty bump: +this on demand on opening day, fading linearly to nothing over HONEYMOON_DAYS (queues round the block). */
 export const HONEYMOON = 0.3;
 export const HONEYMOON_DAYS = 75;
+/**
+ * [round 5 review] Maturity drag. Round 5 left a mature unit far richer than the brief (10-year runs: franchisee net
+ * ~20%, company-owned ~31%; brief: ~25% store margin, a franchisee nets ~10% at maturity) because labour sat at ~19%
+ * and nothing about a site got dearer with age. A flat cost would sink a brand with no tech tree (its mature units
+ * only clear ~7%), so the drag takes a share of the margin *above* a healthy level, as it does in life: rivals open
+ * next to a corner that is visibly coining it, the crew's pay is bid up, and the box needs remodelling sooner.
+ * From MATURE_FROM_DAYS of trading to MATURE_FULL_DAYS, linearly, a site loses MATURE_TAKE of its store contribution
+ * (net sales − food − labour − overheads) above MATURE_FLOOR of net sales; half is booked as wage creep (labour),
+ * half as upkeep and lost trade (overheads). Years 1–2 are untouched (franchiseOutlook, the year-one probe, the J-curve).
+ */
+export const MATURE_FROM_DAYS = 720;
+export const MATURE_FULL_DAYS = 1800;
+export const MATURE_FLOOR = 0.28;
+export const MATURE_TAKE = 0.8;
+/**
+ * A company-owned site's extra creep on top (of net sales, on labour, at full maturity): corporate pay scales and
+ * benefits, and the area-manager layer an owner-operator doesn't carry. Not on a fresh (In-N-Out) formula, which
+ * promotes its managers from the crew and runs flat.
+ */
+export const MATURE_COMPANY_EXTRA = 0.07;
 /** Popularity a modelled site trades at when the calibration has none (a well-run sim-core restaurant). */
 export const DEFAULT_POPULARITY = 85;
 /** Popularity of a standard crew at staff quality 50, and per point away from 50 (sim-core ratings follow the crew). */

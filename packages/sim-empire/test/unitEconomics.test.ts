@@ -4,7 +4,8 @@
  * 4–5%, ad fund 4–4.5%). A franchisee of a proven brand should clear a modest profit in year one.
  */
 import { describe, expect, it } from "vitest";
-import { EMPIRE as K, franchiseOutlook, openingFactor, openProbeSite, probeUnitEconomics, type EmpireState } from "../src/index";
+import { EMPIRE as K, franchiseOutlook, maturity, openingFactor, openProbeSite, probeUnitEconomics, type EmpireState } from "../src/index";
+import { runStyle } from "../src/strategies";
 import { content, empire, must } from "./helpers";
 
 const lockedHome = (): EmpireState => must(empire(), { type: "SET_FORMULA", locked: true });
@@ -141,4 +142,42 @@ describe("franchiseOutlook: the contract panel's year-one line (round 5)", () =>
     franchiseOutlook(content, Object.freeze(e));
     expect(JSON.stringify(e)).toBe(before);
   });
+});
+
+describe("round 5 review: maturity drag (mature units were ~20% franchisee / ~31% company net)", () => {
+  const med = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
+
+  it("maturity is 0 for two years of trading, then rises to 1 by year five; none without openedTrading", () => {
+    expect(maturity({ openedTrading: 100 }, 100 + K.MATURE_FROM_DAYS)).toBe(0);
+    expect(maturity({ openedTrading: 100 }, 100 + (K.MATURE_FROM_DAYS + K.MATURE_FULL_DAYS) / 2)).toBeCloseTo(0.5, 6);
+    expect(maturity({ openedTrading: 100 }, 100 + K.MATURE_FULL_DAYS + 500)).toBe(1);
+    expect(maturity({}, 5000)).toBe(0);
+  });
+
+  it("a brand with no tech tree keeps its mature franchisees in profit (the drag only takes margin above a healthy level)", () => {
+    let e = lockedHome();
+    for (const s of e.suppliers) e = must(e, { type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: s.failureRisk < 0.05 });
+    const y1 = probeUnitEconomics(content, e, { districtId: "high_street" });
+    const y6 = probeUnitEconomics(content, e, { districtId: "high_street", skipDays: K.MATURE_FULL_DAYS });
+    expect(y6.netPct).toBeGreaterThan(0.03);
+    expect(y6.netPct).toBeGreaterThan(y1.netPct - 0.01);
+    const co6 = probeUnitEconomics(content, e, { districtId: "high_street", ownership: "company", skipDays: K.MATURE_FULL_DAYS });
+    expect(co6.netPct).toBeGreaterThan(0.08);
+  });
+
+  it("10-year franchise run: a fully mature franchisee nets ~8–12%; company-owned run: a mature site ~15–20%", () => {
+    const f = runStyle(content, "franchise", 1, 8).final;
+    const age = (id: string) => { const s = f.sites.find((x) => x.id === id)!; return f.hq.day - (s.openedTrading ?? s.opened); };
+    const frNet = f.franchisees.filter((x) => x.sites.length && x.sites.every((id) => age(id) > K.MATURE_FULL_DAYS)).map((x) => x.margin30d);
+    expect(frNet.length).toBeGreaterThan(10);
+    expect(med(frNet)).toBeGreaterThan(0.07);
+    expect(med(frNet)).toBeLessThan(0.13);
+    const c = runStyle(content, "company", 1, 8).final;
+    const co = c.sites
+      .filter((s) => s.ownership === "company" && s.status === "open" && !s.focused && s.openedTrading !== undefined && c.hq.day - s.openedTrading > K.MATURE_FULL_DAYS && s.revenue7d > 0)
+      .map((s) => { const ns = s.revenue7d / 1.2; return (s.margin7d - ns * K.DEFAULT_AD_FUND_PCT) / ns; });
+    expect(co.length).toBeGreaterThan(10);
+    expect(med(co)).toBeGreaterThan(0.14);
+    expect(med(co)).toBeLessThan(0.22);
+  }, 120_000);
 });
