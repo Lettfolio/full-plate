@@ -125,6 +125,13 @@ const tab = async (name) => { await page.getByRole("tab", { name }).first().clic
 
 async function audit(name, { canvas = false } = {}) {
   if (ONLY && !ONLY.includes(name)) return;
+  if (canvas) {
+    // R8 review: cached scene layers are painted once (at mount, before the caller's reset); a 1 px resize and back
+    // makes them repaint now, so their labels are measured too.
+    const vp = page.viewportSize();
+    await page.setViewportSize({ width: vp.width - 1, height: vp.height }); await page.waitForTimeout(150);
+    await page.setViewportSize(vp); await page.waitForTimeout(150);
+  }
   await page.waitForTimeout(250);
   const dom = await page.evaluate(domSmall, MIN);
   let canvasSmall = [];
