@@ -1,0 +1,170 @@
+{
+  "_placeholders": "{restaurant} {dish} {critic} {chef} {stars} {rank} {points} {tier} {city} {year}",
+  "guideNames": {
+    "michelin": "The Golden Plate Guide",
+    "fiftyBest": "The World's 50 Greatest Tables",
+    "gaultMillau": "The Toque Guide",
+    "goodFood": "The Good Table Guide",
+    "starWord": "star",
+    "starsWord": "stars"
+  },
+  "criticNames": [
+    "The Harbourton Evening Gazette",
+    "The Courier's food desk",
+    "Local Eats Weekly",
+    "Penny Forkwright, The Weekend Chronicle",
+    "The Spoon & Saucer column"
+  ],
+  "localCritic": {
+    "1": [
+      "{critic} came, saw, and waited forty minutes for a {dish}. 'I've had warmer welcomes from a fridge,' they wrote. Ouch, but fair.",
+      "'The {dish} at {restaurant} tasted like it had given up halfway,' says {critic}. Tomorrow is a new day.",
+      "{critic} gives {restaurant} one star, and that star is for the comfy chairs.",
+      "'I wanted to love it,' writes {critic}. 'The {dish} did not want to be loved.'"
+    ],
+    "2": [
+      "{critic} found {restaurant} 'friendly but a bit wobbly'. The {dish} needed one more minute of care.",
+      "'Good ideas, shaky cooking,' says {critic}. 'Come back in six months and I might be cheering.'",
+      "Two stars from {critic}: the {dish} was nearly there, the service was nearly quick.",
+      "'There's a good restaurant hiding inside {restaurant},' writes {critic}. 'It just needs to come out and say hello.'"
+    ],
+    "3": [
+      "{critic} calls {restaurant} 'a solid, honest night out'. The {dish} won't change your life, but it will make your Tuesday.",
+      "'Three stars, and a happy tummy,' says {critic}. The {dish} was the highlight.",
+      "{critic} liked it: 'Nothing wrong, a few things very right, and a {dish} I'd order again.'",
+      "'Reliable as a good umbrella,' writes {critic} of {restaurant}. That's a compliment round here."
+    ],
+    "4": [
+      "{critic} is impressed: 'The {dish} at {restaurant} is cooked by someone who really cares.' Bookings are already picking up.",
+      "'Go now, before everyone else finds out,' writes {critic}. Too late: everyone has just found out.",
+      "Four stars from {critic}, who called the {dish} 'the kind of plate you think about on the bus home'.",
+      "'Confident, generous and properly delicious,' says {critic}. Chef {chef} is grinning in the kitchen."
+    ],
+    "5": [
+      "FIVE STARS! {critic} says {restaurant} is 'the best meal in {city} this year'. The phone has not stopped ringing.",
+      "'I licked the plate. Don't tell my editor,' writes {critic} about the {dish}. Five stars.",
+      "{critic} calls chef {chef} 'a genius with a whisk'. Five stars, and a queue down the street by lunchtime.",
+      "'Book a table. Book two. Bring your granny,' says {critic}. Five stars for {restaurant}."
+    ]
+  },
+  "inspectorRumours": [
+    "Someone at table four was taking notes. An inspector? Or just a blogger?",
+    "A solo diner took their time and asked about the farm the lamb came from.",
+    "A quiet guest in a grey jumper ordered the whole tasting menu and didn't take a single photo.",
+    "Someone booked under the name 'Mr Smith'. There are a lot of Mr Smiths in the world, aren't there?",
+    "A guest asked whether the bread was made here, then wrote something very small in a very small notebook.",
+    "The person at the corner table cleaned their plate, paid in full and left without a fuss. Suspicious? Or just hungry?",
+    "A diner asked to see the kitchen 'just out of curiosity'. The whole brigade stood up a bit straighter.",
+    "Word from a friend at another restaurant: 'They've been busy round here this month.' Who's 'they'? Nobody will say.",
+    "Somebody ordered the same dish two nights apart. Testing for consistency, perhaps?",
+    "A guest ate alone, slowly, and asked for the wine list twice. The sommelier is now very nervous."
+  ],
+  "inspectionSeason": "Inspection season has begun. Every service counts from now until guide day.",
+  "guideDay": {
+    "envelope": "A thick envelope has arrived from {guide}. Your hands are shaking a little. Open it?",
+    "gained": [
+      "Dear {restaurant}, it is our pleasure to award you {stars} {starWord}. Your kitchen sang all year long. Congratulations!",
+      "The guide is delighted to announce {stars} {starWord} for {restaurant}. Chef {chef} may now cry happily into a tea towel."
+    ],
+    "gainedFirst": [
+      "Dear {restaurant}, after many quiet visits, we are proud to award your very first star. Welcome to the guide!",
+      "One star for {restaurant}! The whole team is jumping up and down in the kitchen. Someone has dropped a whisk."
+    ],
+    "gainedThird": [
+      "Three stars. 'Exceptional cooking, worth a special journey.' {restaurant} is now one of the finest restaurants anywhere.",
+      "The envelope says THREE. Chef {chef} reads it twice, then sits down on an upturned crate and laughs."
+    ],
+    "kept": [
+      "{restaurant} keeps its {stars} {starWord}. Holding on is harder than getting there. Well done, everyone.",
+      "Same again: {stars} {starWord} for {restaurant}. The inspectors say the cooking was as steady as a lighthouse."
+    ],
+    "lost": [
+      "We're sorry to tell you that {restaurant} now holds {stars} {starWord}. Some nights this year were not quite your best.",
+      "The guide has taken a star away from {restaurant}. It stings, but the team that won it is still here. Next year."
+    ],
+    "lostAll": [
+      "{restaurant} is no longer in the guide with a star this year. Take a deep breath. Many great kitchens have come back from this.",
+      "No stars this year. The kitchen is very quiet tonight. Tomorrow, you start again."
+    ],
+    "notAssessed": [
+      "The guide could not assess {restaurant} this year: you were closed for too long. Any stars you held have lapsed.",
+      "The inspectors kept knocking, but the doors were shut. Without enough visits, the guide cannot keep your stars."
+    ],
+    "excluded": "You asked the guide to leave {restaurant} out this year. The envelope stays sealed, and that's your choice.",
+    "stillNone": [
+      "No star this year, but the guide says it is 'watching with interest'. Keep cooking.",
+      "Not this year. The letter mentions your {dish} kindly, though."
+    ]
+  },
+  "fiftyBest": {
+    "entered": "{restaurant} has entered {guide} at number {rank}! Judges around the world are talking about you.",
+    "climbed": "{restaurant} climbs to number {rank} on {guide}.",
+    "fell": "{restaurant} slips to number {rank} on {guide}. Lists go up and down; the cooking doesn't have to.",
+    "held": "{restaurant} stays at number {rank} on {guide}.",
+    "dropped": "{restaurant} has dropped off {guide} this year. There are a lot of great kitchens in the world.",
+    "numberOne": "NUMBER ONE! {restaurant} is the best restaurant in the world on {guide}. By the rules, you now join the hall of fame and can never be ranked again. You only win this once.",
+    "hallOfFame": "{restaurant} sits in the hall of fame of {guide}. Forever number one."
+  },
+  "gaultMillau": {
+    "announce": "{guide} gives {restaurant} {points} out of 20.",
+    "up": "{guide} raises {restaurant} to {points}/20. Their inspectors loved the {dish}.",
+    "down": "{guide} lowers {restaurant} to {points}/20. Every half point counts.",
+    "top": "{points}/20 from {guide}! They never give 20, so this is about as good as it gets.",
+    "toqueNote": "Nobody ever gets 20 out of 20. The guide says perfection is something you chase, not something you catch."
+  },
+  "goodFood": {
+    "listed": "{restaurant} is listed in {guide} at level {tier} out of 10.",
+    "up": "{guide} moves {restaurant} up to level {tier}.",
+    "down": "{guide} moves {restaurant} down to level {tier}.",
+    "notListed": "{restaurant} isn't in {guide} this year."
+  },
+  "headChef": {
+    "stressWarning": [
+      "Chef {chef} has been snapping at the pass and forgot the staff meal. They need a breather.",
+      "Chef {chef} is running on coffee and worry. Maybe a quieter week would help?"
+    ],
+    "burnout": [
+      "Chef {chef} sat down in the walk-in fridge and wouldn't come out. They're going home to rest for a while. The kitchen will wobble.",
+      "Chef {chef} has run out of puff. Too many big nights in a row. They'll be back, but not for a few weeks."
+    ],
+    "wantsOwnPlace": [
+      "Chef {chef} knocks on the office door. 'I've loved every minute here. But I want my own place. My name over the door.'",
+      "'Can we talk?' says Chef {chef}, twisting their apron. 'There's a little site round the corner. I think I'm ready.'",
+      "Chef {chef} has been sketching menus on napkins again. 'I want to cook my food,' they say. 'In my own restaurant.'"
+    ],
+    "backChoice": "Back them: help pay for their new place and stay friends. They'll send customers your way.",
+    "letGoChoice": "Let them go: wish them well. They might become your biggest rival.",
+    "backed": "You backed Chef {chef}. Their new restaurant opens with your name on the thank-you card. The kitchen will miss them.",
+    "leftForRival": "Chef {chef} has gone to open a rival restaurant down the road. You taught them everything they know. That's the problem.",
+    "newHeadChef": "{chef} steps up to run the pass. Big shoes to fill, but they've been waiting for this.",
+    "rivalStar": "Your old head chef's restaurant has earned {stars} {starWord}. You're proud. Mostly."
+  },
+  "endings": {
+    "elBulli": {
+      "title": "Closing at the top",
+      "body": [
+        "Tonight is the last service at {restaurant}.",
+        "Every table is full. The kitchen is quiet and calm. Chef {chef} plates the final dessert, and the dining room stands up and claps.",
+        "You could have kept going. The bookings were full for a year. But you wanted to stop while every plate was the best it could be.",
+        "{restaurant} becomes a foundation: a kitchen for experiments, books and young cooks from all over the world.",
+        "Stopping can be winning. You won."
+      ]
+    },
+    "dynasty": {
+      "title": "A legend",
+      "body": [
+        "Three stars, five years in a row.",
+        "People travel across oceans to eat at {restaurant}. Young chefs dream of working in your kitchen.",
+        "You did it the hard way: night after night, plate after plate. Congratulations."
+      ]
+    },
+    "handedBack": {
+      "title": "On your own terms",
+      "body": [
+        "You handed back your stars and walked away.",
+        "No more envelopes. No more mystery diners. Just cooking for people you like.",
+        "It's not the ending everyone expected. It's the one you chose."
+      ]
+    }
+  }
+}

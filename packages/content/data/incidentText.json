@@ -1,0 +1,169 @@
+{
+  "INCIDENT_TEXT": {
+    "sent_back": {
+      "title": "A plate came back",
+      "body": "Table {table} sent back their {dish}. It wasn't up to scratch, and they look a bit glum.",
+      "options": {
+        "remake": {
+          "label": "Cook it again",
+          "description": "Your chef drops everything for a few minutes to make a better one.",
+          "outcome": "A fresh {dish} went out to table {table}. Much better!"
+        },
+        "comp": {
+          "label": "Make it free",
+          "description": "Their whole meal is on the house ({cost}). They'll leave happy.",
+          "outcome": "You gave table {table} their meal for free. Big smiles."
+        },
+        "apologise": {
+          "label": "Say sorry nicely",
+          "description": "Your server pops over to apologise. Works better if they're charming.",
+          "outcome": "{name} said sorry to table {table}. They seem calmer now."
+        }
+      },
+      "ignored": "Nobody went back to table {table}. They're grumbling about the {dish}."
+    },
+    "spill": {
+      "title": "Whoops, a spill!",
+      "body": "Someone knocked a drink over at table {table}. It's sticky and everyone's looking.",
+      "options": {
+        "mop": {
+          "label": "Grab the mop",
+          "description": "Someone cleans it up straight away. Your floor is a little slower for a few minutes.",
+          "outcome": "Table {table} is clean and dry again."
+        },
+        "leave": {
+          "label": "Leave it for now",
+          "description": "No time lost, but table {table} won't be impressed.",
+          "outcome": "The spill at table {table} stayed put. Not a great look."
+        }
+      },
+      "ignored": "The spill at table {table} never got cleaned. Sticky shoes all round."
+    },
+    "big_party": {
+      "title": "A big group at the door",
+      "body": "A party of {size} wants to eat together, but your tables only seat a few each.",
+      "options": {
+        "push": {
+          "label": "Push two tables together",
+          "description": "Uses two free tables, and keeps a server busy for a few minutes. Big group, big bill!",
+          "outcome": "You pushed two tables together for the party of {size}. They cheered!"
+        },
+        "decline": {
+          "label": "Sorry, we're too small",
+          "description": "Turn them away politely. A little bit of popularity lost.",
+          "outcome": "You turned away the party of {size} with a smile."
+        }
+      },
+      "ignored": "The party of {size} waited, then wandered off. They'll tell their friends."
+    },
+    "rush": {
+      "title": "Here comes a rush!",
+      "body": "A coach has just pulled up outside and the queue is getting long.",
+      "options": {
+        "callin": {
+          "label": "Call in extra help",
+          "description": "A friend comes in for an hour ({cost}). Faster kitchen and floor.",
+          "outcome": "Extra help arrived and the rush went smoothly."
+        },
+        "simplify": {
+          "label": "Take {dish} off for today",
+          "description": "Pull the slowest dish so the kitchen can keep up.",
+          "outcome": "{dish} is off for today. The kitchen is flying now."
+        },
+        "ride": {
+          "label": "Keep calm and carry on",
+          "description": "Do nothing special. Some people might get fed up waiting.",
+          "outcome": "You rode out the rush."
+        }
+      },
+      "ignored": "The rush came and went. Hopefully nobody waited too long."
+    },
+    "supplier_short": {
+      "title": "The delivery was short",
+      "body": "This morning's {ingredient} delivery came {missing} portions short.",
+      "options": {
+        "shop": {
+          "label": "Pop to the corner shop",
+          "description": "Buy {missing} portions now. It costs more than usual ({cost}).",
+          "outcome": "You bought {missing} {ingredient} from the corner shop. Back in business."
+        },
+        "pull": {
+          "label": "Take {dish} off the menu",
+          "description": "Pull the dishes that need it for today. No extra cost.",
+          "outcome": "Dishes that need {ingredient} are off for today."
+        }
+      },
+      "ignored": "You didn't replace the missing {ingredient}. It might run out later."
+    },
+    "equipment": {
+      "title": "The fryer has tripped!",
+      "body": "There's a pop and the fryer goes dark. The kitchen is slowing down.",
+      "options": {
+        "fix": {
+          "label": "Fix it yourselves",
+          "description": "Your chef fiddles with it for a while. Free, but slow for a bit.",
+          "outcome": "Your chef got the fryer going again."
+        },
+        "engineer": {
+          "label": "Call the engineer",
+          "description": "Fixed fast by a pro ({cost}).",
+          "outcome": "The engineer had the fryer fixed in no time."
+        }
+      },
+      "ignored": "Nobody fixed the fryer, so the kitchen limped on for ages."
+    },
+    "vip": {
+      "title": "A food critic is here!",
+      "body": "The person at table {table} is writing in a little notebook. It's a food critic!",
+      "options": {
+        "best": {
+          "label": "Send your best server",
+          "description": "{name} looks after them. A bit less help for everyone else for a while.",
+          "outcome": "{name} is looking after the critic at table {table}."
+        },
+        "freebie": {
+          "label": "Send a free treat",
+          "description": "A little something from the kitchen ({cost}).",
+          "outcome": "A free treat went out to the critic. They smiled!"
+        },
+        "normal": {
+          "label": "Treat them like anyone else",
+          "description": "No fuss. Their review depends on the food and the wait.",
+          "outcome": "The critic got the same service as everyone else."
+        }
+      },
+      "ignored": "The critic got the same service as everyone else."
+    },
+    "staff_wobble": {
+      "title": "{name} is flagging",
+      "body": "{name} looks really tired and is starting to make mistakes.",
+      "options": {
+        "break": {
+          "label": "Give them a break",
+          "description": "{name} rests for half an hour. You're short-handed meanwhile.",
+          "outcome": "{name} had a sit-down and a cup of tea. Feeling better!"
+        },
+        "push": {
+          "label": "Ask them to push on",
+          "description": "Keep going. {name} won't be happy about it.",
+          "outcome": "{name} is pushing on, but isn't happy."
+        }
+      },
+      "ignored": "Nobody noticed {name} struggling. They're feeling fed up."
+    }
+  },
+  "INCIDENT_LINES": {
+    "vipVerdictGood": "The critic gave you {stars}★. Your restaurant's name is getting around!",
+    "vipVerdictBad": "The critic gave you {stars}★. Ouch, that will hurt your reputation.",
+    "vipVerdictMeh": "The critic gave you {stars}★. Not bad, not amazing.",
+    "vipWalkout": "The critic got fed up and walked out. That review will sting.",
+    "closingTime": "Service ended before anyone got to it.",
+    "needTables": "You need two free, clean tables for that. Wait a moment, or turn them away.",
+    "needTablesShort": "Needs two free, clean tables",
+    "cantAfford": "Not enough cash",
+    "porterMopped": "{name} the porter mopped up a spill at table {table} before anyone noticed.",
+    "noStockRemake": "There's no {dish} stock left to cook another one.",
+    "notOnFloor": "{name} isn't on the floor right now.",
+    "shortDeliveryLog": "Oh no, the {ingredient} delivery came {missing} short."
+  }
+}

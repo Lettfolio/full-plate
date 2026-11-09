@@ -1,0 +1,185 @@
+{
+  "_placeholders": "{name} {owner} {restaurant} {rung} {nextRung} {wage} {raise} {mentor} {rival} {savings} {shifts} {score} {stat} {city}",
+  "ownerReview": {
+    "balanced": {
+      "great": [
+        "{owner}: 'Brilliant week, {name}. Guests keep asking for you by name.'",
+        "{owner}: 'Honestly? Best week you've had. Keep this up and we'll be talking about {nextRung} soon.'",
+        "{owner}: 'You made the whole team better this week. Thank you.'"
+      ],
+      "good": [
+        "{owner}: 'Solid week. Turned up, worked hard, kept smiling. That's the job.'",
+        "{owner}: 'Good stuff, {name}. A couple of slow moments, but I'm happy.'",
+        "{owner}: 'Nice and steady. Steady is how restaurants survive.'"
+      ],
+      "ok": [
+        "{owner}: 'An okay week. Let's pick one thing to get better at next week.'",
+        "{owner}: 'Not bad, not your best. Get some rest on your day off.'",
+        "{owner}: 'You were a bit slow on Friday. Everyone has those nights.'"
+      ],
+      "poor": [
+        "{owner}: 'Tough week. Is everything alright? Let's have a proper chat.'",
+        "{owner}: 'I need more from you, {name}. I know you can do it.'",
+        "{owner}: 'Missed shifts hurt the team. Can we sort the rota out together?'"
+      ]
+    },
+    "cheap": {
+      "great": [
+        "{owner}: 'Great week. Don't let it go to your head, mind; I'm not made of money.'",
+        "{owner}: 'Good work. You saved us a fortune in wasted stock. That's what I like to see.'",
+        "{owner}: 'Top marks. If everyone worked like you, I could switch the heating back on.'"
+      ],
+      "good": [
+        "{owner}: 'Fine week. You didn't break anything, which is a bonus.'",
+        "{owner}: 'Decent. Use less kitchen roll and we'll call it excellent.'",
+        "{owner}: 'All good. Remember: every chip counts.'"
+      ],
+      "ok": [
+        "{owner}: 'Meh. Plates went out, money came in. Just about.'",
+        "{owner}: 'Try to be quicker. Time is money, and I like money.'",
+        "{owner}: 'Average week. Average is cheap, at least.'"
+      ],
+      "poor": [
+        "{owner}: 'Bad week. Wasted food, wasted time. Do better or I'll have to rethink the rota.'",
+        "{owner}: 'I counted the drops. Then I counted them again. Please, {name}.'",
+        "{owner}: 'We can't afford weeks like this. Let's both try harder.'"
+      ]
+    },
+    "premium": {
+      "great": [
+        "{owner}: 'Exceptional, {name}. That's the standard this restaurant was built for.'",
+        "{owner}: 'The guests noticed. So did I. Beautiful work.'",
+        "{owner}: 'You were the calmest person in the building on Saturday. That's leadership.'"
+      ],
+      "good": [
+        "{owner}: 'Good week. Now let's make it a great one: details, details, details.'",
+        "{owner}: 'Well done. Your plating is getting sharper every week.'",
+        "{owner}: 'Strong. Keep pushing and you'll be ready for {nextRung}.'"
+      ],
+      "ok": [
+        "{owner}: 'Acceptable, but our guests expect more than acceptable.'",
+        "{owner}: 'A few plates weren't quite right. Take your time; get it perfect.'",
+        "{owner}: 'You're better than this week. Let's prove it.'"
+      ],
+      "poor": [
+        "{owner}: 'That wasn't up to standard, {name}. We need to talk about it.'",
+        "{owner}: 'Two plates came back this week. In this kitchen, that's two too many.'",
+        "{owner}: 'I believe in you. But I need to see it on the plate.'"
+      ]
+    },
+    "bands": { "great": 4.3, "good": 3.6, "ok": 2.8, "poor": 0 }
+  },
+  "promotion": {
+    "chef": {
+      "chef_de_partie": { "title": "Chef de partie", "copy": "Run your own section of the kitchen, like the grill or the sauces. You'll need good knife skills, plenty of shifts and a happy owner." },
+      "sous_chef": { "title": "Sous chef", "copy": "Second in command. When the head chef is off, the kitchen is yours. Show you can cook every station and keep calm in a rush." },
+      "head_chef": { "title": "Head chef", "copy": "The top job: you write the menu and run the pass. You'll need real skill, a strong reputation and the owner's full trust." }
+    },
+    "bar": {
+      "bartender": { "title": "Bartender", "copy": "Mix the drinks, not just carry the glasses. Learn the recipes and be quick and friendly with guests." },
+      "bar_manager": { "title": "Bar manager", "copy": "Order the stock, train the team and keep the bar tidy and profitable. Skill and charm both count." },
+      "general_manager": { "title": "General manager", "copy": "Run the whole restaurant, front and back. The owner has to trust you with the keys." }
+    },
+    "waiter": {
+      "head_waiter": { "title": "Head waiter", "copy": "Lead the floor team, look after the trickiest tables and keep the smiles coming. Charm matters most." },
+      "restaurant_manager": { "title": "Restaurant manager", "copy": "Run the dining room: rotas, bookings and happy guests. You'll need a good reputation and great reviews." }
+    },
+    "manager": {
+      "general_manager": { "title": "General manager", "copy": "Take charge of the whole business, from the bank balance to the bin rota. Keep the numbers and the team healthy." },
+      "partner": { "title": "Partner (equity)", "copy": "The owner offers you a slice of the restaurant itself. Earn it with steady profits, a strong reputation and their complete confidence." }
+    },
+    "granted": [
+      "{owner}: 'Congratulations, {name}. You're our new {rung}. Your wage goes up to {wage}.'",
+      "Big news: {name} is now {rung}! The team clapped. Someone made a cake (it was slightly burnt)."
+    ],
+    "notYet": [
+      "{owner}: 'Not yet, {name}. Look at the checklist: you're close.'",
+      "{owner}: 'I love the ambition. Give it a few more weeks.'"
+    ],
+    "givenToSomeoneElse": "{owner} gave the {nextRung} job to someone else this time. It's disappointing, but there will be another chance.",
+    "topRung": "You're at the top of the ladder here. The next step is a big one: your own place."
+  },
+  "mentor": {
+    "offer": "{mentor} has offered to show you the ropes. A good mentor makes everything easier.",
+    "chef": [
+      "{mentor}: 'Taste everything. Twice. Then taste it again.'",
+      "{mentor}: 'A sharp knife is a safe knife. Look after it and it looks after you.'",
+      "{mentor}: 'Clean as you go. A messy station means a messy plate.'",
+      "{mentor}: 'Everyone burns things. Good chefs just start again faster.'"
+    ],
+    "bar": [
+      "{mentor}: 'Smile first, pour second.'",
+      "{mentor}: 'Know your stock. Running out of lemons on a Friday is a disaster.'",
+      "{mentor}: 'Measure everything. Guessing is how you lose money and friends.'"
+    ],
+    "waiter": [
+      "{mentor}: 'Look at the table, not at your notepad. People want to feel seen.'",
+      "{mentor}: 'Carry two plates well before you try three.'",
+      "{mentor}: 'If something goes wrong, say sorry and fix it. Never argue.'"
+    ],
+    "manager": [
+      "{mentor}: 'Check the numbers every night. Little leaks sink big ships.'",
+      "{mentor}: 'Look after your team and they'll look after your guests.'",
+      "{mentor}: 'Never make a rota when you're tired.'"
+    ],
+    "session": "You spent an hour with {mentor}. You feel a bit more confident.",
+    "busy": "{mentor} is too busy today. Try again tomorrow."
+  },
+  "offers": {
+    "pitch": {
+      "balanced": [
+        "{owner} at {rival}: 'I've heard good things. Come and be our {rung} for {wage}.'",
+        "{rival} is growing and needs a {rung}. {owner} says you're top of their list."
+      ],
+      "cheap": [
+        "{owner} at {rival}: 'We're busy, cheerful and we need a {rung}. The pay's {wage}. The staff meal is chips.'",
+        "{rival} is looking for a {rung}. 'No fuss, lots of customers,' says {owner}."
+      ],
+      "premium": [
+        "{owner} at {rival}: 'We only hire the best. We think that might be you. {rung}, {wage}.'",
+        "{rival}, the smart place in town, wants you as {rung}. The kitchen has copper pans!"
+      ]
+    },
+    "letter": "Dear {name},\n\n{pitch}\n\nThe offer stays open for a week. Have a think, and let us know.\n\nBest wishes,\n{owner}\n{rival}",
+    "accepted": "You've accepted the job at {rival}. Your new team is excited to meet you.",
+    "declined": "You politely said no to {rival}. They said the door is always open.",
+    "expired": "The offer from {rival} has run out."
+  },
+  "raise": {
+    "granted": [
+      "{owner}: 'You've earned it. Your wage goes up by {raise} an hour.'",
+      "{owner} thinks for a moment, then nods. 'Fair's fair. {raise} more an hour from next week.'"
+    ],
+    "small": [
+      "{owner}: 'I can't do much, but here's {raise} an hour more. I hope that helps.'"
+    ],
+    "refused": [
+      "{owner}: 'Not right now, {name}. Money's tight this month. Ask me again in a few weeks.'",
+      "{owner}: 'Show me a few more great weeks and we'll talk.'"
+    ],
+    "annoyed": [
+      "{owner}: 'You asked me last week! Give it time.'"
+    ],
+    "matchedOffer": "{owner}: 'I don't want to lose you. I'll match {rival}'s offer.'"
+  },
+  "openOwnPlace": {
+    "ready": "You've saved {savings} and learned a lot. Time to open your own place?",
+    "notReady": "Not yet: you need more savings or more experience before the bank will help.",
+    "farewell": [
+      "{owner}: 'I always knew you'd leave one day. I'm proud of you, {name}. Go and be brilliant.'",
+      "Your last shift at {restaurant}. The team signs a tea towel for you. It says 'Don't forget us!'"
+    ],
+    "handover": [
+      "The keys are yours. It's your name over the door now.",
+      "You bring {savings} of savings, everything you learned in {shifts} shifts, and a few friends who'd love to work for you.",
+      "From today, you're the owner. Hire your team, write your menu and open your doors. Good luck, chef!"
+    ],
+    "perks": {
+      "skills": "Your skills come with you: you cook (or serve) like the {rung} you were.",
+      "friends": "Old friends from {restaurant} want to join your team.",
+      "regulars": "A few regulars follow you to the new place.",
+      "savings": "Your savings of {savings} go into the business.",
+      "reputation": "People in the trade know your name already."
+    }
+  }
+}
