@@ -398,7 +398,7 @@ Reviewer: lead. Date: 9 Nov 2026. Covers `5595be2` … `92be4fb` (the four round
 
 **Status at the end of this pass:**
 - `pnpm -r typecheck` ✓ (7 packages).
-- `pnpm -r test` ✓: sim-core 185, content 51, handson 46, sim-career 57, sim-empire 51, sim-stars 57, game 77 (524 in all; +44 this pass).
+- `pnpm -r test` ✓: sim-core 185, content 51, handson 46, sim-career 57, sim-empire 51, sim-stars 57, game 77 (524 in all; +30 this pass).
 - `pnpm --filter @full-plate/game build` ✓. No chunk over 500 kB; the largest is 154 kB.
 
 Scripts and artefacts are in the scratchpad:
@@ -442,10 +442,11 @@ Regression tests now pin all three.
 
 | | first guide (day 660) | ★★ | ★★★ |
 |---|---|---|---|
-| balanced year 1, seeds 1–8 (7 survive) | ★ every seed, score 82–89 | game year 3 | game year **4–5** |
-| premium year 1, seeds 3–10 | ★ every seed (one at 82.6) | year 3–4 | year **5** |
+| balanced year 1, seed 1 (printed in full) | ★, score 89.2 | game year 3 | game year **4** |
+| premium year 1, seed 3 (printed in full) | ★, score 82.6 | year 4 | year **5** |
+| all 15 surviving seeds (balanced 1–8, 7 survive; premium 3–10) | — | — | peak ★★★ in **15/15** |
 
-- Peak ★★★ was reached in 15/15 runs. 0 dynasty wins within 6 years, by design.
+- `--quiet` prints only the first seed in full, so the first-guide result is verified for those two seeds plus the regression test. The other 13 are known only by their peak (★★★ for all). 0 dynasty wins within 6 years, by design.
 - That is **slightly faster than STARS-NOTES' "★★★ by ~year 6"**, because a forked restaurant already has a skilled chef and high prestige.
 - Stars is still open question 1 in STARS-NOTES (thresholds 78/85/91). I left them alone: the first star at the first guide day is what a child needs to see.
 
@@ -513,7 +514,7 @@ Regression tests now pin all three.
 
 ## R3.3 Playtests (frozen build, `http-server dist-r3`)
 
-**P&L sums.** Every evening's shown rows summed to the shown total on every owner, Empire, Stars and refit evening I saw (diff 0, 8 rows each, 9 evenings). The payslip arithmetic is right: £635.50 + £42.26 − £87.21 − £31.50 − £300 = £259.05. No page errors in any run after `22bc017`.
+**P&L sums.** Every evening's shown rows summed to the shown total on every owner, Empire, Stars and refit evening I saw (diff 0, 8 rows each, 7 evenings). The payslip arithmetic is right: £635.50 + £42.26 − £87.21 − £31.50 − £300 = £259.05. No page errors in any run after `22bc017`.
 
 ### A. Apprentice chef, 7 days, cosy: a 12-year-old
 Played twice:
