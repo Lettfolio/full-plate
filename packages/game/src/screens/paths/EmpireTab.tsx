@@ -352,7 +352,7 @@ function SiteCovers({ e, s }: { e: EmpireState; s: SiteSummary }) {
   const tables = s.tables ?? boxTables(content, e.brand.formula.standardisation);
   return (
     <div className="xs muted">
-      ~{day.covers} covers today: {room} in the dining room ({tables} tables, crew {Math.round(s.staffQuality)}){lanes > 0 ? ` + ${lanes} takeaway` : ""}
+      ~{day.covers} covers today: {room} in the dining room ({tables} tables, crew skill {Math.round(s.staffQuality)}){lanes > 0 ? ` + ${lanes} takeaway` : ""}
     </div>
   );
 }
@@ -436,7 +436,7 @@ function UnlockedFormulaWarning({ e }: { e: EmpireState }) {
   if (e.brand.formula.locked) return null;
   return (
     <p className="small callout callout--warn" role="note" aria-label="Formula warning">
-      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>Brand → Lock the formula</b> first: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. Even then a new franchisee only just gets by until drive-thru and app orders arrive, so watch their mood.
+      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>Brand → Lock the formula</b>: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. Even then a new franchisee only just gets by until drive-thru and app orders arrive, so watch their mood.
     </p>
   );
 }
