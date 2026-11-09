@@ -1355,7 +1355,7 @@ button, input { font: inherit; color: inherit; }
 .modal.envelope { width: min(720px, 100%); } .envelope__crit { font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
 
 /* R7 review: the watch view's one action reads as the action (A11) */
-.watchcard__play { min-height: 52px; padding: 10px 22px; font-size: var(--fs-base); flex: 1 1 auto; }
+.service__side .watchcard__play { min-height: 52px; padding: 10px 22px; font-size: var(--fs-base); flex: 1 1 auto; }
 /* R7 review: the order sheet fits 1024 px beside the goals (Keeps and Unit cost fold under the ingredient's name) */
 .stocktable__narrow { display: none; }
 @media (max-width: 1180px) {
