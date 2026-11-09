@@ -13,6 +13,8 @@ interface Props {
   stars?: number;
   /** Stars owners can shut tonight instead (it doesn't count against steadiness). */
   canClose?: boolean;
+  /** Round 4 review: the alert says closing is safe, so it offers the button right there. */
+  onClose?: () => void;
   onStock?: () => void;
 }
 
@@ -23,7 +25,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
  * morning when the larder on hand won't cover sim-core's forecast for a menu dish. Orders arrive tomorrow, so the
  * one-tap order protects tomorrow; tonight the honest choices are a shorter menu or (Stars) closing.
  */
-export function StockWarning({ game, risk, send, inspection = false, stars = 0, canClose = false, onStock }: Props) {
+export function StockWarning({ game, risk, send, inspection = false, stars = 0, canClose = false, onClose, onStock }: Props) {
   if (!risk.dishes.length) return null;
   const shown = risk.dishes.slice(0, 4);
   const more = risk.dishes.length - shown.length;
@@ -64,6 +66,11 @@ export function StockWarning({ game, risk, send, inspection = false, stars = 0, 
             Order to cover tomorrow · ≈<MoneyText pence={risk.cost} whole />
           </button>
         ) : null}
+        {inspection && offNight && canClose && onClose && (
+          <button className="btn btn--sm" disabled={game.phase !== "planning"} title="No service tonight, no inspector, and it doesn't count against your steadiness." onClick={onClose}>
+            Close tonight instead
+          </button>
+        )}
         {onStock && <button className="btn btn--sm btn--ghost" onClick={onStock}>See the larder</button>}
       </div>
     </div>

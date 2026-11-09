@@ -79,6 +79,23 @@ describe("P1: the short-menu warning before service", () => {
     expect(alert.textContent).toMatch(/Closing tonight doesn't count against you/);
   });
 
+  it("round 4 review: the inspection alert offers 'Close tonight instead' right where it says closing is safe", () => {
+    const s = starsInSeason();
+    const g = { ...s.game!, stock: [], orders: [] };
+    const sent: Command[] = [];
+    render(<Planning game={g} send={(c) => sent.push(c)} tab="menu" onTab={noop} meta={s.meta} sendStars={noop} />);
+    const alert = screen.getByRole("alert");
+    const btn = Array.from(alert.querySelectorAll("button")).find((b) => b.textContent === "Close tonight instead")!;
+    expect(btn).toBeTruthy();
+    fireEvent.click(btn);
+    expect(sent.at(-1)).toEqual({ type: "CLOSE_TODAY" });
+    expect(sent.slice(0, -1).every((c) => c.type === "SET_ROTA")).toBe(true);
+    cleanup();
+    // Out of season the plain note has no close button.
+    render(<Planning game={{ ...playedOwner().game!, stock: [], orders: [] }} send={noop} tab="menu" onTab={noop} />);
+    expect(screen.queryByText("Close tonight instead")).toBeNull();
+  });
+
   it("no warning once the larder covers tonight, or on the opening day", () => {
     const g = playedOwner().game!;
     const covered = { ...g, stock: g.stock.map((x) => ({ ...x, qty: 9999, batches: [{ qty: 9999, day: g.day }] })) };

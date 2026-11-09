@@ -100,6 +100,11 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   ];
   const wide = tab === "empire" || tab === "stars";
 
+  /** Stars: shut tonight (everyone off today's rota first, so nobody is paid for a shift that won't happen). */
+  const closeTonight = () => {
+    for (const st of game.staff) if (st.rota[today]) send({ type: "SET_ROTA", staffId: st.id, rota: st.rota.map((on, i) => (i === today ? false : on)) });
+    send(asCommand({ type: "CLOSE_TODAY" }));
+  };
   return (
     <div className="page planning">
       <div className="planning__bar">
@@ -120,6 +125,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
               inspection={inspection}
               stars={meta?.stars?.guides.michelin.stars ?? 0}
               canClose={!!meta?.stars && HOOKS.closeToday}
+              onClose={closeTonight}
               {...(tab !== "stock" ? { onStock: () => setTab("stock") } : {})}
             />
           )}
@@ -188,10 +194,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
               className="btn btn--ghost"
               disabled={game.phase !== "planning"}
               title="Shut tonight: no service, no inspector, and it doesn't count against your steadiness. Rent still runs; staff taken off today's rota are not paid."
-              onClick={() => {
-                for (const st of game.staff) if (st.rota[today]) send({ type: "SET_ROTA", staffId: st.id, rota: st.rota.map((on, i) => (i === today ? false : on)) });
-                send(asCommand({ type: "CLOSE_TODAY" }));
-              }}
+              onClick={closeTonight}
             >
               Close tonight
             </button>
