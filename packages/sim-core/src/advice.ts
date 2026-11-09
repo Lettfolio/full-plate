@@ -14,6 +14,7 @@
  * defaults below. Everything here is pure.
  */
 import { VAT_RATE } from "./constants";
+import { suggestedOrder } from "./forecast";
 import { shiftCost } from "./systems/finance";
 import type { AdviceKind, AdviceLog, AdviceRules, AdviceTextPack, Command, ContentPack, DishCourse, DishId, GameState, IngredientId, Staff, StaffRole } from "./types";
 import { findDish, findIngredient, weekdayOf } from "./util";
@@ -69,6 +70,7 @@ export function rotaAdvice(state: Pick<GameState, "history" | "staff">, end = st
 export const ADVICE_RULES: AdviceRules = {
   priority: ["rota", "idleChef", "overstock", "underpriced", "dog"],
   cooldownDays: 7,
+  rotaRestAfter: 2,
   overstockDays: 7,
   overstockMinCost: 1_500,
   overstockMinShare: 0.25,
@@ -103,6 +105,11 @@ export interface Advice {
   commands: Command[];
   /** Planning tab the button opens. */
   tab: "menu" | "staff" | "stock" | "restaurant";
+  /**
+   * [round 6 review] The commands apply tonight and the evening stays up (the over-stock tip trims tomorrow's pending
+   * order, which a morning command would be too late for). The button reads the `fix` words instead of `action`.
+   */
+  now?: true;
 }
 
 /** "£1,234" (whole pounds, en-GB grouping); negatives as "-£12". */
@@ -189,17 +196,35 @@ const overstockRule: Rule = (state, content, r) => {
   if (!best) return undefined;
   const ing = findIngredient(content, best.id);
   const name = ing?.name ?? best.id;
+  const cut = isFullState(state) ? overOrdered(content, state, best.id) : 0;
   return {
     kind: "overstock",
     subject: best.id,
     vars: {
       ingredient: name, ingredientLower: name.toLowerCase(), used: String(Math.round(best.used)), binned: String(Math.round(best.qty)),
-      cost: poundsText(best.cost), shelfLife: String(ing?.shelfLifeDays ?? "?"), days: String(r.overstockDays),
+      cost: poundsText(best.cost), shelfLife: String(ing?.shelfLifeDays ?? "?"), days: String(r.overstockDays), cut: String(cut),
     },
-    commands: [],
+    commands: cut > 0 ? [{ type: "CANCEL_ORDER", ingredientId: best.id, qty: cut }] : [],
     tab: "stock",
+    ...(cut > 0 ? { now: true as const } : {}),
   };
 };
+
+const isFullState = (s: AdviceState): s is GameState =>
+  Array.isArray((s as Partial<GameState>).orders) && Array.isArray((s as Partial<GameState>).stock) && typeof (s as Partial<GameState>).districtId === "string";
+
+/**
+ * [round 6 review] Portions of `id` on tomorrow's order beyond what tomorrow's service needs (the same forecast as the
+ * Evening's "Order what tomorrow needs": `suggestedOrder` with this ingredient's pending lines left out). 0 = nothing
+ * to trim (nothing on order, or all of it is needed).
+ */
+export function overOrdered(content: ContentPack, state: GameState, id: IngredientId): number {
+  const pending = state.orders.reduce((a, o) => a + (o.ingredientId === id ? o.qty : 0), 0);
+  if (!pending) return 0;
+  const without = { ...state, orders: state.orders.filter((o) => o.ingredientId !== id) };
+  const need = suggestedOrder(content, without).find((l) => l.ingredientId === id)?.qty ?? 0;
+  return Math.max(0, pending - need);
+}
 
 /** Per-dish sold and margin per plate (ex-VAT revenue − food cost) over some days. */
 function dishStats(days: GameState["history"]): Map<DishId, { sold: number; margin: number }> {
@@ -393,13 +418,27 @@ export function allAdvice(state: AdviceState, content: ContentPack, only?: reado
 export function eveningAdvice(state: AdviceState, content: ContentPack): Advice | undefined {
   const rules = adviceRulesOf(content);
   const day = state.day ?? state.history.at(-1)?.day ?? 0;
+  // Round 6 review: the rota tip never cools down, so on a losing streak it would crowd out every other tip. After
+  // `rotaRestAfter` showings in a row it steps aside for one evening — if another tip is due; otherwise it shows.
+  let rested = false;
   for (const k of rules.priority) {
     const rule = RULES[k];
     if (!rule || onCooldown(state.adviceLog, k, day, rules)) continue;
+    if (k === "rota" && rotaRests(state.adviceLog, day, rules)) { rested = true; continue; }
     const a = rule(state, content, rules);
     if (a) return a;
   }
-  return undefined;
+  return rested ? RULES.rota(state, content, rules) : undefined;
+}
+
+/**
+ * [round 6 review] Tonight the rota tip steps aside: it was shown last night and its showings so far are a multiple of
+ * `rotaRestAfter` (so: rota, rota, another tip, rota, rota, …). The log keeps no streak, but a rested night breaks
+ * "shown last night", so it never rests twice running. 0 = never rests (round 6 as first shipped).
+ */
+export function rotaRests(log: AdviceLog | undefined, day: number, rules: AdviceRules = ADVICE_RULES): boolean {
+  const e = log?.rota;
+  return rules.rotaRestAfter > 0 && !!e && e.day === day - 1 && e.count % rules.rotaRestAfter === 0;
 }
 
 /**
@@ -417,7 +456,7 @@ export function recordAdvice(state: GameState, content: ContentPack): AdviceLog 
 // ───────────────────────── words (content templates) ─────────────────────────
 
 /** Built-in words; ContentPack.adviceText.text replaces any of them key by key. `[[termId|label]]` marks a glossary word. */
-export const ADVICE_TEXT: Record<AdviceKind, { icon: string; title: string; body: string; why: string; action: string }> = {
+export const ADVICE_TEXT: Record<AdviceKind, { icon: string; title: string; body: string; why: string; action: string; fix?: string }> = {
   rota: {
     icon: "📅",
     title: "Two weeks of losing money (about {dailyLoss} a day).",
@@ -431,6 +470,7 @@ export const ADVICE_TEXT: Record<AdviceKind, { icon: string; title: string; body
     body: "Order less of it, so less of it [[spoilage|goes off]].",
     why: "In the last {days} days your kitchen used {used} portions of {ingredientLower} and threw away {binned}: {cost} in the bin. It keeps for {shelfLife} days.",
     action: "Check the larder",
+    fix: "Take {cut} {ingredientLower} off tomorrow's order",
   },
   dog: {
     icon: "🥀",
@@ -469,7 +509,12 @@ export function fillAdvice(template: string, vars: Record<string, string>): stri
 /** The tip as plain sentences (headless reports, tests). */
 export function adviceSentences(a: Advice, content?: Pick<ContentPack, "adviceText">): { title: string; body: string; why: string; action: string } {
   const t = adviceTextOf(content, a.kind);
-  return { title: fillAdvice(t.title, a.vars), body: fillAdvice(t.body, a.vars), why: fillAdvice(t.why, a.vars), action: fillAdvice(t.action, a.vars) };
+  return { title: fillAdvice(t.title, a.vars), body: fillAdvice(t.body, a.vars), why: fillAdvice(t.why, a.vars), action: fillAdvice(actionWords(a, t), a.vars) };
+}
+
+/** The button's words: `fix` when the tip's commands apply tonight (and the pack has them), else `action`. */
+export function actionWords(a: Pick<Advice, "now">, t: { action: string; fix?: string }): string {
+  return a.now && t.fix ? t.fix : t.action;
 }
 
 export type { AdviceKind, AdviceLog, AdviceRules, AdviceTextPack };

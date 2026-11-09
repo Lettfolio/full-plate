@@ -1,5 +1,5 @@
 {
-  "_note": "Round 6: the owner's evening tips (sim-core advice.ts). One tip an evening, first in `priority` that holds and is off cooldown (the rota tip never rests). Money is pence. Text placeholders are {name}-style; [[termId|label]] marks a glossary word the game shows as a <Term>.",
+  "_note": "Round 6: the owner's evening tips (sim-core advice.ts). One tip an evening, first in `priority` that holds and is off cooldown (the rota tip has no cooldown, but steps aside for one evening after `rotaRestAfter` showings in a row when another tip is due). Money is pence. Text placeholders are {name}-style; [[termId|label]] marks a glossary word the game shows as a <Term>.",
   "rules": {
     "priority": [
       "rota",
@@ -9,6 +9,7 @@
       "dog"
     ],
     "cooldownDays": 7,
+    "rotaRestAfter": 2,
     "overstockDays": 7,
     "overstockMinCost": 1500,
     "overstockMinShare": 0.25,
@@ -38,7 +39,8 @@
       "title": "You're buying more {ingredientLower} than you can use.",
       "body": "Order less of it, so less of it [[spoilage|goes off]].",
       "why": "In the last {days} days your kitchen used {used} portions of {ingredientLower} and threw away {binned}: {cost} in the bin. It keeps for {shelfLife} days.",
-      "action": "Check the larder"
+      "action": "Check the larder",
+      "fix": "Take {cut} {ingredientLower} off tomorrow's order"
     },
     "dog": {
       "icon": "🥀",

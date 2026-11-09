@@ -359,18 +359,18 @@ export function validateContent(pack: unknown): string[] {
 }
 
 const ADVICE_KINDS = ["rota", "overstock", "dog", "idleChef", "underpriced"];
-const ADVICE_TEXT_KEYS = ["icon", "title", "body", "why", "action"];
+const ADVICE_TEXT_KEYS = ["icon", "title", "body", "why", "action", "fix"];
 /** Placeholders each tip's words may use (sim-core advice.ts fills them). */
 export const ADVICE_PLACEHOLDERS: Record<string, string[]> = {
   rota: ["name", "role", "days", "weeklyCost", "dailyLoss", "totalLoss", "shifts", "shiftCost"],
-  overstock: ["ingredient", "ingredientLower", "used", "binned", "cost", "shelfLife", "days"],
+  overstock: ["ingredient", "ingredientLower", "used", "binned", "cost", "shelfLife", "days", "cut"],
   dog: ["dish", "sold", "days", "course", "courseSold", "margin", "courseMargin"],
   idleChef: ["name", "days", "weeklyCost", "plates", "soloName", "soloPeak", "soloDay"],
   underpriced: ["walkouts", "popularity", "raise", "keep", "days"],
 };
 /** Rule knobs: [min, max]. */
 const ADVICE_RULE_RANGES: Record<string, [number, number]> = {
-  cooldownDays: [0, 60], overstockDays: [1, 28], overstockMinCost: [0, 1_000_000], overstockMinShare: [0, 10],
+  cooldownDays: [0, 60], rotaRestAfter: [0, 30], overstockDays: [1, 28], overstockMinCost: [0, 1_000_000], overstockMinShare: [0, 10],
   dogDays: [2, 56], dogSoldShare: [0, 1], dogMinCourse: [2, 10], idleChefDays: [1, 28], idleChefMinDays: [1, 7], idleChefRatio: [0.1, 3],
   underpricedDays: [1, 56], underpricedPopularity: [0, 100], underpricedWalkouts: [0, 100], underpricedMaxMargin: [-1, 1],
   underpricedMaxPriceIndex: [0.5, 3], underpricedRaise: [0.01, 0.5],

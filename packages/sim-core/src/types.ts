@@ -172,6 +172,8 @@ export type AdviceLog = Partial<Record<AdviceKind, { day: number; count: number;
 export interface AdviceRules {
   priority: AdviceKind[];
   cooldownDays: number;
+  /** [round 6 review] The rota tip steps aside for one evening after this many showings in a row (0 = never). */
+  rotaRestAfter: number;
   overstockDays: number;
   overstockMinCost: Pence;
   overstockMinShare: number;
@@ -192,7 +194,7 @@ export interface AdviceRules {
 /** [round 6] Data shape of ContentPack.adviceText. */
 export interface AdviceTextPack {
   rules?: Partial<AdviceRules>;
-  text?: Partial<Record<AdviceKind, Partial<{ icon: string; title: string; body: string; why: string; action: string }>>>;
+  text?: Partial<Record<AdviceKind, Partial<{ icon: string; title: string; body: string; why: string; action: string; fix: string }>>>;
 }
 
 /** [round 3] Data shape of incident text (see ContentPack.incidentText). */
@@ -721,6 +723,8 @@ export type Command =
   | { type: "FIRE"; staffId: StaffId }
   | { type: "SET_ROTA"; staffId: StaffId; rota: boolean[] }
   | { type: "ORDER_STOCK"; ingredientId: IngredientId; qty: number }
+  /** [round 6 review] Take `qty` portions of `ingredientId` off tomorrow's pending orders (refunded pro rata). */
+  | { type: "CANCEL_ORDER"; ingredientId: IngredientId; qty: number }
   | { type: "BUY_TABLE" }
   | { type: "START_SERVICE" }
   | { type: "COMP_TABLE"; customerId: CustomerId }      // free their meal, big satisfaction boost

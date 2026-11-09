@@ -206,6 +206,35 @@ const orderStock: Handler<"ORDER_STOCK"> = (content, state, cmd) => {
   return ok(next, `Ordered ${cmd.qty} × ${ing.name} for £${(cost / 100).toFixed(2)} (arrives tomorrow).`, "money");
 };
 
+/**
+ * [round 6 review] The over-stock tip's one-tap fix: takes `qty` portions of an ingredient off the orders that arrive
+ * tomorrow morning (the newest lines first) and refunds what they cost, pro rata to the penny. More than is pending
+ * cancels it all.
+ */
+const cancelOrder: Handler<"CANCEL_ORDER"> = (content, state, cmd) => {
+  const bad = requirePhase(state, ["planning", "evening", "event"], "change an order");
+  if (bad) return bad;
+  const ing = findIngredient(content, cmd.ingredientId);
+  if (!ing) return reject(state, "Unknown ingredient.");
+  if (!isInt(cmd.qty) || cmd.qty <= 0) return reject(state, "Cancel at least 1 portion.");
+  const pending = state.orders.reduce((a, o) => a + (o.ingredientId === ing.id ? o.qty : 0), 0);
+  if (!pending) return reject(state, `Nothing of ${ing.name} is on order.`);
+  let left = Math.min(cmd.qty, pending);
+  let refund = 0;
+  const orders: GameState["orders"] = [];
+  for (let i = state.orders.length - 1; i >= 0; i--) {
+    const o = state.orders[i]!;
+    if (o.ingredientId !== ing.id || left <= 0) { orders.unshift(o); continue; }
+    const cut = Math.min(left, o.qty);
+    left -= cut;
+    const back = cut === o.qty ? o.cost : Math.round((o.cost * cut) / o.qty);
+    refund += back;
+    if (cut < o.qty) orders.unshift({ ...o, qty: o.qty - cut, cost: o.cost - back });
+  }
+  const n = Math.min(cmd.qty, pending);
+  return ok({ ...state, cash: state.cash + refund, orders }, `Cancelled ${n} × ${ing.name} (£${(refund / 100).toFixed(2)} back).`, "money");
+};
+
 const buyTable: Handler<"BUY_TABLE"> = (content, state) => {
   const bad = requirePhase(state, PLANNING, "buy tables");
   if (bad) return bad;
@@ -507,6 +536,7 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
   FIRE: fire,
   SET_ROTA: setRota,
   ORDER_STOCK: orderStock,
+  CANCEL_ORDER: cancelOrder,
   BUY_TABLE: buyTable,
   START_SERVICE: startService,
   COMP_TABLE: compTable,
