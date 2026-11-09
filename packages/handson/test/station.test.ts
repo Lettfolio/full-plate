@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { content } from "@full-plate/content";
 import type { GameState, KitchenTicket, MenuItem } from "@full-plate/sim-core";
 import { createFixture } from "../src/fixture";
-import { createSession, NO_INPUT, openFoodTickets, updateSession } from "../src/session";
+import { COVER_PATIENCE, createSession, NO_INPUT, openFoodTickets, updateSession } from "../src/session";
 import { commisStation, COVER_EXECUTION, STATION_LEVELS, stationTickets, type StationPlan } from "../src/station";
 import { nextHint } from "../src/hints";
 import { DT } from "./helpers";
@@ -78,6 +78,27 @@ describe("the player's rail and the sous chef (round 4)", () => {
     expect(s.score).toMatchObject({ covered: 1, idleCovers: 1, plates: 0, points: 0 });
     expect(s.message?.text).toMatch(/plated .*Soup|grab your next ticket/);
     expect(stationTickets(s, st).map((t) => t.id)).toEqual(["d"]);
+  });
+
+  it("round 4 review: a table about to give up is covered at once, even while the player is busy with it", () => {
+    const f = createFixture({ role: "chef", seed: 3 });
+    const cust = f.state.customers[0]!;
+    const mk = (patience: number): GameState => ({
+      ...f.state,
+      customers: f.state.customers.map((c) => (c.id === cust.id ? { ...c, stage: "ordered", patience } : c)),
+      tickets: [tk("a", "tomato_soup", 1, { customerId: cust.id }), tk("d", "tomato_soup", 4)],
+    });
+    const calm = mk(80);
+    let s = createSession(calm, "chef", { content, station: plan(["tomato_soup"]), playerStaffId: "player" });
+    s = { ...s, carrying: { kind: "raw", ticketId: "a", dishId: "tomato_soup" }, claimed: { a: true }, lastActiveAt: 0 };
+    const r0 = updateSession(s, calm, NO_INPUT, DT);
+    expect(r0.results.filter((r) => r.type === "PLATE_COOKED")).toEqual([]);
+    const cross = mk(COVER_PATIENCE);
+    const r1 = updateSession(r0.session, cross, NO_INPUT, DT);
+    expect(r1.results.filter((r) => r.type === "PLATE_COOKED")).toEqual([expect.objectContaining({ ticketId: "a", covered: true })]);
+    expect(r1.session.carrying).toBeUndefined();
+    expect(r1.session.message?.text).toMatch(/can't wait any longer/);
+    expect(r1.session.score.idleCovers ?? 0).toBe(0);
   });
 
   it("waiting for a ticket is not idling: the clock starts when the work arrives", () => {

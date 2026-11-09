@@ -276,6 +276,14 @@ Now an employee chef **owns a station**, the restaurant **paces itself** around 
   speed bonus 0, no points, and a friendly line. The clock starts when the work arrives, so waiting for a ticket is not
   idling. A rail ticket left `hardCoverSecs` is covered however busy the player is. A ticket that vanishes while
   carried (the table left) costs nothing.
+- **Round 4 review: a table about to give up is covered at once** (`COVER_PATIENCE` = 40). The restaurant runs on sim
+  ticks, a party only eats once every plate is in, and a station ticket waited 7–8 ticks on a child's rail against ~2
+  for an AI cook. Tables turned slower, the queue walked out and the employer lost money on every hands-on day (10
+  seeds, first shift: skip 77 covers / 1.4 walked-out covers / +£131; half-speed child 58 / 12.6 / −£95; even a
+  perfect bot 58 / 10.9 / −£79). The sous chef now plates any rail ticket (or the one in hand) whose party's
+  patience is down to 40 ("Table 4 can't wait any longer — I've sent their chips!"). After: child 62 / 7.2 / −£24,
+  plates 7.8 → 6.5 a shift. **Still open (REVIEW R4, P1):** covers stay ~15% below a skipped shift; the fix is
+  sim-time (cover in ticket-age ticks with a slower tempo while the child works, or desserts as a second course).
 
 ### Pacing (`pacing.ts`)
 - `shiftTempo(session, state).secondsPerTick` is how long the game waits between sim ticks (HandsOnShift and the

@@ -46,7 +46,16 @@ describe("commis station (round 4)", () => {
   it("a bot commis cooks 10+ plates of its own on the first shift", () => {
     const r = playBotShift(careerChefStart(5), { skill: 0.55 });
     expect(r.summary.plates).toBeGreaterThanOrEqual(10);
-    expect(r.summary.covered).toBe(0);
+    // Round 4 review: the sous chef still steps in for a table that is about to give up (COVER_PATIENCE).
+    expect(r.summary.covered ?? 0).toBeLessThanOrEqual(5);
+  });
+
+  it("round 4 review: a slow child's station no longer empties the dining room (patience-aware sous chef)", () => {
+    // Before the fix a half-speed child averaged 12.6 walked-out covers a shift (skip: 1.4) and the place lost £95.
+    let walk = 0;
+    const N = 6;
+    for (let seed = 1; seed <= N; seed++) walk += playBotShift(careerChefStart(seed), { skill: 0.55, pace: 0.5 }).app.game!.history.at(-1)!.walkouts;
+    expect(walk / N).toBeLessThan(9);
   });
 });
 

@@ -21,6 +21,8 @@ import { railCapFor } from "./pacing";
 export const COLD_PLATE_SECS = 60;
 /** The "need a hand?" nudge comes at this share of the sous chef's idle cover time. */
 export const NUDGE_SHARE = 0.6;
+/** The sous chef covers a station ticket when its party's patience (0–100) is down to this (round 4 review). */
+export const COVER_PATIENCE = 40;
 
 export interface SessionOptions {
   /** Show the next sensible action as a hint with a pointer (default true for the first shift). */
@@ -621,6 +623,17 @@ function sousChef(s: HandsOnSession, state: GameState, results: HandsOnResult[])
   if (idle >= st.idleCoverSecs * NUDGE_SHARE && (s.nudgedAt ?? -Infinity) < idleFrom) {
     s.nudgedAt = s.time;
     say(s, `${who}: “Need a hand? ${heldTicket ? "Keep going with that one" : "Your ticket's on the rail — grab it from the fridge"}!”`, 3);
+  }
+  // Round 4 review: the restaurant's clock is sim ticks, not the child's seconds. A party only eats once every plate
+  // is in, and walks out (paying nothing) when patience runs out, so a station ticket can't sit on a slow child's rail
+  // until its table gives up: the sous chef plates it when that party's patience falls to COVER_PATIENCE.
+  const patienceOf = (t: KitchenTicket) => state.customers.find((c) => c.id === t.customerId)?.patience ?? 100;
+  const cross = [...(heldTicket ? [heldTicket] : []), ...waiting].find((t) => patienceOf(t) <= COVER_PATIENCE);
+  if (cross) {
+    cover(s, state, cross, results, false);
+    const tn = tableNumberOf(s, state, cross.customerId);
+    say(s, `${who}: “${tn ? `Table ${tn}` : "That table"} can't wait any longer — I've sent their ${profile(s, cross.dishId).short}!”`, 3.4);
+    return;
   }
   const stale = waiting.find((t) => s.time - seen(t) >= st.hardCoverSecs);
   if (stale) {

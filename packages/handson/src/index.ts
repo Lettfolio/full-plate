@@ -1,6 +1,6 @@
 /** @full-plate/handson public API. */
 export * from "./types";
-export { COLD_PLATE_SECS, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
+export { COLD_PLATE_SECS, COVER_PATIENCE, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
 export type { SessionOptions } from "./session";
 export { render, viewMetrics, C as HANDSON_PALETTE } from "./render";
 export type { HandsOnView, ViewMetrics } from "./render";
