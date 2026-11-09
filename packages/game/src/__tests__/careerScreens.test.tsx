@@ -44,3 +44,15 @@ describe("end-of-shift score card (round 4)", () => {
     expect(card.textContent).toMatch(/of 4 ticked/);
   }, 60_000);
 });
+
+describe("round 4 review: one cooking-skill number everywhere", () => {
+  it("My shift's meter and the promotion checklist both round down (22.7 → 22, not 23 vs 22)", () => {
+    const s = careerChefStart(5);
+    const career = { ...s.meta.career!, stats: { ...s.meta.career!.stats, skill: 22.7 } };
+    const { container } = render(<MyShift game={s.game!} meta={{ ...s.meta, career }} career={career} sendCareer={() => {}} send={() => {}} />);
+    const meter = screen.getByRole("meter", { name: "Your cooking skill" });
+    expect(meter.getAttribute("aria-valuenow")).toBe("22");
+    expect(meter.parentElement!.querySelector(".bar__value")!.textContent).toBe("22");
+    expect(container.textContent).toMatch(/learn faster\)\s*22\s*\/\s*30/);
+  });
+});

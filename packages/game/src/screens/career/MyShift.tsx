@@ -79,7 +79,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           )}
         </div>
         <div className="bars2">
-          <Bar label={`Your ${trackStatName(career.track).toLowerCase()}`} value={trackStat(career.track, career.stats)} tone="basil" showValue size="sm" />
+          <Bar label={`Your ${trackStatName(career.track).toLowerCase()}`} value={Math.floor(trackStat(career.track, career.stats))} tone="basil" showValue size="sm" title="Rounded down, like the promotion checklist" />
           <Bar label="Mood" value={career.mood} tone="auto" showValue size="sm" />
           <Bar label="Stress" value={career.stress} tone="amber" showValue size="sm" />
           <Bar label="Boss's mood" value={career.owner.mood} tone="sky" showValue size="sm" />

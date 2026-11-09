@@ -1,5 +1,5 @@
 import type { DayResult, GameState } from "@full-plate/sim-core";
-import { openingBudget, perHour, PLAYER_ID, promotionChecklist, rungDef, trackStatName, type CareerEvent, type CareerState } from "@full-plate/sim-career";
+import { openingBudget, perHour, PLAYER_ID, promotionChecklist, rungDef, trackStat, trackStatName, type CareerEvent, type CareerState } from "@full-plate/sim-career";
 import type { ShiftSummary } from "@full-plate/handson";
 import "./career.css";
 import { careerContent } from "../../sim";
@@ -76,7 +76,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
               <Bar label="Mood" value={career.mood} tone="auto" showValue size="sm" />
               <Bar label="Stress" value={career.stress} tone="amber" showValue size="sm" />
               <Bar label="Tiredness" value={career.fatigue} tone="plum" showValue size="sm" />
-              <Bar label={trackStatName(career.track)} value={career.track === "waiter" ? career.stats.charm : career.track === "chef" ? career.stats.skill : (career.stats.skill + career.stats.charm) / 2} tone="basil" showValue size="sm" />
+              <Bar label={trackStatName(career.track)} value={Math.floor(trackStat(career.track, career.stats))} tone="basil" showValue size="sm" />
             </div>
           </div>
 
