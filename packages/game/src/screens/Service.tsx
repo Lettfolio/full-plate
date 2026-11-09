@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Command, CustomerId, GameState, Incident, TableId } from "@full-plate/sim-core";
 import { RestaurantView, type Highlight } from "../canvas/RestaurantView";
-import { content, SERVICE_TICKS } from "../sim";
+import { content, MINUTES_PER_TICK, SERVICE_TICKS } from "../sim";
 import type { AppState } from "../state/gameReducer";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
@@ -13,6 +13,19 @@ import { dishName, segmentName } from "../lib/content";
 import { coveringPhrase } from "../lib/staff";
 import { getSettings, useSettings } from "../lib/settings";
 import { Term } from "../components/Term";
+import { DayRhythm } from "../components/DayRhythm";
+
+/** Round 7: an hour of service in ticks (for the live summary's "this hour" trend). */
+export const HOUR_TICKS = Math.max(1, Math.round(60 / MINUTES_PER_TICK));
+
+/** What changed over the last hour, from samples taken at each tick (UI memory only). */
+export function hourTrend(samples: ReadonlyMap<number, number>, tick: number, now: number): number | undefined {
+  const then = samples.get(Math.max(0, tick - HOUR_TICKS));
+  return then === undefined || tick < HOUR_TICKS ? undefined : now - then;
+}
+
+const SPEED_ICON: Record<number, string> = { 0: "❚❚", 1: "▶", 2: "▶▶", 4: "▶▶▶" };
+const SPEED_WORD: Record<number, string> = { 0: "Pause", 1: "Normal", 2: "Fast", 4: "Fastest" };
 
 interface Props {
   game: GameState;
@@ -218,10 +231,24 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
 
   const t = game.todays;
   const covers = t.covers ?? 0;
+  const walkouts = t.walkouts ?? 0;
   const avg = app.ratings.count ? app.ratings.sum / app.ratings.count : 0;
   const queueing = game.customers.filter((c) => c.stage === "queue").reduce((a, c) => a + c.partySize, 0);
   const seatedParties = game.customers.filter((c) => c.tableId && c.stage !== "left" && c.stage !== "queue").length;
   const progress = Math.min(1, game.tick / SERVICE_TICKS);
+  // Live summary trend: one sample per tick of covers / walk-outs / queue (cosmetic memory, reset each day).
+  const samples = useRef<{ day: number; covers: Map<number, number>; walk: Map<number, number>; queue: Map<number, number> }>({ day: -1, covers: new Map(), walk: new Map(), queue: new Map() });
+  if (samples.current.day !== game.day) samples.current = { day: game.day, covers: new Map(), walk: new Map(), queue: new Map() };
+  if (!samples.current.covers.has(game.tick)) {
+    samples.current.covers.set(game.tick, covers);
+    samples.current.walk.set(game.tick, walkouts);
+    samples.current.queue.set(game.tick, queueing);
+  }
+  const trend = {
+    covers: hourTrend(samples.current.covers, game.tick, covers),
+    walk: hourTrend(samples.current.walk, game.tick, walkouts),
+    queue: hourTrend(samples.current.queue, game.tick, queueing),
+  };
   const selIndex = sel ? game.tables.findIndex((x) => x.id === sel.tableId) + 1 : 0;
   const covering = game.ownerCovering ?? [];
   const seated = game.customers
@@ -245,6 +272,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       </div>
 
       <aside className="service__side">
+        {!watch && <DayRhythm beat="service" weekday={WEEKDAY_NAMES[weekdayIndex(game.day)]!} compact />}
         {watch && (
           <div className="card watchcard" role="status">
             <div className="row">
@@ -255,20 +283,6 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             <div className="row row--wrap" style={{ marginTop: 8 }}>
               {watch.onPlay && <button className="btn btn--primary btn--sm" onClick={watch.onPlay}>{watch.playLabel ?? "Play my shift"}</button>}
               {onSkip && <button className="btn btn--sm" onClick={onSkip}>Skip to end of shift</button>}
-            </div>
-          </div>
-        )}
-        {!watch && onJumpIn && (
-          <div className="card jumpin">
-            <div className="row">
-              <span aria-hidden="true">🧑‍🍳</span>
-              <b className="spacer">Jump in</b>
-              <span className="xs faint">for the rest of service</span>
-            </div>
-            <div className="row row--wrap" style={{ marginTop: 6 }}>
-              <button className="btn btn--sm" onClick={() => onJumpIn("chef")}>On the pass</button>
-              <button className="btn btn--sm" onClick={() => onJumpIn("server")}>On the floor</button>
-              <button className="btn btn--sm" onClick={() => onJumpIn("bar")}>Behind the bar</button>
             </div>
           </div>
         )}
@@ -292,10 +306,11 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             </div>
           </div>
           <StaffStrip game={game} send={send} />
-          <div className="speeds" role="group" aria-label="Speed" style={{ marginTop: 12 }}>
+          <div className="speeds speeds--deck" role="group" aria-label="Speed" style={{ marginTop: 12 }}>
             {SPEEDS.map((sp) => (
-              <button key={sp} className="speed" aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => setSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${sp}x`}>
-                {sp === 0 ? "❚❚" : `${sp}×`}
+              <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => setSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
+                <span className="speed__icon" aria-hidden="true">{SPEED_ICON[sp]}</span>
+                <span className="speed__word">{sp === 0 ? (speed === 0 ? "Paused" : "Pause") : `${sp}×`}</span>
               </button>
             ))}
           </div>
@@ -308,13 +323,28 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           </div>
         )}
 
-        <div className="counters">
-          <div className="counter"><div className="counter__k"><Term id="covers" inline /></div><div className="counter__v">{covers}</div></div>
-          <div className="counter"><div className="counter__k">Revenue</div><div className="counter__v"><MoneyText pence={t.revenue ?? 0} whole /></div></div>
-          <div className={`counter ${(t.walkouts ?? 0) > 0 ? "counter--bad" : ""}`}><div className="counter__k">Walkouts</div><div className="counter__v">{t.walkouts ?? 0}</div></div>
-          <div className="counter"><div className="counter__k">Rating</div><div className="counter__v" style={{ fontSize: 18, paddingTop: 3 }}>{app.ratings.count ? <><Stars rating={avg} size={14} /> <span className="small">{avg.toFixed(1)}</span></> : <span className="faint small">—</span>}</div></div>
+        {/* Round 7: the live summary — four things a child can read at a glance, each with what changed this hour. */}
+        <div className="livesum" aria-label="Service so far">
+          <LiveTile icon="🍽️" label={<Term id="covers" inline>Served</Term>} value={covers} trend={trend.covers} good="up" />
+          <LiveTile icon="😊" label="Happy" value={app.ratings.count ? <><span className="livesum__stars"><Stars rating={avg} size={15} /></span> {avg.toFixed(1)}</> : "—"} />
+          <LiveTile icon="⏳" label="Waiting" value={queueing} trend={trend.queue} good="down" />
+          <LiveTile key={`walk-${walkouts}`} icon="🚶" label="Walked out" value={walkouts} trend={trend.walk} good="down" bad={walkouts > 0} flashKey={walkouts} />
         </div>
-
+        <div className="livesum__till">Takings so far <MoneyText pence={t.revenue ?? 0} whole countUp="change" /></div>
+        {!watch && onJumpIn && (
+          <div className="card jumpin">
+            <div className="row">
+              <span aria-hidden="true">🧑‍🍳</span>
+              <b className="spacer">Jump in</b>
+              <span className="xs faint">for the rest of service</span>
+            </div>
+            <div className="row row--wrap" style={{ marginTop: 6 }}>
+              <button className="btn btn--sm" onClick={() => onJumpIn("chef")}>On the pass</button>
+              <button className="btn btn--sm" onClick={() => onJumpIn("server")}>On the floor</button>
+              <button className="btn btn--sm" onClick={() => onJumpIn("bar")}>Behind the bar</button>
+            </div>
+          </div>
+        )}
         <GoalsCard goals={game.goals} justDone={app.goalsJustDone} collapsible />
 
         <div className="card" style={{ padding: 12, flex: 1, display: "flex", flexDirection: "column", minHeight: 160 }}>
@@ -395,6 +425,24 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           </div>
         </div>}
       </aside>
+    </div>
+  );
+}
+
+/** One live-summary tile: icon, label, big value, and "▲ 3 this hour" coloured by whether up is good. */
+function LiveTile({ icon, label, value, trend, good, bad = false, flashKey }: { icon: string; label: React.ReactNode; value: React.ReactNode; trend?: number | undefined; good?: "up" | "down"; bad?: boolean; flashKey?: number }) {
+  const dir = trend === undefined || trend === 0 ? "flat" : trend > 0 ? "up" : "down";
+  const tone = dir === "flat" ? "flat" : (dir === good ? "good" : "bad");
+  return (
+    <div className={`livesum__tile ${bad ? "livesum__tile--bad" : ""}`} data-flash={flashKey ? "1" : undefined}>
+      <span className="livesum__icon" aria-hidden="true">{icon}</span>
+      <div className="livesum__k">{label}</div>
+      <div className="livesum__v">{value}</div>
+      {trend !== undefined && (
+        <div className={`livesum__trend livesum__trend--${tone}`}>
+          {dir === "up" ? "▲" : dir === "down" ? "▼" : "•"} {dir === "flat" ? "steady" : `${Math.abs(trend)} this hour`}
+        </div>
+      )}
     </div>
   );
 }
