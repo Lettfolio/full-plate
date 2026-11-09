@@ -1,6 +1,7 @@
 /**
  * Headless balance runner.
- *   Strategies: balanced (near-optimal script), typical (headline "normal" owner), cheap, premium, nohire, learner (typical + acts on the evening rota tip).
+ *   Strategies: balanced (near-optimal script), typical (headline "normal" owner), cheap, premium, nohire,
+ *   learner (typical + follows every evening tip, advice.ts) and learner-<tip> (rota|overstock|dog|idleChef|underpriced: one tip).
  *   pnpm headless --days 365 --seeds 100 --strategy balanced|cheap|premium --difficulty normal [--content fixture|<module path>]
  * Plays scripted owners and prints survival, cash percentiles by month, covers/day and rating;
  * writes out/balance.csv (one row per seed × month).

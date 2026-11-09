@@ -50,7 +50,7 @@ describe("learner vs typical on hard (real content, owner year 1)", () => {
     let saved = 0;
     for (const seed of seeds) {
       const t = playOne(content, seed, 365, STRATEGIES.typical, "hard");
-      const l = playOne(content, seed, 365, STRATEGIES.learner, "hard");
+      const l = playOne(content, seed, 365, STRATEGIES["learner-rota"], "hard");
       expect(t.survived).toBe(false);
       if (l.survived) saved++;
       expect(l.daysPlayed).toBeGreaterThanOrEqual(t.daysPlayed - 30);

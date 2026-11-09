@@ -1,5 +1,5 @@
 /**
- * Scripted owner strategies (balanced, typical, cheap, premium, nohire), browser-safe: no node imports.
+ * Scripted owner strategies (balanced, typical, cheap, premium, nohire, learner and learner-<tip>), browser-safe: no node imports.
  * Used by the headless runner and exported as `strategies` for other packages (sim-career's AI owner, demos).
  *
  *   runStrategyDay(content, state, STRATEGIES.typical)  // one planning → service → evening → next planning day
@@ -10,12 +10,14 @@ import { dispatch as applyCommand } from "./commands";
 import { tickService as tick } from "./engine";
 import { newGame } from "./newGame";
 import { candidates } from "./staff";
-import { rotaAdvice } from "./advice";
+import { allAdvice, rotaAdvice } from "./advice";
 import { stockQty } from "./stock";
-import type { Candidate, Command, ContentPack, Difficulty, GameState, StaffRole } from "./types";
+import type { AdviceKind, Candidate, Command, ContentPack, Difficulty, GameState, StaffRole } from "./types";
 
 // ── strategies ──
-export type StrategyName = "balanced" | "cheap" | "premium" | "nohire" | "typical" | "learner";
+export type StrategyName =
+  | "balanced" | "cheap" | "premium" | "nohire" | "typical" | "learner"
+  | "learner-rota" | "learner-overstock" | "learner-dog" | "learner-idleChef" | "learner-underpriced";
 
 export interface Strategy {
   name: StrategyName;
@@ -40,9 +42,15 @@ export interface Strategy {
    * answers only every other incident, and restocks with a generous margin (overstock → spoilage).
    */
   typical?: boolean;
-  /** [round 5 review] A typical player who acts on the evening's rota tip once they've seen it a few nights running. */
-  readsTips?: boolean;
+  /**
+   * [round 5 review] A typical player who acts on the evening's rota tip once they've seen it a few nights running.
+   * [round 6] Which evening tips (advice.ts) they act on: the rota tip as in round 5; the others once the tip has been
+   * shown LEARNER_NOTICE_SHOWS evenings (GameState.adviceLog).
+   */
+  readsTips?: readonly AdviceKind[];
 }
+
+const TYPICAL: Strategy = { name: "typical", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true };
 
 export const STRATEGIES: Record<StrategyName, Strategy> = {
   balanced: { name: "balanced", priceMult: 1, menuSize: 6, coverCash: 150_000, secondHireCash: 1_500_000, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value" },
@@ -50,9 +58,15 @@ export const STRATEGIES: Record<StrategyName, Strategy> = {
   cheap: { name: "cheap", priceMult: 0.85, menuSize: 6, coverCash: 150_000, secondHireCash: 2_500_000, tableCash: 3_000_000, stockDays: 1.1, hireBy: "value" },
   premium: { name: "premium", priceMult: 1.25, menuSize: 6, coverCash: 150_000, secondHireCash: 1_000_000, tableCash: 1_500_000, stockDays: 1.5, hireBy: "skill" },
   // The headline "normal" owner: hires cover late, over-orders, never trims the rota, ignores half the incidents.
-  typical: { name: "typical", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true },
+  typical: TYPICAL,
   // Round 5 review: the typical owner who follows the evening's "trim the rota" tip (advice.ts) after noticing it.
-  learner: { name: "learner", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true, readsTips: true },
+  // Round 6: the typical owner who follows every evening tip (advice.ts eveningAdvice), and one variant per tip.
+  learner: { ...TYPICAL, name: "learner", readsTips: ["rota", "overstock", "dog", "idleChef", "underpriced"] },
+  "learner-rota": { ...TYPICAL, name: "learner-rota", readsTips: ["rota"] },
+  "learner-overstock": { ...TYPICAL, name: "learner-overstock", readsTips: ["overstock"] },
+  "learner-dog": { ...TYPICAL, name: "learner-dog", readsTips: ["dog"] },
+  "learner-idleChef": { ...TYPICAL, name: "learner-idleChef", readsTips: ["idleChef"] },
+  "learner-underpriced": { ...TYPICAL, name: "learner-underpriced", readsTips: ["underpriced"] },
   nohire: { name: "nohire", priceMult: 1, menuSize: 6, coverCash: Infinity, secondHireCash: Infinity, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value", noHire: true },
 };
 
@@ -140,12 +154,50 @@ export function rotas(s: GameState, strat: Strategy, step: Step): GameState {
     // Round 5 review: the typical player never trims; the learner (typical + reads the evening tips) trims once the
     // "trim the rota" tip (advice.ts) has named this person for TYPICAL_NOTICE_DAYS evenings running.
     const weekend = strat.typical
-      ? has ? !(strat.readsTips && noticedRotaAdvice(cur, second.id)) : cur.cash > strat.secondHireCash
+      ? has ? !(reads(strat, "rota") && noticedRotaAdvice(cur, second.id)) : cur.cash > strat.secondHireCash && !(role === "chef" && keepsChefOff(cur, strat, second.id))
       : has ? profit >= 0 || cur.cash > strat.secondHireCash * 2 : cur.cash > strat.secondHireCash && profit > 0;
     const rota = weekend ? COVER_PLUS_WEEKEND_ROTA : COVER_ROTA;
     if (second.rota.join() !== rota.join()) cur = step(cur, { type: "SET_ROTA", staffId: second.id, rota });
   }
   return cur;
+}
+
+const reads = (strat: Strategy, kind: AdviceKind) => !!strat.readsTips?.includes(kind);
+
+/** [round 6] Evenings a tip must have been shown before a learner acts on it. */
+export const LEARNER_NOTICE_SHOWS = 2;
+
+/** [round 6] The learner has seen tip `kind` at least LEARNER_NOTICE_SHOWS evenings; `lastNight` = it was last night's. */
+function learnt(s: GameState, strat: Strategy, kind: AdviceKind, lastNight = false): boolean {
+  const e = s.adviceLog?.[kind];
+  return reads(strat, kind) && !!e && e.count >= LEARNER_NOTICE_SHOWS && (!lastNight || e.day === s.day - 1);
+}
+
+/** [round 6] Once the idle-chef tip named this chef, the learner leaves their extra days off until the room is busy. */
+function keepsChefOff(s: GameState, strat: Strategy, staffId: string): boolean {
+  return learnt(s, strat, "idleChef") && s.adviceLog!.idleChef!.subject === staffId && !isBusy(s);
+}
+
+/**
+ * [round 6] The learner acts on last night's tip in the morning (planning commands): the dud comes off the menu, prices
+ * go up, the idle chef's doubled days come off the rota — the same commands the Evening's button sends. Over-stock is a
+ * lasting lesson instead (`stockDaysOf`), and the rota tip keeps its round-5 handling in `rotas`.
+ */
+export function followTips(content: ContentPack, s: GameState, strat: Strategy, step: Step): GameState {
+  if (!strat.readsTips?.length || s.phase !== "planning") return s;
+  const kinds = (["dog", "idleChef", "underpriced"] as const).filter((k) => learnt(s, strat, k, true));
+  if (!kinds.length) return s;
+  let cur = s;
+  for (const a of allAdvice(cur, content, kinds)) {
+    if (a.subject !== cur.adviceLog?.[a.kind]?.subject) continue;
+    for (const cmd of a.commands) cur = step(cur, cmd);
+  }
+  return cur;
+}
+
+/** [round 6] Days of stock the owner keeps: a learner who has seen the over-stock tip orders like the balanced script. */
+export function stockDaysOf(s: GameState, strat: Strategy): number {
+  return learnt(s, strat, "overstock") ? Math.min(strat.stockDays, STRATEGIES.balanced.stockDays) : strat.stockDays;
 }
 
 /** The rota advice has named this staff member on each of the last TYPICAL_NOTICE_DAYS evenings. */
@@ -168,7 +220,7 @@ export function restock(content: ContentPack, s: GameState, strat: Strategy, ste
   for (const d of active) for (const ing of d.ingredients) perCover[ing.id] = (perCover[ing.id] ?? 0) + ing.qty * platesPerDish;
   let cur = s;
   for (const [id, need] of Object.entries(perCover)) {
-    const target = Math.ceil(need * covers * strat.stockDays);
+    const target = Math.ceil(need * covers * stockDaysOf(s, strat));
     const pending = cur.orders.filter((o) => o.ingredientId === id).reduce((a, o) => a + o.qty, 0);
     const have = stockQty(cur.stock, id) + pending;
     if (have < target) cur = step(cur, { type: "ORDER_STOCK", ingredientId: id, qty: target - Math.floor(have) });
@@ -247,6 +299,7 @@ export function runStrategyDay(content: ContentPack, state: GameState, strat: St
   if (s.phase === "planning") {
     if (s.menu.length === 0) s = setUpMenu(content, s, strat, step);
     s = staffing(content, s, strat, step);
+    s = followTips(content, s, strat, step);
     s = rotas(s, strat, step);
     s = buyTables(content, s, strat, step);
   }
@@ -279,6 +332,7 @@ export function playOne(content: ContentPack, seed: number, days: number, strat:
   const ratings: number[] = [];
   while (s.day < days && s.phase !== "gameover") {
     s = staffing(content, s, strat, step);
+    s = followTips(content, s, strat, step);
     s = rotas(s, strat, step);
     s = buyTables(content, s, strat, step);
     s = playService(content, s, true, !!strat.typical);
