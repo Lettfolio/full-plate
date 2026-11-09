@@ -80,7 +80,7 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
       )}
       {e && (
         <div className="card">
-          <div className="card__title"><h3>🍔 {e.brand.name} tonight</h3><span className="xs faint">{e.sites.filter((x) => x.status === "open").length} sites</span></div>
+          <div className="card__title"><h3>🍔 {e.brand.name} tonight</h3><span className="xs faint">{e.sites.filter((x) => x.status === "open").length} site{e.sites.filter((x) => x.status === "open").length === 1 ? "" : "s"}</span></div>
           <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · HQ cash <MoneyText pence={e.hq.cash} whole tone /> · HQ net today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
           {lastMeals && <div className="xs muted">This month so far: {lastMeals.sites} sites trading.</div>}
           {sendEmpire && spare >= 10_000 && (

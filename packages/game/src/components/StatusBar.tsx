@@ -91,7 +91,7 @@ export function StatusBar({ game, meta, onMenu }: Props) {
       )}
       {sv && (
         <div className="pathstrip pathstrip--stars" aria-label="Stars summary">
-          <span className="pathstrip__brand">⭐ {"★".repeat(shownStars)}{"☆".repeat(3 - shownStars)}</span>
+          <span className="pathstrip__brand" aria-label={`${shownStars} star${shownStars === 1 ? "" : "s"}`}>The Stars · {"★".repeat(shownStars)}{"☆".repeat(3 - shownStars)}</span>
           <span>Guide day in <b>{sv.daysToGuide}</b> days{sv.inspectionSeason ? " · inspection season" : ""}</span>
           <span>Chef stress <b>{Math.round(sv.headChef.stress)}</b></span>
           <span>Steadiness <b>{Math.round(sv.steadiness)}</b></span>
