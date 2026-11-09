@@ -59,6 +59,11 @@ export function wasteSystem(content: ContentPack, state: GameState, _rng: Rng): 
   const plateScale = content.balance.wasteShares.plate / WRAP_SHARES.plate;
   const waste = { prep: prep.cost, plate: Math.round(tally.plateWaste * plateScale), spoil: Math.round(spoilCost) };
   const events: SimEvent[] = [];
+  // [round 6] per-ingredient spoilage for DayResult.spoiled (the over-stock tip); canonical id order.
+  const perIng: Record<string, { qty: number; cost: number }> = {};
+  for (const b of [...spoiled.binned].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0))) {
+    if (b.qty > 0) perIng[b.id] = { qty: b.qty, cost: Math.round(b.cost) };
+  }
   if (spoiled.binned.length) {
     const names = spoiled.binned.map((b) => findIngredient(content, b.id)?.name ?? b.id).join(", ");
     events.push(logEvent(state, `Binned out-of-date stock: ${names}.`, "bad"));
@@ -68,7 +73,7 @@ export function wasteSystem(content: ContentPack, state: GameState, _rng: Rng): 
       ...state,
       stock: spoiled.stock,
       // tally.foodCost is absent only in a mid-service save from round 1: fall back to base unit costs.
-      todays: { ...state.todays, waste, foodCost: Math.round(tally.foodCost ?? foodCostOf(content, tally.ingredientsUsed)) },
+      todays: { ...state.todays, waste, ...(Object.keys(perIng).length ? { spoiled: perIng } : {}), foodCost: Math.round(tally.foodCost ?? foodCostOf(content, tally.ingredientsUsed)) },
     },
     events,
   };

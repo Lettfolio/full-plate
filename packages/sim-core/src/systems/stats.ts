@@ -103,6 +103,7 @@ export function buildDayResult(state: GameState): DayResult {
     vat,
     incidentCosts,
     waste,
+    ...(t.spoiled && Object.keys(t.spoiled).length ? { spoiled: t.spoiled } : {}),
     profit: revenue - vat - foodCost - waste.prep - waste.spoil - labourCost - rent - overheads - incidentCosts - loanPayment,
     averageSpend: covers ? Math.round(revenue / covers) : 0,
     averageRating: t.averageRating ?? 0,

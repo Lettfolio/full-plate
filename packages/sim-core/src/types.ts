@@ -155,6 +155,44 @@ export interface ContentPack {
    * GOAL_LINES keys present replace the built-in lines.
    */
   goalText?: GoalTextPack;
+  /**
+   * [round 6] Optional evening-tip thresholds and words (sim-core advice.ts; content exports `adviceText`). Rules and
+   * text present replace the built-in ones key by key.
+   */
+  adviceText?: AdviceTextPack;
+}
+
+/** [round 6] The evening tips (advice.ts), in no particular order; AdviceRules.priority orders them. */
+export type AdviceKind = "rota" | "overstock" | "dog" | "idleChef" | "underpriced";
+
+/** [round 6] What each tip kind last showed: the evening's day, how many evenings in all, and its subject id. */
+export type AdviceLog = Partial<Record<AdviceKind, { day: number; count: number; subject: string }>>;
+
+/** [round 6] Evening-tip thresholds (advice.ts ADVICE_RULES has the defaults and what each means). */
+export interface AdviceRules {
+  priority: AdviceKind[];
+  cooldownDays: number;
+  overstockDays: number;
+  overstockMinCost: Pence;
+  overstockMinShare: number;
+  dogDays: number;
+  dogSoldShare: number;
+  dogMinCourse: number;
+  idleChefDays: number;
+  idleChefMinDays: number;
+  idleChefRatio: number;
+  underpricedDays: number;
+  underpricedPopularity: number;
+  underpricedWalkouts: number;
+  underpricedMaxMargin: number;
+  underpricedMaxPriceIndex: number;
+  underpricedRaise: number;
+}
+
+/** [round 6] Data shape of ContentPack.adviceText. */
+export interface AdviceTextPack {
+  rules?: Partial<AdviceRules>;
+  text?: Partial<Record<AdviceKind, Partial<{ icon: string; title: string; body: string; why: string; action: string }>>>;
 }
 
 /** [round 3] Data shape of incident text (see ContentPack.incidentText). */
@@ -397,6 +435,11 @@ export interface DayResult {
   /** [round 2, sim-core] Cash spent on incident fixes (engineer, call-ins, freebies). Included in profit. Corner-shop stock is food, not this. */
   incidentCosts?: Pence;
   waste: { prep: Pence; plate: Pence; spoil: Pence };
+  /**
+   * [round 6] Stock binned at the end of the day, per ingredient: portions and pence paid (sums to waste.spoil up to
+   * rounding). Absent when nothing spoiled. Drives the evening's over-stock tip (advice.ts).
+   */
+  spoiled?: Record<IngredientId, { qty: number; cost: Pence }>;
   profit: Pence;
   averageSpend: Pence;
   averageRating: number;                         // 1-5
@@ -520,6 +563,9 @@ export interface GameState {
   ownerProfile?: { skill: number; speed: number; charm: number };
   /** Per-game recruitment fee (career perk); replaces RECRUITMENT_FEE in HIRE when present. */
   recruitmentFee?: Pence;
+  // ── round 6 ──
+  /** [round 6] Evening tips shown so far (advice.ts recordAdvice at END_DAY): drives the cooldown and the learners. */
+  adviceLog?: AdviceLog;
 }
 
 /** [round 3] A footfall multiplier entry (GameState.footfallMods). */
