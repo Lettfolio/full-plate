@@ -248,3 +248,65 @@ WCAG AA (4.5:1) is checked in `src/__tests__/contrast.test.ts` against the live 
 - **Menu matrix:** labels try above then below their dot, avoid the quadrant titles, the axis label and other dots, are clamped inside the chart and cut at 22 characters (`shortName`); hover still labels any dot.
 - **Empire:** the city card's "(collapse below £400k)" (stale: it ignored the price level and showed with no shops) → "(a shop below £X is in trouble)" in today's pounds, or "no shops yet". Each Franchise button carries a verdict ("they'd do fine / only just get by / lose money"; basil-deep / amber-deep / tomato-deep on paper, all ≥ 4.5:1).
 - Audit after these: 25 screens, 0 text runs below 13 px, 0 page errors.
+
+## Round 7 — C (shell, onboarding, Stars and Empire)
+
+Audit: docs/UX-AUDIT-R7.md § C (5 P1, 9 P2, 8 P3). Shots: scratchpad `shots/r7/c/{before,after,after-large}/` (script
+`r7c/shots.mjs`, 1280×800 and 1024×768, with a `metrics.json` of small targets, contrast and overflow per screen).
+
+### New tokens and shared classes (theme.css `/* R7-C */`)
+
+| Token / class | Value / use |
+| --- | --- |
+| `--tap` | 44 px: the smallest tap target on the shell, start screens and path screens |
+| `--awning` | red-and-cream stripe (the shop awning): top edge of the title, header and win screen |
+| `--hero-num` | 44 px (48 with Bigger text): the one big number on a hero card |
+| `--cheer` | `#fdf0c9`: celebration wash (win card halo, the board's pick) |
+| `--verdict-fair/thin/loses` | basil-deep / amber-deep / tomato-deep (franchise verdict badges, on their washes ≥ 4.5:1) |
+| `:root[data-text="large"]` | Settings › Text size › Bigger: `--fs-*` ×~1.12 (16→18, 15→17, 14→15.5, 13→14.5; h1–h3 +3–4 px) and the old hard-coded 17–24 px rules bumped |
+| `.btn--tap`, `.iconbtn--tap` | 44 px min height / 44×44 (opt-in; the global `.btn`/`.iconbtn` are unchanged for the other surfaces) |
+| `.hero` (+ `.hero__num`) | a card with one big number and one chart-like element (Empire side tabs) |
+| `.verdict--fair/thin/loses` | coloured badge with an icon |
+
+No existing token or class was renamed or removed. Two global behaviour changes: `.term__tip` is `display:none` until
+hover/focus (the hidden tips widened Planning and the Empire by up to 137 px), and `.tab` is ≥ 48 px with an icon slot.
+
+### What changed
+
+| Where | What |
+| --- | --- |
+| Title | Original SVG shopfront (`components/Shopfront.tsx`; the only motion is the steam, off under reduced motion). **Continue** is a big card with the save inside it (`aria-label` "Continue", the save as its description); **New game** asks first when a save exists; **How do I win?** opens the explainer. |
+| `components/GoalExplainer.tsx` | "How do I win?": two paths, an original picture each (`EmpirePicture`, `StarsPicture`, also on the fork card), three lines each. From the title and the fork (`atFork` changes the first line). |
+| `components/Dialog.tsx` | `Dialog` (Escape/backdrop close, focus in and back, ✕ 44 px) and `ConfirmDialog` (`role=alertdialog`, the safe answer focused first). Used by the settings sheet, the explainer and both "Start a new game?" confirmations. |
+| Start picker | Five cards: icon disc, one plain line, "🎮 what you play", a 3-pip road-to-your-own-place meter. Heading "Who do you want to be?". Difficulty is `components/DifficultyPicker.tsx` (🧸 Cosy / 🙂 Normal / 🌶️ Hard, one child-readable line each), shared with the lease screen. 5 columns at 1024 too. |
+| Header (`StatusBar`) | Awning stripe; a day chip; cash with "▲ made £X yesterday" / "▼ lost …" (`history.at(-1).profit`); one **Settings** button (icon only ≤ 1180 px). Props are now `onQuit` / `onNewGame` (absent during service). |
+| Settings (`components/Settings.tsx`) | A sheet: Text size (Normal / Bigger), Sound (On / Off), Service starts at (1× 2× 4×), the pause checkbox, then "Your game saves itself every morning and every evening", **Save and go to the title screen** and **Start a new game…** (confirm). During service: a note instead of the two buttons. |
+| `lib/settings.ts` | Adds `sound` (default on) and `textSize` (`"normal" \| "large"`); old stored settings load with the defaults. `applyTextSize` sets/removes `data-text="large"` on `<html>`; `getSettings()` applies it on first read, and `main.tsx` calls it before the first render. |
+| `lib/sfx.ts` | `playSfx("tap" \| "good" \| "open" \| "win")`: Web Audio triangle blips, no files; a no-op when Sound is off or Web Audio is missing. Used by good toasts, the fork choice, the guide envelope and the win screen. UI-only, never touches the sim. |
+| Tabs | Icon + word on every tab: `TabDef.icon`, else a leading emoji split off the label, else `TAB_ICONS[id]`. The icon is `aria-hidden`, so tab names are unchanged for tests. Stronger active state. |
+| Toast | Round icon badge, 44 px ✕, a chime on good toasts. |
+| Stars tab | **Hero:** the guide card (stars, the days-to-guide number, a year strip with the inspection season hatched and "today" marked, one sentence that changes in season) beside **What's holding you back**. Then **Your last 60 nights**: one square per night from `stars.consistencyWindow` (the kitchen's own record, never the inspectors'), steady / wobbly / bad, with counts and steadiness. The other four guides follow, smaller. Selectors: `lib/starsStrip.ts` (`nightStrip`, `guideYear`; "bad" is the sim's own off night, `OFF_NIGHT_DROP`). |
+| Empire side tabs | **My shops:** "N shops open" + a stacked bar per city (own / franchise / licence; tap a row to pick the city), then the city card, then **Shops in {city}** (the one you run first, five at a time, "Show all N"). **The brand:** "N of 5 regions know your name" + a bar per region with the win line + a meals line. **Money:** HQ's last 30 days + a bar per month from the board minutes. Franchise verdicts are badges. Map pins have a 26-unit invisible hit circle (≥ 44 px on screen). `shopsByCity` is exported. |
+| Board meeting | A calendar-leaf date in the banner; a bar under each money line; the decision in its own amber box with a bigger question; option cards with a "💡 The board's pick" ribbon (the "Board's tip" line stays); Skip 44 px. |
+| Guide envelope | The inspectors' table has a column per criterion; a chime on opening. |
+| Win screen | Confetti (twice, off under reduced motion), "You won!", the final figure (meals, or stars at your best), **the journey** (`journey()`: opened, the fork, first franchise, 100th shop, first star, three stars, the ending; sorted by day), centred KPI tiles, **Save a picture** (a 1200×630 canvas card → PNG download). |
+| Fork card | The explainer's two pictures; "How do I win?" opens the explainer over the card; 44 px buttons. |
+
+### Bigger text at 1024 px
+
+Checked on every screen above at 1024×768 and 1280×800 (`after-large/`): no horizontal overflow, no text below 13 px.
+At ≤ 1180 px with Bigger text the planning tabs drop their icons and narrow, and the Menu tab's two columns may shrink
+(`:root[data-text="large"] .menu-layout`, scoped to Bigger text only).
+
+### Checks
+
+- Type audit at 1280: `FP_AUDIT_TEXT=large` runs it with Bigger text. It now also visits the goal explainer and the
+  new-game confirmation (29 screens). Both runs: **0 text runs below 13 px, 0 page errors**. Settings closes with
+  Escape in the script (the sheet is a modal).
+- Tests: `r7shell.test.tsx` (settings persistence and old settings, `data-text` on and off and on first read, sheet
+  close, save-and-quit, new game confirm/cancel, the in-service note, the explainer from the title and at the fork, the
+  title's Continue and New game confirm, ConfirmDialog Escape/backdrop) and `r7paths.test.tsx` (`nightStrip`,
+  `guideYear`, the Stars hero order, `shopsByCity` + city pick, brand and money heroes, verdict badges, the board's pick
+  ribbon, the win journey).
+- Main chunk 171.5 → 185.6 kB (+14.1 kB; Dialog, Settings sheet, GoalExplainer and Shopfront are in it). Stars, Empire,
+  board and win changes are in their lazy chunks.

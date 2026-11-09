@@ -1080,7 +1080,7 @@ button, input { font: inherit; color: inherit; }
 .verdict--loses { background: var(--tomato-wash); }
 .verdict .opensite__outlook { font-weight: 800; }
 .opensite__row { min-height: var(--tap); }
-.empire__side .btn--sm, .starstab .btn--sm { min-height: var(--tap); }
+.empire__side .btn--sm, .starstab .btn--sm { min-height: var(--tap); min-width: var(--tap); }
 .starstab details > summary { min-height: var(--tap); display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 700; list-style: none; }
 .starstab details > summary::before { content: "▸"; transition: transform 0.15s; }
 .starstab details[open] > summary::before { transform: rotate(90deg); }
