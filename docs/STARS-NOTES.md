@@ -292,3 +292,11 @@ The 10-year × 12-seed figures below predate the rule and were not re-run.
    stages illegal)?
 6. **Satellites as aggregate sites**: they're a flat cash stream now. Once sim-empire's `aggregateSiteDay` exists,
    bistros could use it with a `brandConsistency` driven by the trained-head-chef flag.
+
+### Round 8: the Stars map (game UI)
+
+sim-stars has no locations, so the game derives them: the home city is the first city of the home country
+(Harbourton); the flagship is in `game.districtId`; each satellite and the rival get `districts[hash32(id) % n]`
+(FNV-1a of the satellite id, or `rival:` + name). Stable across loads, no randomness, nothing stored. The map shows
+only `starsView` fields: the inspection-season flag (a plum edge on the flagship's district), the count of last
+guide's revealed visits, and up to two rumours labelled "might not be true". This year's visits are never read.
