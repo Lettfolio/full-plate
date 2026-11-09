@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
 import { classifyMenu, content, MAX_MENU_ITEMS } from "../../sim";
 import { suggestedStarterMenu } from "../../lib/starterMenu";
@@ -25,11 +25,16 @@ function writeMenuView(v: MenuView): void {
 /** ✕ asks once before a dish leaves the menu (there is no undo). */
 function RemoveDish({ name, onRemove }: { name: string; onRemove: () => void }) {
   const [sure, setSure] = useState(false);
-  if (!sure) return <button className="iconbtn dish__remove" aria-label={`Remove ${name}`} title="Remove from menu" onClick={() => setSure(true)}>✕</button>;
+  const asked = useRef(false);
+  const cross = useRef<HTMLButtonElement>(null);
+  // Keep → focus goes back to the ✕ it came from, not to the top of the page.
+  useEffect(() => { if (!sure && asked.current) cross.current?.focus(); asked.current = sure; }, [sure]);
+  if (!sure) return <button ref={cross} className="iconbtn dish__remove" aria-label={`Remove ${name}`} title="Remove from menu" onClick={() => setSure(true)}>✕</button>;
   return (
     <span className="dish__confirm" role="group" aria-label={`Remove ${name}?`}>
-      <button className="btn btn--sm btn--primary" onClick={onRemove} autoFocus>Remove</button>
-      <button className="btn btn--sm btn--ghost" onClick={() => setSure(false)}>Keep</button>
+      <button className="btn btn--sm btn--primary" onClick={onRemove}>Remove</button>
+      {/* R7 review (seam d): the safe answer has focus, as in the shell's ConfirmDialog — Enter twice never removes. */}
+      <button className="btn btn--sm btn--ghost" onClick={() => setSure(false)} autoFocus>Keep</button>
     </span>
   );
 }

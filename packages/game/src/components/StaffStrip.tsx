@@ -4,10 +4,10 @@ import { initials, onBreak, onFloorToday, ROLE_LABEL } from "../lib/staff";
 import { weekdayIndex } from "../lib/calendar";
 import { BREAK_TICKS, MINUTES_PER_TICK } from "../sim";
 
-interface Props { game: GameState; send: (cmd: Command) => void }
+interface Props { game: GameState; send: (cmd: Command) => void; /** Watching someone else's shift (career): show who is on, no Break buttons. */ readOnly?: boolean }
 
 /** Service: who is on, how tired they are, and a Break button (GIVE_BREAK). */
-export function StaffStrip({ game, send }: Props) {
+export function StaffStrip({ game, send, readOnly = false }: Props) {
   const people = onFloorToday(game, weekdayIndex(game.day));
   if (!people.length) return null;
   return (
@@ -22,7 +22,7 @@ export function StaffStrip({ game, send }: Props) {
               <div className="xs"><b>{first}</b> <span className="muted">{ROLE_LABEL[s.role]}</span></div>
               <Bar value={s.fatigue} tone={s.fatigue >= 70 ? "accent" : s.fatigue >= 40 ? "amber" : "basil"} size="sm" title={`${first}'s tiredness: ${Math.round(s.fatigue)} of 100`} />
             </div>
-            <button
+            {readOnly ? (resting ? <span className="xs muted">☕ On break</span> : null) : <button
               className="btn btn--ghost btn--sm"
               disabled={resting}
               onClick={() => send({ type: "GIVE_BREAK", staffId: s.id })}
@@ -30,7 +30,7 @@ export function StaffStrip({ game, send }: Props) {
               aria-label={resting ? `${first} is on a break` : `Give ${first} a break`}
             >
               {resting ? "☕ On break" : "Break"}
-            </button>
+            </button>}
           </li>
         );
       })}

@@ -60,8 +60,10 @@ export function gamepadInput(pad: { axes: readonly number[]; buttons: readonly {
  * not to the cook — and must not be swallowed by preventDefault.
  */
 export function onControl(e: Pick<KeyboardEvent, "target">): boolean {
-  const el = e.target as { tagName?: string; isContentEditable?: boolean } | null;
+  const el = e.target as { tagName?: string; isContentEditable?: boolean; closest?: (s: string) => unknown } | null;
   const tag = el?.tagName?.toUpperCase();
+  // R7 review: anything inside an open modal sheet (settings over a shift) is the sheet's, not the cook's.
+  if (typeof el?.closest === "function" && el.closest('[aria-modal="true"]')) return true;
   return tag === "BUTTON" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "A" || !!el?.isContentEditable;
 }
 

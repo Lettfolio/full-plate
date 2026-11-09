@@ -7,6 +7,7 @@ import {
 } from "@full-plate/handson";
 import { content, HOOKS, SERVICE_TICKS } from "../sim";
 import { clockLabel } from "../lib/calendar";
+import { modalOpen } from "../lib/modal";
 import { cardPlacement, markOnboardSeen, onboardingSteps, onboardSeen, type OnboardStep } from "../lib/onboarding";
 import { createTouchControl, prefersTouch } from "../lib/touchControl";
 
@@ -109,6 +110,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     let last = performance.now();
     let acc = 0;
     let tickAcc = 0;
+    let sheetWasOpen = false;
     let lastHud = 0;
     let alive = true;
     const resize = () => {
@@ -130,7 +132,12 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
       const L = live.current;
-      if (!pausedRef.current && onboardRef.current === null && L.game.phase === "service") {
+      // R7 review (seam d): a sheet (Settings) holds the shift; when it closes, the keys go back to the cook, not to the
+      // header button the sheet returned focus to (Space would open Settings again instead of using a station).
+      const sheet = modalOpen();
+      if (sheetWasOpen && !sheet) canvasRef.current?.focus();
+      sheetWasOpen = sheet;
+      if (!pausedRef.current && onboardRef.current === null && !sheet && L.game.phase === "service") {
         acc += dt;
         tickAcc += dt;
         input.setTouch(touchCtl.current.read(sessionRef.current!));
@@ -194,6 +201,9 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const onPointerUp = () => touchCtl.current.release();
+  /** R7 review (seam d): a bar button pressed with the mouse/finger hands the keys straight back to the cook (Space
+   *  would otherwise press Pause again); a keyboard press (detail 0) keeps focus on the button. */
+  const toCookIfPointer = (e: { detail: number }) => { if (e.detail > 0) canvasRef.current?.focus(); };
   const touchRef = useRef(touch);
   touchRef.current = touch;
 
@@ -217,7 +227,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
           </div>
         )}
         <button className="btn handson__btn handson__help" onClick={() => setOnboard(0)} aria-label="How to play" title="How to play">?</button>
-        <button className="btn handson__btn" onClick={() => setPaused((p) => !p)} aria-pressed={paused}>{paused ? "▶ Resume" : "❚❚ Pause"}</button>
+        <button className="btn handson__btn" onClick={(e) => { setPaused((p) => !p); toCookIfPointer(e); }} aria-pressed={paused}>{paused ? "▶ Resume" : "❚❚ Pause"}</button>
         {jumpIn && onLeave && <button className="btn handson__btn" onClick={() => s && onLeave(summarise(s))}>Back to the office</button>}
         <button className="btn btn--ghost handson__btn" onClick={() => { if (s) onScore?.(summarise(s)); onSkip(); }}>{jumpIn ? "Skip to close" : "Skip to end of shift"}</button>
       </div>

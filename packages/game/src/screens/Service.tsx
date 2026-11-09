@@ -8,6 +8,7 @@ import { Stars } from "../components/Stars";
 import { IncidentCard, useFadingIncidents } from "../components/IncidentCard";
 import { GoalsCard } from "../components/GoalsCard";
 import { StaffStrip } from "../components/StaffStrip";
+import { modalOpen } from "../lib/modal";
 import { clockLabel, WEEKDAY_NAMES, weekdayIndex } from "../lib/calendar";
 import { dishName, segmentName } from "../lib/content";
 import { coveringPhrase } from "../lib/staff";
@@ -47,6 +48,7 @@ interface Props {
 
 /** Space/1/2/4 shortcuts must not hijack a focused control: Space on a button should press it. */
 export function shortcutsBlocked(target: EventTarget | null): boolean {
+  if (modalOpen()) return true; // keys belong to the open sheet
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   return target.closest("button, a[href], input, select, textarea, [role=button], [role=radio], [role=tab], [role=checkbox]") !== null;
@@ -174,7 +176,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     let carry = 0;
     const frame = (now: number) => {
       const L = live.current;
-      const due = ticksDue(carry, now - last, L.speed);
+      const due = ticksDue(carry, now - last, modalOpen() ? 0 : L.speed); // a sheet over service holds the clock
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
@@ -281,7 +283,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             </div>
             {watch.note && <div className="small muted">{watch.note}</div>}
             <div className="row row--wrap" style={{ marginTop: 8 }}>
-              {watch.onPlay && <button className="btn btn--primary btn--sm" onClick={watch.onPlay}>{watch.playLabel ?? "Play my shift"}</button>}
+              {watch.onPlay && <button className="btn btn--primary watchcard__play" onClick={watch.onPlay}>{watch.playLabel ?? "Play my shift"}</button>}
               {onSkip && <button className="btn btn--sm" onClick={onSkip}>Skip to end of shift</button>}
             </div>
           </div>
@@ -305,7 +307,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
               <div className="clock__ends"><span>12:00 open</span><span>22:00 close</span></div>
             </div>
           </div>
-          <StaffStrip game={game} send={send} />
+          <StaffStrip game={game} send={send} readOnly={!!watch} />
           <div className="speeds speeds--deck" role="group" aria-label="Speed" style={{ marginTop: 12 }}>
             {SPEEDS.map((sp) => (
               <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => setSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
