@@ -80,3 +80,34 @@ describe("weekly review", () => {
     expect(g.career.payslips).toHaveLength(4);
   });
 });
+
+describe("hands-on shifts in the weekly review (round 3 review)", () => {
+  it("tallies a played shift's stars and quality and turns them into a small bonus and a note", async () => {
+    const { newCareer, stepCareerDay, beginCareerDay, finishCareerDay } = await import("../src");
+    const { runService } = await import("../src/owner");
+    const { handsOnBonus } = await import("../src/review");
+    const { content } = await import("./helpers");
+    const play = (score?: { stars: 0 | 1 | 2 | 3; points: number; meanQuality: number }) => {
+      let g = newCareer(content, { seed: 3, track: "chef" });
+      let review: { score: number; notes: string[] } | undefined;
+      for (let d = 0; d < 7; d++) {
+        const b = beginCareerDay(content, g);
+        const served = runService(content, b.game.career.owner.strategy, b.game.state);
+        const worked = b.playerWorks;
+        const r = stepCareerDay(content, b.game.career, served, served.history.at(-1)!, worked ? score : undefined);
+        for (const e of r.events) if (e.type === "REVIEW") review = e.review;
+        g = finishCareerDay(content, { career: r.career, state: served }, r.nextOwnerCommands);
+      }
+      return review!;
+    };
+    const plain = play();
+    const great = play({ stars: 3, points: 1400, meanQuality: 88 });
+    const poor = play({ stars: 0, points: 90, meanQuality: 41 });
+    expect(great.score).toBeGreaterThan(plain.score);
+    expect(poor.score).toBeLessThanOrEqual(plain.score);
+    expect(great.notes.join(" ")).toMatch(/averaged 88/);
+    expect(plain.notes.join(" ")).not.toMatch(/averaged/);
+    expect(handsOnBonus({ handsOn: { shifts: 2, stars: 6, quality: 170 } } as never)).toBe(0.3);
+    expect(handsOnBonus({} as never)).toBe(0);
+  });
+});

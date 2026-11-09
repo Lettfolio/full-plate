@@ -244,3 +244,17 @@ describe("former colleagues (HIRE_STAFF, round 3 review)", () => {
     expect(career.handover).toBeTruthy();
   });
 });
+
+describe("hands-on score reaches the career week (round 3 review)", () => {
+  it("handsOnScore during a career shift is tallied by stepCareerDay that evening", () => {
+    let s = appReducer(initialAppState, { type: "newCareer", seed: 5, track: "chef", strategy: "balanced", playerName: "Robin", difficulty: "cosy" });
+    s = appReducer(s, { type: "career", cmd: { type: "TAKE_SHIFT", weekday: (s.game!.day + 2) % 7, take: true } });
+    s = appReducer(s, { type: "command", cmd: { type: "START_SERVICE" } });
+    expect(s.game!.phase).toBe("service");
+    s = appReducer(s, { type: "handsOnStart", meta: { role: "chef" } as never });
+    s = appReducer(s, { type: "handsOnScore", summary: { role: "chef", points: 900, stars: 2, plates: 12, meanQuality: 83, speedPct: 70, served: 0, cleared: 0, payments: 0, drops: 0, dropCost: 0, lines: [], tip: "" } });
+    s = appReducer(s, { type: "skipShift" });
+    expect(s.game!.phase === "evening" || s.game!.phase === "event").toBe(true);
+    expect(s.meta.career!.week.handsOn).toEqual({ shifts: 1, stars: 2, quality: 83 });
+  });
+});

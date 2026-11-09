@@ -55,13 +55,21 @@ export function reviewBreakdown(career: CareerState, week: WeekTally, ctx: Revie
 /** A week of unexcused no-shows is judged on reliability alone. */
 export function reviewScoreForWeek(career: CareerState, week: WeekTally, b: ReviewBreakdown): number {
   if (week.workedDays.length === 0 && week.contractDeclined > 0) return Math.round(clamp(b.reliability, 1, 5) * 10) / 10;
-  return reviewScore(career, b);
+  return reviewScore(career, b, handsOnBonus(week));
 }
 
-export function reviewScore(career: CareerState, b: ReviewBreakdown): number {
+export function reviewScore(career: CareerState, b: ReviewBreakdown, handsOnBonus = 0): number {
   const w = OWNERS[career.owner.strategy].reviewWeights;
-  const raw = w.rating * b.rating + w.reliability * b.reliability + w.growth * b.growth + w.business * b.business + b.incidents;
+  const raw = w.rating * b.rating + w.reliability * b.reliability + w.growth * b.growth + w.business * b.business + b.incidents + handsOnBonus;
   return Math.round(clamp(raw, 1, 5) * 10) / 10;
+}
+
+/** Hands-on shifts this week: mean stars 0-3 → −0.15 … +0.3 on the review (3★ = +0.3, 1★ = 0, 0★ = −0.15). */
+export function handsOnBonus(week: WeekTally): number {
+  const h = week.handsOn;
+  if (!h || h.shifts <= 0) return 0;
+  const mean = h.stars / h.shifts;
+  return Math.round(clamp((mean - 1) * 0.15, -0.15, 0.3) * 100) / 100;
 }
 
 const PRAISE: Record<keyof Omit<ReviewBreakdown, "incidents">, string[]> = {
@@ -97,6 +105,16 @@ export function generateReview(career: CareerState, week: WeekTally, ctx: Review
   }
   const gain = ctx.statNow - week.statStart;
   if (gain >= 0.05) notes.push(`${trackStatName(career.track)} up ${gain.toFixed(1)} this week (now ${Math.round(ctx.statNow)}).`);
+  if (week.handsOn && week.handsOn.shifts > 0) {
+    const h = week.handsOn;
+    const q = Math.round(h.quality / h.shifts);
+    const stars = h.stars / h.shifts;
+    notes.push(
+      stars >= 2.5 ? `I watched you work ${h.shifts === 1 ? "that shift" : `${h.shifts} shifts`} yourself: your plates averaged ${q}. Brilliant.`
+      : stars >= 1.5 ? `You ran ${h.shifts === 1 ? "a shift" : `${h.shifts} shifts`} hands-on; plates averaged ${q}. Good work.`
+      : `Hands-on ${h.shifts === 1 ? "shift" : "shifts"} this week: plates averaged ${q}. Keep practising the timing.`,
+    );
+  }
   if (week.incidentsHandled) notes.push(`${week.incidentsHandled} problem${week.incidentsHandled === 1 ? "" : "s"} sorted on your shifts.`);
   if (week.incidentsIgnored) notes.push(`${week.incidentsIgnored} problem${week.incidentsIgnored === 1 ? "" : "s"} left to fester. Speak up next time.`);
   if (career.fatigue > 60) notes.push("You look shattered. Take a day off when you can.");

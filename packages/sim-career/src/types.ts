@@ -142,6 +142,19 @@ export interface WeekTally {
   mentorShifts: number;
   /** Highest stress this week. */
   peakStress: number;
+  /** [round 3 review] Shifts the player played hands-on this week, and their summed stars (0-3) and plate quality. */
+  handsOn?: { shifts: number; stars: number; quality: number };
+}
+
+/**
+ * [round 3 review] What the hands-on layer reports for one played shift (a subset of handson's ShiftSummary, so this
+ * package doesn't depend on handson). Pass it as stepCareerDay's 5th argument.
+ */
+export interface HandsOnShiftScore {
+  stars: 0 | 1 | 2 | 3;
+  points: number;
+  /** Mean execution of the player's plates, 0-100 (0 when none). */
+  meanQuality: number;
 }
 
 export interface CareerLogEntry {

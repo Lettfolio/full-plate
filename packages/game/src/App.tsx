@@ -64,6 +64,7 @@ export function App() {
   const runTicks = useCallback((n: number) => dispatch({ type: "ticks", n }), []);
   const sendResults = useCallback((results: HandsOnResult[]) => dispatch({ type: "handsOnResults", results }), []);
   const dismissToast = useCallback(() => dispatch({ type: "dismissToast" }), []);
+  const reportScore = useCallback((summary: ShiftSummary) => dispatch({ type: "handsOnScore", summary }), []);
   const notify = useCallback((text: string) => dispatch({ type: "toast", text, tone: "info" }), []);
   const [planTab, setPlanTab] = useState<PlanningTab>("menu");
   const [lastShift, setLastShift] = useState<ShiftSummary | null>(null);
@@ -205,6 +206,7 @@ export function App() {
             onLeave={() => dispatch({ type: "handsOnStop" })}
             onSkip={() => dispatch({ type: "skipShift" })}
             onDone={setLastShift}
+            onScore={reportScore}
           />
         )}
         {inService && !meta.handsOn && (

@@ -9,7 +9,7 @@ import {
   careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
   ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
 } from "./pathEngine";
-import type { HandsOnResult } from "@full-plate/handson";
+import type { HandsOnResult, ShiftSummary } from "@full-plate/handson";
 
 export type ToastTone = "bad" | "good" | "info";
 export interface ToastMsg { id: number; text: string; tone: ToastTone }
@@ -61,6 +61,7 @@ export type AppAction =
   | { type: "handsOnStart"; meta: HandsOnMeta }
   | { type: "handsOnStop" }
   | { type: "handsOnResults"; results: HandsOnResult[] }
+  | { type: "handsOnScore"; summary: ShiftSummary }
   | { type: "tastingMenu"; menuId: string | null }
   | { type: "command"; cmd: Command }
   | { type: "ticks"; n: number }
@@ -281,6 +282,8 @@ function reduce(s: AppState, a: AppAction): AppState {
       }
       return absorb({ ...s, game }, events);
     }
+    case "handsOnScore":
+      return s.game?.phase === "service" ? { ...s, meta: { ...s.meta, shiftSummary: a.summary } } : s;
     case "nextDay": {
       // Evening → tomorrow. Employees: the AI owner closes the day. Owners: END_DAY (the event modal handles "event").
       if (!s.game) return s;

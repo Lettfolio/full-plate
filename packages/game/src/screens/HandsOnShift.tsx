@@ -25,6 +25,8 @@ interface Props {
   onSkip: () => void;
   /** Called on unmount (end of service) with the score. */
   onDone: (summary: ShiftSummary) => void;
+  /** The running score, reported just before each sim tick (so the evening's career step sees the shift). */
+  onScore?: (summary: ShiftSummary) => void;
 }
 
 const ROLE_LABEL: Record<HandsOnRole, string> = { chef: "On the pass", server: "On the floor", bar: "Behind the bar" };
@@ -33,11 +35,11 @@ const ROLE_LABEL: Record<HandsOnRole, string> = { chef: "On the pass", server: "
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
  * its results into PLAYER_* commands, advances the sim at its own pace and draws. Mirrors handson/demo/main.ts.
  */
-export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone }: Props) {
+export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const live = useRef({ game, runTicks, sendResults });
-  live.current = { game, runTicks, sendResults };
+  const live = useRef({ game, runTicks, sendResults, onScore });
+  live.current = { game, runTicks, sendResults, onScore };
   const sessionRef = useRef<HandsOnSession | null>(null);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(paused);
@@ -82,7 +84,11 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
         }
         if (results.length) L.sendResults(results);
         const due = Math.floor(tickAcc / HANDS_ON_SECONDS_PER_TICK);
-        if (due > 0) { tickAcc -= due * HANDS_ON_SECONDS_PER_TICK; L.runTicks(Math.min(due, 4)); }
+        if (due > 0) {
+          tickAcc -= due * HANDS_ON_SECONDS_PER_TICK;
+          L.onScore?.(summarise(sessionRef.current!));
+          L.runTicks(Math.min(due, 4));
+        }
       }
       const rect = wrapRef.current!.getBoundingClientRect();
       render(ctx, sessionRef.current!, L.game, { width: rect.width, height: rect.height, dpr: window.devicePixelRatio || 1 });
@@ -122,7 +128,7 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
         </div>
         <button className="btn btn--sm" onClick={() => setPaused((p) => !p)} aria-pressed={paused}>{paused ? "▶ Resume" : "❚❚ Pause"}</button>
         {jumpIn && onLeave && <button className="btn btn--sm" onClick={() => s && onLeave(summarise(s))}>Back to the office</button>}
-        <button className="btn btn--sm btn--ghost" onClick={onSkip}>{jumpIn ? "Skip to close" : "Skip to end of shift"}</button>
+        <button className="btn btn--sm btn--ghost" onClick={() => { if (s) onScore?.(summarise(s)); onSkip(); }}>{jumpIn ? "Skip to close" : "Skip to end of shift"}</button>
       </div>
       {!HOOKS.player && (
         <div className="banner banner--amber" role="status">

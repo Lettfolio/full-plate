@@ -82,6 +82,7 @@ import type {
   CareerLogEntry,
   CareerState,
   CareerTrack,
+  HandsOnShiftScore,
   Offer,
   OwnerStrategy,
   PlayerStats,
@@ -292,7 +293,11 @@ function endJob(career: CareerState, why: NonNullable<CareerState["jobs"][number
  * Evening: the career consequences of today's service. `result` is today's DayResult (state.history's last entry,
  * or the SERVICE_ENDED event's result). Does not modify `state`; returns the owner's evening commands for it.
  */
-export function stepCareerDay(content: ContentPack, career0: CareerState, state: GameState, result: DayResult): StepCareerResult {
+/**
+ * The evening step. `handsOn` (optional) is the score of a shift the player played hands-on today: it is tallied into
+ * the week, and the weekly review gives up to ±0.3 and a note for it (CAREER-NOTES "your plates averaged 82").
+ */
+export function stepCareerDay(content: ContentPack, career0: CareerState, state: GameState, result: DayResult, handsOn?: HandsOnShiftScore): StepCareerResult {
   const events: CareerEvent[] = [];
   if (career0.handover) return { career: career0, events, nextOwnerCommands: [] };
   if (career0.employer.status !== "employed") return idleDay(content, career0, events);
@@ -335,6 +340,10 @@ export function stepCareerDay(content: ContentPack, career0: CareerState, state:
     const handled = (state.incidents ?? []).filter((i) => i.resolution && i.resolution !== "ignored").length;
     const ignored = (state.incidents ?? []).filter((i) => i.resolution === "ignored").length;
     week.incidentsHandled += handled;
+    if (handsOn) {
+      const h = week.handsOn ?? { shifts: 0, stars: 0, quality: 0 };
+      week.handsOn = { shifts: h.shifts + 1, stars: h.stars + clamp(handsOn.stars, 0, 3), quality: round2(h.quality + clamp(handsOn.meanQuality, 0, 100)) };
+    }
     week.incidentsIgnored += ignored;
     c = { ...c, lifetime: { ...c.lifetime, incidentsHandled: c.lifetime.incidentsHandled + handled, weekendShifts: c.lifetime.weekendShifts + (contractDay ? 0 : 1) } };
   }
