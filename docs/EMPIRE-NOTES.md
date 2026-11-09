@@ -4,10 +4,11 @@ The multi-site, franchising, real-estate and expansion layer. Pure TypeScript an
 
 ```
 pnpm --filter @full-plate/sim-empire typecheck   # src + demo
-pnpm --filter @full-plate/sim-empire test        # 58 tests, ~25s (includes model-vs-focused 90-day runs + 5,000-site perf)
+pnpm --filter @full-plate/sim-empire test        # 77 tests, ~30s (includes model-vs-focused 90-day runs + 5,000-site perf)
 pnpm --filter @full-plate/sim-empire build       # tsc + static demo → packages/sim-empire/dist
 pnpm --filter @full-plate/sim-empire demo        # http://localhost:5301  (?style=franchise|company|innout&years=10&seed=2)
 pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--perf]
+pnpm --filter @full-plate/sim-empire headless --unit [--district high_street]   # one new site's year one, line by line
 ```
 
 Files:
@@ -17,6 +18,7 @@ Files:
 - `src/engine.ts`: `newEmpire`, `forkFromGameState`, `stepEmpireDay`, `applyEmpireCommand`, `forceEvent`, `newGameFromSite`, `recalibrateFromSite`.
 - `src/world.ts`: 12 invented cities, 5 regions and 4 suppliers.
 - `src/strategies.ts`: the scripted styles. They are browser-safe.
+- `src/unitEconomics.ts` (round 5): `probeUnitEconomics` — one new site's first year as a P&L (§3 "Unit economics"). `franchiseOutlook` (engine.ts) is its closed-form twin for the contract panel.
 - `src/headless.ts`: the CLI.
 - `src/save.ts`: versioned `serialize`/`deserialize`.
 - `demo/`: the map demo.
@@ -123,7 +125,9 @@ demand   = demandScale × marketDemand(district, brand menu, popularity, prestig
            marketDemand = footfall × season × (0.5 + pop/100) × weekend × Σ segment share × sigmoid(entryLogit) × E[party]
            (sim-core's arrival system in expectation; price response comes from the entry logit on the real menu prices)
 pull     = (population/2.5m)^0.25 × recognition × consistency × champion × stale × (1 − saturation) × permanentDemand
-           × effects × [fresh 1.08] × [breaks dietary rules 0.55] × [tradition 1.1] × Π site footfallMods
+           × opening × effects × [fresh 1.08] × [breaks dietary rules 0.55] × [tradition 1.1] × Π site footfallMods
+opening  = ramp × honeymoon (round 5, sites opened since: none on the flagship)
+           ramp = 0.8 → 1 linearly over 270 days;  honeymoon = 1 + 0.3 × (1 − age/75)⁺
 capacity = softmin(seats, crew) × (0.44 / peakShare)^0.3                 softmin = (a^−3 + b^−3)^(−1/3)
            seats = tables × 7.7 turns × mean party;  tables = startingTables × throughput(std), ≤ maxTables (or the site's own)
            crew  = 136 covers × chef+server pairs on shift (1 Mon–Thu, 2 Fri–Sun) × (1 + 0.5 (staffQuality − 50)/100)
@@ -131,7 +135,9 @@ covers   = softCap(demand, capacity) × offPremise × noise       softCap(d, c) 
 offPremise = (1 + 0.02 × (std − 30)) × [drive-thru 1.3] × [app 1.1]    takeaway counter, lane and app: on top of the seats
 revenue  = covers × spendScale × basket(district, brand menu) × costIndex × priceLevel × [app 1.05] × effects.spend
 food     = covers × foodScale × plateCost(district, brand menu) × costIndex^0.6 × priceLevel × [fresh 1.12] × Π(1 − supplier discount)
-labour   = standard crew (2 chefs + 2 servers × 5 shifts, wages at staffQuality) × costIndex × priceLevel × offPremise × speedee
+labour   = standard crew (2 chefs + 2 servers × 5 shifts, wages at staffQuality) × costIndex × priceLevel × offPremiseLabour × speedee
+           offPremiseLabour = 1 + 0.3 × (takeaway − 1) + (offPremise − takeaway)   (round 5: a counter cover costs 30% of a room cover)
+           wage = £12.71 NLW + 4p per chef skill point above 30 (round 5, was 9p: QSR crews are paid near the NLW) + 2p per server point above 20
 overhead = overheadsFixed × costIndex × priceLevel × (covers/coversMean)^0.85 + cardFee × revenue
 VAT      = vatPct × revenue;     contribution = revenue − VAT − food − labour − overhead
 ```
@@ -163,7 +169,8 @@ VAT      = vatPct × revenue;     contribution = revenue − VAT − food − la
 - **Company site:** HQ gets `contribution − market rent (unless HQ owns the plot) − 4% ad fund`. The focused company site sends nothing until it transfers.
 - **Franchise or licence:** reported sales = net sales × (1 − skim), where skim = max(0, (60 − honesty)/100) × 15%.
   - **Royalty and ad fund:** HQ gets `royalty% × reported` and `adFund% × reported`. The ad fund feeds regional recognition.
-  - **On HQ land** (`hqLease` or `hqOwned`): the operator pays `max(rent% × reported, market rent × 1.4)` to HQ (Sonneborn's rule). On `hqLease`, HQ pays the market rent to the landlord. On `hqOwned`, HQ pays the mortgage instead. The mortgage is fixed while rent grows with sales and inflation, which is the end-game engine.
+  - **On HQ land** (`hqLease` or `hqOwned`): the operator pays `max(rent% × reported, market rent × 1.2)` to HQ (Sonneborn's rule; round 5: a 20% markup, was 40%). On `hqLease`, HQ pays the market rent to the landlord. On `hqOwned`, HQ pays the mortgage instead. The mortgage is fixed while rent grows with sales and inflation, which is the end-game engine.
+  - **Market rent** (round 5): a unit without a lane rents the founder's unit size (district rent × 1); a drive-thru plot is district rent × 1.6. A remodel that adds the lane moves the site to the bigger plot's rent, and rent reviews re-base to the site's current plot.
   - **Operator:** net = contribution − royalty − ad fund − rent − bank-loan instalment. The operator put 30% of the build down in equity, and the bank lends the rest over 10 years at 7%.
 - **HQ costs:** overhead of £60/day plus £30/day per site, mortgages, inspections (£800 each), and overdraft interest at 8% APR below zero. HQ is bankrupt below −£2m × priceLevel. Capital spending may draw on a development facility of £150k per open site, capped at half the credit line (`developmentFacility`, `spendable`; round 3 review — the full £1m used to be available with one site).
 - **Inflation:** 2.5% a year on prices, wages, rents and costs. Mortgages and loans are nominal.
@@ -175,10 +182,10 @@ VAT      = vatPct × revenue;     contribution = revenue − VAT − food − la
   - **Licence:** HQ pays £25k setup, gets a 10% royalty, carries no land, and consistency runs 20 points lower.
   - **Refranchise / buy back:** move a site between the two.
 - **Contract builder:** applicants arrive at about 2.5/month × attractiveness × (0.4 + recognition/50), halved during an association. Attractiveness = 1 − 8 × (take − 19%) − 0.3 × (fee − £35k)/£35k.
-- **Franchisee mood:** drifts 3%/day toward 55 + 200 × (operator margin − 8%) − penalties for royalty above 5%, ad fund above 4% and rent above 10%.
+- **Franchisee mood (round 5):** drifts 3%/day toward `moodTarget` = 60 + 250 × (net margin − 6%) − 300 × (take − 19%). The net margin is the operator's own cash after royalty, ad fund, rent and the build loan, as a 90-day EMA (`margin30d`, name kept for saves), so one wet month doesn't start a revolt. The take term is symmetric: a cheaper contract buys goodwill, a dearer one costs it. A fair franchise netting 6% sits at 60; −5% heads for 32.
   - **Shocks:** −5 per point of royalty rise on everyone, −12 for a forced remodel, −4 for a scheduled one, −8 per discount campaign, −8 per scandal, −10 when caught skimming, −3 when a peer goes bust.
-  - **Multi-unit growth:** operators with mood ≥ 55 can take another site at most every 180 days.
-- **Association:** forms when at least 5 active franchisees average mood < 35 and stands down at ≥ 50. While active, it blocks fee rises on existing agreements, forced remodels on franchise sites, discount campaigns and encroachment (opening where a franchisee already trades). It halves applicants. The win needs no association.
+  - **Multi-unit growth:** operators with mood ≥ 55 can take another site at most once a year (round 5; was 180 days).
+- **Association:** forms when at least 5 active franchisees average mood < 35 **and the median franchisee is losing money** (round 5); it stands down when mood is back to 50 or the median nets 2% again. While active, it blocks fee rises on existing agreements, forced remodels on franchise sites, discount campaigns and encroachment (opening where a franchisee already trades). It halves applicants. The win needs no association.
 - **Landlord mode:** the purchase price is the annual market rent ÷ 7% yield. The test checks that owning beats leasing over 6 years.
 - **Tech tree:** standardisation = 30 + 20 for a locked formula + 20 academy + 5 drive-thru + 5 app − 3 per menu item over 8. Consistency drifts toward std + 20 (company), std + 10 + (competence − 50) × 0.2 (franchise) or std (licence). The academy adds 15 to staff quality, and drive-thru reaches sites at their next remodel.
 - **Suppliers:** discounts are 3–6% each, capped at 18% total, and non-exclusive deals give half. An outage lasts 30–60 days and pulls items: −15% demand if exclusive, −5% if not. 40% of exclusive outages (20% of non-exclusive) become a scandal.
@@ -196,7 +203,7 @@ VAT      = vatPct × revenue;     contribution = revenue − VAT − food − la
   - cuts demand 15–25% in the region, recovering linearly over 4–12 quarters (slower when consistency is low);
   - spills 40% of that depth into other regions;
   - costs £250k in legal fees, −8 recognition and −8 mood.
-- **Recognition:** drifts 1/90 per day toward 100 × (1 − e^(−vis/6)), where vis = sites per million people in the region + ad spend over 30 days / £50k + 0.55 in the home region.
+- **Recognition:** drifts 1/90 per day toward 100 × (1 − e^(−vis/6)), where vis = weighted sites per million people in the region + ad spend over 30 days / £50k + 0.55 in the home region. Round 5 weights a site by who runs it (`siteVisibility`): company 0.9, franchise 0.6, licence 0.4, and a fresh formula's company sites × 1.5 (word of mouth). Franchises grow the count fastest; each company site carries the brand further.
 - **Win:** a billion meals served, **or** every region at recognition ≥ 60 with at least one site making money. Either way, HQ must be solvent and the association must not be active. `win.achievedDay` and `win.reason` are recorded.
 
 ## 4. Headless results
@@ -204,46 +211,71 @@ VAT      = vatPct × revenue;     contribution = revenue − VAT − food − la
 `pnpm --filter @full-plate/sim-empire headless --years 10 --seeds 5`. The run starts from one company flagship, £500k at HQ and the default contract. The styles make weekly decisions:
 - **franchise:** lock the formula, research the tech tree, sell to every applicant with cash, lease then buy the land, and enter cities on the entry cost alone.
 - **company:** company sites only, built on the development facility, with plots bought from profit. It saves for the next city once home fills.
-- **innout:** fresh formula and a commissary per region, at most one site a month, and it pauses every 15 sites per commissary to save for the next region.
+- **innout:** fresh formula and a commissary per region; each commissary supplies at most one new site every 60 days in its own region (round 5), least-known region first, entering a new commissary's region before anything else. It pauses every 15 sites per commissary to save for the next region, signs non-exclusive supply deals and runs a launch campaign where it is least known.
 
-Round 3 (honest dining room + takeaway counter; the round-2 table is in git history):
+All styles keep 10% of their outstanding mortgages in reserve before buying another plot (round 5: a forced exit sells plots at half value, and one franchise seed went bust holding 205 mortgages at zero cash).
+
+### Round 5: unit economics (`probeUnitEconomics`, `headless --unit`)
+One new site in the home city's High Street, locked formula, HQ holding the lease, default contract (fee £35k, royalty 5%, ad fund 4%, rent 10% of sales or HQ's cost + markup), a year with no random events, % of net sales (ex VAT). BRIEF anchors: food & packaging ~30%, labour ~25%, occupancy ~5%, restaurant margin ~25% ("Unit economics the sim uses"); royalty 4–5%, ad fund 4–4.5% ("Franchise contract builder"); franchisees of a proven brand net ~6–10%.
+
+| Year 1, franchise | Round 4 | Round 5, no supply deals | Round 5, with deals | Company, with deals |
+|---|---|---|---|---|
+| Covers / day | 124 | 120 | 120 | 119 |
+| Net sales | £570k | £549k | £549k | £546k |
+| Food & packaging | 36.0% | 36.0% | 31.7% | 31.7% |
+| Crew wages | 38.0% | 30.3% | 30.3% | 30.4% |
+| Overheads | 9.3% | 9.3% | 9.3% | 9.3% |
+| Rent | **17.9%** | 10.7% | 10.7% | 8.4% (market) |
+| Royalty | 5.0% | 5.0% | 5.0% | — |
+| Ad fund | 4.0% | 4.0% | 4.0% | 4.0% |
+| Build loan | 3.8% | 3.9% | 3.9% | — (HQ paid) |
+| **Net (cash)** | **−13.9% (−£79k)** | **+0.7% (+£4k)** | **+5.0% (+£28k)** | **+16.2% (+£88k)** |
+| Remodel reserve (10-year cycle, not cash) | 4.3% | 4.4% | 4.4% | 4.4% |
+| Franchisee mood at the end | 8 | 45 | 55 | — |
+
+Where the loss came from, in order: **rent** (every new site paid the mature drive-thru plot's rent, district × 1.6, plus the 40% Sonneborn markup: 18% of a year-one unit's sales); **counter labour** (takeaway covers cost the table-service room's full labour per cover; sim-core's room runs ~39% labour on the fast-food menu); **crew wages** (a 9p-a-point chef premium from the table-service career ladder); **food** without the chain's supply deals (36% is the independent's food cost). The fee is not the problem (it is capital, paid once), and the ramp-up costs about 2 points of year one. The dining room's demand, seats and crew (sim-core `capacity.ts`) are untouched: the calibration tests read the same 87.9 / 74.1 / 106.0 covers as round 4.
+
+From a real day-365 fork (seeds 3 and 17, the review's set-up), with supply deals: High Street +4.2% / +8.1%, Student Quarter +3.4% / +7.0%, Seaside +5.1% / +9.1%, Business Park −1.7% / +3.5% (weekday trade only: a district choice that matters). Without deals: −1.0…+4.8%, Business Park −6.2% / −0.8%. Round 4: −3…−14%, mood 5–29.
+
+**The J.** Opening weeks run above the run-rate on the honeymoon, months 2–5 are the thinnest, then the ramp carries the site to run-rate by month 9. Year two at the same site: +6.5% (mood 58).
+
+**Mature units** (full tech tree, drive-thru plot, recognition 85, year two of trading, with deals): food 30.2%, labour 19.2%, overheads 7.9%; franchisee rent 10.0%, royalty 5%, ad 4%, loan 2% → **franchisee net 21.7%**; the same site company-owned nets **34.3%** after 4.4% market rent and the ad fund. Both are richer than the brief's ~25% margin and a real franchisee's 10–15% at maturity (labour is ~6 points lean): see open question 9.
+
+**What the contract panel says.** `franchiseOutlook(content, e)` is a closed-form, noise-free pass over the same year (≤ 0.6 points from the probe): "Your franchisee should clear about £28,000 a year — fair." (≥ 4% of sales), "— they'll only just get by." (≥ 0), or "Your franchisee would lose about £X a year — they'll lose money.", with "Supply deals would cut their food bill." while deals are unsigned.
+
+### Round 5: ten years, five seeds
 ```
 style      seed  sites (co/fr)  closed  meals      HQ cash   HQ net/yr  avg site/yr  mood  regions  plots  scandals  win
-franchise     1   682 (1/681)      36  521.7m    £572.8m     £137.4m        £2.0m    59      4/5    682         3   yes
-franchise     2   627 (1/626)      91  485.2m    £394.5m     £111.5m        £2.0m    63      4/5    627         3   yes
-franchise     3   561 (1/560)     157  490.6m    £442.2m     £104.1m        £1.8m    58      5/5    561         1   yes
-franchise     4   718 (1/717)       0  548.0m    £636.3m     £148.6m        £2.0m    61      5/5    718         2   yes
-franchise     5   718 (1/717)       0  544.9m    £627.2m     £151.5m        £2.1m    62      5/5    718         0   yes
-company       1   503 (503/0)       0  113.6m    £138.9m     £189.7m        £1.8m     —      5/5    112         0   yes
-company       2   497 (497/0)       0  111.3m    £132.3m     £186.5m        £1.8m     —      5/5    110         0   yes
-company       3   305 (305/0)       0   51.5m     £23.5m     £114.3m        £1.7m     —      3/5     47         1    no
-company       4   370 (370/0)      98   89.5m     £91.1m     £168.1m        £2.0m     —      5/5     66         1   yes
-company       5   497 (497/0)       0  109.5m    £118.8m     £177.6m        £1.8m     —      5/5    106         2   yes
-innout        1    56 (56/0)       0   18.6m     £17.0m      £22.8m        £2.0m     —      1/5     56         0    no
-innout        2    56 (56/0)       0   18.4m     £16.7m      £23.0m        £2.0m     —      1/5     56         0    no
-innout        3    37 (37/0)       0    9.3m      £1.0m      £13.9m        £1.9m     —      1/5     25         1    no
-innout        4    52 (52/0)       1   16.7m     £11.2m      £21.1m        £2.0m     —      1/5     52         1    no
-innout        5    56 (56/0)       0   18.0m     £12.5m      £22.5m        £2.0m     —      1/5     56         2    no
+franchise     1   713 (1/712)       5  493.1m    £557.3m     £147.7m        £2.0m    92      5/5    713         0  y5.4
+franchise     2   603 (1/602)     115  458.4m    £484.9m     £131.5m        £2.2m    93      5/5    603         4  y5.6
+franchise     3   706 (1/705)       1  447.4m    £490.0m     £140.2m        £2.0m    92      5/5    706         3  y6.3
+franchise     4   718 (1/717)       0  539.6m    £630.0m     £149.0m        £2.0m    92      5/5    718         2  y4.9
+franchise     5   486 (1/485)      82  347.9m    £439.7m     £123.7m        £2.4m    97      4/5    486         0    no
+company       1   718 (718/0)       0  298.6m    £914.6m     £357.7m        £1.9m     —      5/5    245         0  y7.0
+company       2   718 (718/0)       0  296.0m    £904.6m     £355.2m        £1.9m     —      5/5    242         0  y7.0
+company       3   718 (718/0)       0  233.0m    £660.5m     £349.7m        £1.9m     —      5/5    211         1  y7.7
+company       4   718 (718/0)       0  290.4m    £886.4m     £355.3m        £1.9m     —      5/5    239         0  y7.1
+company       5   683 (683/0)      10  262.4m    £765.0m     £328.1m        £1.9m     —      4/5    232         1    no
+innout        1   161 (161/0)       1   58.7m    £206.9m     £111.6m        £2.3m     —      5/5    161         0  y8.9
+innout        2   138 (138/0)      22   57.3m    £202.5m     £106.1m        £2.5m     —      4/5    138         0  y9.0
+innout        3   139 (139/0)       7   43.0m    £115.7m      £83.8m        £2.1m     —      4/5    139         1    no
+innout        4   131 (131/0)       6   49.4m    £157.7m      £83.7m        £2.2m     —      4/5    131         2    no
+innout        5   158 (158/0)       0   53.0m    £173.4m     £103.7m        £2.2m     —      5/5    158         3  y9.9
+(83.1s)
 ```
-"closed" counts both forced exits (geopolitics) and collapses below the £400k line.
+| Style | Round 4 wins | Round 5 wins | How it wins |
+|---|---|---|---|
+| franchise | 5/5, years 4.4–4.9 | **4/5, years 4.9–6.3** | count and speed: ~700 sites, asset-light, HQ lives on royalty and rent; mood 89–97 at year 10 |
+| company | 4/5, ~9.5 | **4/5, years 7.0–7.7** | control and cash: keeps the whole margin; £0.66–0.91bn at HQ by year 10 (franchise £0.44–0.63bn) |
+| innout | 0/5 | **3/5, years 8.9–9.9** | fewest, richest sites (£2.2–2.5m a year each, 131–162 sites) |
 
-**Win timing.** Franchise-fast wins on regions in 5 of 5 seeds, at year 4.4–4.9 (round 2: 4 of 5, 4.2–4.6). Company-steady wins in 4 of 5 at year 9.4–9.6 (round 2: 1 of 5). In-N-Out-slow wins in none within 10 years. The intended shape holds: franchising is fast and asset-light, company-owned is capital-hungry, fresh-and-slow takes decades. In-N-Out is weaker than in round 2 (37–56 sites, £2.0m units, was 58–69 and £2.5–2.7m): its fresh formula no longer multiplies covers past the seat cap, only demand.
+The misses are forced exits (sanctions close a country: franchise seed 5 lost Saravan and its 76 sites, so the Sunrise Coast never reaches 60) and seeds where the last region arrives late. No seed goes bust.
 
-**Where a mature site's covers come from.** A year-10 franchise site serves ~400 covers a day: ~140 in a 10-table dining room (the full tech tree's box) and the rest from the takeaway counter (×2.0), drive-thru (×1.3) and app (×1.1). Hands-on, the player runs the 140; the Empire adds the rest to the focused DayResult.
+**Where a mature site's covers come from.** A year-10 franchise site serves ~340–400 covers a day: ~140 in a 10-table dining room (the full tech tree's box) and the rest from the takeaway counter (×2.0), drive-thru (×1.3) and app (×1.1). Hands-on, the player runs the 140; the Empire adds the rest to the focused DayResult.
 
 **No style reaches a billion meals in 10 years.** Franchise-fast gets about 0.5bn, so the meals win is a 15–20 year goal and the regions win is the faster route.
 
-**Early franchising is thin.** An unlocked formula's dining room (~85 covers, £1.3k/day) barely covers a franchisee's rent, royalty, ad fund and bank loan, so mood falls toward the association line; locking the formula (+1 table, +40% takeaway) makes the unit work. That is the honest sim-core economics of a 6-table room, and a lesson worth keeping, but the UI should say it before the first sale (see open question 8).
-
-**Unit economics** at year 10 (mature sites, model, % of net sales):
-
-| Style | Food | Labour | Overheads | Occupancy (market rent) | Site margin after occupancy |
-|---|---|---|---|---|---|
-| Franchise | 32.4% | 22.6% | 7.8% | 2.7% | 34.5% |
-| Company | 33.7% | 22.9% | 7.8% | 2.4% | 33.1% |
-| In-N-Out | 36.5% | 22.2% | 7.3% | 2.3% | 31.7% |
-
-These sit near the brief's QSR anchors (food ~30%, labour ~25%, occupancy ~5%, margin ~25%) and within 3 points of round 2. Labour is now the standard crew's wages (content archetypes), scaled with the off-premise covers.
+The round-3/4 table (franchise 5/5 at 4.4–4.9, company 4/5 at ~9.5, In-N-Out 0/5) is in git history.
 
 **Performance** (`--perf`, Node 22, one core): 1,000 sites take 6.3 ms/day and 5,000 sites take 16 ms/day (round 2: 3.4 / 13; the market-demand lookups are cached per district, month, weekend, popularity and prestige), against a target of under 50 ms. The test asserts the 50 ms limit.
 
@@ -255,4 +287,5 @@ These sit near the brief's QSR anchors (food ~30%, labour ~25%, occupancy ~5%, m
 5. **Content.** Cities, regions, suppliers, dietary rules and champions live in `src/world.ts`. The content pass should move them to `content/data/empire.json`. There should also be a fast-food dish set: `FAST_FOOD_MENU` uses the existing burgers, chips, shakes and sundae.
 6. **Balance.** The franchise style's late cash pile (£400–600m) has nowhere to go. Late sinks to consider: acquisitions of rival chains, share buybacks and dividends as score, and big-ticket R&D. Mood sits at 60–65 under default terms, and the association only forms when the player squeezes. A recession event (Sonneborn 1967) would test over-expansion.
 7. **Hybrid play.** The ownership mix per region is just per-site choices today. A per-region "slider" UI can be sugar over `OPEN_SITE` and `SELL_FRANCHISE`.
-8. **Round 3 model follow-ups.** (a) The popularity/prestige-by-crew curves and `DEMAND_SCALE_KEEP` were fitted on two flagships; the test cases sit at −5% to +8%, with the worst probe case (crew 40, Student Quarter) at +15% covers / +8% revenue. (b) The brand pull mod is a single footfall multiplier: sim-core can't tell recognition from a bigger city. (c) A franchise sale before the formula is locked loses the operator money. **Round 4 review:** the warning is in (contract panel, above a city's franchise buttons and above Sell franchise, until the formula is locked). But a locked first franchise loses money too: from a real day-365 fork (seeds 3 and 17, Harbourton, hqLease, default contract, no events) the operator's margin is −3…−14% (High Street), −6…−13% (Student Quarter), +5 → −13% (Seaside) over the first year, and mood falls to 5–29 (unlocked: −15…−32%, mood 0–3). The flagship sim itself only clears ~£28/day in winter, so a 19% take plus the build loan can't be paid from a 7-table room until drive-thru/app arrive. Next lever: a lower Sonneborn floor or royalty holiday for early units, or a crew sized to covers (d). (d) A 10-table box still gets a 4-person crew; a bigger crew for a bigger box (and the same in `newGameFromSite`) is the next lever if late-game units look too lean or too rich.
+8. **Round 3 model follow-ups.** (a) The popularity/prestige-by-crew curves and `DEMAND_SCALE_KEEP` were fitted on two flagships; the test cases sit at −5% to +8%, with the worst probe case (crew 40, Student Quarter) at +15% covers / +8% revenue. (b) The brand pull mod is a single footfall multiplier: sim-core can't tell recognition from a bigger city. (c) ~~A locked first franchise loses money~~ **Fixed in round 5** (§4 "Round 5: unit economics"): rent by plot, a 20% Sonneborn markup, counter labour at 30% of a room cover and QSR crew wages put a locked High Street franchise at +5% in year one with supply deals (+0.7% without), mood ~55. An unlocked formula still loses its operator money (−20%, mood 0), and the warning stays. (d) A 10-table box still gets a 4-person crew; a bigger crew for a bigger box (and the same in `newGameFromSite`) is the next lever if late-game units look too lean or too rich.
+9. **Round 5 follow-ups.** (a) Mature units are rich: franchisee net ~22% and company ~34% at a full-tech-tree drive-thru site (brief: ~25% margin; a real franchisee nets 10–15% at maturity), mostly lean labour (19% vs ~25%) now that counter covers are cheap and crew wages flat. Mood therefore saturates at 89–97 in default play, and the association only forms when the player squeezes the contract or sells in a weak district. Honest mature levers: a delivery-platform commission on app orders (25–35% in the UK), a bigger crew for a bigger box (8d), or drive-thru covers above the room's labour rate. (b) `franchiseOutlook` reads the home city's first district on HQ land; the city panel could show it per district (Business Park is the weak one). (c) Food is 36% of sales until supply deals are signed; a brand might get some purchasing power from the locked formula alone.
