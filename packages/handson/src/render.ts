@@ -11,8 +11,8 @@ import { DOOR, FRONT_WALL_ROW, PASS_ROW, WORLD_H, WORLD_W } from "./layout";
 import { summarise } from "./score";
 import { courseMarkers, helperAtWork, railView, HELPER_SUFFIX, type CourseMarker, type HelperWork, type RailEntry } from "./crew";
 import { isReady, profile, readyGroups, sousName } from "./session";
-import { stationTickets } from "./station";
-import { sousLine, sousPose, type SousPose } from "./sous";
+import { coverDueTick, stationTickets } from "./station";
+import { sousLine, sousPose, type SousPending, type SousPose } from "./sous";
 import type { ActiveAction, HandsOnSession, Item, Station } from "./types";
 import { TUNING } from "./verbs";
 
@@ -34,6 +34,8 @@ export interface HandsOnView {
   forceHint?: boolean;
   /** Label for the score screen's continue line. */
   continueLabel?: string;
+  /** Round 7: what the "use" control is called on this device ("E" on a keyboard, "USE" on a touch screen). */
+  keyLabel?: string;
 }
 
 export interface ViewMetrics { T: number; ox: number; oy: number; header: number; w: number; h: number }
@@ -63,20 +65,22 @@ export function render(ctx: CanvasRenderingContext2D, session: HandsOnSession, s
   const hint = session.tutorial || view.forceHint ? nextHint(session, state) : undefined;
   // Round 6: the kitchen crew a career commis works with (who has which ticket, the course coming, the sous chef's walk).
   const crew = crewView(session, state, m);
+  const key = view.keyLabel ?? "E";
   // station glow first, under the furniture edges
   for (const st of session.stations) drawGlow(ctx, session, st, m, P, now, hint?.stationId === st.id);
+  drawYourStation(ctx, session, m, P);
   for (const st of session.stations) drawStation(ctx, session, state, st, m, P, now, crew);
   drawColleagues(ctx, session, state, m, P, now);
   if (crew) drawCrew(ctx, session, state, crew, m, P, now);
   drawPlayer(ctx, session, m, P, now);
   if (hint?.stationId && !session.activeAction) drawArrow(ctx, session, hint.stationId, m, P, now);
-  drawToasts(ctx, session, m, P, now);
+  drawToasts(ctx, session, m, P, now, crew?.sous);
   if (crew) drawSousBubble(ctx, session, crew, m, P);
-  if (session.activeAction) drawActionWidget(ctx, session, session.activeAction, m, P);
-  else drawPrompt(ctx, session, m, P);
+  if (session.activeAction) drawActionWidget(ctx, session, session.activeAction, m, P, key);
+  else drawPrompt(ctx, session, m, P, key);
   drawHeader(ctx, session, state, m, now, crew);
   if (crew) drawFlyingSlip(ctx, crew, m, P);
-  drawBanner(ctx, session, hint?.text, m);
+  drawBanner(ctx, session, hint?.text && key !== "E" ? withKey(hint.text, key) : hint?.text, m);
   if (session.shift?.over) drawScoreScreen(ctx, session, m, view.continueLabel ?? "Press E to play again");
   ctx.restore();
 }
@@ -86,7 +90,7 @@ type PFn = (tx: number, ty: number) => { x: number; y: number };
 // ───────────────────────── round 6: the crew view (derived once a frame) ─────────────────────────
 
 /** Header rail geometry (CSS px), shared by the rail and the sous chef's walk to it. */
-const RAIL = { x: 10, hudW: 250, tagW: 160, slipW: 132, gap: 6 } as const;
+export const RAIL = { x: 10, hudW: 250, tagW: 160, slipW: 132, gap: 6 } as const;
 
 interface CrewView {
   rail: RailEntry[];
@@ -104,14 +108,55 @@ function crewView(s: HandsOnSession, state: GameState, m: ViewMetrics): CrewView
   // The sous chef stands in the kitchen under the slip he takes (clamped to the walkable strip).
   const railX = (i: number) => clamp((slotPx(i) - m.ox) / m.T, 2.5, 19.5);
   const helper = helperAtWork(s, state);
+  const rail = railView(s, state);
+  const pending = sousPending(s, state, rail);
   return {
-    rail: railView(s, state),
+    rail,
     markers: new Map(courseMarkers(s, state).map((k) => [k.tableId, k])),
     ...(helper ? { helper } : {}),
-    sous: sousPose(s.sousWalks, s.time, railX),
+    sous: sousPose(s.sousWalks, s.time, railX, pending),
     sousName: sousName(s, state),
     slotPx,
   };
+}
+
+/**
+ * Round 7: the slip the sim's sous chef sends at the next tick by its cover age (`coverDueTick`, the rule sim-core's
+ * `ticketsToCover` uses) and when it fell due (the session stamps `railSeen.dueSince` when `sousLead` is on), as its slot
+ * on the header rail — the same left-to-right party order the session books the walk with. Patience-based covers are
+ * left out (no stamp): he walks those the round-6 way, after the cover.
+ */
+export function sousPending(s: HandsOnSession, state: GameState, rail: readonly RailEntry[]): SousPending | undefined {
+  if (!s.opts.sousLead) return undefined;
+  const since = new Map((s.railSeen ?? []).map((x) => [x.id, x.dueSince]));
+  const parties: string[] = [];
+  for (const e of rail) if (e.owner !== "helper" && !parties.includes(e.ticket.customerId)) parties.push(e.ticket.customerId);
+  for (const e of rail) {
+    const d = since.get(e.ticket.id);
+    if (e.owner === "helper" || d === undefined || s.served[e.ticket.id] || coverDueTick(s, state, e.ticket) > state.tick + 1) continue;
+    return { slot: Math.max(0, parties.indexOf(e.ticket.customerId)), dueSince: d };
+  }
+  // A due slip that has just left the rail in this state, before the session's next update books its cover (or stands
+  // him down): he keeps waiting under it for that frame.
+  const onRail = new Set(rail.map((e) => e.ticket.id));
+  const seenParties = [...new Set((s.railSeen ?? []).map((x) => x.customerId))];
+  const gone = (s.railSeen ?? []).find((x) => x.dueSince !== undefined && !onRail.has(x.id));
+  return gone ? { slot: Math.max(0, seenParties.indexOf(gone.customerId)), dueSince: gone.dueSince! } : undefined;
+}
+
+/** Round 7: "E" in the hint lines becomes the touch button's name ("Tap USE as the slider…"). */
+export const withKey = (text: string, key: string): string => text.replace(/\bE\b/g, key);
+
+/**
+ * Round 7: an NPC drawn where the player stands steps aside (render only; nobody blocks anybody). Returns the NPC's
+ * drawn position, pushed out to `r` tiles from the player.
+ */
+export function avoidPlayer(npc: { x: number; y: number }, player: { x: number; y: number }, r = 0.8): { x: number; y: number } {
+  const dx = npc.x - player.x, dy = npc.y - player.y;
+  const d = Math.hypot(dx, dy);
+  if (d >= r) return npc;
+  if (d < 1e-6) return { x: npc.x + r, y: npc.y };
+  return { x: player.x + (dx / d) * r, y: player.y + (dy / d) * r };
 }
 
 // ───────────────────────── floors and walls ─────────────────────────
@@ -222,6 +267,36 @@ function drawGlow(ctx: CanvasRenderingContext2D, s: HandsOnSession, st: Station,
   }
 }
 
+/** Round 7: the appliances her station's dishes cook on (a commis with a station), for the "yours" outline. */
+export function yourStations(s: HandsOnSession): string[] {
+  const st = s.role === "chef" ? s.opts.station : undefined;
+  if (!st) return [];
+  const out = new Set<string>();
+  for (const d of st.dishIds) {
+    const m = profile(s, d).method;
+    out.add(m === "stove" || m === "oven" || m === "fryer" ? m : "prep");
+  }
+  return [...out].filter((id) => s.stations.some((x) => x.id === id));
+}
+
+/** Round 7: a dashed tomato outline and a "Yours" tab on her station's appliances (the rail tag's colour). */
+function drawYourStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMetrics, P: PFn) {
+  for (const id of yourStations(s)) {
+    const st = s.stations.find((x) => x.id === id)!;
+    const p = P(st.x, st.y);
+    const pad = m.T * 0.12;
+    ctx.save();
+    ctx.setLineDash([6, 4]); ctx.strokeStyle = C.tomato; ctx.lineWidth = 2.5;
+    roundRect(ctx, p.x - pad, p.y - pad, st.w * m.T + pad * 2, st.h * m.T + pad * 2, 8); ctx.stroke();
+    ctx.restore();
+    ctx.font = `900 13px ${FONT}`;
+    const w = ctx.measureText("Yours").width + 12;
+    const tx = p.x + st.w * m.T / 2 - w / 2, ty = p.y + st.h * m.T + pad + 1;
+    ctx.fillStyle = C.tomato; roundRect(ctx, tx, ty, w, 17, 8); ctx.fill();
+    label(ctx, "Yours", tx + w / 2, ty + 13, { align: "center", size: 13, weight: 900, colour: C.paper });
+  }
+}
+
 function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, st: Station, m: ViewMetrics, P: PFn, now: number, crew?: CrewView) {
   const { T } = m;
   const p = P(st.x, st.y);
@@ -286,7 +361,8 @@ function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Ga
         if (tn) tag(ctx, `T${tn}`, x + T * 0.2, p.y + h * 0.5 - T * 0.42, C.ink);
         x += Math.min(3, g.tickets.length) * T * 0.5 + T * 0.45;
       }
-      label(ctx, "PASS", p.x + w - 6, p.y - 3, { align: "right", size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
+      // Round 7: at the left end, clear of where the sous chef and the player stand to plate (R6: his tag sat on it).
+      label(ctx, "PASS", p.x + 4, p.y - 3, { size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
       break;
     }
     case "dishReturn": {
@@ -346,7 +422,10 @@ function drawTable(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Game
     ctx.fillStyle = col + "33";
     ctx.beginPath(); ctx.arc(cx, cy, seatR + person * 1.3, 0, Math.PI * 2); ctx.fill();
     if (c.stage === "seated" || c.stage === "ordered") {
-      ctx.strokeStyle = col; ctx.lineWidth = 3.5; ctx.lineCap = "round";
+      // Round 7: a thicker ring over a faint full track, so "how long they'll wait" reads without a number.
+      ctx.strokeStyle = "rgba(43,38,34,0.12)"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(cx, cy, seatR + person * 1.3 - 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.lineCap = "round";
       ctx.beginPath(); ctx.arc(cx, cy, seatR + person * 1.3 - 2, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * Math.max(0, Math.min(100, c.patience))) / 100); ctx.stroke();
       ctx.lineCap = "butt";
     }
@@ -391,10 +470,30 @@ function drawTable(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Game
   // Round 6: their own course is coming (her dessert/side/starter while they eat the mains)
   const course = c && table ? crew?.markers.get(table.id) : undefined;
   if (course) drawCourseMarker(ctx, s, course, cx - r * 0.78, cy - r * 0.78, now);
+  // Round 7: a face for how they feel while they wait (happy, fed up, cross), bottom-left of the table.
+  if (c && (c.stage === "seated" || c.stage === "ordered")) moodFace(ctx, cx - r * 0.78, cy + r * 0.78, 9, c.patience);
   // table number badge: big and always visible
   const tx = cx + r * 0.75, ty = cy - r * 0.75;
   dot(ctx, tx, ty, 11, c ? C.ink : "rgba(43,38,34,0.6)");
   label(ctx, String(st.number ?? ""), tx, ty + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
+}
+
+/** Round 7: waiting mood as a face: smile above 60% patience, flat to 30%, frown and red below. */
+export function moodOf(patience: number): "happy" | "meh" | "cross" {
+  return patience > 60 ? "happy" : patience > 30 ? "meh" : "cross";
+}
+function moodFace(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, patience: number) {
+  const mood = moodOf(patience);
+  dot(ctx, x, y, r + 1.5, C.ink);
+  dot(ctx, x, y, r, mood === "happy" ? "#f6d77a" : mood === "meh" ? C.amber : C.red);
+  dot(ctx, x - r * 0.35, y - r * 0.2, Math.max(1.2, r * 0.13), C.ink);
+  dot(ctx, x + r * 0.35, y - r * 0.2, Math.max(1.2, r * 0.13), C.ink);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+  ctx.beginPath();
+  if (mood === "happy") ctx.arc(x, y + r * 0.05, r * 0.45, Math.PI * 0.15, Math.PI * 0.85);
+  else if (mood === "meh") { ctx.moveTo(x - r * 0.4, y + r * 0.35); ctx.lineTo(x + r * 0.4, y + r * 0.35); }
+  else ctx.arc(x, y + r * 0.7, r * 0.42, Math.PI * 1.2, Math.PI * 1.8);
+  ctx.stroke(); ctx.lineCap = "butt";
 }
 
 // ───────────────────────── characters ─────────────────────────
@@ -406,7 +505,8 @@ function drawColleagues(ctx: CanvasRenderingContext2D, s: HandsOnSession, state:
   if (s.role !== "chef") posts.push({ role: "chef", x: 9.5, y: 2.55 });
   if (s.role !== "bar") posts.push({ role: "bar", x: 26.2, y: 8.6 });
   if (s.role !== "server" && s.role !== "bar") posts.push({ role: "server", x: 15.7, y: 6.6 });
-  for (const p of posts) {
+  for (const p0 of posts) {
+    const p = { ...p0, ...avoidPlayer(p0, s.player) };
     const q = P(p.x, p.y);
     const bob = Math.sin(now * 5 + p.x) * 1.2;
     character(ctx, q.x, q.y + bob, m.T, p.role, "down", 0.85);
@@ -524,14 +624,14 @@ function nameTag(ctx: CanvasRenderingContext2D, text: string, x: number, y: numb
 
 // ───────────────────────── prompts, hints, action widgets ─────────────────────────
 
-function drawPrompt(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMetrics, P: PFn) {
+function drawPrompt(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMetrics, P: PFn, keyName = "E") {
   const pr = s.prompt;
   if (!pr) return;
   const p = P(s.player.x, s.player.y);
   const text = pr.label;
   ctx.font = `800 13px ${FONT}`;
   const tw = ctx.measureText(text).width;
-  const key = pr.enabled ? (pr.verb === "cook" || pr.verb === "pour" ? "Hold E" : "E") : "";
+  const key = pr.enabled ? (pr.verb === "cook" || pr.verb === "pour" ? `Hold ${keyName}` : keyName) : "";
   ctx.font = `900 13px ${FONT}`;
   const kw = key ? ctx.measureText(key).width + 12 : 0;
   const w = tw + kw + (key ? 22 : 16), h = 26;
@@ -573,10 +673,12 @@ function drawBanner(ctx: CanvasRenderingContext2D, s: HandsOnSession, hint: stri
   label(ctx, text, x + (msg ? w / 2 : 28), y + 20.5, { align: msg ? "center" : "left", size: 15, weight: 800, colour: C.paper, maxW: w - 36 });
 }
 
-function drawToasts(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMetrics, P: PFn, now: number) {
+function drawToasts(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMetrics, P: PFn, now: number, sous?: SousPose) {
   for (const t of s.toasts) {
     const age = (now - t.born) / 1.6;
-    const p = P(t.x, t.y);
+    // Round 7: a toast born on someone (the sous chef at the pass, or her) rises beside them, not through their heads.
+    const onHead = [s.player, ...(sous ? [sous] : [])].some((q) => Math.abs(q.x - t.x) < 1.6 && t.y - q.y < 1.8 && t.y - q.y > -0.6) && t.text.length > 12;
+    const p = P(t.x + (onHead ? 3.2 : 0), t.y);
     ctx.globalAlpha = 1 - age * age;
     const col = t.tone === "good" ? C.basilDeep : t.tone === "bad" ? C.tomatoDeep : t.tone === "money" ? C.amberDeep : C.inkSoft;
     label(ctx, t.text, p.x, p.y - age * m.T * 0.9, { align: "center", size: 16, weight: 900, colour: col, stroke: C.paper });
@@ -585,7 +687,7 @@ function drawToasts(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMet
 }
 
 /** The timing widget for the verb in progress: a card above the player, big enough to read at a glance. */
-function drawActionWidget(ctx: CanvasRenderingContext2D, s: HandsOnSession, a: ActiveAction, m: ViewMetrics, P: PFn) {
+function drawActionWidget(ctx: CanvasRenderingContext2D, s: HandsOnSession, a: ActiveAction, m: ViewMetrics, P: PFn, keyName = "E") {
   const p = P(s.player.x, s.player.y);
   const timed = a.verb === "chop" || a.verb === "cook" || a.verb === "pour" || a.verb === "clear";
   if (!timed) {
@@ -608,7 +710,7 @@ function drawActionWidget(ctx: CanvasRenderingContext2D, s: HandsOnSession, a: A
   ctx.shadowColor = "transparent"; ctx.stroke();
   const bx = x + 16, bw = W - 32, by = y + 32, bh = 20;
   if (a.verb === "chop") {
-    label(ctx, "CHOP — tap E on each mark", x + W / 2, y + 21, { align: "center", size: 13, weight: 900, colour: C.ink });
+    label(ctx, `CHOP — tap ${keyName} on each mark`, x + W / 2, y + 21, { align: "center", size: 13, weight: 900, colour: C.ink });
     ctx.fillStyle = "#d9b27c"; roundRect(ctx, bx, by, bw, bh, 6); ctx.fill();
     (a.marks ?? []).forEach((mk, i) => {
       const res = a.marked?.[i] ?? 0;
@@ -650,7 +752,7 @@ function drawActionWidget(ctx: CanvasRenderingContext2D, s: HandsOnSession, a: A
     ctx.beginPath(); ctx.moveTo(gx - 10, ly); ctx.lineTo(gx + gw + 10, ly); ctx.stroke(); ctx.setLineDash([]);
     label(ctx, "line", gx + gw + 14, ly + 4, { size: 13, weight: 800, colour: C.inkSoft });
   } else if (a.verb === "clear") {
-    label(ctx, "CLEAR — tap E to stack", x + W / 2, y + 21, { align: "center", size: 13, weight: 900, colour: C.ink });
+    label(ctx, `CLEAR — tap ${keyName} to stack`, x + W / 2, y + 21, { align: "center", size: 13, weight: 900, colour: C.ink });
     const need = a.need ?? 3;
     for (let i = 0; i < need; i++) {
       const done = (a.taps ?? 0) > i;
@@ -721,7 +823,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     const sway = Math.sin(now * 1.6 + i) * 0.012;
     ctx.save();
     ctx.translate(x + slipW / 2, 8); ctx.rotate(sway);
-    const h = 20 + Math.min(3, tks.length) * 15 + 3;
+    const h = 20 + Math.min(3, tks.length) * 15 + 8;
     ctx.fillStyle = C.paper; ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 1;
     ctx.shadowColor = "rgba(0,0,0,0.12)"; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1;
     ctx.fillRect(-slipW / 2, 0, slipW, h);
@@ -744,6 +846,10 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
       label(ctx, profile(s, t.dishId).short, tx0 + 14, yy, { size: 14, weight: 800, colour: st === "ready" ? C.basilDeep : C.ink, maxW: slipW - 20 - (tx0 + slipW / 2) });
     });
     if (tks.length > 3 && (!own || own === "hers")) label(ctx, `+${tks.length - 3}`, slipW / 2 - 5, 19, { align: "right", size: 13, weight: 900, colour: C.tomatoDeep });
+    // Round 7: a draining bar along the bottom — how long the slip can still wait, without reading a number.
+    const left = slipTimeLeft(age);
+    ctx.fillStyle = "rgba(43,38,34,0.1)"; ctx.fillRect(-slipW / 2 + 1, h - 6, slipW - 2, 5);
+    ctx.fillStyle = head; ctx.fillRect(-slipW / 2 + 1, h - 6, (slipW - 2) * left, 5);
     ctx.restore();
     dot(ctx, x + slipW / 2, 8, 2.5, C.tomato);
   });
@@ -772,6 +878,9 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     label(ctx, clockOf(state.tick), hx + hudW - 12, 45, { align: "right", size: 22, weight: 900, colour: C.paper });
   }
 }
+
+/** Round 7: share of a slip's wait left, from its age in ticks (green under 14, amber to 30, red after: the head colours). */
+export const slipTimeLeft = (ageTicks: number): number => clamp(1 - ageTicks / 30, 0, 1);
 
 /** Round 6: whose slip it is — the band down its left and the pill. A slip with any of hers is hers unless all are going. */
 const OWNER_COLOUR: Record<RailEntry["owner"], string> = { hers: C.tomato, sous: C.amber, helper: C.sky };
@@ -826,9 +935,8 @@ function drawCrew(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameS
   if (crew.helper) {
     const st = s.stations.find((x) => x.id === crew.helper!.stationId);
     if (st) {
-      let hx = st.x + st.w / 2, hy = st.y + st.h + 0.3;
-      if (Math.abs(s.player.x - hx) < 0.9 && Math.abs(s.player.y - hy) < 1) hx += s.player.x <= hx ? 0.95 : -0.95; // make room for her
-      const q = P(hx, hy);
+      const at = avoidPlayer({ x: st.x + st.w / 2, y: st.y + st.h + 0.3 }, s.player, 0.95); // make room for her
+      const q = P(at.x, at.y);
       const bob = Math.sin(now * 7) * 1;
       character(ctx, q.x, q.y + bob, T, "chef", "up", 0.82, false, "#cfe2ef");
       // the "helping" badge: subtle, under the sprite
@@ -840,7 +948,8 @@ function drawCrew(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameS
     }
   }
   const sp = crew.sous;
-  const q = P(sp.x, sp.y);
+  const at = avoidPlayer(sp, s.player);
+  const q = P(at.x, at.y);
   const bob = sp.moving ? Math.sin(now * 14) * 1.5 : Math.sin(now * 3) * 0.8;
   character(ctx, q.x, q.y + bob, T, "chef", sp.facing, 0.92, false, "#3b4650");
   nameTag(ctx, crew.sousName, q.x, q.y + T * 0.55);
@@ -865,7 +974,8 @@ function drawSousBubble(ctx: CanvasRenderingContext2D, s: HandsOnSession, crew: 
   const sp = crew.sous;
   if (!sp.talking || !sp.walk) return;
   const text = sousLine(sp.walk.items, (d) => profile(s, d).short);
-  const q = P(sp.x, sp.y);
+  const at = avoidPlayer(sp, s.player);
+  const q = P(at.x, at.y);
   ctx.font = `800 14px ${FONT}`;
   const w = Math.min(m.w - 16, ctx.measureText(text).width + 20), h = 26;
   const x = clamp(q.x - w / 2, 8, m.w - w - 8);

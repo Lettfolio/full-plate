@@ -5,7 +5,7 @@
 .checklist__meter .bar { gap: 0; }
 
 /* The end-of-shift score card: big stars, three notes, the week's progress. */
-.shiftcard { text-align: center; padding: 20px 18px 16px; border: 3px solid var(--star-edge); background: linear-gradient(var(--paper), var(--amber-wash)); }
+.shiftcard { text-align: center; padding: 20px 22px 18px; border: 3px solid var(--star-edge); background: linear-gradient(var(--paper), var(--amber-wash)); }
 .shiftcard__stars { display: flex; justify-content: center; gap: 10px; font-size: 64px; line-height: 1; margin-bottom: 6px; }
 .shiftcard__star { color: var(--star-empty); -webkit-text-stroke: 2px var(--star-edge); }
 .shiftcard__star--on { color: var(--star); animation: shiftcard-pop 0.5s cubic-bezier(.2,1.6,.4,1) both; }
@@ -25,3 +25,30 @@
 .shiftcard__chip { font-size: var(--fs-sm); font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--cream-deep); }
 .shiftcard__chip--grow { background: var(--basil-wash); color: var(--basil-deep); }
 .shiftcard__tip { margin-top: 10px; }
+
+/* Round 7: the score card spans the evening — result on the left, "next shift, try this" as a slip on the right. */
+.evening--career .shiftcard { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 22px; align-items: start; }
+.shiftcard__result { min-width: 0; }
+.shiftcard__side { display: flex; flex-direction: column; gap: 12px; text-align: left; min-width: 0; }
+.shiftcard__next { position: relative; background: var(--paper); border: 1.5px solid var(--ink-soft); border-left: 8px solid var(--tomato); border-radius: 4px 12px 12px 4px; padding: 14px 18px 14px 16px; box-shadow: 0 2px 0 rgba(43, 38, 34, 0.12); }
+.shiftcard__next::before { content: ""; position: absolute; top: -7px; left: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--tomato); box-shadow: 0 1px 0 var(--tomato-deep); }
+.shiftcard__nexthead { font-family: var(--font-display); font-size: var(--fs-h3); font-weight: 600; margin: 0 0 6px; color: var(--tomato-deep); }
+.shiftcard__nexttip { font-size: 20px; font-weight: 800; line-height: 1.35; margin: 0 0 10px; color: var(--ink); }
+.shiftcard__coach { font-size: var(--fs-base); font-weight: 700; line-height: 1.4; margin: 0; color: var(--ink-soft); }
+.evening--career .shiftcard__notes { margin-bottom: 0; }
+.evening--career .shiftcard h2 { font-size: 32px; }
+@media (max-width: 860px) { .evening--career .shiftcard { grid-template-columns: 1fr; } }
+
+/* Round 7: the shift's numbers as a short list (was one " · " line). */
+.shiftscore--list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 10px 0 0; }
+.shiftscore--list > div { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); border-bottom: 1px dashed var(--line); padding-bottom: 3px; }
+.shiftscore--list > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.shiftscore--list dt { color: var(--ink-soft); }
+.shiftscore--list dd { margin: 0; font-weight: 800; text-align: right; }
+
+/* Round 7: 44 px tap targets on the career screens (tablet). */
+.myshift .btn--sm { min-height: 44px; padding: 8px 16px; }
+.myshift .rota--big .rota__day { min-height: 48px; min-width: 48px; }
+.myshift__why { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); }
+.myshift__why b { color: var(--ink); }
+.myshift .btn:disabled { opacity: 0.62; border-style: dashed; }

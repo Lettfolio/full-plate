@@ -165,7 +165,7 @@ export interface HandsOnSession {
   /** Session time until which a second cancel press bins what you're carrying. */
   binArmedUntil?: number;
   /** Options fixed at creation. `station`: the career commis station (round 4; see station.ts). */
-  opts: { playerStaffId?: string; carryLimit: number; station?: StationPlan };
+  opts: { playerStaffId?: string; carryLimit: number; station?: StationPlan; /** Round 7: SessionOptions.sousLead. */ sousLead?: boolean };
   /** [round 4] Session time of the player's last verb (start or finish): the sous chef's idle clock. */
   lastActiveAt?: number;
   /** [round 4] Session time of the last "need a hand?" nudge. */
@@ -175,7 +175,7 @@ export interface HandsOnSession {
   /** [round 4] Rail size last sent to the sim (pacing.ts railCapFor); a change emits RAIL_RESIZED. */
   railCap?: number;
   /** [round 5] Ticket ids on the player's rail (or in hand) last update: one that vanishes uncooked was covered. */
-  railSeen?: { id: string; customerId: string; dishId: string }[];
+  railSeen?: { id: string; customerId: string; dishId: string; /** Round 7 (sousLead): session time it was first due to be covered at the next tick. */ dueSince?: number }[];
   /** [round 6] Covers the sous chef is acting out on the canvas (cosmetic; sous.ts). Absent when none are running. */
   sousWalks?: SousWalk[];
   carrying?: Item;

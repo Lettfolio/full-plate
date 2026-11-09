@@ -154,7 +154,7 @@ describe("the sous chef's walk (cosmetic)", () => {
     s = updateSession(s, after, NO_INPUT, DT).session;
     expect(s.score.covered).toBe(1);
     expect(s.sousWalks).toEqual([{ items: [{ ticketId: "b3", dishId: "brownie", table: 2 }], slot: 1, at: s.time }]);
-    for (let i = 0; i < Math.ceil((SOUS_WALK_TOTAL + 0.1) / DT); i++) s = updateSession(s, after, NO_INPUT, DT).session;
+    for (let i = 0; i < Math.ceil((SOUS_WALK_TOTAL + SOUS_WALK.toRail + 0.1) / DT); i++) s = updateSession(s, after, NO_INPUT, DT).session;
     expect(s.sousWalks).toBeUndefined();
   });
 });

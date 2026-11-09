@@ -55,11 +55,21 @@ export function gamepadInput(pad: { axes: readonly number[]; buttons: readonly {
   };
 }
 
+/**
+ * Round 7: keys typed on a button or a form field belong to it (Enter/Space press the onboarding's Next, Pause, Skip),
+ * not to the cook — and must not be swallowed by preventDefault.
+ */
+export function onControl(e: Pick<KeyboardEvent, "target">): boolean {
+  const el = e.target as { tagName?: string; isContentEditable?: boolean } | null;
+  const tag = el?.tagName?.toUpperCase();
+  return tag === "BUTTON" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "A" || !!el?.isContentEditable;
+}
+
 export function createInputSource(target: Window = window): InputSource {
   const held = new Set<string>();
   let touch: Partial<HandsOnInput> | null = null;
   const down = (e: KeyboardEvent) => {
-    if (!(e.code in KEYMAP)) return;
+    if (!(e.code in KEYMAP) || onControl(e)) return;
     e.preventDefault();
     held.add(KEYMAP[e.code]!);
   };
@@ -71,7 +81,7 @@ export function createInputSource(target: Window = window): InputSource {
     if (![...pressedCodes].some((c) => KEYMAP[c] === action)) held.delete(action);
   };
   const pressedCodes = new Set<string>();
-  const trackDown = (e: KeyboardEvent) => { if (e.code in KEYMAP) pressedCodes.add(e.code); down(e); };
+  const trackDown = (e: KeyboardEvent) => { if (e.code in KEYMAP && !onControl(e)) pressedCodes.add(e.code); down(e); };
   const blur = () => { held.clear(); pressedCodes.clear(); };
   target.addEventListener("keydown", trackDown);
   target.addEventListener("keyup", up);

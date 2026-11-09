@@ -20,6 +20,7 @@ import { StatusBar } from "./components/StatusBar";
 
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
+import { Skeleton } from "./components/Skeleton";
 const HandsOnShift = lazy(() => import("./screens/HandsOnShift").then((m) => ({ default: m.HandsOnShift })));
 const WinScreen = lazy(() => import("./screens/WinScreen").then((m) => ({ default: m.WinScreen })));
 const GuideEnvelope = lazy(() => import("./screens/paths/GuideEnvelope").then((m) => ({ default: m.GuideEnvelope })));
@@ -27,7 +28,8 @@ const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((
 const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
 const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
 const BoardMeeting = lazy(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
-const Loading = () => <div className="page"><div className="empty small muted">Loading…</div></div>;
+// Round 7 (A): lazy chunks show a page-shaped skeleton, not a bare line.
+const Loading = () => <Skeleton />;
 import { Toast } from "./components/Toast";
 import { handsOnRoleFor } from "./state/paths";
 import { weekdayIndex } from "./lib/calendar";

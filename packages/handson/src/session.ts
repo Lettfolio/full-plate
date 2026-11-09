@@ -14,9 +14,9 @@ import type {
   Station, UpdateResult, Verb,
 } from "./types";
 import { chefSpeedBonus, chopHit, cookBand, cookQuality, plateExecution, POINTS, pourQuality, serveSpeedBonus, TUNING } from "./verbs";
-import { stationTickets, type StationPlan } from "./station";
+import { coverDueTick, stationTickets, type StationPlan } from "./station";
 import { railCapFor } from "./pacing";
-import { bookSousWalk, SOUS_WALK_TOTAL } from "./sous";
+import { bookSousWalk, standDown, walkEnd } from "./sous";
 
 /** A plate whose ticket waited longer than this (seconds) "went cold" on the end-of-shift notes. */
 export const COLD_PLATE_SECS = 60;
@@ -39,6 +39,11 @@ export interface SessionOptions {
    * rail; a sous chef covers when they idle. The game sends the same dishIds/cap to sim-core's SET_HANDS_ON.
    */
   station?: StationPlan;
+  /**
+   * Round 7: the sous chef sets off for a slip as soon as it falls due (the sim sends it at the next tick: `railSeen`
+   * stamps `dueSince`) and the cover's trip carries on from the rail. Cosmetic only; the game turns it on.
+   */
+  sousLead?: boolean;
 }
 
 export const PLAYER_RADIUS = 0.32;
@@ -72,6 +77,7 @@ export function createSession(state: GameState, role: HandsOnRole, opts: Session
       ...(opts.playerStaffId ? { playerStaffId: opts.playerStaffId } : {}),
       carryLimit: role === "server" ? 3 : role === "bar" ? 2 : 1,
       ...(opts.station && role === "chef" ? { station: { ...opts.station, dishIds: [...opts.station.dishIds] } } : {}),
+      ...(opts.sousLead ? { sousLead: true } : {}),
     },
     lastActiveAt: 0,
     plateTimes: [],
@@ -631,6 +637,10 @@ function sousChef(s: HandsOnSession, state: GameState) {
 function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly KitchenTicket[], idle: boolean, who: string) {
   const held = s.carrying && "ticketId" in s.carrying ? s.carrying : undefined;
   const live = new Map(state.tickets.map((t) => [t.id, t]));
+  const booked = new Set<string>();
+  // Round 7: covers in one tick share a trip; if any of them was due he was already on his way to it.
+  const dues = (s.railSeen ?? []).filter((w) => !live.has(w.id) && !s.cooked[w.id] && w.dueSince !== undefined).map((w) => w.dueSince!);
+  const groupDue = dues.length ? Math.min(...dues) : undefined;
   for (const was of s.railSeen ?? []) {
     if (live.has(was.id) || s.cooked[was.id]) continue;
     if (held?.ticketId === was.id) {
@@ -651,12 +661,31 @@ function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly Kitche
     toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
     // Round 6: act it out on the canvas (cosmetic; sous.ts). The slip lifts from where its party's slip hung.
     const slot = Math.max(0, [...new Set((s.railSeen ?? []).map((x) => x.customerId))].indexOf(was.customerId));
-    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, ...(tn ? { table: tn } : {}) }, slot, s.time);
+    // Round 7: a slip that fell due before the tick had him walking to it already (render.ts sousPending): carry on.
+    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, ...(tn ? { table: tn } : {}) }, slot, s.time, s.opts.sousLead ? was.dueSince ?? groupDue : undefined);
+    booked.add(was.id);
   }
-  if (s.sousWalks?.length && s.sousWalks.every((w) => w.at + SOUS_WALK_TOTAL <= s.time)) delete s.sousWalks;
-  const now = new Map(rail.map((t) => [t.id, { id: t.id, customerId: t.customerId, dishId: t.dishId }]));
+  // Drop finished trips — but not while a due slip waits: its lead-in starts when he was free (sous.ts freeAt).
+  if (s.sousWalks?.length && s.sousWalks.every((w) => walkEnd(w) <= s.time) && !(s.railSeen ?? []).some((x) => x.dueSince !== undefined)) delete s.sousWalks;
+  const prevDue = new Map((s.railSeen ?? []).map((x) => [x.id, x.dueSince]));
+  const entry = (t: KitchenTicket): NonNullable<HandsOnSession["railSeen"]>[number] => {
+    const due = s.opts.sousLead && coverDueTick(s, state, t) <= state.tick + 1 ? prevDue.get(t.id) ?? s.time : undefined;
+    return { id: t.id, customerId: t.customerId, dishId: t.dishId, ...(due !== undefined ? { dueSince: due } : {}) };
+  };
+  const now = new Map(rail.map((t) => [t.id, entry(t)]));
   const inHand = s.carrying && "ticketId" in s.carrying ? live.get(s.carrying.ticketId) : undefined;
-  if (inHand) now.set(inHand.id, { id: inHand.id, customerId: inHand.customerId, dishId: inHand.dishId });
+  if (inHand) now.set(inHand.id, entry(inHand));
+  // Round 7: a due slip he was walking to left without a cover (she plated it first): he walks back from the rail.
+  if (s.opts.sousLead) {
+    const parties = [...new Set((s.railSeen ?? []).map((x) => x.customerId))];
+    for (const was of s.railSeen ?? []) {
+      if (was.dueSince === undefined || booked.has(was.id) || now.get(was.id)?.dueSince !== undefined) continue;
+      if ((s.railSeen ?? []).some((x) => x.id !== was.id && x.dueSince !== undefined && now.get(x.id)?.dueSince !== undefined)) continue; // another due slip keeps him there
+      s.sousWalks = standDown(s.sousWalks, Math.max(0, parties.indexOf(was.customerId)), s.time, was.dueSince);
+      if (!s.sousWalks.length) delete s.sousWalks;
+      break;
+    }
+  }
   s.railSeen = [...now.values()];
 }
 

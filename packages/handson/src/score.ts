@@ -32,6 +32,8 @@ export interface ShiftSummary {
   tip: string;
   /** [round 4] Three one-line notes for the score card, best first, then (at most) one thing to work on. */
   notes?: ShiftNote[];
+  /** [round 7] Points the next star needs (absent at three stars), for the score card's "what to try next". */
+  nextStarAt?: number;
 }
 
 export interface ShiftNote { text: string; tone: "good" | "work" }
@@ -85,6 +87,7 @@ export function summarise(session: HandsOnSession): ShiftSummary {
     role: session.role, points: s.points, stars, plates: s.plates, meanQuality: Math.round(meanQuality), speedPct: Math.round(speedPct),
     served: s.served, cleared: s.cleared, payments: s.payments, drops: s.drops, dropCost: s.dropCost,
     covered: s.covered ?? 0, slowPlates: s.slowPlates ?? 0, lines, tip: coachingTip(session), notes: shiftNotes(session),
+    ...(stars < 3 ? { nextStarAt: bars[stars as 0 | 1 | 2] } : {}),
   };
 }
 

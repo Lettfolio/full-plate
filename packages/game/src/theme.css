@@ -838,3 +838,44 @@ button, input { font: inherit; color: inherit; }
 .planning__body--goals .dish > :nth-child(5) { justify-self: end; }
 .dish__meta { column-gap: 12px; }
 .dish__meta > span { white-space: nowrap; }
+
+/* R7-A: career hands-on — one-line shift bar, 44 px controls, touch pad, first-shift onboarding, lazy-chunk skeleton. */
+.handson__bar { flex-wrap: nowrap; gap: 12px; }
+.handson__when { flex: none; min-width: 0; }
+.handson__when .handson__kicker { white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.handson__btn { min-height: 44px; padding: 8px 16px; font-size: var(--fs-sm); flex: none; }
+.handson__help { width: 44px; padding: 0; font-family: var(--font-display); font-size: 22px; font-weight: 600; border-radius: 50%; }
+.handson__stage canvas { touch-action: none; -webkit-user-select: none; user-select: none; }
+/* A column at the far right, over the back-bar shelves: clear of the tables, the bar counter and the till. */
+.handson__pad { position: absolute; right: 10px; bottom: 64px; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; }
+.handson__pad > button { pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none; border: 3px solid var(--ink); border-radius: 50%; font-family: var(--font-display); font-weight: 600; color: var(--ink); cursor: pointer; }
+.handson__use { width: 88px; height: 88px; font-size: 23px; background: var(--star); box-shadow: 0 5px 0 var(--star-edge); }
+.handson__use:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--star-edge); }
+.handson__drop { width: 62px; height: 62px; font-size: 16px; background: var(--paper); box-shadow: 0 4px 0 var(--line-strong); }
+.handson__drop:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line-strong); }
+.handson__pad > button:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+
+.onboard { position: absolute; inset: 0; z-index: 3; }
+.onboard__spot { position: absolute; border-radius: 14px; box-shadow: 0 0 0 4px var(--star), 0 0 0 9999px rgba(43, 38, 34, 0.55); pointer-events: none; animation: onboard-ring 1.4s ease-in-out infinite; }
+@keyframes onboard-ring { 50% { box-shadow: 0 0 0 8px var(--star), 0 0 0 9999px rgba(43, 38, 34, 0.55); } }
+.onboard__card { position: absolute; width: min(340px, calc(100% - 24px)); background: var(--paper); border: 3px solid var(--ink); border-radius: var(--r-lg); padding: 14px 18px 16px; box-shadow: var(--shadow-lift); }
+.onboard__card::before { content: ""; position: absolute; left: calc(var(--arrow-x, 50%) - 12px); width: 0; height: 0; border: 12px solid transparent; }
+.onboard__card--below::before { top: -24px; border-bottom-color: var(--ink); }
+.onboard__card--above::before { bottom: -24px; border-top-color: var(--ink); }
+.onboard__card h3 { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin: 4px 0 4px; }
+.onboard__card p { font-size: var(--fs-base); line-height: 1.45; margin: 0 0 12px; }
+.onboard__steps { display: flex; gap: 6px; }
+.onboard__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
+.onboard__dot--on { background: var(--tomato); width: 26px; border-radius: 5px; }
+.onboard__actions { display: flex; justify-content: space-between; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .onboard__spot { animation: none; } }
+
+.skeleton { display: flex; flex-direction: column; gap: 14px; padding: 24px; }
+.skeleton__bar { height: 22px; border-radius: 11px; background: linear-gradient(90deg, var(--cream-deep) 0%, var(--paper) 50%, var(--cream-deep) 100%); background-size: 200% 100%; animation: skeleton-sheen 1.3s linear infinite; }
+.skeleton__bar--title { width: 40%; height: 30px; }
+.skeleton__bar--card { height: 120px; border-radius: var(--r); }
+.skeleton__bar--short { width: 65%; }
+@keyframes skeleton-sheen { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton__bar { animation: none; } }
+@media (max-width: 1100px) { .handson__keys { display: none; } }
+.startpick .newgame__head .btn--sm { min-height: 44px; padding: 8px 16px; }

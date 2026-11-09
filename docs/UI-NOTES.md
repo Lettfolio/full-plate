@@ -248,3 +248,38 @@ WCAG AA (4.5:1) is checked in `src/__tests__/contrast.test.ts` against the live 
 - **Menu matrix:** labels try above then below their dot, avoid the quadrant titles, the axis label and other dots, are clamped inside the chart and cut at 22 characters (`shortName`); hover still labels any dot.
 - **Empire:** the city card's "(collapse below £400k)" (stale: it ignored the price level and showed with no shops) → "(a shop below £X is in trouble)" in today's pounds, or "no shops yet". Each Franchise button carries a verdict ("they'd do fine / only just get by / lose money"; basil-deep / amber-deep / tomato-deep on paper, all ≥ 4.5:1).
 - Audit after these: 25 screens, 0 text runs below 13 px, 0 page errors.
+
+## Round 7 — A (career and hands-on UX)
+
+Audit: `docs/UX-AUDIT-R7.md` § A (2 P1, 9 P2, 8 P3). Screens at 1280×800 and 1024×768 with touch emulation (iPad
+landscape); before/after shots in scratchpad `shots/r7/a/{before,after}/`, scripts `career.cjs` (screens + a tap-target,
+text-size and contrast probe) and `touchplay.cjs` (a touch-only playthrough: onboarding → fridge → USE → prep → chop).
+
+| Where | What changed |
+| --- | --- |
+| Hands-on, touch (A1, P1) | `lib/touchControl.ts`: tap a station to walk there (handson `steerToward`), press the station she's at — or anywhere while a verb runs — as USE (held while the finger is down, so a tap chops and a hold cooks/pours), tap a slip to go to the fridge. Big **USE** (88 px) and **Drop** (62 px) buttons in a column at the far right over the back-bar shelves. Pointer events with capture, presses latched for one read, `touch-action: none`. Touch is on when `(pointer: coarse)` matches (`lib/device.ts`) or after the first touch on the canvas; key hints hide and the canvas says **USE** instead of **E** (`HandsOnView.keyLabel`). |
+| Hands-on, onboarding (A2, P1) | `lib/onboarding.ts` + the overlay in `HandsOnShift`: three steps with a spotlight and a pointer card — **Grab a slip** (rail), **Cook at your station** (her appliance), **Send it to the pass** — per role (server and bar get their own three). Shown once per save and role (`full-plate:onboard:v1:<role>:<seed>` in localStorage; a blocked store just shows it again), **Skip** at any step, replay from the **?** button. The shift waits while it is up. `?autopilot` pages through it every 2.5 s. |
+| Hands-on bar (A3, A10) | One row at 1024 px: kicker is the station label only (`shiftKicker` → "Your shift · Sides · Desserts"), no duplicate points (the canvas HUD has them), key hints hidden on touch and below 1100 px; **?**, Pause and Skip are 44 px. The world went from 23 px to 32 px tiles at 1024×768. |
+| Canvas (A4, A5) | Her station's appliances: dashed tomato outline and a **Yours** tab. Tables: a mood face (happy / flat / cross at 60% / 30% patience) and a 5 px ring over a faint track. Slips: a draining wait bar along the bottom in the head colour. |
+| Canvas (A12–A15, R6 P3s) | "PASS" moved to the counter's left end; NPCs drawn clear of the player (`avoidPlayer`); a toast born on a head rises beside it; the sous chef **sets off when a slip falls due** and waits under it (HANDSON-NOTES Round 7). |
+| Score card (A7, A8) | Spans the evening: result (stars, headline, notes) beside a ticket-style **Next shift, try this** — the coach's tip at 20 px (E → USE on touch, `forDevice`) and one sentence from the night's numbers (`nightCoaching`: "Three plates at 89% tonight — about two more plates would have earned a second star", using `ShiftSummary.nextStarAt`). The page heading became "Evening at <restaurant>"; the shift's numbers are a short list; "bond -1" is words ("just met"). |
+| My shift (A9, A10, A19) | Why promotion/mentor are grey, as visible text under the buttons; 44 px buttons, 48 px weekday toggles; disabled buttons dashed at 0.62 opacity; "You're on today" is one short sentence (first shift: "starts with a quick how-to"). |
+| Start picker | Back is 44 px. |
+| Lazy chunks (A16) | `components/Skeleton.tsx`: a page-shaped placeholder with a slow sheen (still under reduced motion) instead of "Loading…" (App's `Loading`). |
+| Keyboard | handson input ignores keys whose target is a button or field (`onControl`), so Enter/Space press Next, Pause and Skip during a shift. |
+
+Shared files: theme.css additions are appended under `/* R7-A */` (no tokens or classes renamed or removed);
+`components/Skeleton.tsx` is new; App.tsx's `Loading` now renders it (one line).
+
+Numbers: HandsOnShift chunk 84.1 → 95.9 kB (budget ~170). Type audit (`FP_AUDIT_URL` on a private port): 27 screens,
+0 text runs below 13 px, 0 page errors. Probe after (per screen, 1280 / 1024-touch): every career control ≥ 44 px
+except the header's Settings (C) and the watch view (B's Service.tsx, A11); the two remaining sub-4.5:1 runs are
+the disabled promotion/mentor buttons (now ~3.9:1, disabled controls are exempt), with their reasons as text.
+
+Tests: `src/__tests__/round7.careerUx.test.tsx` (onboarding steps, storage once per save/role, card placement and
+spotlight; the overlay in `HandsOnShift` once per save, Skip, replay, the touch switch; the touch controller on a real
+session; coaching; the sous chef's lead-in over three bot shifts through the reducer) and handson `test/r7.test.ts`.
+
+Still open: the career start button sits ~1,400 px down the start picker at 1024×768 (A17); the watch view's small
+"Play my shift" and its "Break" buttons on a read-only career view are B's (A11); slip pills can crowd "TABLE n"
+on a 132 px slip.
