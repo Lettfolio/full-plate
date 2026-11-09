@@ -44,6 +44,7 @@ describe("end-of-shift notes (round 4)", () => {
     expect(busy.map((x) => x.text).join(" | ")).not.toMatch(/covered/);
     const away = shiftNotes(withScore({ plates: 9, qualitySum: 9 * 90, speedBonus: 8, speedCount: 9, covered: 18, idleCovers: 2, points: 600 }));
     expect(away[2]).toEqual({ text: "The sous chef covered two tickets while you were away", tone: "work" });
-    expect(summarise(withScore({ covered: 4 })).lines).toContainEqual({ label: "Sent out by the sous chef", value: "4" });
+    expect(summarise(withScore({ covered: 4 })).lines).toContainEqual({ label: "Sous chef helped", value: "4 while you were busy" });
+    expect(summarise(withScore({ covered: 10, idleCovers: 3 })).lines).toContainEqual({ label: "Sous chef helped", value: "7 while you were busy, 3 while you were away" });
   });
 });

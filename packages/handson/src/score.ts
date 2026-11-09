@@ -66,7 +66,13 @@ export function summarise(session: HandsOnSession): ShiftSummary {
     lines.push({ label: "Mean quality", value: s.plates ? `${Math.round(meanQuality)}%` : "—" });
     lines.push({ label: "Speed bonus", value: s.speedCount ? `${Math.round(speedPct)}%` : "—" });
     lines.push({ label: "Perfect cooks", value: `${s.perfect}` });
-    if (session.opts.station) lines.push({ label: "Sent out by the sous chef", value: String(s.covered ?? 0) });
+    // Round 5 review: "Sent out by the sous chef 10" beside "Plates cooked 7" read as her failing. Most of those are the
+    // team covering a busy commis (teamwork); only the ones while she'd walked away are hers to work on.
+    if (session.opts.station) {
+      const away = s.idleCovers ?? 0;
+      const busy = Math.max(0, (s.covered ?? 0) - away);
+      lines.push({ label: "Sous chef helped", value: away ? `${busy} while you were busy, ${away} while you were away` : `${busy} while you were busy` });
+    }
   } else {
     lines.push({ label: "Plates served", value: String(s.served) });
     if (session.role === "bar") lines.push({ label: "Drinks poured", value: `${s.pours}${s.pours ? ` (${Math.round((s.pourSum / s.pours) * 100)}%)` : ""}` });
