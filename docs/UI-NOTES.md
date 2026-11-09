@@ -248,3 +248,60 @@ WCAG AA (4.5:1) is checked in `src/__tests__/contrast.test.ts` against the live 
 - **Menu matrix:** labels try above then below their dot, avoid the quadrant titles, the axis label and other dots, are clamped inside the chart and cut at 22 characters (`shortName`); hover still labels any dot.
 - **Empire:** the city card's "(collapse below £400k)" (stale: it ignored the price level and showed with no shops) → "(a shop below £X is in trouble)" in today's pounds, or "no shops yet". Each Franchise button carries a verdict ("they'd do fine / only just get by / lose money"; basil-deep / amber-deep / tomato-deep on paper, all ≥ 4.5:1).
 - Audit after these: 25 screens, 0 text runs below 13 px, 0 page errors.
+
+## Round 7 — B (the owner's daily loop)
+
+Audit: docs/UX-AUDIT-R7.md § B (4 P1, 10 P2, 6 P3). Every P1 and P2 in my surface is fixed; the shell items (toast
+anchoring, Save & quit / ⚙ at 34 / 32 px) belong to agent C.
+
+### What changed
+
+| Where | What |
+| --- | --- |
+| Planning, Service, Evening | **Three beats.** `components/DayRhythm` (☀️ Get ready → 🍽️ Service → 🌙 Evening; done beats ticked, the current one ringed in its colour, `aria-current="step"`) heads Planning and Evening and sits compact at the top of the Service side panel. It replaces the caps "MORNING" / "EVENING · DAY 22 · …" eyebrows (the date stays in the status bar and as the Evening heading's tooltip). |
+| Planning, Evening | **One primary button, always bottom-right.** `.actiondock` is sticky at the bottom of the scrolling page: Planning's hints + **Open for service →** (was below the fold on every tab at 1280×800 and 1024×768), Evening's average spend + **Next day →** (was top-right). |
+| Planning › Menu | Opens on **📋 Today's menu** (the dish list, full width). **📊 Menu matrix — for experts** brings back the 2×2 and its legend beside the list. The choice is remembered per browser (`localStorage` `full-plate:menuView:v1`, try/catch; list when blocked). The matrix + legend are `planning/MenuMatrixPanel` (React.lazy, 4.1 kB chunk); `QUADRANT` moved to `planning/quadrants.ts` and is re-exported from `MenuMatrix`. The ✕ that removes a dish asks once (Remove / Keep). |
+| Planning › Stock | A summary line ("Next service: about 117 guests. 14 things will run short — tap Fill what's short, then Place order.") and, per ingredient, **"You'll need about 31 — you have 23. Order 8 more."** (`forecastLine` in `lib/dayLoop.ts`; need rounds up, stock rounds down, orders count as "+ N coming"). Fixes the raw floats ("16.508", "short 7.440000000000001"). The column is "Next service". |
+| Planning › Staff | **Who's on this week** (`planning/RotaWeek`), full width above the team: a row per job, a column per day (today marked), a face per person. Two or more in one job on a day = amber cell with "×2"; nobody = red "You". Under it, in words: "Two chefs on Fri, Sat and Sun — the extra shifts cost about £559 a week." (`doubledShifts`: every shift but the dearest each day, i.e. the least she'd save). After a losing fortnight (`meanProfit` over `ROTA_ADVICE_DAYS` < 0, the round-5 rule) the note turns red. The person cards' rota buttons on a doubled day are amber-deep with "another chef is on too". Replaces the "Who's on each day" table of numbers. |
+| Planning › Restaurant | Table chips `#8f6436` (white numerals 5.6:1; were 2.5:1). |
+| Service | **Live summary**: 🍽️ Served, 😊 Happy (stars), ⏳ Waiting (people in the queue), 🚶 Walked out, each with "▲ 3 this hour" coloured by whether up is good (`hourTrend`, one sample per tick kept in a ref; cosmetic). The walk-out tile flashes when the count goes up. "Takings so far" counts up. The **speed deck** reads ❚❚ Pause / ▶ 1× / ▶▶ 2× / ▶▶▶ 4× (52 px tall; paused turns amber-deep, "Paused"). Jump in moved below the summary, so the clock, speed and summary are first. |
+| Evening | **Tonight's money** (`TonightMoney`, exported): "Tonight you made / lost", a 64 px figure with ▲/▼ in basil/tomato that counts up from £0, "£52 worse than last night", guests / walked out / stars / cash in the bank, and the last seven nights as up/down bars (tonight outlined). The P&L table is a `<details>` "Where the money went" (closed; the table and its rows are unchanged). The four KPI tiles are folded into the figure. The tip card is still first (tests unchanged). |
+| GameOver | The cause in one sentence from her last fortnight (`gameOverCause`): "You lost money on 11 of your last 14 days, mostly because wages took £6 of every £10 that came in (two chefs were often on the same shift)." (wages / food / rent and bills / loan; the doubled-up clause when `rotaAdvice` holds). The bank's rule follows in small text. Buttons: Title screen · New game · **Play this start again** (same seed; the seed is only in its tooltip). **No "try again from last Monday"**: a game over deletes the save and nothing keeps a weekly snapshot; that would need a second save slot. |
+| Morning post | Effect chips carry ▲/▼ as well as colour; "footfall" → "people passing". |
+| Micro-feedback | `MoneyText countUp="change" \| "mount"` (eases over 650 ms; off under prefers-reduced-motion and where `matchMedia` is missing; `data-pence` and the accessible name are the final value). Ghost buttons get a pressed state; rota toggles press down. |
+| Tap targets | On `.planning`, `.evening`, `.actiondock`, `.service__side`, `.gameover`: buttons ≥ 44 px tall, steppers and ✕ 44×44, rota days 44, Break / table list / goals toggle 44. Career, paths and the shell keep their sizes. |
+
+Styles: one block at the end of theme.css under `/* R7-B */` (add-only; new tokens `--beat-morning/-service/-evening`).
+Pure selectors: `lib/dayLoop.ts` (`forecastLine`, `wholeHave/wholeNeed`, `rotaWeek`, `doubledShifts`, `daysPhrase`,
+`losingFortnight`, `lastNights`, `versusYesterday`, `gameOverCause`); `sim.ts` re-exports sim-core's `rotaAdvice`,
+`meanProfit`, `ROTA_ADVICE_DAYS`. No sim rule or command changed.
+
+### Numbers
+
+- Probe (`shots/r7/b/shoot.cjs`, 1280 / 1024): targets < 44 px Menu 22 → 4 / 12 → 3 (left: the shell's Save & quit and ⚙, and the inline `margin` glossary word), Staff 16 → 2, Stock 9 → 2, Service 12 → 2–3 (⚙, the inline "Served" word, the toast's ✕), Evening 7 → 5 (shell 2, inline glossary words 2–3), GameOver 3 → 0. Contrast: Restaurant 6 → 0. Text < 13 px: 0 → 0.
+- Type audit (`FP_AUDIT_URL=http://localhost:4792/`): 27 screens, 0 text runs below 13 px, 0 page errors.
+- Bundle: main JS 171.5 → 178.7 kB (+7.2), main CSS 75.0 → 85.6 kB (+10.6); the matrix is a 4.1 kB lazy chunk.
+
+### Tests
+
+`src/__tests__/round7.dayLoop.test.tsx` (14): the Menu list/matrix toggle (default list, lazy matrix appears, choice
+remembered, back to list), remove asks once; `forecastLine` (short / ok / coming / idle / opening, rounding) and the
+Stock tab on a real played day (fractional stock, no fraction shown, every row's line); `rotaWeek` / `doubledShifts`;
+the week strip's doubled and empty cells, labels, note, red after a losing fortnight; doubled marks on the person
+cards; `TonightMoney` (lost, ▼, vs last night, 7 bars, tonight's bar) and `MoneyText countUp` keeping the final value;
+`gameOverCause` for wages + doubled shifts, food, rent, an empty room, no history; GameOver renders the cause and no
+"seed"; `hourTrend`; `DayRhythm`.
+
+### Screenshots
+
+Scratchpad `shots/r7/b/before/` and `shots/r7/b/after/`: `{1280,1024}-planning-{menu,staff,stock,restaurant}`,
+`-planning-menu-matrix` (after), `-planning-first-day`, `-service-1x`, `-service-paused`, `-evening-after-service`,
+`-evening-{rota,overstock,dog}`, `-evening-rota-why`, `-evening-rota-full` (full page), `-gameover`; `report.json` in
+each holds every probe offender.
+
+### Left open
+
+- Toast anchoring (bottom-centre over the service queue at 4×) and the status bar's 34 / 32 px buttons: shell (C).
+- "Try again from last Monday" needs a weekly snapshot save slot (save.ts) — not built.
+- Inline glossary words are 17–19 px tall targets (inline text; WCAG exempts it).
+- Notices (stock warning, worn-out) still take ~250 px above the tabs on a bad morning; the dock keeps Open visible, but the tab content starts low at 1024×768.

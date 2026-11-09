@@ -13,7 +13,7 @@ function effectChips(fx: EventChoiceDef["effects"]): { text: string; tone: "up" 
   if (fx.staffMood) out.push({ text: `${fx.staffMood > 0 ? "+" : ""}${fx.staffMood} staff mood`, tone: fx.staffMood > 0 ? "up" : "down" });
   if (fx.footfallMultDays) {
     const p = Math.round((fx.footfallMultDays.mult - 1) * 100);
-    out.push({ text: `${p >= 0 ? "+" : ""}${p}% footfall for ${fx.footfallMultDays.days} days`, tone: p >= 0 ? "up" : "down" });
+    out.push({ text: `${p >= 0 ? "+" : ""}${p}% people passing for ${fx.footfallMultDays.days} days`, tone: p >= 0 ? "up" : "down" });
   }
   return out;
 }
@@ -49,7 +49,7 @@ export function EventModal({ game, send }: Props) {
                 <button key={c.id} ref={i === 0 ? first : undefined} className="choice" onClick={() => send({ type: "RESOLVE_EVENT", choiceId: c.id })}>
                   <span className="choice__label">{c.label}</span>
                   <span className="choice__fx">
-                    {chips.length ? chips.map((x) => <span key={x.text} className={`fx fx--${x.tone}`}>{x.text}</span>) : <span className="fx fx--none">nothing changes</span>}
+                    {chips.length ? chips.map((x) => <span key={x.text} className={`fx fx--${x.tone}`}><span aria-hidden="true">{x.tone === "up" ? "▲ " : "▼ "}</span>{x.text}</span>) : <span className="fx fx--none">nothing changes</span>}
                   </span>
                 </button>
               );
