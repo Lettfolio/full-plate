@@ -259,6 +259,7 @@ export class RestaurantView {
     this.drawTables(game, L, opts);
     this.drawStaff(game, L, opts, dt);
     this.drawPeople(game, L, opts);
+    this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
     this.drawFloaties(opts.now);
@@ -621,12 +622,24 @@ export class RestaurantView {
           label(ctx, "£", s.x, s.y + 4, { align: "center", size: Math.max(13, s.r * 0.4), weight: 900, colour: C.amberDeep });
         }
       }
-      // table number
-      const tag = String(i + 1);
-      ctx.fillStyle = c ? C.ink : "rgba(43,38,34,0.55)";
+    });
+  }
+
+  /**
+   * Round 5 review: table numbers drawn after the guests and staff (they used to sit under the guest sprites, so a
+   * full room hid most of them), with a paper ring so they read on top of a hat.
+   */
+  private drawTableNumbers(game: GameState, L: Layout) {
+    const ctx = this.ctx;
+    game.tables.forEach((t, i) => {
+      const s = L.tables.get(t.id);
+      if (!s) return;
       const tx = s.x + s.r * 0.72, ty = s.y - s.r * 0.72;
+      ctx.fillStyle = C.paper;
+      ctx.beginPath(); ctx.arc(tx, ty, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = t.occupiedBy ? C.ink : "rgba(43,38,34,0.55)";
       ctx.beginPath(); ctx.arc(tx, ty, 10, 0, Math.PI * 2); ctx.fill();
-      label(ctx, tag, tx, ty + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
+      label(ctx, String(i + 1), tx, ty + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
     });
   }
 
