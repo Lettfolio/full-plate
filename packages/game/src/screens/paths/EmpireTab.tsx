@@ -89,7 +89,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
               <div className="card__title"><h3>News from the chain</h3></div>
               <ul className="empire__log">
                 {recent.length === 0 && <li className="muted small">Nothing yet. Open a site to get going.</li>}
-                {recent.map((x, i) => <li key={i} className={`ticker__line ticker__line--${x.tone === "money" ? "money" : x.tone}`}><span>{x.text}</span></li>)}
+                {recent.map((x, i) => <li key={i} className={`careerlog__line careerlog__line--${x.tone}`}>{x.text}</li>)}
               </ul>
             </div>
           </div>

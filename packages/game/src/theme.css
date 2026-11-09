@@ -733,3 +733,7 @@ button, input { font: inherit; color: inherit; }
   .empire__layout { grid-template-columns: 1fr; }
   .tracks { grid-template-columns: repeat(3, 1fr); }
 }
+.careerlog__line { padding: 6px 10px; border-radius: var(--r-sm); background: var(--cream); font-size: var(--fs-sm); border-left: 4px solid var(--line-strong); }
+.careerlog__line--good { background: var(--basil-wash); border-color: var(--basil); }
+.careerlog__line--bad { background: var(--tomato-wash); border-color: var(--tomato); }
+.careerlog__line--money { background: var(--amber-wash); border-color: var(--amber); }

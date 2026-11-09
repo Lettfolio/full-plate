@@ -200,7 +200,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           {recent.length > 0 && (
             <div className="card">
               <div className="card__title"><h3>Last night</h3></div>
-              <ul className="empire__log">{recent.map((e, i) => <li key={i} className={`ticker__line ticker__line--${e.tone}`}><span>{e.text}</span></li>)}</ul>
+              <ul className="empire__log">{recent.map((e, i) => <li key={i} className={`careerlog__line careerlog__line--${e.tone}`}>{e.text}</li>)}</ul>
             </div>
           )}
         </div>

@@ -112,3 +112,63 @@ Playwright, fixture saves made with the real sim (scratchpad `shots/r2/`): `01-t
 15. **Break length.** No constant for how long `GIVE_BREAK` lasts, so the button can't say "15 min".
 17. **Incident start lines.** The sim logs the incident title as a LOG "bad" with an extra "!" ("Whoops, a spill!!"), which duplicates the card. Consider kind "info" and no added "!".
 16. **Goal reward paid?** `GOAL_COMPLETED` has only `goalId`; the toast reads the reward from `state.goals`, which assumes the goal is still in the list after completion.
+
+## Round 3 (start picker, career, hands-on, the fork, Empire, Stars)
+
+All four path packages are mounted, and the round-3 sim-core hooks (`3161364`, `54a21a6`) are in use. `sim.ts` still probes them at load (`HOOKS`), so this game also builds against an older sim-core. Every probe is true on the committed sim-core.
+
+### Content
+- The sim always cooks with **`fullContent`** (plus `extras.incidentText`/`goalText` in the pack), so a save that names `ff_*`/`fd_*` dishes loads.
+- Career employers use the library pack (`careerContent`), because the AI owner picks from whatever it is given.
+- The recipe book (`lib/library.ts`) and the suggested starter menu use `inLibrary`. The fast-food section unlocks after the Empire choice and fine dining after the Stars choice.
+
+### Screens
+
+| Screen | What |
+| --- | --- |
+| Title | **Continue** (owner save) and **Continue career** (career save), each with a save card. **New game** opens the start picker. |
+| `StartPicker` | Five starts with a line from the brief (Owner, Apprentice chef, Bar, Waiter, Restaurant manager), plus difficulty and district. Employee starts also ask for a name and a first boss (balanced, premium or cheap). Owner goes on to the old lease screen with the district and difficulty preselected. |
+| Career › Planning = `career/MyShift` | Today's status, the four meters, and what the owner did this morning. Also: the week's 7 shift toggles (`TAKE_SHIFT`), ask for a promotion or a raise, a mentor hour, the promotion checklist (rung copy from `careerText`), co-workers with mentor and rival tags, offers (accept or decline), the savings bar, the last payslip, and **Open my own place** (pick a district, preview the perks, `OPEN_OWN_PLACE`). When out of work, the same panel shows the offers with a Next day button. |
+| Career › Service | "Watch your shift": the old Service screen, read-only. The player is ringed, incident cards have no buttons ("The boss is dealing with it"), and comp and 86 are hidden. **Play my shift (hands-on)** mounts `HandsOnShift`. **Skip to end of shift** runs the remaining ticks, with the owner answering incidents. Managers and days off only get Watch. |
+| `HandsOnShift` | The handson canvas. One 60 fps fixed-step loop runs `updateSession` → `handsOnResults` → `render`. The sim ticks every 1.5 s (a 3-minute service). Keyboard and gamepad come from `createInputSource`. It has Pause, Skip and (for jump-in) **Back to the office**. Shown with `SET_HANDS_ON { role, staffId: "player" }` for the career. |
+| Career › Evening = `career/CareerEvening` | Pay, tronc so far, the hands-on score, the meters, the savings bar, the payslip on pay day, the weekly review card (Sundays), a promotion banner, today's career log, and the team. **Next day** calls `finishCareerDay` with the owner's queued evening commands. |
+| Handover | `career/HandoverModal`: savings, loan, cash at opening and perks. The owner game then continues under the career save key. `SET_OWNER_PROFILE` gets the player's stats. The manager's cheaper hiring uses `GameState.recruitmentFee`, with `applyWithPerks` as the fallback. |
+| Owner › Service | A **Jump in** card (on the pass, on the floor, behind the bar). It mounts `HandsOnShift` (open-ended) until Back to the office or close. |
+| Fork | `paths/ForkCard` in the evening. It appears when **day ≥ 365** and either **popularity ≥ 60** or **≥ 90 profitable days**, and only for the owner game (including after a career handover). The choices are **Think about it** (the card returns 7 days later), **Be everywhere** (brand name) or **Be the best**. Empire needs at least 14 trading days of history to calibrate. |
+| Planning › **🍔 Empire** tab = `paths/EmpireTab` | KPI row; association and overdraft alerts; the SVG world map (adapted from the sim-empire demo, keyboard-focusable city pins); "money from the flagship" (`TRANSFER_FROM_FOCUSED`); the news log. Side panels: **City** (blurb, facts, country rules, Enter city, Localise, open a company or franchise site per district), **Sites** (Run it hands-on = `FOCUS_SITE`, buy the plot, sell franchise, buy back, remodel), **Brand** (lock the formula, the research tree, the 3 formula presets from `extras.formulas`, recognition bars, campaigns, product launch, franchisee idea, suppliers) and **Contract** (fee, royalty, ad fund, rent ±, attractiveness). Buttons the association blocks are disabled, with the reason as a tooltip. |
+| Planning › **⭐ Stars** tab = `paths/StarsTab` | The five prestige-track cards (`criticText.guideNames`); the kitchen card (stress, steadiness, chef reputation, rumours, cosy hint, relaunch, hand back, the El Bulli close); tasting menus (`SET_SET_MENU`, in-season pill); test kitchen; sourcing; bookings and ticketing; stagiaires (paid or unpaid, count); the group (satellites, train head chef, rival); refit (`CLOSE_FOR_REFIT`); last night's log. The Smyth-arc card (back or let go) sits at the top while it is live. It reads `starsView` only. |
+| Guide day | `paths/GuideEnvelope`: a sealed envelope, then **Open** reveals the stars (animated), a line from `criticText.guideDay`, the reason, and the year's inspector table. The header badge keeps last year's stars until it is opened. |
+| Header | Path badges (Career, Empire, Stars). Career rungs show savings, rung, reputation and mood instead of cash and loan. An **Empire strip** shows sites, meals served, HQ cash, franchisee mood and the association. A **Stars strip** shows the stars, days to the guide, stress, steadiness and streak. |
+| Owner Evening | Adds an Empire card (meals, HQ, sweep the till to HQ), "News from the guides" (Stars events) and the jump-in score. |
+| `WinScreen` | Uses the GameOver shape. Empire meals or regions win, and Stars dynasty, El Bulli or handed back (text from `criticText.endings`). It has Keep playing (wins) and Title screen. |
+
+### Wiring (state/pathEngine.ts, state/gameReducer.ts)
+- `AppState.meta: PathMeta` (state/paths.ts) holds the career, the empire, the stars, the fork, the win, the hands-on session and event lists. `appReducer` runs `settle()` after every transition:
+  - **On entering evening, event or gameover**, `eveningHooks` runs once per sim day (`lastPathDay`): `stepCareerDay` (it queues the owner's closing commands), `stepEmpireDay(content, empire, history.at(-1))`, and `stepStarsDay` → `applyStarsEffects` → `FIRE` on `HEAD_CHEF_LEFT`. Then it decides on the fork card.
+  - **On entering planning**, it runs once per day (`morningDay`): `beginCareerDay` (the AI owner plans), and for Stars the refit handling.
+- **Career service:** every tick runs `ownerIncidentResponses` before `tick`, and career shifts don't stop for incidents.
+- **Pack:** `packFor(meta)` is the career library pack, or `withSignatures(fullContent, stars)` on the Stars path.
+- **Stars refit:** Planning shows "Closed for the refit". The button takes everyone off today's rota first (`CLOSE_TODAY` pays rostered staff 50%), then sends `CLOSE_TODAY`. `prepareService`'s ×0 footfall is kept only for an ended run.
+- **FOCUS_SITE:** it parks the current site's GameState (serialised in `meta.parked`) and recalibrates the model on that site's history when it has ≥ 14 days. The new site gets a parked state if it has one; otherwise it gets a fresh `newGame` with the formula menu at the brand's price index, no loan and the flagship's team.
+- **Saves:** see `state/save.ts`. The envelope is `{ kind: "full-plate", v: 1, game, career?, empire?, stars?, meta }`, with each layer's own serialiser. Owner games use `full-plate:save:v1` and career games `full-plate:career:v1`. A bare round 1–2 GameState under the owner key still loads as a plain owner game. Saves are written on day or phase change and on path changes (fork, empire or stars command counters, career day or log).
+
+### Stubbed or thin
+- **Rival stars across the group:** satellites never earn stars (sim-stars). "Across the group" means the flagship.
+- **Product launch:** it uses a fixed name ("The Big One") and the stretch fit. There is no naming dialog.
+- **Franchise sale:** it always goes to the first waiting applicant. There is no applicant picker, and no ownership slider per region.
+- **Promoted sites (FOCUS_SITE):** they copy the flagship's team instead of hiring by `staffQuality`. There is no `newGameFromSite` in sim-core.
+- **Hands-on summary:** it is not yet fed into `stepCareerDay` (CAREER-NOTES suggests an optional argument). It shows on the evening only.
+- **Former colleagues as hireable candidates later in the owner game:** not done. There is no `HIRE_STAFF` in sim-core. The day-1 colleague perk is applied by sim-career's state edit.
+- **Empire charts** (monthly sparklines) and the per-site detail drawer from EMPIRE-NOTES are cut.
+
+### Tests (`src/__tests__/round3.test.tsx`, `r3content.test.ts`)
+- **Start picker routing:** owner vs career, and all five starts.
+- **A whole employee day through the reducer:** the owner plans, the shift runs, `stepCareerDay` runs, and the owner closes the day. `TAKE_SHIFT` re-rosters the player.
+- **Fork trigger:** not before day 365, not without the milestone, not in career. The card shows in the evening, Think about it snoozes it 7 days, and Empire forks.
+- **Path wiring:** the empire steps once per evening, and a transfer moves till cash to HQ. The stars layer steps.
+- **Save envelope:** owner, Empire and Stars round-trip; legacy bare saves load; the career key is separate; envelopes with a future version are rejected.
+- **Hands-on:** `SET_HANDS_ON` on start and stop, `PLAYER_COOKED` reaching the live tally, and the career `staffId`.
+- **Content:** the full pack round-trips with `ff_*` dishes, the starter menu is library-only, and recipe-book unlocks follow the path.
+
+### Screenshots (scratchpad `shots/r3/`, script `shots/r3.mjs`; fixture saves generated with the real sim)
+`01-start-picker` · `02-my-shift` · `03-watch-shift` · `04-employee-handson-shift` · `05-career-evening` · `06-career-next-morning` · `07-fork-card` · `08-evening-after-snooze` · `09-owner-service-jumpin` · `10-owner-jumped-in` · `11-back-to-office` · `12-empire-map` · `13-empire-city` · `14-empire-brand` · `15-stars-tab` · `16-guide-envelope` · `17-guide-envelope-open`. The run had no JS errors.

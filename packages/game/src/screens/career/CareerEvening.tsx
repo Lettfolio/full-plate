@@ -124,7 +124,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
           <div className="card">
             <div className="card__title"><h3>Today</h3></div>
             {lines.length === 0 ? <div className="empty small">A quiet one.</div> : (
-              <ul className="careerlog">{lines.map((l, i) => <li key={i} className={`ticker__line ticker__line--${l.kind === "money" ? "money" : l.kind}`}><span>{l.text}</span></li>)}</ul>
+              <ul className="careerlog">{lines.map((l, i) => <li key={i} className={`careerlog__line careerlog__line--${l.kind}`}>{l.text}</li>)}</ul>
             )}
           </div>
           <div className="card">
