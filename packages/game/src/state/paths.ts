@@ -34,11 +34,24 @@ export interface ForkMeta {
 
 export const profitableDays = (history: readonly DayResult[]): number => history.filter((d) => d.profit > 0).length;
 
-/** The milestone that unlocks the fork: popular enough, or a proven earner. */
-export function forkMilestone(game: GameState): { met: boolean; popularity: number; profitDays: number } {
+/** Days of recent trading that must add up to a profit before the consultant and the critic call. */
+export const FORK_RECENT_DAYS = 28;
+
+/**
+ * The milestone that unlocks the fork: popular enough or a proven earner, **and** the last four weeks made money
+ * (round 3 review: every surviving owner cleared the old bar by day 365, including one with £83 in the bank who was
+ * then told "your numbers are good"). `missing` says what to work on, for the evening hint.
+ */
+export function forkMilestone(game: GameState): { met: boolean; popularity: number; profitDays: number; recentProfit: number; missing?: string } {
   const popularity = game.reputation.popularity;
   const profitDays = profitableDays(game.history);
-  return { met: popularity >= FORK_POPULARITY || profitDays >= FORK_PROFIT_DAYS, popularity, profitDays };
+  const recentProfit = game.history.slice(-FORK_RECENT_DAYS).reduce((a, d) => a + d.profit, 0);
+  const known = popularity >= FORK_POPULARITY || profitDays >= FORK_PROFIT_DAYS;
+  const met = known && recentProfit > 0;
+  const missing = met ? undefined
+    : !known ? `get popularity to ${FORK_POPULARITY} (now ${Math.round(popularity)}) or reach ${FORK_PROFIT_DAYS} profitable days (now ${profitDays})`
+    : "make a profit over the last four weeks";
+  return { met, popularity, profitDays, recentProfit, ...(missing ? { missing } : {}) };
 }
 
 /** Should tonight's evening show the fork story card? (`game` is the evening state; game.day is the day just played.) */

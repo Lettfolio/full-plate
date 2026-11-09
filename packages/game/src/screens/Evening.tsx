@@ -12,11 +12,11 @@ import { Stars } from "../components/Stars";
 import { Bar } from "../components/Bar";
 import { dishName } from "../lib/content";
 import { pct, signed } from "../lib/format";
-import { dateLabel } from "../lib/calendar";
+import { dateLabel, weekdayIndex } from "../lib/calendar";
 import { initials, moodFace } from "../lib/staff";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { ShiftSummary } from "@full-plate/handson";
-import type { PathMeta } from "../state/paths";
+import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
 import { compactMeals } from "../components/StatusBar";
 
 interface Props {
@@ -58,8 +58,17 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
   });
   const lastMeals = e?.history.at(-1);
   const spare = Math.max(0, game.cash - 200_000);
+  // Year 2 has started but nobody has come calling yet: say what's missing (once a week, on Sundays).
+  const fork = meta?.fork;
+  const forkHint = meta && meta.mode === "owner" && fork && !fork.chosen && !fork.offered && game.day >= FORK_DAY && weekdayIndex(game.day) === 6 ? forkMilestone(game).missing : undefined;
   return (
     <>
+      {forkHint && (
+        <div className="card tip">
+          <span className="tip__icon" aria-hidden="true">🍴</span>
+          <div className="spacer"><b>People in the trade are watching.</b> <span className="small">A franchise consultant and a critic both want to visit when you {forkHint}.</span></div>
+        </div>
+      )}
       {shiftSummary && (
         <div className="card tip">
           <span className="tip__icon" aria-hidden="true">🧑‍🍳</span>

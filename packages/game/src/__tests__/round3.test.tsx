@@ -6,7 +6,7 @@ import type { GameState } from "@full-plate/sim-core";
 import { PLAYER_ID } from "@full-plate/sim-career";
 import { appReducer, initialAppState, type AppState } from "../state/gameReducer";
 import { CAREER_SAVE_KEY, decodeSave, encodeSave, ENVELOPE_VERSION, loadSave, SAVE_KEY, saveGame } from "../state/save";
-import { FORK_DAY, forkDue, initialMeta } from "../state/paths";
+import { FORK_DAY, forkDue, forkMilestone, initialMeta } from "../state/paths";
 import { applyCommand, content, runDay, serialize, suggestedOrder } from "../sim";
 import { StartPicker } from "../screens/StartPicker";
 
@@ -31,7 +31,8 @@ function yearTwoOwner(popularity = 70): AppState {
     else if (g.phase === "evening") g = appReducer({ ...s, game: g }, { type: "command", cmd: { type: "END_DAY" } }).game!;
   }
   // Jump the calendar to the start of year 2 (the fork condition reads day + reputation + history).
-  const jumped: GameState = { ...g, day: FORK_DAY, reputation: { ...g.reputation, popularity } };
+  // "A strong record": the fork also needs the last four weeks to be in profit; the cosy 20-day opening isn't yet.
+  const jumped: GameState = { ...g, day: FORK_DAY, reputation: { ...g.reputation, popularity }, history: g.history.map((h) => ({ ...h, profit: Math.max(h.profit, 10_000) })) };
   return { ...s, game: jumped, meta: { ...initialMeta("owner"), lastPathDay: FORK_DAY - 1 } };
 }
 
@@ -85,11 +86,22 @@ describe("career start", () => {
 
 describe("the fork", () => {
   it("is not offered before year 2, nor without the milestone", () => {
-    const s = owner();
+    const s = yearTwoOwner();
     expect(forkDue({ ...s.game!, phase: "evening", day: FORK_DAY - 1, reputation: { popularity: 90, prestige: 10 } }, s.meta.fork, "owner")).toBe(false);
     expect(forkDue({ ...s.game!, phase: "evening", day: FORK_DAY, reputation: { popularity: 20, prestige: 10 } }, s.meta.fork, "owner")).toBe(false);
     expect(forkDue({ ...s.game!, phase: "evening", day: FORK_DAY, reputation: { popularity: 60, prestige: 10 } }, s.meta.fork, "owner")).toBe(true);
     expect(forkDue({ ...s.game!, phase: "evening", day: FORK_DAY, reputation: { popularity: 90, prestige: 10 } }, s.meta.fork, "career")).toBe(false);
+  });
+
+  it("also needs the last four weeks to have made money, and says what's missing (round 3 review)", () => {
+    const g = yearTwoOwner().game!;
+    const day = (profit: number, i: number) => ({ ...g.history[0]!, day: i, profit });
+    const losing = { ...g, phase: "evening" as const, reputation: { popularity: 80, prestige: 10 }, history: Array.from({ length: 60 }, (_, i) => day(i < 32 ? 5_000 : -1_000, i)) };
+    expect(forkMilestone(losing).met).toBe(false);
+    expect(forkMilestone(losing).missing).toMatch(/last four weeks/);
+    const earning = { ...losing, history: losing.history.map((h) => ({ ...h, profit: 2_000 })) };
+    expect(forkMilestone(earning).met).toBe(true);
+    expect(forkMilestone({ ...earning, reputation: { popularity: 40, prestige: 10 }, history: earning.history.slice(0, 30) }).missing).toMatch(/popularity to 60/);
   });
 
   it("shows the card in the evening; Think about it snoozes it a week; choosing Empire forks the empire", () => {
