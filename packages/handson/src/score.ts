@@ -30,7 +30,11 @@ export interface ShiftSummary {
   slowPlates?: number;
   lines: { label: string; value: string }[];
   tip: string;
+  /** [round 4] Three one-line notes for the score card, best first, then (at most) one thing to work on. */
+  notes?: ShiftNote[];
 }
+
+export interface ShiftNote { text: string; tone: "good" | "work" }
 
 /** Points that earn 1/2/3 stars in a 3-minute shift, per role (tuned on the demo fixture; see HANDSON-NOTES). */
 const STAR_BARS: Record<HandsOnRole, [number, number, number]> = {
@@ -38,12 +42,22 @@ const STAR_BARS: Record<HandsOnRole, [number, number, number]> = {
   server: [200, 550, 1000],
   bar: [200, 550, 1000],
 };
+/**
+ * Round 4: a career station's bars by level. A commis station is one section of the menu at a child's pace: a
+ * half-speed bot (7–8 plates) lands ★★, a quick one (13–17) ★★★.
+ */
+const STATION_STAR_BARS: readonly [number, number, number][] = [[150, 380, 750], [200, 500, 950]];
+
+export function starBars(session: HandsOnSession): [number, number, number] {
+  const st = session.opts.station;
+  return (st && STATION_STAR_BARS[st.level]) || STAR_BARS[session.role];
+}
 
 export function summarise(session: HandsOnSession): ShiftSummary {
   const s = session.score;
   const meanQuality = s.plates ? s.qualitySum / s.plates : 0;
   const speedPct = s.speedCount ? (s.speedBonus / s.speedCount) * 100 : 0;
-  const bars = STAR_BARS[session.role];
+  const bars = starBars(session);
   const stars = (s.points >= bars[2] ? 3 : s.points >= bars[1] ? 2 : s.points >= bars[0] ? 1 : 0) as 0 | 1 | 2 | 3;
   const money = (p: number) => `£${(p / 100).toFixed(2)}`;
   const lines: { label: string; value: string }[] = [];
@@ -64,8 +78,65 @@ export function summarise(session: HandsOnSession): ShiftSummary {
   return {
     role: session.role, points: s.points, stars, plates: s.plates, meanQuality: Math.round(meanQuality), speedPct: Math.round(speedPct),
     served: s.served, cleared: s.cleared, payments: s.payments, drops: s.drops, dropCost: s.dropCost,
-    covered: s.covered ?? 0, slowPlates: s.slowPlates ?? 0, lines, tip: coachingTip(session),
+    covered: s.covered ?? 0, slowPlates: s.slowPlates ?? 0, lines, tip: coachingTip(session), notes: shiftNotes(session),
   };
+}
+
+const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+const count = (n: number) => WORDS[n] ?? String(n);
+const plural = (n: number, one: string, many: string) => `${count(n)} ${n === 1 ? one : many}`;
+
+/**
+ * Three short notes a 10-year-old can read at a glance ("Fast on the pass!", "Two plates went cold"): up to two
+ * things that went well, then the one thing most worth working on (or a third good thing on a clean shift).
+ */
+export function shiftNotes(session: HandsOnSession): ShiftNote[] {
+  const s = session.score;
+  const good: string[] = [];
+  const work: string[] = [];
+  const speed = s.speedCount ? s.speedBonus / s.speedCount : 0;
+  if (session.role === "chef") {
+    const q = s.plates ? s.qualitySum / s.plates : 0;
+    if (s.plates === 0) return [
+      { text: "Every chef starts somewhere!", tone: "good" },
+      { text: "Grab a ticket from the fridge to begin", tone: "work" },
+      { text: s.covered ? `The sous chef covered ${count(s.covered).toLowerCase()} for you` : "Your station is waiting", tone: "work" },
+    ];
+    if (speed >= 0.7) good.push("Fast on the pass!");
+    if (q >= 85) good.push(`Beautiful plates — ${Math.round(q)}% quality!`);
+    if (s.perfect >= 3 && s.perfect >= s.plates / 2) good.push(`${plural(s.perfect, "perfect cook", "perfect cooks")}!`);
+    if (s.plates >= 10) good.push(`${s.plates} plates — what a busy shift!`);
+    else good.push(`${plural(s.plates, "plate", "plates")} out of your kitchen`);
+    if (!s.drops) good.push("Steady hands: nothing dropped");
+    if (q >= 60 && q < 85) good.push(`Tasty plates — ${Math.round(q)}% quality`);
+    if (s.perfect >= 1 && !(s.perfect >= 3 && s.perfect >= s.plates / 2)) good.push(`${plural(s.perfect, "perfect cook", "perfect cooks")}!`);
+    if (s.slowPlates) work.push(`${plural(s.slowPlates, "plate", "plates")} went cold`);
+    if (s.covered) work.push(`The sous chef covered ${plural(s.covered, "ticket", "tickets").toLowerCase()}`);
+    if (s.drops) work.push(`${plural(s.drops, "dish", "dishes")} hit the bin`);
+    if (s.overcooked > s.perfect) work.push("A few cooks went past the green");
+    if (speed < 0.5) work.push("Tickets waited a bit long");
+  } else {
+    if (speed >= 0.7) good.push("Hot and fast!");
+    if (s.served) good.push(`${plural(s.served, "plate", "plates")} served`);
+    if (s.payments) good.push(`${plural(s.payments, "table", "tables")} paid up`);
+    if (s.cleared) good.push(`${plural(s.cleared, "table", "tables")} reset`);
+    if (session.role === "bar" && s.pours && s.pourSum / s.pours >= 0.9) good.push("Perfect pours!");
+    if (!s.drops && s.served) good.push("Nothing dropped");
+    if (s.tillWait > 25) work.push("Guests waited at the till");
+    if (s.drops) work.push(`${plural(s.drops, "drop", "drops")} — slow down near walls`);
+    if (speed < 0.5 && s.speedCount) work.push("Food cooled on the pass");
+    if (!good.length) good.push("Every shift is practice!");
+  }
+  if (session.role !== "chef" && good.length < 3 && !work.length) good.push("The guests went home happy");
+  const used = Math.min(good.length, work.length ? 2 : 3);
+  const notes: ShiftNote[] = good.slice(0, used).map((text) => ({ text, tone: "good" as const }));
+  if (work[0]) notes.push({ text: work[0], tone: "work" });
+  for (const text of good.slice(used)) if (notes.length < 3) notes.push({ text, tone: "good" });
+  for (const text of work.slice(1)) if (notes.length < 3) notes.push({ text, tone: "work" });
+  const chef = session.role === "chef";
+  if (notes.length < 3) notes.push({ text: chef ? "Every shift makes you a better chef" : "Every shift makes you a better host", tone: "good" });
+  if (notes.length < 3) notes.push({ text: chef ? "Try for every cook in the green next time" : "Try carrying two plates at once next time", tone: "work" });
+  return notes.slice(0, 3);
 }
 
 /** The single most useful thing to try next shift. Ordered by how much it would have helped. */

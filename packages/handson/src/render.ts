@@ -739,14 +739,15 @@ function drawScoreScreen(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: Vi
   // stars
   for (let i = 0; i < 3; i++) star(ctx, x + W / 2 + (i - 1) * 50, y + 92, 20, i < sum.stars);
   label(ctx, `${sum.points} points`, x + W / 2, y + 140, { align: "center", size: 22, weight: 900, colour: C.ink });
-  const rows = sum.lines;
-  rows.forEach((r, i) => {
-    const ry = y + 172 + i * 24;
-    label(ctx, r.label, x + 60, ry, { size: 14, weight: 700, colour: C.inkSoft });
-    label(ctx, r.value, x + W - 60, ry, { align: "right", size: 15, weight: 900, colour: C.ink });
-    ctx.fillStyle = "rgba(43,38,34,0.08)"; ctx.fillRect(x + 60, ry + 7, W - 120, 1);
+  // Round 4: three big one-line notes ("Fast on the pass!", "Two plates went cold") instead of a stats table.
+  const notes = sum.notes ?? [];
+  notes.forEach((nt, i) => {
+    const ry = y + 180 + i * 34;
+    dot(ctx, x + 66, ry - 6, 9, nt.tone === "good" ? C.basil : C.amber);
+    label(ctx, nt.tone === "good" ? "✓" : "!", x + 66, ry - 1.5, { align: "center", size: 12, weight: 900, colour: C.paper });
+    label(ctx, nt.text, x + 86, ry, { size: 18, weight: 900, colour: C.ink, maxW: W - 130 });
   });
-  const ty = y + 172 + rows.length * 24 + 6;
+  const ty = y + 180 + notes.length * 34 - 4;
   ctx.fillStyle = "#fbefd2"; roundRect(ctx, x + 28, ty, W - 56, 58, 10); ctx.fill();
   label(ctx, "COACH'S TIP", x + 42, ty + 17, { size: 10, weight: 900, colour: C.amberDeep, spacing: 1.5 });
   wrap(ctx, sum.tip, x + 42, ty + 35, W - 84, 16, { size: 13, weight: 700, colour: C.ink });

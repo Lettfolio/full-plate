@@ -359,6 +359,12 @@ function stationCentre(s: HandsOnSession, id: string) {
 function emitPlate(s: HandsOnSession, ticketId: string, dishId: string, execution: number, method: DishProfile["method"], results: HandsOnResult[], state: GameState) {
   const prof = profile(s, dishId);
   const ticket = state.tickets.find((t) => t.id === ticketId);
+  if (!ticket && s.opts.station) {
+    // Round 4: nobody else cooks a station's rail, so a vanished ticket means the table left (or service closed).
+    // Not the player's fault: no cost, no penalty.
+    say(s, "That table has gone — no harm done. Grab your next ticket!");
+    return;
+  }
   if (!ticket) {
     // an AI cook (or a remake) beat us to it: nothing to send; it counts as a small waste
     results.push({ type: "DROPPED", cost: prof.cost, item: "cooked" });

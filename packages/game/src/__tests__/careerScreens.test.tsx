@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { PLAYER_ID } from "@full-plate/sim-career";
 import { MyShift } from "../screens/career/MyShift";
+import { CareerEvening } from "../screens/career/CareerEvening";
 import { weekdayOf } from "../sim";
-import { careerChefStart } from "./handsOnHarness";
+import { careerChefStart, playBotShift } from "./handsOnHarness";
 
 afterEach(cleanup);
 
@@ -24,4 +25,22 @@ describe("My shift (round 4)", () => {
     expect(working).toBe(true);
     expect(screen.getByText(/Your station:/)).toBeTruthy();
   });
+});
+
+describe("end-of-shift score card (round 4)", () => {
+  it("after a played shift: big stars, three notes, and the week's progress toward promotion", () => {
+    const r = playBotShift(careerChefStart(5), { skill: 0.55, pace: 0.5 });
+    const s = r.app;
+    expect(s.meta.shiftSummary).toBeDefined();
+    render(<CareerEvening game={s.game!} meta={{ ...s.meta, shiftSummary: r.summary }} career={s.meta.career!} result={s.game!.history.at(-1)!} onNext={() => {}} />);
+    const card = screen.getByRole("status", { name: /Shift score: [0-3] of 3 stars/ });
+    expect(card.querySelectorAll(".shiftcard__star").length).toBe(3);
+    expect(card.querySelectorAll(".shiftcard__star--on").length).toBe(r.summary.stars);
+    expect(r.summary.stars).toBeGreaterThanOrEqual(1);
+    expect(card.querySelectorAll(".shiftcard__note").length).toBe(3);
+    expect(card.textContent).toMatch(/On the way to chef de partie/);
+    expect(card.textContent).toMatch(/Shifts 1\/10/);
+    expect(card.textContent).toMatch(/\+\d\.\d cooking skill tonight \(playing helped!\)/);
+    expect(card.textContent).toMatch(/of 4 ticked/);
+  }, 60_000);
 });

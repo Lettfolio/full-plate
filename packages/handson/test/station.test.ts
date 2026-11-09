@@ -92,3 +92,21 @@ describe("the player's rail and the sous chef (round 4)", () => {
     expect(out).toBe(1);
   });
 });
+
+describe("a vanished station ticket (round 4)", () => {
+  it("costs nothing: the table left, it isn't the player's fault", async () => {
+    const { standAt, station, press } = await import("./helpers");
+    const f = createFixture({ role: "chef", seed: 3 });
+    const tk: KitchenTicket = { id: "a", customerId: "c-x", dishId: "tomato_soup", createdTick: 1, ticksRemaining: 3, quality: 0 };
+    const st: GameState = { ...f.state, tickets: [tk] };
+    let s = createSession(st, "chef", { content, playerStaffId: "player", station: { level: 0, title: "Commis station", label: "Soup", dishIds: ["tomato_soup"], cap: 2, idleCoverSecs: 30, hardCoverSecs: 80, targetPpm: 2.2 } });
+    s = { ...s, carrying: { kind: "cooked", ticketId: "a", dishId: "tomato_soup", prep: 1, cook: 1 }, claimed: { a: true } };
+    s = standAt(s, station(s, "pass"));
+    const gone: GameState = { ...st, tickets: [] };
+    let r = press(s, gone);
+    for (let i = 0; i < 90; i++) { const u = updateSession(r.s, gone, NO_INPUT, DT); r = { s: u.session, results: [...r.results, ...u.results] }; }
+    expect(r.results.filter((x) => x.type === "DROPPED")).toEqual([]);
+    expect(r.s.score.drops).toBe(0);
+    expect(r.s.carrying).toBeUndefined();
+  });
+});

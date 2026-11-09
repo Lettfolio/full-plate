@@ -3,3 +3,25 @@
 .checklist--progress .checklist__item { align-items: center; }
 .checklist__meter { display: block; margin-top: 4px; max-width: 260px; }
 .checklist__meter .bar { gap: 0; }
+
+/* The end-of-shift score card: big stars, three notes, the week's progress. */
+.shiftcard { text-align: center; padding: 20px 18px 16px; border: 3px solid var(--star-edge); background: linear-gradient(var(--paper), var(--amber-wash)); }
+.shiftcard__stars { display: flex; justify-content: center; gap: 10px; font-size: 64px; line-height: 1; margin-bottom: 6px; }
+.shiftcard__star { color: var(--star-empty); -webkit-text-stroke: 2px var(--star-edge); }
+.shiftcard__star--on { color: var(--star); animation: shiftcard-pop 0.5s cubic-bezier(.2,1.6,.4,1) both; }
+.shiftcard__star--on:nth-child(2) { animation-delay: 0.18s; }
+.shiftcard__star--on:nth-child(3) { animation-delay: 0.36s; }
+@keyframes shiftcard-pop { from { transform: scale(0.2) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .shiftcard__star--on { animation: none; } }
+.shiftcard h2 { font-family: var(--font-display); font-size: 30px; margin: 4px 0 2px; }
+.shiftcard__sub { color: var(--ink-soft); font-weight: 800; margin-bottom: 12px; }
+.shiftcard__notes { list-style: none; margin: 0 auto 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-width: 420px; text-align: left; }
+.shiftcard__note { display: flex; gap: 10px; align-items: center; font-size: 19px; font-weight: 900; padding: 8px 12px; border-radius: var(--r); background: var(--basil-wash); }
+.shiftcard__note--work { background: var(--amber-wash); }
+.shiftcard__badge { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: var(--paper); background: var(--basil); font-size: 16px; }
+.shiftcard__note--work .shiftcard__badge { background: var(--amber); }
+.shiftcard__week { text-align: left; background: var(--paper); border-radius: var(--r); padding: 10px 12px; border: 1px solid var(--line); }
+.shiftcard__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.shiftcard__chip { font-size: var(--fs-sm); font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--cream-deep); }
+.shiftcard__chip--grow { background: var(--basil-wash); color: var(--basil-deep); }
+.shiftcard__tip { margin-top: 10px; }

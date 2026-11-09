@@ -1,5 +1,7 @@
 import type { DayResult, GameState } from "@full-plate/sim-core";
-import { openingBudget, perHour, PLAYER_ID, rungDef, trackStatName, type CareerEvent, type CareerState } from "@full-plate/sim-career";
+import { openingBudget, perHour, PLAYER_ID, promotionChecklist, rungDef, trackStatName, type CareerEvent, type CareerState } from "@full-plate/sim-career";
+import type { ShiftSummary } from "@full-plate/handson";
+import "./career.css";
 import { careerContent } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Stars } from "../../components/Stars";
@@ -30,6 +32,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
   const budget = openingBudget(careerContent, career);
   const management = rungDef(career.track, career.rung).simRole === "manager";
   const summary = meta.shiftSummary;
+  const grew = evs.find((e): e is Extract<CareerEvent, { type: "GREW" }> => e.type === "GREW");
 
   return (
     <div className="page">
@@ -44,6 +47,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
         </div>
 
         <div className="stack">
+          {summary && worked && <ShiftScoreCard summary={summary} career={career} grew={grew} name={career.playerName.split(" ")[0] ?? ""} />}
           {promoted && (
             <div className="card promo" role="status">
               <div className="promo__badge" aria-hidden="true">⬆</div>
@@ -65,9 +69,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             </table>
             {summary && (
               <div className="shiftscore">
-                <b>Hands-on: {"★".repeat(summary.stars)}{"☆".repeat(3 - summary.stars)} · {summary.points} points</b>
                 <div className="small muted">{summary.lines.map((l) => `${l.label} ${l.value}`).join(" · ")}</div>
-                <div className="xs muted">Tip: {summary.tip}</div>
               </div>
             )}
             <div className="bars2" style={{ marginTop: 10 }}>
@@ -142,5 +144,54 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+const HEADLINE = ["Shift done — keep practising!", "Good shift", "Great shift", "Superstar shift"] as const;
+
+/**
+ * Round 4: the end-of-shift score card a 10-year-old reads first. Big stars, three one-line notes, and how this week
+ * moved them toward the next rung (checklist ticks, shifts, tonight's skill gain).
+ */
+export function ShiftScoreCard({ summary, career, grew, name }: { summary: ShiftSummary; career: CareerState; grew?: Extract<CareerEvent, { type: "GREW" }> | undefined; name: string }) {
+  const list = promotionChecklist(career);
+  const ticked = list.items.filter((i) => i.met).length;
+  const shifts = list.items.find((i) => i.key === "shiftsAtRung");
+  // The evening has already moved the career to tomorrow; reviews are on the evening of day 6 of each week.
+  const reviewIn = 7 - (career.day % 7);
+  const notes = summary.notes ?? [];
+  const stat = trackStatName(career.track).toLowerCase();
+  const head = HEADLINE[summary.stars];
+  return (
+    <section className="card shiftcard" role="status" aria-label={`Shift score: ${summary.stars} of 3 stars`}>
+      <div className="shiftcard__stars" aria-hidden="true">
+        {[0, 1, 2].map((i) => <span key={i} className={`shiftcard__star${i < summary.stars ? " shiftcard__star--on" : ""}`}>★</span>)}
+      </div>
+      <h2>{summary.stars > 0 && name ? `${head}, ${name}!` : head}</h2>
+      <div className="shiftcard__sub">{summary.role === "server" ? `${summary.served} served` : `${summary.plates} plates`} · {summary.points} points</div>
+      {notes.length > 0 && (
+        <ul className="shiftcard__notes">
+          {notes.map((n, i) => (
+            <li key={i} className={`shiftcard__note shiftcard__note--${n.tone}`}>
+              <span className="shiftcard__badge" aria-hidden="true">{n.tone === "good" ? "✓" : "!"}</span>
+              <span>{n.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {list.nextTitle && (
+        <div className="shiftcard__week">
+          <b>On the way to {list.nextTitle.toLowerCase()}</b>
+          <Bar value={ticked} max={Math.max(1, list.items.length)} tone="basil" label={`${ticked} of ${list.items.length} ticked`} />
+          <div className="shiftcard__chips">
+            {grew && grew.gain > 0 && <span className="shiftcard__chip shiftcard__chip--grow">+{grew.gain.toFixed(1)} {stat} tonight{grew.handsOn > 0 ? " (playing helped!)" : ""}</span>}
+            {shifts && <span className="shiftcard__chip">Shifts {Math.min(shifts.current, shifts.target)}/{shifts.target}</span>}
+            <span className="shiftcard__chip">{reviewIn === 1 ? "Weekly review tomorrow" : `Weekly review in ${reviewIn} days`}</span>
+            {list.ready && <span className="shiftcard__chip shiftcard__chip--grow">Ready for promotion!</span>}
+          </div>
+        </div>
+      )}
+      <p className="xs muted shiftcard__tip">Coach's tip: {summary.tip}</p>
+    </section>
   );
 }
