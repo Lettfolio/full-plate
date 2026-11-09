@@ -45,7 +45,7 @@ describe("AdviceCard: the round-5 rota tip", () => {
     const act = vi.fn();
     render(<AdviceCard game={losing} onAct={act} />);
     fireEvent.click(screen.getByRole("button", { name: "Give Bo Friday, Saturday and Sunday off" }));
-    expect(act).toHaveBeenCalledWith([{ type: "SET_ROTA", staffId: "c2", rota: [true, true, false, false, false, false, false] }], "staff", "Done: Give Bo Friday, Saturday and Sunday off.");
+    expect(act).toHaveBeenCalledWith([{ type: "SET_ROTA", staffId: "c2", rota: [true, true, false, false, false, false, false] }], "staff", "Done: Give Bo Friday, Saturday and Sunday off.", false);
   });
 
   it("stays quiet in a profitable fortnight with nothing else to say", () => {
@@ -78,7 +78,15 @@ describe("AdviceCard: the round-6 tips", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide why" }));
     expect(reason.hidden).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Check the larder →" }));
-    expect(act).toHaveBeenCalledWith([], "stock", "");
+    expect(act).toHaveBeenCalledWith([], "stock", "", false);
+  });
+
+  it("over-stock with a pending order beyond tomorrow's need: the button trims it tonight (round 6 review)", () => {
+    const a = { kind: "overstock" as const, subject: "cod", vars: { ingredientLower: "cod fillet", cut: "25", ingredient: "Cod fillet", used: "1", binned: "1", cost: "£1", shelfLife: "2", days: "7" }, commands: [{ type: "CANCEL_ORDER" as const, ingredientId: "cod", qty: 25 }], tab: "stock" as const, now: true as const };
+    const act = vi.fn();
+    render(<AdviceCard advice={a} game={overstocked} onAct={act} />);
+    fireEvent.click(screen.getByRole("button", { name: "Take 25 cod fillet off tomorrow's order" }));
+    expect(act).toHaveBeenCalledWith(a.commands, "stock", "Done: Take 25 cod fillet off tomorrow's order.", true);
   });
 
   it("dud dish: the button takes it off the menu", () => {

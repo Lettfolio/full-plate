@@ -42,6 +42,12 @@ export interface AppState {
   goalsJustDone: string[];
   /** Round 3: career, paths, fork, hands-on and endings (state/paths.ts). */
   meta: PathMeta;
+  /**
+   * Round 6 review: the evening tip's one-tap action, waiting for tomorrow morning (after any morning post, and after
+   * the Empire's board meeting has been answered). `day` is the evening it was tapped. Applied by `appReducer` the
+   * first time the game is in planning on a later day; not saved (a reload drops it, like any unsent click).
+   */
+  tomorrow?: { commands: Command[]; done: string; day: number };
 }
 
 export type AppAction =
@@ -57,6 +63,10 @@ export type AppAction =
   | { type: "dismissWin" }
   | { type: "seenHandover" }
   | { type: "nextDay" }
+  /** Round 6 review: queue the evening tip's commands for tomorrow morning (the caller then moves the day on). */
+  | { type: "actTomorrow"; commands: Command[]; done: string }
+  /** Round 6 review: a tip whose commands apply tonight (the over-stock trim); the evening stays up. */
+  | { type: "actNow"; commands: Command[]; done: string }
   | { type: "skipShift" }
   | { type: "handsOnStart"; meta: HandsOnMeta }
   | { type: "handsOnStop" }
@@ -178,7 +188,27 @@ function rejectToast(s: AppState, why: string | undefined): AppState {
 
 export function appReducer(s: AppState, a: AppAction): AppState {
   const next = reduce(s, a);
-  return next === s ? s : settle(next);
+  return next === s ? s : morningActions(settle(next));
+}
+
+/**
+ * Round 6 review: the evening tip's commands land on the first planning morning after the evening they were tapped —
+ * whatever came between (the morning post, a board meeting that held the calendar). A game over drops them.
+ */
+function morningActions(s: AppState): AppState {
+  const t = s.tomorrow;
+  if (!t || !s.game) return s;
+  if (s.game.phase === "gameover") return { ...s, tomorrow: undefined };
+  if (s.game.phase !== "planning" || s.game.day <= t.day) return s;
+  return applyTip({ ...s, tomorrow: undefined }, t.commands, t.done);
+}
+
+/** Applies a tip's commands; toasts `done` unless one was refused (that refusal's toast stays). */
+function applyTip(s: AppState, commands: Command[], done: string): AppState {
+  let next = s;
+  for (const cmd of commands) next = settle(reduce(next, { type: "command", cmd }));
+  const refused = next.toast !== s.toast && next.toast?.tone === "bad";
+  return refused || !done ? next : withToast(next, done, "info");
 }
 
 function reduce(s: AppState, a: AppAction): AppState {
@@ -300,6 +330,10 @@ function reduce(s: AppState, a: AppAction): AppState {
     }
     case "handsOnScore":
       return s.game?.phase === "service" ? { ...s, meta: { ...s.meta, shiftSummary: a.summary } } : s;
+    case "actNow":
+      return s.game ? applyTip(s, a.commands, a.done) : s;
+    case "actTomorrow":
+      return s.game && a.commands.length ? { ...s, tomorrow: { commands: a.commands, done: a.done, day: s.game.day } } : s;
     case "nextDay": {
       // Evening → tomorrow. Employees: the AI owner closes the day. Owners: END_DAY (the event modal handles "event").
       if (!s.game) return s;

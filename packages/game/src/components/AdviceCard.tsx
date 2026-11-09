@@ -1,6 +1,6 @@
 import { Fragment, useId, useState, type ReactNode } from "react";
 import type { Advice, Command, GameState } from "@full-plate/sim-core";
-import { adviceTextOf, content, eveningAdvice } from "../sim";
+import { actionWords, adviceTextOf, content, eveningAdvice } from "../sim";
 import { GLOSSARY, type TermId } from "../lib/glossary";
 import { Term } from "./Term";
 import type { PlanningTab } from "../screens/Planning";
@@ -32,8 +32,11 @@ interface Props {
   /** Defaults to `eveningAdvice(game, content)`; tests may pass one. */
   advice?: Advice | undefined;
   game: GameState;
-  /** One tap: end the evening, apply `commands` tomorrow morning, open `tab`. `done` is the toast. */
-  onAct?: ((commands: Command[], tab: PlanningTab, done: string) => void) | undefined;
+  /**
+   * One tap: end the evening, apply `commands` tomorrow morning, open `tab`. `done` is the toast. With `now` (the
+   * over-stock trim) the commands apply tonight and the evening stays up.
+   */
+  onAct?: ((commands: Command[], tab: PlanningTab, done: string, now?: boolean) => void) | undefined;
 }
 
 export function AdviceCard({ advice, game, onAct }: Props) {
@@ -43,7 +46,7 @@ export function AdviceCard({ advice, game, onAct }: Props) {
   if (!a) return null;
   const t = adviceTextOf(content, a.kind);
   const plain = (s: string) => s.replace(/\[\[\w+\|([^\]]*)\]\]/g, "$1").replace(/\{(\w+)\}/g, (m, k: string) => a.vars[k] ?? m);
-  const action = plain(t.action);
+  const action = plain(actionWords(a, t));
   return (
     <section className={`card tip advice advice--${a.kind} ${a.kind === "rota" ? "tip--amber" : ""}`} aria-label="Tonight's tip" data-advice={a.kind}>
       <span className="tip__icon" aria-hidden="true">{t.icon}</span>
@@ -57,7 +60,7 @@ export function AdviceCard({ advice, game, onAct }: Props) {
         <div id={whyId} className="advice__reason" hidden={!open}>{renderTemplate(t.why, a.vars)}</div>
       </div>
       {onAct && (
-        <button className="btn btn--sm btn--green advice__act" onClick={() => onAct(a.commands, a.tab, a.commands.length ? `Done: ${action}.` : "")}>
+        <button className="btn btn--sm btn--green advice__act" onClick={() => onAct(a.commands, a.tab, a.commands.length ? `Done: ${action}.` : "", !!a.now)}>
           {action}{a.commands.length ? "" : " →"}
         </button>
       )}

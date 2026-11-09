@@ -73,14 +73,6 @@ export function App() {
   const notify = useCallback((text: string) => dispatch({ type: "toast", text, tone: "info" }), []);
   const [planTab, setPlanTab] = useState<PlanningTab>("menu");
   const [lastShift, setLastShift] = useState<ShiftSummary | null>(null);
-  // Round 6: the evening tip's one-tap action. Planning commands wait for tomorrow morning (after any morning post).
-  const [pending, setPending] = useState<{ commands: Command[]; done: string } | null>(null);
-  useEffect(() => {
-    if (!pending || game?.phase !== "planning") return;
-    pending.commands.forEach(send);
-    if (pending.done) notify(pending.done);
-    setPending(null);
-  }, [pending, game?.phase, send, notify]);
 
   const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
     setPlanTab("menu");
@@ -104,8 +96,8 @@ export function App() {
   // Evening → tomorrow morning (via the morning post on event days). Tomorrow opens on the Menu tab
   // unless a shortcut ("Hire", "Buy a table") picked another.
   const nextDay = () => {
-    // Round 6: the month doesn't move on until the board meeting is answered or skipped.
-    if (meta.empire?.boardMeeting) return;
+    // Round 6: the month doesn't move on until the board meeting is answered or skipped (the reducer says so).
+    if (meta.empire?.boardMeeting) { dispatch({ type: "nextDay" }); return; }
     setLastShift(null);
     if (!career && game?.phase === "event") setEventOpen(true);
     else dispatch({ type: "nextDay" });
@@ -259,7 +251,13 @@ export function App() {
             result={game.history.at(-1) ?? app.lastResult}
             onNext={nextDay}
             onGoTo={(tab) => { setPlanTab(tab); nextDay(); }}
-            onAct={(commands, tab, done) => { if (commands.length) setPending({ commands, done }); setPlanTab(tab); nextDay(); }}
+            onAct={(commands, tab, done, now) => {
+              // The over-stock trim changes tonight's order for tomorrow: apply it now and stay on the evening.
+              if (now) { dispatch({ type: "actNow", commands, done }); return; }
+              dispatch({ type: "actTomorrow", commands, done });
+              setPlanTab(tab);
+              nextDay();
+            }}
             nextLabel={game.phase === "event" ? "Read the morning post →" : "Next day →"}
             send={send}
             meta={meta}

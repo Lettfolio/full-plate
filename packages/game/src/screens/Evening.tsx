@@ -30,7 +30,7 @@ interface Props {
   /** Go to tomorrow's planning on a given tab (Hire → Staff, Buy a table → Restaurant). */
   onGoTo?: (tab: PlanningTab) => void;
   /** [round 6] The tip's one-tap action: end the evening, apply `commands` tomorrow morning, open `tab`. */
-  onAct?: (commands: Command[], tab: PlanningTab, done: string) => void;
+  onAct?: (commands: Command[], tab: PlanningTab, done: string, now?: boolean) => void;
   nextLabel: string;
   send: (cmd: Command) => void;
   /** Round 3: path layers (Empire sweep, Stars news) and the hands-on score. */
