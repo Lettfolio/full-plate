@@ -12,7 +12,7 @@ import {
   STRESS_BASE,
 } from "./constants";
 import { cosyHint, emptyAssessment, firstGuideDay, inSeason, nextMonthStart, scheduleVisits } from "./inspector";
-import { windowConsistency } from "./proxies";
+import { weakNights, windowConsistency, type WeakNight } from "./proxies";
 import { Rng, hashSeed } from "./rng";
 import { STARS_VERSION, type InspectorVisit, type StarsState } from "./types";
 
@@ -66,6 +66,7 @@ export function newStarsState(_content: ContentPack, state: GameState, opts: { s
     ticketing: { unlocked: false, prepaid: false, dynamicPricing: false },
     stagiaires: { paid: true, count: 0, scandals: 0, sinceDay: startDay },
     consistencyWindow: [],
+    consistencyDays: [],
     assessment: emptyAssessment(startDay),
     hints: [],
     dailyScoreEma: DAILY_SCORE_START,
@@ -108,6 +109,11 @@ export interface StarsView {
   critic: StarsState["guides"]["localCritic"];
   headChef: Omit<StarsState["headChef"], "former">;
   steadiness: number;
+  /**
+   * Weekdays whose nights cook clearly worse than the rest of the window (the player's own data, so fine to show):
+   * usually the chef's days off. Empty when the kitchen is steady or the window is short.
+   */
+  weakNights: WeakNight[];
   testKitchen: StarsState["testKitchen"];
   sourcing: StarsState["sourcing"];
   satellites: StarsState["satellites"];
@@ -141,6 +147,7 @@ export function starsView(stars: StarsState, day: number): StarsView {
     critic: stars.guides.localCritic,
     headChef,
     steadiness: windowConsistency(stars.consistencyWindow),
+    weakNights: weakNights(stars.consistencyWindow, stars.consistencyDays),
     testKitchen: stars.testKitchen,
     sourcing: stars.sourcing,
     satellites: stars.satellites,

@@ -14,7 +14,19 @@ import type { StarsCommand, StarsEvent, StarsState } from "./types";
 
 /** "stars": the ambitious perfectionist. "bistro": a good neighbourhood place (popular menu, any decent chef, no Stars investments). */
 export type Profile = "stars" | "bistro";
-export interface HeadlessOptions { years: number; seed: number; refitYear: number; districtId: string; profile?: Profile }
+export interface HeadlessOptions {
+  years: number;
+  seed: number;
+  refitYear: number;
+  districtId: string;
+  profile?: Profile;
+  /**
+   * Start the Stars path from an existing game (the game's fork): the script takes over this GameState on its
+   * current day, swaps to the quality menu (profile "stars") and mounts `newStarsState` there, exactly as the
+   * game's `chooseStars` does. Without it the run starts from a fresh `newGame` on day 0.
+   */
+  from?: GameState;
+}
 
 export interface YearRow {
   year: number;
@@ -215,8 +227,11 @@ export class ScriptedRun {
     this.content = content;
     this.opts = opts;
     this.profile = opts.profile ?? "stars";
-    let s = newGame(content, { type: "NEW_GAME", seed: opts.seed, districtId: opts.districtId, restaurantName: "The Larder", difficulty: "normal" });
-    for (const item of this.profile === "stars" ? qualityMenu(content) : bistroMenu(content, opts.districtId)) s = this.step(s, { type: "ADD_MENU_ITEM", dishId: item.dishId, price: item.price });
+    let s = opts.from ?? newGame(content, { type: "NEW_GAME", seed: opts.seed, districtId: opts.districtId, restaurantName: "The Larder", difficulty: "normal" });
+    if (opts.from && this.profile === "stars") for (const m of s.menu) s = this.step(s, { type: "REMOVE_MENU_ITEM", dishId: m.dishId });
+    if (!opts.from || this.profile === "stars") {
+      for (const item of this.profile === "stars" ? qualityMenu(content) : bistroMenu(content, s.districtId)) s = this.step(s, { type: "ADD_MENU_ITEM", dishId: item.dishId, price: item.price });
+    }
     this.state = s;
     this.stars = newStarsState(content, s);
   }
@@ -357,7 +372,7 @@ function noteEvents(row: YearRow, day: number, events: readonly StarsEvent[]): v
 
 export function runHeadless(content: ContentPack, opts: HeadlessOptions): HeadlessRun {
   const run = new ScriptedRun(content, opts);
-  const days = opts.years * YEAR_DAYS;
+  const days = run.state.day + opts.years * YEAR_DAYS;
   while (run.state.day < days && !run.done) run.stepDay();
   return run.result();
 }

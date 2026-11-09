@@ -106,13 +106,16 @@ describe("test kitchen and signatures", () => {
 });
 
 describe("sourcing", () => {
-  it("relationships build slowly over open days and are lost quickly while shut; the seasonal bonus follows", () => {
+  it("relationships build slowly over open days and are lost quickly while shut for a refit; the seasonal bonus follows", () => {
     const s = cmd(fresh(), { type: "SIGN_SOURCING", supplierId: "foragers" }).stars;
     const open = run(s, 0, 300, 90).stars.sourcing[0]!;
     expect(open.relationship).toBeCloseTo(C.SOURCING_START_RELATIONSHIP + 300 * C.SOURCING_GAIN, 1);
     expect(open.seasonalBonus).toBeGreaterThan(C.SOURCING_SEASONAL_BASE);
-    const shut = run({ ...s, sourcing: [{ ...s.sourcing[0]!, relationship: 80 }] }, 0, 90, undefined).stars.sourcing[0]!;
+    const at80 = { ...s, sourcing: [{ ...s.sourcing[0]!, relationship: 80 }] };
+    const shut = run({ ...at80, refitUntil: 90 }, 0, 90, undefined).stars.sourcing[0]!;
     expect(shut.relationship).toBeLessThan(80 - 50);
+    // A regular day off (CLOSE_TODAY, no refit) neither builds nor loses the relationship.
+    expect(run(at80, 0, 10, undefined).stars.sourcing[0]!.relationship).toBe(80);
     expect(cmd(fresh(), { type: "SIGN_SOURCING", supplierId: "nope" }).events[0]?.type).toBe("REJECTED");
   });
 });

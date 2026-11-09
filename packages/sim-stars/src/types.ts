@@ -181,6 +181,8 @@ export interface StarsState {
   stagiaires: { paid: boolean; count: number; scandals: number; sinceDay: number };
   /** Last ≤ 60 open days' mean plate quality, oldest first. */
   consistencyWindow: number[];
+  /** The sim day of each `consistencyWindow` entry (same length; older saves may lack it). */
+  consistencyDays?: number[];
   /** HIDDEN: this assessment year's accumulators. */
   assessment: Assessment;
   /** Cosy "someone was taking notes" hints this assessment year. Unreliable by design (real visits AND decoys). */

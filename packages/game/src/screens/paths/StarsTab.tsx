@@ -8,7 +8,7 @@ import { fill } from "@full-plate/content";
 import { content, extras, HOOKS, monthOf, tagsOf } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
-import { dateLabel } from "../../lib/calendar";
+import { dateLabel, WEEKDAY_NAMES } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
 
 interface Props {
@@ -71,6 +71,12 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
             <Bar label="Steadiness (last 60 nights)" value={v.steadiness} tone="sky" showValue />
             <Bar label="Head chef's reputation" value={v.headChef.reputation} tone="plum" showValue />
             <p className="xs muted">Inspectors come on nights nobody knows about. Every service counts — the steadiness bar is your own kitchen's record, not theirs.</p>
+            {v.weakNights.length > 0 && (
+              <p className="xs callout callout--warn" role="note">
+                <b>Your {v.weakNights.map((w) => WEEKDAY_NAMES[w.weekday]).join(" and ")} nights cook about {Math.round(Math.max(...v.weakNights.map((w) => w.others - w.mean)))} points worse</b> than the rest of the week, and that is what wrecks steadiness.
+                Put a stronger chef on those nights, or close them (“Close tonight” in the morning).
+              </p>
+            )}
             {v.rumours.length > 0 && <ul className="xs rumours">{v.rumours.slice(-3).map((r, i) => <li key={i}>🕵️ {dateLabel(r.day)}: {r.text}</li>)}</ul>}
             {game.difficulty === "cosy" && v.cosyHint && <p className="xs callout">{v.cosyHint}</p>}
             {v.headChef.stress >= 70 && (

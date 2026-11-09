@@ -214,6 +214,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
           refitUntil: Math.max(s.refitUntil ?? 0, until),
           relaunchUntil: until + RELAUNCH_DAYS,
           consistencyWindow: [],
+          consistencyDays: [],
           headChef: { ...s.headChef, stress: r2(clamp(s.headChef.stress + RELAUNCH_STRESS, 0, 100)) },
         },
         events: [{ type: "REFIT_STARTED", day, until }, log("A new concept. Closed for a month, then a fresh story for the inspectors.", "good")],

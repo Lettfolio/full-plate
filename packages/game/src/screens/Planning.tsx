@@ -162,6 +162,20 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
             <button className="btn btn--ghost" onClick={() => { setConfirmAlone(false); send({ type: "START_SERVICE" }); }}>Open anyway</button>
           </div>
         ) : (
+          <>
+          {meta?.stars && HOOKS.closeToday && (
+            <button
+              className="btn btn--ghost"
+              disabled={game.phase !== "planning"}
+              title="Shut tonight: no service, no inspector, and it doesn't count against your steadiness. Rent still runs; staff taken off today's rota are not paid."
+              onClick={() => {
+                for (const st of game.staff) if (st.rota[today]) send({ type: "SET_ROTA", staffId: st.id, rota: st.rota.map((on, i) => (i === today ? false : on)) });
+                send(asCommand({ type: "CLOSE_TODAY" }));
+              }}
+            >
+              Close tonight
+            </button>
+          )}
           <button
             className="btn btn--primary btn--xl"
             disabled={game.phase !== "planning" || !active.length}
@@ -170,6 +184,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           >
             Open for service →
           </button>
+          </>
         )}
       </div>
     </div>

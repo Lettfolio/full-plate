@@ -221,6 +221,7 @@ export function stepStarsDay(content: ContentPack, stars0: StarsState, result: D
   if (open) {
     const before = windowStats(s.consistencyWindow);
     const window = [...s.consistencyWindow, inputs.quality].slice(-CONSISTENCY_WINDOW_DAYS);
+    const windowDays = [...(s.consistencyDays ?? []), day].slice(-window.length);
     criteria = dayCriteria(content, s, inputs, window);
     const total = criteriaTotal(criteria);
     const a = s.assessment;
@@ -228,6 +229,7 @@ export function stepStarsDay(content: ContentPack, stars0: StarsState, result: D
     s = {
       ...s,
       consistencyWindow: window,
+      consistencyDays: windowDays,
       lastCriteria: criteria,
       dailyScoreEma: r2(s.dailyScoreEma + (total - s.dailyScoreEma) * DAILY_SCORE_ALPHA),
       assessment: {
@@ -294,7 +296,9 @@ export function stepStarsDay(content: ContentPack, stars0: StarsState, result: D
     s = {
       ...s,
       sourcing: s.sourcing.map((r) => {
-        const relationship = r2(clamp(r.relationship + (open ? SOURCING_GAIN : -SOURCING_LOSS), 0, 100));
+        // Built on open nights; lost only while shut for a refit (a weekly day off doesn't upset the farmer).
+        const delta = open ? SOURCING_GAIN : isClosed(s, day) ? -SOURCING_LOSS : 0;
+        const relationship = r2(clamp(r.relationship + delta, 0, 100));
         return { ...r, relationship, seasonalBonus: r2(SOURCING_SEASONAL_BASE + (SOURCING_SEASONAL_SCALE * relationship) / 100) };
       }),
     };

@@ -24,7 +24,7 @@
  * "Food" means every course except drinks. All outputs are clamped 0-100 and rounded to 2 dp.
  */
 import type { ContentPack, DayResult, DishDef, GameState, ServiceTally } from "@full-plate/sim-core";
-import { monthOf } from "@full-plate/sim-core";
+import { monthOf, weekdayOf } from "@full-plate/sim-core";
 import {
   CONSISTENCY_LEVEL_FLOOR,
   CONSISTENCY_LEVEL_WEIGHT,
@@ -130,6 +130,34 @@ export function seriesConsistency(s: WindowStats): number {
 
 export function windowConsistency(window: readonly number[]): number {
   return seriesConsistency(windowStats(window));
+}
+
+export interface WeakNight {
+  /** sim-core weekday, 0 = Monday … 6 = Sunday. */
+  weekday: number;
+  /** Mean quality on that weekday's nights in the window. */
+  mean: number;
+  /** Mean quality on every other night in the window. */
+  others: number;
+  nights: number;
+}
+
+/**
+ * Which weekdays drag the steadiness down: a weekday with ≥ 2 nights in the window whose mean is more than
+ * OFF_NIGHT_DROP below the other nights' mean. Sorted Monday first. Needs the window's day numbers.
+ */
+export function weakNights(window: readonly number[], days: readonly number[] | undefined): WeakNight[] {
+  if (!days || days.length !== window.length || window.length < 10) return [];
+  const out: WeakNight[] = [];
+  for (let wd = 0; wd < 7; wd++) {
+    const mine = window.filter((_, i) => weekdayOf(days[i]!) === wd);
+    const rest = window.filter((_, i) => weekdayOf(days[i]!) !== wd);
+    if (mine.length < 2 || rest.length < 2) continue;
+    const mean = mine.reduce((a, b) => a + b, 0) / mine.length;
+    const others = rest.reduce((a, b) => a + b, 0) / rest.length;
+    if (mean < others - OFF_NIGHT_DROP) out.push({ weekday: wd, mean: r2(mean), others: r2(others), nights: mine.length });
+  }
+  return out;
 }
 
 /** Penalties and bonuses that sit on top of window consistency (group cap, disruption, stress, stagiaires). */

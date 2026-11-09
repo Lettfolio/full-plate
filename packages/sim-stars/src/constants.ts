@@ -55,8 +55,13 @@ export const HAND_BACK_EXCLUDED_YEARS = 3;
 export const CONSISTENCY_WINDOW_DAYS = 60;
 /** A day whose mean quality is this far below the window mean is an "off night". */
 export const OFF_NIGHT_DROP = 8;
-export const CONSISTENCY_SD_WEIGHT = 3;
-export const CONSISTENCY_OFF_WEIGHT = 60;
+/**
+ * Round 3 review: was 3 / 60. Both terms measure the same dips, so a common year-2 pattern (5 good nights and 2 weak
+ * cover nights a week, sd ≈ 25, 28% off nights) scored exactly 0, the same as a random kitchen. Now ≈ 30 for that
+ * pattern, ≈ 75 for a decent cover chef and ≈ 98 for a steady brigade (steady kitchens are unchanged).
+ */
+export const CONSISTENCY_SD_WEIGHT = 2;
+export const CONSISTENCY_OFF_WEIGHT = 40;
 /** Consistency also slips when the level itself is below this (a steady 60 is not "consistent" in Michelin terms). */
 export const CONSISTENCY_LEVEL_FLOOR = 80;
 export const CONSISTENCY_LEVEL_WEIGHT = 0.6;
@@ -156,6 +161,7 @@ export const SOURCING_DAILY = 1_000;
 export const SOURCING_START_RELATIONSHIP = 10;
 /** Relationship gained per open day (≈ 3.5 years to the top) and lost per closed day ("lost in a season"). */
 export const SOURCING_GAIN = 0.07;
+/** Lost per day only while shut for a refit/relaunch; a regular weekly closed day neither builds nor loses it. */
 export const SOURCING_LOSS = 0.6;
 export const SOURCING_SEASONAL_BASE = 0.02;
 export const SOURCING_SEASONAL_SCALE = 0.08;
