@@ -237,7 +237,7 @@ describe("training tracks", () => {
     expect(passCover(cooks)?.id).toBe(chefs[0]!.id);
     expect(passCover(cooks)?.passLevel).toBe(2);
     expect(passCover(cooksOnShift(C, s))).toBeUndefined();
-    const hands = { ...trained, handsOn: { role: "chef" as const, staffId: chefs[0]!.id, station: "grill" as never } };
+    const hands = { ...trained, handsOn: { role: "chef" as const, since: 0, staffId: chefs[0]!.id, station: "grill" as never } };
     const ids = cooksOnShift(C, hands).map((k) => k.id);
     expect(ids).toContain(`${chefs[0]!.id}${SHADOW_COOK_SUFFIX}`);
   });
