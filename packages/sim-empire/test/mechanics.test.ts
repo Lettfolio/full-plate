@@ -15,7 +15,9 @@ import {
   openSites,
   probeUnitEconomics,
   propertyPrice,
+  recognitionTarget,
   saturationPenalty,
+  siteVisibility,
   standardisation,
   stepEmpireDay,
   type EmpireState,
@@ -299,6 +301,29 @@ describe("franchisee association", () => {
     e = { ...e, franchisees: e.franchisees.map((f) => ({ ...f, mood: 70, margin30d: 0.2 })) };
     e = days(e, 1);
     expect(e.association.active).toBe(false);
+  });
+});
+
+describe("recognition by ownership (round 5)", () => {
+  it("a company site builds more recognition than a franchise site, and a fresh company site more again", () => {
+    const e = empire();
+    const co = siteVisibility(e, { ownership: "company" });
+    const fr = siteVisibility(e, { ownership: "franchise" });
+    expect(co).toBeGreaterThan(fr);
+    expect(fr).toBeGreaterThan(siteVisibility(e, { ownership: "licence" }));
+    const fresh = { ...e, brand: { ...e.brand, formula: { ...e.brand.formula, fresh: true } } };
+    expect(siteVisibility(fresh, { ownership: "company" })).toBeCloseTo(co * K.FRESH_WORD_OF_MOUTH, 9);
+    expect(siteVisibility(fresh, { ownership: "franchise" })).toBe(fr);
+    // Ten sites in the Mainland: company-run gets further toward the win line than franchised.
+    expect(recognitionTarget(e, "mainland", 10 * co)).toBeGreaterThan(recognitionTarget(e, "mainland", 10 * fr) + 5);
+  });
+
+  it("stepEmpireDay drives recognition with the weighted count", () => {
+    let e = withApplicant(empire());
+    e = openAndBuild(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "seaside", ownership: "franchise", land: "thirdParty", applicantId: "a_test" }).e;
+    const asCompany = { ...e, sites: e.sites.map((s) => (s.ownership === "franchise" ? { ...s, ownership: "company" as const } : s)) };
+    const recOf = (x: EmpireState) => days(x, 60).brand.recognition.isles!;
+    expect(recOf(asCompany)).toBeGreaterThan(recOf(e));
   });
 });
 

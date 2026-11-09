@@ -241,6 +241,14 @@ export const REC_K = 6;
 export const AD_PENCE_PER_VIS = 5_000_000;
 export const REC_DRIFT_PER_DAY = 1 / 90;
 export const HOME_START_RECOGNITION = 15;
+/**
+ * [round 5] Visibility a site adds to its region, by who runs it (× 1 / region population in millions). A company-run
+ * site is the brand's showroom: one standard, one experience, so word of mouth works for the brand. A franchise site is
+ * as visible but less consistent (BRIEF: Five Guys grew on word of mouth), a licence in an airport hardly carries the brand.
+ */
+export const SITE_VISIBILITY: Record<"company" | "franchise" | "licence", number> = { company: 0.9, franchise: 0.6, licence: 0.4 };
+/** Fresh, never frozen (In-N-Out): a cult following; each company site's word of mouth counts this much more. */
+export const FRESH_WORD_OF_MOUTH = 1.5;
 /** The region win check: "present and profitable" means recognition ≥ this. */
 export const WIN_RECOGNITION = 60;
 export const WIN_MEALS = 1_000_000_000;
@@ -280,7 +288,7 @@ export const TAKEOVER_CASH_PER_SITE = 5_000_000;
 /** Multi-unit operators ask for more sites when mood ≥ this. */
 export const MULTI_UNIT_MOOD = 55;
 /** A development schedule: an operator takes at most one new site per this many days. */
-export const MULTI_UNIT_COOLDOWN_DAYS = 180;
+export const MULTI_UNIT_COOLDOWN_DAYS = 360;
 export const APPLICANTS_BASE_PER_MONTH = 2.5;
 export const APPLICANT_POOL_MAX = 15;
 /** Skimming: share of sales hidden = max(0, (honesty threshold − honesty)/100) × SKIM_RATE. */

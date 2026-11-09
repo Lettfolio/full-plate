@@ -302,10 +302,18 @@ export function regionPopulation(e: EmpireState, regionId: RegionId): number {
   return e.cities.filter((c) => c.regionId === regionId).reduce((a, c) => a + c.population, 0);
 }
 
-/** Recognition the region is heading for given its sites and advertising. */
-export function recognitionTarget(e: EmpireState, regionId: RegionId, siteCount: number): number {
+/** Word-of-mouth weight of one open site toward its region's recognition (round 5: company sites count more). */
+export function siteVisibility(e: Pick<EmpireState, "brand">, s: Pick<SiteSummary, "ownership">): number {
+  return K.SITE_VISIBILITY[s.ownership] * (e.brand.formula.fresh && s.ownership === "company" ? K.FRESH_WORD_OF_MOUTH : 1);
+}
+
+/**
+ * Recognition the region is heading for given its sites and advertising. `sites` is the region's visibility-weighted
+ * site count (Σ siteVisibility; a company site is 1).
+ */
+export function recognitionTarget(e: EmpireState, regionId: RegionId, sites: number): number {
   const popM = Math.max(0.5, regionPopulation(e, regionId) / 1_000_000);
-  let vis = siteCount / popM + (e.brand.adSpend30d[regionId] ?? 0) / K.AD_PENCE_PER_VIS;
+  let vis = sites / popM + (e.brand.adSpend30d[regionId] ?? 0) / K.AD_PENCE_PER_VIS;
   if (e.cities.find((c) => c.id === e.hq.homeCityId)?.regionId === regionId) vis += HOME_VISIBILITY;
   return 100 * (1 - Math.exp(-vis / K.REC_K));
 }
@@ -579,6 +587,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   let meals = 0;
   const adByRegion: Record<string, number> = {};
   const sitesByRegion: Record<string, number> = {};
+  const visByRegion: Record<string, number> = {};
   const profitableByRegion: Record<string, boolean> = {};
   const opNet = new Map<string, { net: number; sales: number }>();
   const trace: SiteTrace[] = [];
@@ -610,6 +619,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     hqNet += flow.hq;
     adByRegion[rid] = (adByRegion[rid] ?? 0) + flow.ad;
     sitesByRegion[rid] = (sitesByRegion[rid] ?? 0) + 1;
+    visByRegion[rid] = (visByRegion[rid] ?? 0) + siteVisibility(e, s);
     if (s.margin7d > 0) profitableByRegion[rid] = true;
     if (s.franchisee) {
       const o = opNet.get(s.franchisee) ?? { net: 0, sales: 0 };
@@ -635,7 +645,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
       .filter((c) => (c.kind === "campaign" || c.kind === "product") && day >= c.startDay && day < c.endDay && (!c.regionId || c.regionId === reg.id) && c.spend === undefined)
       .reduce((a, c) => a + (c.budgetPerDay ?? 0) / (c.regionId ? 1 : e.regions.length), 0);
     brand.adSpend30d[reg.id] = (brand.adSpend30d[reg.id] ?? 0) * (29 / 30) + (adByRegion[reg.id] ?? 0) + campaign;
-    const target = recognitionTarget(e, reg.id, sitesByRegion[reg.id] ?? 0);
+    const target = recognitionTarget(e, reg.id, visByRegion[reg.id] ?? 0);
     const rec = brand.recognition[reg.id] ?? 0;
     brand.recognition[reg.id] = clamp(rec + (target - rec) * K.REC_DRIFT_PER_DAY, 0, 100);
   }

@@ -5,7 +5,8 @@
  *              who can pay, HQ leases (then buys) the land and sublets it (the Sonneborn engine).
  * company    — company-owned-steady: only company sites, opened when cash covers build + a year's buffer;
  *              buys the plots it can.
- * innout     — In-N-Out-slow: fresh, never frozen, company-only, a commissary per region, one site a quarter at most.
+ * innout     — In-N-Out-slow: fresh, never frozen, company-only, a commissary per region; each commissary supplies at
+ *              most one new site every two months in its region (round 5: region by region, least-known region first).
  *
  * `playStyleWeek` is one weekly decision pass; `runStyle` plays N years of it.
  */
@@ -118,6 +119,9 @@ function expandCities(content: ContentPack, run: Run, cmd: Cmd, buffer: number, 
 
 function buyPlots(run: Run, cmd: Cmd, buffer: number, max: number): void {
   let n = 0;
+  // Round 5: keep a reserve against the mortgages already carried (a forced exit sells plots at half their value, so a
+  // landlord at zero cash with 200 mortgages can be bankrupted by one country's sanctions).
+  buffer += 0.1 * run.e.property.reduce((a, p) => a + p.mortgageRemaining, 0);
   const cands = run.e.sites
     .filter((s) => s.status === "open" && s.land !== "hqOwned" && s.ownership !== "licence")
     .sort((a, b) => b.revenueYear / propertyPrice(b) - a.revenueYear / propertyPrice(a));
@@ -200,6 +204,9 @@ function companySteady(content: ContentPack, run: Run): void {
   }
 }
 
+/** In-N-Out-slow: days between new sites in one commissary's region. */
+const INNOUT_DAYS_PER_SITE = 60;
+
 function inNOutSlow(content: ContentPack, run: Run): void {
   const cmd = step(content, run);
   const pl = run.e.hq.priceLevel;
@@ -212,6 +219,8 @@ function inNOutSlow(content: ContentPack, run: Run): void {
     run.e = { ...run.e, regions: run.e.regions.map((r) => (r.id === home.regionId ? { ...r, commissary: true } : r)) }; // the flagship's kitchen is the first commissary
   }
   techTree(run, cmd, buffer);
+  // Its own supply chain: the commissaries buy for every site (non-exclusive deals, so one failure can't empty the menu).
+  for (const s of run.e.suppliers) if (!s.signed) cmd({ type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: false });
   const withCommissary = (rid: string) => run.e.regions.find((r) => r.id === rid)!.commissary;
   const regionsWith = run.e.regions.filter((r) => r.commissary).length;
   const open = openSites(run.e).length;
@@ -222,12 +231,31 @@ function inNOutSlow(content: ContentPack, run: Run): void {
     if (next) cmd({ type: "BUILD_COMMISSARY", regionId: next.regionId });
   }
   expandCities(content, run, cmd, buffer, (c: City) => withCommissary(c.regionId));
-  const lastOpen = Math.max(...run.e.sites.map((s) => s.opened - 90));
-  if (run.e.hq.day - lastOpen >= 30 && !saving) {
-    const loc = pickLocation(content, run.e, withCommissary);
+  // Region by region (round 5): a new commissary's region gets its biggest city first, so the brand doesn't pile into
+  // the one huge region it already serves.
+  for (const r of run.e.regions) {
+    if (!r.commissary || run.e.cities.some((c) => c.entered && c.regionId === r.id)) continue;
+    const first = cityOrder(run.e).find((c) => c.regionId === r.id && !c.entered);
+    if (first && run.e.hq.cash > cityEntryCost(run.e, first) + buildCost(first, f.driveThru, pl) + buffer) cmd({ type: "ENTER_CITY", cityId: first.id });
+  }
+  // Each commissary supplies at most one new site every two months in its own region, least-known region first.
+  const regionOf = (cityId: string) => run.e.cities.find((c) => c.id === cityId)!.regionId;
+  const served = run.e.regions
+    .filter((r) => r.commissary && run.e.cities.some((c) => c.entered && c.regionId === r.id))
+    .sort((a, b) => (run.e.brand.recognition[a.id] ?? 0) - (run.e.brand.recognition[b.id] ?? 0));
+  for (const r of saving ? [] : served) {
+    const lastOpen = Math.max(-1e9, ...run.e.sites.filter((x) => regionOf(x.cityId) === r.id).map((x) => x.opened - 90));
+    if (run.e.hq.day - lastOpen < INNOUT_DAYS_PER_SITE) continue;
+    const loc = pickLocation(content, run.e, (rid) => rid === r.id);
     if (loc && run.e.hq.cash > buildCost(loc.city, f.driveThru, pl) + buffer) cmd({ type: "OPEN_SITE", cityId: loc.city.id, districtId: loc.districtId, ownership: "company", land: "hqLease" });
   }
   if (!saving) buyPlots(run, cmd, 50_000_000 * pl, 1);
+  // Little advertising, but a cash pile pays for a launch campaign where the brand is least known.
+  if (run.e.hq.day % 90 === 0 && run.e.hq.cash > 100_000_000 * pl) {
+    const live = run.e.regions.filter((r) => run.e.sites.some((x) => x.status === "open" && run.e.cities.find((c) => c.id === x.cityId)!.regionId === r.id));
+    const weakest = live.sort((a, b) => (run.e.brand.recognition[a.id] ?? 0) - (run.e.brand.recognition[b.id] ?? 0))[0];
+    if (weakest && (run.e.brand.recognition[weakest.id] ?? 0) < K.WIN_RECOGNITION + 5) cmd({ type: "LAUNCH_CAMPAIGN", kind: "brand", budget: Math.round(25_000_000 * pl), regionId: weakest.id });
+  }
 }
 
 const STYLE_FN: Record<EmpireStyle, (content: ContentPack, run: Run) => void> = { franchise: franchiseFast, company: companySteady, innout: inNOutSlow };

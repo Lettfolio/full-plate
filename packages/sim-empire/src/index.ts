@@ -29,6 +29,7 @@ export {
   openSites,
   propertyPrice,
   recognitionTarget,
+  siteVisibility,
   remodelCost,
   spendable,
   developmentFacility,

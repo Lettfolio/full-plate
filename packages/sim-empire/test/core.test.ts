@@ -72,5 +72,18 @@ describe("headless styles", () => {
     expect(c.sites).toBeGreaterThanOrEqual(i.sites);
     expect(i.avgSiteRevenue).toBeGreaterThan(c.avgSiteRevenue);
     for (const r of [f, c, i]) expect(r.bankrupt).toBe(false);
+    // Round 5: franchising wins first (5-6 years), the company path is still on its way.
+    expect(f.win).toBe(true);
+    expect(f.winYear!).toBeGreaterThan(4.5);
+    expect(c.win).toBe(false);
+  });
+
+  it("round 5: company-owned wins in ~7-8 years and In-N-Out-slow can win inside 10 (seed 1)", () => {
+    const c = summariseRun(runStyle(content, "company", 1, 8));
+    expect(c.win).toBe(true);
+    expect(c.winYear!).toBeGreaterThan(6.5);
+    const i = summariseRun(runStyle(content, "innout", 1, 10));
+    expect(i.win).toBe(true);
+    expect(i.winYear!).toBeGreaterThan(c.winYear!);
   });
 });
