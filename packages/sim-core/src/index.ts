@@ -132,3 +132,12 @@ export { isWeekend, monthOf, weekdayOf } from "./util";
 export { shiftCost } from "./systems/finance";
 /** Opening stock allowance in effect for a content pack (BalanceDef.openingStockBudget or the default). */
 export { openingStockBudget } from "./forecast";
+/**
+ * [round 3, Empire] Closed-form demand and capacity from the sim's physics (sim-empire's aggregate model fits to these).
+ * `marketDemand`/`expectedDemand`: unconstrained covers; `capacityCovers`/`serviceCapacity`: seats × turns vs crew;
+ * `softCap`/`uncapped`: covers served from demand and back.
+ */
+export {
+  CAPACITY, capacityCovers, crewOnShift, expectedDemand, marketDemand, menuPriceIndex, serviceCapacity, softCap, uncapped,
+  type CapacitySpec, type DemandEstimate, type DemandSpec,
+} from "./capacity";
