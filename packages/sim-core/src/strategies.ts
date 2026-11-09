@@ -10,11 +10,12 @@ import { dispatch as applyCommand } from "./commands";
 import { tickService as tick } from "./engine";
 import { newGame } from "./newGame";
 import { candidates } from "./staff";
+import { rotaAdvice } from "./advice";
 import { stockQty } from "./stock";
 import type { Candidate, Command, ContentPack, Difficulty, GameState, StaffRole } from "./types";
 
 // ── strategies ──
-export type StrategyName = "balanced" | "cheap" | "premium" | "nohire" | "typical";
+export type StrategyName = "balanced" | "cheap" | "premium" | "nohire" | "typical" | "learner";
 
 export interface Strategy {
   name: StrategyName;
@@ -39,6 +40,8 @@ export interface Strategy {
    * answers only every other incident, and restocks with a generous margin (overstock → spoilage).
    */
   typical?: boolean;
+  /** [round 5 review] A typical player who acts on the evening's rota tip once they've seen it a few nights running. */
+  readsTips?: boolean;
 }
 
 export const STRATEGIES: Record<StrategyName, Strategy> = {
@@ -48,6 +51,8 @@ export const STRATEGIES: Record<StrategyName, Strategy> = {
   premium: { name: "premium", priceMult: 1.25, menuSize: 6, coverCash: 150_000, secondHireCash: 1_000_000, tableCash: 1_500_000, stockDays: 1.5, hireBy: "skill" },
   // The headline "normal" owner: hires cover late, over-orders, never trims the rota, ignores half the incidents.
   typical: { name: "typical", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true },
+  // Round 5 review: the typical owner who follows the evening's "trim the rota" tip (advice.ts) after noticing it.
+  learner: { name: "learner", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true, readsTips: true },
   nohire: { name: "nohire", priceMult: 1, menuSize: 6, coverCash: Infinity, secondHireCash: Infinity, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value", noHire: true },
 };
 
@@ -132,13 +137,22 @@ export function rotas(s: GameState, strat: Strategy, step: Step): GameState {
     if (team.length < 2) continue;
     const second = team[1]!;
     const has = second.rota.join() === COVER_PLUS_WEEKEND_ROTA.join();
+    // Round 5 review: the typical player never trims; the learner (typical + reads the evening tips) trims once the
+    // "trim the rota" tip (advice.ts) has named this person for TYPICAL_NOTICE_DAYS evenings running.
     const weekend = strat.typical
-      ? has || cur.cash > strat.secondHireCash // once on, never trimmed
+      ? has ? !(strat.readsTips && noticedRotaAdvice(cur, second.id)) : cur.cash > strat.secondHireCash
       : has ? profit >= 0 || cur.cash > strat.secondHireCash * 2 : cur.cash > strat.secondHireCash && profit > 0;
     const rota = weekend ? COVER_PLUS_WEEKEND_ROTA : COVER_ROTA;
     if (second.rota.join() !== rota.join()) cur = step(cur, { type: "SET_ROTA", staffId: second.id, rota });
   }
   return cur;
+}
+
+/** The rota advice has named this staff member on each of the last TYPICAL_NOTICE_DAYS evenings. */
+function noticedRotaAdvice(s: GameState, staffId: string): boolean {
+  const n = s.history.length;
+  for (let k = 0; k < TYPICAL_NOTICE_DAYS; k++) if (rotaAdvice(s, n - k)?.staffId !== staffId) return false;
+  return true;
 }
 
 /** Plates per cover the scripted owner plans for (one main plus some extras). */

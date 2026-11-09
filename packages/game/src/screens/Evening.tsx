@@ -1,4 +1,4 @@
-import type { DayResult, GameState, Review } from "@full-plate/sim-core";
+import { rotaAdvice, type DayResult, type GameState, type Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
 import { content, OWNER_FATIGUE_WARNING, TABLE_COST } from "../sim";
 import { FatigueNote } from "../components/FatigueNote";
@@ -12,7 +12,7 @@ import { Stars } from "../components/Stars";
 import { Bar } from "../components/Bar";
 import { dishName } from "../lib/content";
 import { pct, signed } from "../lib/format";
-import { dateLabel, weekdayIndex } from "../lib/calendar";
+import { dateLabel, WEEKDAY_NAMES, weekdayIndex } from "../lib/calendar";
 import { initials, moodFace } from "../lib/staff";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { ShiftSummary } from "@full-plate/handson";
@@ -159,6 +159,36 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   );
 }
 
+const ROLE_WORD: Record<string, string> = { chef: "chef", server: "waiter", bar: "bartender", porter: "porter", manager: "manager" };
+
+/** "Friday, Saturday and Sunday" */
+export function dayList(days: readonly number[]): string {
+  const n = days.map((d) => WEEKDAY_NAMES[d]!);
+  return n.length <= 1 ? (n[0] ?? "") : `${n.slice(0, -1).join(", ")} and ${n.at(-1)}`;
+}
+
+/**
+ * Round 5 review: a losing fortnight with doubled-up shifts says so (sim-core rotaAdvice). A typical owner who never
+ * trimmed the rota went bust on hard every time; nothing in the game had said where the money went.
+ */
+export function RotaTip({ game, onGoTo }: { game: GameState; onGoTo?: ((tab: PlanningTab) => void) | undefined }) {
+  const a = rotaAdvice(game);
+  if (!a) return null;
+  const role = ROLE_WORD[a.role] ?? a.role;
+  return (
+    <div className="card tip tip--amber" aria-label="Rota tip">
+      <span className="tip__icon" aria-hidden="true">📅</span>
+      <div className="spacer">
+        <b>Two weeks of losing money (about <MoneyText pence={-a.dailyLoss} whole /> a day).</b>
+        <div className="small">
+          {a.name} works {dayList(a.doubledDays)}, when another {role} is already on. Those shifts cost <MoneyText pence={a.weeklyCost} whole /> a week. Take them off the rota until things pick up?
+        </div>
+      </div>
+      {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>Change the rota →</button>}
+    </div>
+  );
+}
+
 export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, sendEmpire, shiftSummary }: Props) {
   if (!result) {
     return (
@@ -212,6 +242,7 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, s
             </div>
           )}
           {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && game.phase !== "gameover" && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={onGoTo ? () => onGoTo("staff") : undefined} />}
+          {game.phase !== "gameover" && meta?.mode !== "career" && <RotaTip game={game} onGoTo={onGoTo} />}
           {moreTables && (
             <div className="card tip">
               <span className="tip__icon" aria-hidden="true">🪑</span>
