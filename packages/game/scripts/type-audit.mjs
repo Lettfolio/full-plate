@@ -130,7 +130,10 @@ async function audit(name, { canvas = false } = {}) {
   }
   const seen = new Set();
   const bad = [...dom, ...canvasSmall].filter((o) => { const k = `${o.px}|${o.el}|${o.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  // The app scrolls inside .screen; unroll it so the full-page shot shows everything (layout width is unchanged).
+  const unroll = canvas ? null : await page.addStyleTag({ content: ".app{height:auto!important}.screen{overflow:visible!important}" });
   await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true });
+  if (unroll) await unroll.evaluate((el) => el.remove());
   results.push({ name, bad });
   console.log(`${bad.length ? "✗" : "✓"} ${name}${bad.length ? `: ${bad.length} below ${MIN}px` : ""}`);
   for (const o of bad.slice(0, 12)) console.log(`    ${o.px}px  ${o.el}  “${o.text}”`);

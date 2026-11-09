@@ -759,3 +759,10 @@ button, input { font: inherit; color: inherit; }
 .handson__score { white-space: nowrap; }
 .handson__keys { flex: 1 1 260px; min-width: 0; }
 
+/* ───────── round 5: <Term> (plain label + the real word) ───────── */
+.term { display: inline-flex; flex-direction: column; line-height: 1.2; cursor: help; }
+.term__plain { font: inherit; }
+.term__real { font-family: var(--font-body); font-size: var(--fs-micro); font-weight: 700; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
+.term--inline { text-decoration: underline dotted var(--ink-faint); text-underline-offset: 3px; cursor: help; }
+.term--inline:focus-visible { outline: 3px solid var(--sky); outline-offset: 1px; }
+

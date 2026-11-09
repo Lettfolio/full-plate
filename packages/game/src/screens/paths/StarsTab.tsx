@@ -10,6 +10,7 @@ import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
 import { dateLabel, WEEKDAY_NAMES } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
+import { Term } from "../../components/Term";
 
 interface Props {
   game: GameState;
@@ -192,7 +193,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           </div>
 
           <div className="card stack stack--sm">
-            <div className="card__title"><h3>Stagiaires</h3><span className="xs faint">{v.stagiaires.scandals ? `${v.stagiaires.scandals} scandal` : ""}</span></div>
+            <div className="card__title"><h3><Term id="stagiaires" /></h3><span className="xs faint">{v.stagiaires.scandals ? `${v.stagiaires.scandals} scandal` : ""}</span></div>
             <p className="xs muted">Young cooks on a stage. Skilled help and a steadier kitchen — but unpaid stages are a risk that grows every year.</p>
             <div className="row">
               <button className="btn btn--sm" onClick={() => setStagCount(Math.max(0, stagCount - 1))}>−</button>

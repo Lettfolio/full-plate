@@ -8,6 +8,9 @@ import { marginFraction, plateCost } from "../../lib/content";
 import { pct } from "../../lib/format";
 import { MenuMatrix, QUADRANT } from "./MenuMatrix";
 import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
+import { Term } from "../../components/Term";
+import type { TermId } from "../../lib/glossary";
+const QUADRANT_TERM = { star: "mmStar", ploughhorse: "mmPloughhorse", puzzle: "mmPuzzle", dog: "mmDog" } as const satisfies Record<string, TermId>;
 
 interface Props {
   game: GameState;
@@ -56,7 +59,7 @@ export function MenuTab({ game, send, path }: Props) {
           <MenuMatrix items={active} quadrants={quadrants} names={names} fallbackMargin={(m) => m.price - plateCost(content, m.dishId)} highlight={hover} onHover={setHover} />
           <div className="matrix__legend">
             {(Object.keys(QUADRANT) as (keyof typeof QUADRANT)[]).map((q) => (
-              <div key={q}><b style={{ color: QUADRANT[q].colour }}>●</b> <b>{QUADRANT[q].label}</b> — {QUADRANT[q].hint}</div>
+              <div key={q}><b style={{ color: QUADRANT[q].colour }}>●</b> <Term id={QUADRANT_TERM[q]} inline><b>{QUADRANT[q].label}</b></Term> — {QUADRANT[q].hint}</div>
             ))}
           </div>
         </div>
@@ -101,7 +104,7 @@ export function MenuTab({ game, send, path }: Props) {
                     <MoneyText pence={m.price} />
                   </Stepper>
                   <div className="dish__margin">
-                    <div className="xs faint">margin</div>
+                    <div className="xs faint"><Term id="margin" inline>margin</Term></div>
                     <b className={marginTone(f)}>{pct(f)}</b> <span className="xs muted">(<MoneyText pence={m.price - cost} />)</span>
                   </div>
                   <div className="row">
@@ -139,7 +142,7 @@ export function MenuTab({ game, send, path }: Props) {
                   <div className="dish__meta">
                     <span>cost <MoneyText pence={cost} /></span>
                     <span>sells <MoneyText pence={d.suggestedPrice} /></span>
-                    <span className={marginTone(f)}><b>{pct(f)}</b> margin</span>
+                    <span className={marginTone(f)}><b>{pct(f)}</b> <Term id="margin" inline>margin</Term></span>
                     <span>skill {d.skillRequired}</span>
                   </div>
                   {d.blurb && <div className="xs muted">{d.blurb}</div>}

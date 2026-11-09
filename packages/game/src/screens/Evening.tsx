@@ -19,6 +19,7 @@ import type { ShiftSummary } from "@full-plate/handson";
 import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
 import { compactMeals } from "../components/StatusBar";
 import { inSeason } from "@full-plate/sim-stars";
+import { Term } from "../components/Term";
 
 interface Props {
   game: GameState;
@@ -247,15 +248,15 @@ export function Evening({ game, result, onNext, onGoTo, nextLabel, send, meta, s
           <div className="card">
             <div className="card__title"><h3>Reputation</h3></div>
             <div className="repgrid">
-              <div className="reprow"><span>Popularity</span><Bar value={game.reputation.popularity} tone="accent" /><Delta v={r.popularityDelta} /></div>
-              <div className="reprow"><span>Prestige</span><Bar value={game.reputation.prestige} tone="plum" /><Delta v={r.prestigeDelta} /></div>
+              <div className="reprow"><Term id="popularity">Popularity</Term><Bar value={game.reputation.popularity} tone="accent" /><Delta v={r.popularityDelta} /></div>
+              <div className="reprow"><Term id="prestige">Prestige</Term><Bar value={game.reputation.prestige} tone="plum" /><Delta v={r.prestigeDelta} /></div>
             </div>
           </div>
         </div>
 
         <div className="stack">
           <div className="kpis">
-            <div className="kpi"><div className="kpi__k">Covers</div><div className="kpi__v">{r.covers}</div></div>
+            <div className="kpi"><div className="kpi__k"><Term id="covers" /></div><div className="kpi__v">{r.covers}</div></div>
             <div className="kpi"><div className="kpi__k">Walkouts</div><div className="kpi__v" style={{ color: r.walkouts ? "var(--tomato-deep)" : undefined }}>{r.walkouts}</div></div>
             <div className="kpi"><div className="kpi__k">Avg spend</div><div className="kpi__v"><MoneyText pence={r.averageSpend} /></div></div>
             <div className="kpi"><div className="kpi__k">Avg rating</div><div className="kpi__v">{r.averageRating.toFixed(1)} <Stars rating={r.averageRating} size={15} /></div></div>

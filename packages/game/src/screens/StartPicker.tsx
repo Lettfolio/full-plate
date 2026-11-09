@@ -20,7 +20,7 @@ export const STARTS: StartDef[] = [
   { id: "owner", name: "Owner", icon: "🔑", line: "Lease, loan, menu and hiring from day one. Straight into running the place.", length: "You own it now" },
   { id: "chef", name: "Apprentice chef", icon: "🔪", line: "Commis in someone else's kitchen: prep, stations, timing. Climb to head chef.", length: "Longest road to your own place" },
   { id: "bar", name: "Bar", icon: "🍸", line: "Drinks orders, stock, regulars and late shifts. Bar back to general manager.", length: "A medium road" },
-  { id: "waiter", name: "Waiter", icon: "🍽️", line: "Read tables, time courses with the kitchen, earn the tronc. Up to restaurant manager.", length: "A medium road" },
+  { id: "waiter", name: "Waiter", icon: "🍽️", line: "Read tables, time courses with the kitchen, earn a share of the tips (the tronc). Up to restaurant manager.", length: "A medium road" },
   { id: "manager", name: "Restaurant manager", icon: "📋", line: "Run someone else's restaurant for a salary and a bonus. Hit targets — or be fired.", length: "The shortest road" },
 ];
 

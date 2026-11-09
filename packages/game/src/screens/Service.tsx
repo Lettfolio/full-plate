@@ -12,6 +12,7 @@ import { clockLabel, WEEKDAY_NAMES, weekdayIndex } from "../lib/calendar";
 import { dishName, segmentName } from "../lib/content";
 import { coveringPhrase } from "../lib/staff";
 import { getSettings, useSettings } from "../lib/settings";
+import { Term } from "../components/Term";
 
 interface Props {
   game: GameState;
@@ -308,7 +309,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
         )}
 
         <div className="counters">
-          <div className="counter"><div className="counter__k">Covers</div><div className="counter__v">{covers}</div></div>
+          <div className="counter"><div className="counter__k"><Term id="covers" inline /></div><div className="counter__v">{covers}</div></div>
           <div className="counter"><div className="counter__k">Revenue</div><div className="counter__v"><MoneyText pence={t.revenue ?? 0} whole /></div></div>
           <div className={`counter ${(t.walkouts ?? 0) > 0 ? "counter--bad" : ""}`}><div className="counter__k">Walkouts</div><div className="counter__v">{t.walkouts ?? 0}</div></div>
           <div className="counter"><div className="counter__k">Rating</div><div className="counter__v" style={{ fontSize: 18, paddingTop: 3 }}>{app.ratings.count ? <><Stars rating={avg} size={14} /> <span className="small">{avg.toFixed(1)}</span></> : <span className="faint small">—</span>}</div></div>

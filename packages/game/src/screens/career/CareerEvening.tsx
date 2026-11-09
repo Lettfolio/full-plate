@@ -8,6 +8,7 @@ import { Stars } from "../../components/Stars";
 import { Bar } from "../../components/Bar";
 import { dateLabel, weekdayIndex } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
+import { Term } from "../../components/Term";
 
 interface Props {
   game: GameState;
@@ -92,7 +93,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
               <table className="pnl">
                 <tbody>
                   <tr><td>Wages</td><td><MoneyText pence={slip.wages} /></td></tr>
-                  <tr><td>Tips (tronc)</td><td><MoneyText pence={slip.tips} /></td></tr>
+                  <tr><td><Term id="tronc" /></td><td><MoneyText pence={slip.tips} /></td></tr>
                   {slip.bonus > 0 && <tr><td>Bonus</td><td><MoneyText pence={slip.bonus} /></td></tr>}
                   <tr className="pnl__cost"><td>Income tax</td><td><MoneyText pence={-slip.tax} /></td></tr>
                   <tr className="pnl__cost"><td>National Insurance <span className="pnl__pct">none on tronc</span></td><td><MoneyText pence={-slip.ni} /></td></tr>
@@ -120,7 +121,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
           )}
           {r && (
             <div className="kpis">
-              <div className="kpi"><div className="kpi__k">Covers</div><div className="kpi__v">{r.covers}</div></div>
+              <div className="kpi"><div className="kpi__k"><Term id="covers" /></div><div className="kpi__v">{r.covers}</div></div>
               <div className="kpi"><div className="kpi__k">Walkouts</div><div className="kpi__v">{r.walkouts}</div></div>
               <div className="kpi"><div className="kpi__k">Rating</div><div className="kpi__v">{r.averageRating.toFixed(1)} <Stars rating={r.averageRating} size={15} /></div></div>
               <div className="kpi"><div className="kpi__k">{management ? "Profit" : "How the place did"}</div><div className="kpi__v"><MoneyText pence={r.profit} tone whole /></div></div>

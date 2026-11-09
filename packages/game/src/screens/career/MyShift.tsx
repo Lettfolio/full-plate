@@ -16,6 +16,7 @@ import type { PathMeta } from "../../state/paths";
 import { handsOnRoleFor } from "../../state/paths";
 import { fill } from "@full-plate/content";
 import type { Command } from "@full-plate/sim-core";
+import { Term } from "../../components/Term";
 
 interface Props {
   game: GameState;
@@ -195,7 +196,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           <table className="pnl pnl--slip" aria-label="Last payslip">
             <tbody>
               <tr><td>Wages</td><td><MoneyText pence={slip.wages} /></td></tr>
-              <tr><td>Tips (tronc)</td><td><MoneyText pence={slip.tips} /></td></tr>
+              <tr><td><Term id="tronc" /></td><td><MoneyText pence={slip.tips} /></td></tr>
               {slip.bonus > 0 && <tr><td>Bonus</td><td><MoneyText pence={slip.bonus} /></td></tr>}
               <tr className="pnl__cost"><td>Tax + NI</td><td><MoneyText pence={-(slip.tax + slip.ni)} /></td></tr>
               <tr className="pnl__cost"><td>Rent, bills, food</td><td><MoneyText pence={-slip.living} /></td></tr>
