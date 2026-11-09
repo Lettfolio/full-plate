@@ -26,6 +26,7 @@ import { hashSeed, Rng } from "./rng";
 import { updateGoals } from "./systems/goals";
 import { respondIncident, startBreak } from "./systems/incidents";
 import { advanceDay, closeForDay, openService, withRng } from "./engine";
+import { recordAdvice } from "./advice";
 import { deliverPlate, holdsAtPass, tallyPlate, toPass, untallyPlate } from "./systems/kitchen";
 import { aiDueTick, stationOf } from "./systems/station";
 import { bookTakings, settleParty } from "./systems/payment";
@@ -249,8 +250,14 @@ const eightySix: Handler<"EIGHTY_SIX"> = (content, state, cmd) => {
 const endDay: Handler<"END_DAY"> = (content, state) => {
   const bad = requirePhase(state, ["evening"], "end the day");
   if (bad) return bad;
-  return advanceDay(state, content);
+  return withAdviceLog(advanceDay(state, content), state, content);
 };
+
+/** [round 6] Records tonight's evening tip (computed on the evening state, before any event choice) in the new day. */
+function withAdviceLog(r: StepResult, evening: GameState, content: ContentPack): StepResult {
+  const log = recordAdvice(evening, content);
+  return log === r.state.adviceLog ? r : { ...r, state: { ...r.state, adviceLog: log } };
+}
 
 const resolveEvent: Handler<"RESOLVE_EVENT"> = (content, state, cmd) => {
   const bad = requirePhase(state, ["event"], "resolve an event");
@@ -259,13 +266,13 @@ const resolveEvent: Handler<"RESOLVE_EVENT"> = (content, state, cmd) => {
   if (!ev) {
     // The card no longer exists (old save, content changed): dismiss it with any choiceId and carry on.
     const events: SimEvent[] = [logEvent(state, "The morning post got lost. Never mind!", "info")];
-    const day = advanceDay(state, content);
+    const day = withAdviceLog(advanceDay(state, content), state, content);
     return { state: foldLog(day.state, events), events: [...events, ...day.events] };
   }
   const choice = ev.choices.find((c) => c.id === cmd.choiceId);
   if (!choice) return reject(state, "That isn't one of the choices.");
   const chosen = applyChoice(state, choice);
-  const day = advanceDay(chosen.state, content);
+  const day = withAdviceLog(advanceDay(chosen.state, content), state, content);
   return { state: foldLog(day.state, chosen.events), events: [...chosen.events, ...day.events] };
 };
 

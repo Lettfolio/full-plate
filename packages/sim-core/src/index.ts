@@ -91,6 +91,11 @@ export * as strategies from "./strategies";
 export { runStrategyDay, STRATEGIES, type Strategy, type StrategyName } from "./strategies";
 /** [round 5 review] The evening's "trim the rota" tip: a doubled-up rota kept through a losing fortnight. */
 export { rotaAdvice, meanProfit, ROTA_ADVICE_DAYS, type RotaAdvice } from "./advice";
+/** [round 6] The evening's one tip (rota, over-stock, dud dish, idle chef, under-pricing) and its words. */
+export {
+  ADVICE_KINDS, ADVICE_RULES, ADVICE_TEXT, adviceRulesOf, adviceSentences, adviceTextOf, allAdvice, eveningAdvice, fillAdvice, onCooldown,
+  penceText, poundsText, recordAdvice, weekdayList, type Advice,
+} from "./advice";
 /** Replace (or remove, with null) the footfall mod tagged `source`, leaving other mods alone. */
 export { setFootfallMod } from "./engine";
 /** Recruitment fee in effect for this game (GameState.recruitmentFee or RECRUITMENT_FEE). */

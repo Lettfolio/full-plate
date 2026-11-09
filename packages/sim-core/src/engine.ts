@@ -102,7 +102,7 @@ export function canonicalState(s: GameState): GameState {
     eightySixed: s.eightySixed, hiredCandidates: s.hiredCandidates, distressDays: s.distressDays, service: s.service,
     eventHistory: s.eventHistory, gameOverReason: s.gameOverReason, incidents: s.incidents, goals: s.goals,
     ownerCovering: s.ownerCovering, ownerFatigue: s.ownerFatigue, shortDelivery: s.shortDelivery, incidentsHandled: s.incidentsHandled,
-    handsOn: s.handsOn, setMenu: s.setMenu, ownerProfile: s.ownerProfile, recruitmentFee: s.recruitmentFee,
+    handsOn: s.handsOn, setMenu: s.setMenu, ownerProfile: s.ownerProfile, recruitmentFee: s.recruitmentFee, adviceLog: s.adviceLog,
   };
   return out;
 }

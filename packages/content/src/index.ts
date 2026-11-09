@@ -6,6 +6,7 @@
  * Importing this module throws if the shipped data is invalid, listing every problem.
  */
 import type {
+  AdviceTextPack,
   BalanceDef,
   ContentPack,
   DishDef,
@@ -37,6 +38,7 @@ import criticTextJson from "../data/criticText.json";
 import careerTextJson from "../data/careerText.json";
 import incidentTextJson from "../data/incidentText.json";
 import goalTextJson from "../data/goalText.json";
+import adviceTextJson from "../data/adviceText.json";
 import type {
   CareerText, CountriesData, CriticText, DietaryRule, DishTag, DishTags, Extras, FormulaDef, GoalTextData, IncidentTextData,
   TastingMenuDef, WineDef, WorldData,
@@ -350,7 +352,75 @@ export function validateContent(pack: unknown): string[] {
     }
   }
 
+  // [round 6] evening tips (optional on ContentPack, always shipped here)
+  if (pack.adviceText !== undefined) validateAdvice(p, pack.adviceText);
+
   return p;
+}
+
+const ADVICE_KINDS = ["rota", "overstock", "dog", "idleChef", "underpriced"];
+const ADVICE_TEXT_KEYS = ["icon", "title", "body", "why", "action"];
+/** Placeholders each tip's words may use (sim-core advice.ts fills them). */
+export const ADVICE_PLACEHOLDERS: Record<string, string[]> = {
+  rota: ["name", "role", "days", "weeklyCost", "dailyLoss", "totalLoss", "shifts", "shiftCost"],
+  overstock: ["ingredient", "ingredientLower", "used", "binned", "cost", "shelfLife", "days"],
+  dog: ["dish", "sold", "days", "course", "courseSold", "margin", "courseMargin"],
+  idleChef: ["name", "days", "weeklyCost", "plates", "soloName", "soloPeak", "soloDay"],
+  underpriced: ["walkouts", "popularity", "raise", "keep", "days"],
+};
+/** Rule knobs: [min, max]. */
+const ADVICE_RULE_RANGES: Record<string, [number, number]> = {
+  cooldownDays: [0, 60], overstockDays: [1, 28], overstockMinCost: [0, 1_000_000], overstockMinShare: [0, 10],
+  dogDays: [2, 56], dogSoldShare: [0, 1], dogMinCourse: [2, 10], idleChefDays: [1, 28], idleChefMinDays: [1, 7], idleChefRatio: [0.1, 3],
+  underpricedDays: [1, 56], underpricedPopularity: [0, 100], underpricedWalkouts: [0, 100], underpricedMaxMargin: [-1, 1],
+  underpricedMaxPriceIndex: [0.5, 3], underpricedRaise: [0.01, 0.5],
+};
+
+function validateAdvice(p: Problems, at: unknown): void {
+  if (!isObj(at)) {
+    p.push("adviceText: expected an object");
+    return;
+  }
+  const rules = at.rules;
+  if (rules !== undefined) {
+    if (!isObj(rules)) p.push("adviceText.rules: expected an object");
+    else {
+      for (const [k, v] of Object.entries(rules)) {
+        if (k === "priority") {
+          if (!Array.isArray(v) || v.some((x) => !ADVICE_KINDS.includes(x as string)) || new Set(v).size !== v.length)
+            p.push(`adviceText.rules.priority: expected distinct kinds from ${ADVICE_KINDS.join(", ")}`);
+          continue;
+        }
+        const range = ADVICE_RULE_RANGES[k];
+        if (!range) p.push(`adviceText.rules: unknown rule "${k}"`);
+        else num(p, `adviceText.rules.${k}`, v, range[0], range[1]);
+      }
+    }
+  }
+  const text = at.text;
+  if (text === undefined) return;
+  if (!isObj(text)) {
+    p.push("adviceText.text: expected an object");
+    return;
+  }
+  for (const [kind, t] of Object.entries(text)) {
+    if (!ADVICE_KINDS.includes(kind)) {
+      p.push(`adviceText.text: unknown kind "${kind}"`);
+      continue;
+    }
+    if (!isObj(t)) {
+      p.push(`adviceText.text.${kind}: expected an object`);
+      continue;
+    }
+    for (const [k, v] of Object.entries(t)) {
+      if (!ADVICE_TEXT_KEYS.includes(k)) p.push(`adviceText.text.${kind}: unknown key "${k}"`);
+      else if (str(p, `adviceText.text.${kind}.${k}`, v)) {
+        for (const ph of v.match(/\{[^}]*\}/g) ?? [])
+          if (!ADVICE_PLACEHOLDERS[kind]!.includes(ph.slice(1, -1))) p.push(`adviceText.text.${kind}.${k}: unknown placeholder ${ph}`);
+        for (const m of v.matchAll(/\[\[([^\]|]*)\|([^\]]*)\]\]/g)) if (!m[1] || !m[2]) p.push(`adviceText.text.${kind}.${k}: bad term ${m[0]}`);
+      }
+    }
+  }
 }
 
 /** Dish ids kept out of the starter library and the default pack (Round 3 path dishes). */
@@ -368,7 +438,14 @@ function assembleFull(): ContentPack {
     events: eventsJson as EventDef[],
     balance: balanceJson as BalanceDef,
     reviewTemplates: reviewTemplatesJson as Record<string, string[]>,
+    adviceText: adviceTextOf(adviceTextJson),
   };
+}
+
+/** [round 6] The evening tips' rules and words (sim-core advice.ts), without the `_note`. */
+function adviceTextOf(json: unknown): AdviceTextPack {
+  const { _note: _n, ...rest } = json as Record<string, unknown>;
+  return rest as AdviceTextPack;
 }
 
 /**

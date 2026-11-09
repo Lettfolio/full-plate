@@ -1,0 +1,65 @@
+{
+  "_note": "Round 6: the owner's evening tips (sim-core advice.ts). One tip an evening, first in `priority` that holds and is off cooldown (the rota tip never rests). Money is pence. Text placeholders are {name}-style; [[termId|label]] marks a glossary word the game shows as a <Term>.",
+  "rules": {
+    "priority": [
+      "rota",
+      "idleChef",
+      "overstock",
+      "underpriced",
+      "dog"
+    ],
+    "cooldownDays": 7,
+    "overstockDays": 7,
+    "overstockMinCost": 1500,
+    "overstockMinShare": 0.25,
+    "dogDays": 14,
+    "dogSoldShare": 0.5,
+    "dogMinCourse": 3,
+    "idleChefDays": 7,
+    "idleChefMinDays": 2,
+    "idleChefRatio": 1,
+    "underpricedDays": 14,
+    "underpricedPopularity": 70,
+    "underpricedWalkouts": 4,
+    "underpricedMaxMargin": 0.05,
+    "underpricedMaxPriceIndex": 1.05,
+    "underpricedRaise": 0.1
+  },
+  "text": {
+    "rota": {
+      "icon": "📅",
+      "title": "Two weeks of losing money (about {dailyLoss} a day).",
+      "body": "{name} works {days}, when another {role} is already on. Those shifts cost {weeklyCost} a week. Take them off the [[rota|rota]] until things pick up?",
+      "why": "The last 14 days lost {totalLoss} in all. {name} is booked for {shifts} doubled-up shifts a week at {shiftCost} each.",
+      "action": "Give {name} {days} off"
+    },
+    "overstock": {
+      "icon": "🗑️",
+      "title": "You're buying more {ingredientLower} than you can use.",
+      "body": "Order less of it, so less of it [[spoilage|goes off]].",
+      "why": "In the last {days} days your kitchen used {used} portions of {ingredientLower} and threw away {binned}: {cost} in the bin. It keeps for {shelfLife} days.",
+      "action": "Check the larder"
+    },
+    "dog": {
+      "icon": "🥀",
+      "title": "Hardly anyone orders the {dish}.",
+      "body": "It's a [[mmDog|dud]]: take it off the menu (fewer things to buy, fewer to go off), or change its price.",
+      "why": "In {days} days it sold {sold} plates; your other {course}s sold about {courseSold} each. It makes {margin} a plate, they make about {courseMargin}.",
+      "action": "Take the {dish} off the menu"
+    },
+    "idleChef": {
+      "icon": "🧑‍🍳",
+      "title": "{name} isn't needed on {days}.",
+      "body": "Two chefs cooked fewer plates than one chef manages alone. Give {name} those days off and save {weeklyCost} a week.",
+      "why": "On those days the two chefs cooked at most {plates} plates between them. On {soloDay}, {soloName} cooked {soloPeak} alone.",
+      "action": "Give {name} {days} off"
+    },
+    "underpriced": {
+      "icon": "🏷️",
+      "title": "Everyone wants to eat here, but you keep very little.",
+      "body": "Put your prices up a little, about {raise}. Busy places can charge a bit more.",
+      "why": "This week about {walkouts} people a night couldn't get a table, and you're very [[popularity|popular]] ({popularity}/100). But over {days} days you {keep}.",
+      "action": "Raise prices {raise}"
+    }
+  }
+}
