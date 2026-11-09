@@ -14,6 +14,8 @@ export { TUNING, POINTS, cookQuality, chopHit, pourQuality, plateExecution, chef
 export { botInput, HESITATE_SECS } from "./bot";
 export { commisStation, stationTickets, stationLevel, railCapOf, STATION_LEVELS, COVER_EXECUTION } from "./station";
 export type { StationPlan, StationLevel } from "./station";
+export { PACING, railCapFor, rollingPpm, shiftTempo } from "./pacing";
+export type { ShiftTempo } from "./pacing";
 export { findPath, steerToward, standTiles } from "./nav";
 export { createFixture, advanceFixture, applyResults, FIXTURE_MENU } from "./fixture";
 export type { Fixture, FixtureOptions } from "./fixture";

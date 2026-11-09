@@ -280,6 +280,14 @@ function reduce(s: AppState, a: AppAction): AppState {
       if (!s.game || s.game.phase !== "service" || !HOOKS.player || !a.results.length) return s;
       let game = s.game;
       const events: SimEvent[] = [];
+      // Round 4 pacing: the station's rail grew or shrank — re-send SET_HANDS_ON (keeps `since`) with the new cap.
+      const resized = a.results.filter((r): r is Extract<HandsOnResult, { type: "RAIL_RESIZED" }> => r.type === "RAIL_RESIZED").at(-1);
+      if (resized && game.handsOn?.station) {
+        const h = game.handsOn;
+        const cmd: Command = { type: "SET_HANDS_ON", role: h.role, ...(h.staffId ? { staffId: h.staffId } : {}), station: { dishIds: h.station!.dishIds, cap: resized.cap } };
+        const r = applyCommand(pack, game, cmd);
+        if (!serviceRejection(r.events)) game = r.state;
+      }
       for (const cmd of handsOnCommands(a.results)) {
         const r = applyCommand(pack, game, cmd);
         // A rejected hands-on command (the session was a tick behind) is harmless: the session prunes its own marks.

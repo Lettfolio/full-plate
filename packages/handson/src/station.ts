@@ -118,7 +118,7 @@ const byAge = (a: KitchenTicket, b: KitchenTicket) => a.createdTick - b.createdT
 
 /** The rail size in force: the sim's (it may have been updated mid-shift by pacing), else the plan's. */
 export function railCapOf(session: HandsOnSession, state: GameState): number {
-  return state.handsOn?.station?.cap ?? session.opts.station?.cap ?? 0;
+  return state.handsOn?.station?.cap ?? session.railCap ?? session.opts.station?.cap ?? 0;
 }
 
 /**

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { PLAYER_ID } from "@full-plate/sim-career";
 import { HANDS_ON } from "@full-plate/sim-core";
 import { appReducer } from "../state/gameReducer";
-import { careerChefStart, playBotShift } from "./handsOnHarness";
+import { careerChefStart, playBotDays, playBotShift } from "./handsOnHarness";
 
 describe("commis station (round 4)", () => {
   it("handsOnStart gives an employee chef a station; the sim reserves its rail and AI cooks never cook it", () => {
@@ -47,5 +47,31 @@ describe("commis station (round 4)", () => {
     const r = playBotShift(careerChefStart(5), { skill: 0.55 });
     expect(r.summary.plates).toBeGreaterThanOrEqual(10);
     expect(r.summary.covered).toBe(0);
+  });
+});
+
+describe("a steady flow at the station (round 4 pacing)", () => {
+  it("a bot gets 10+ plates every shift of a week and a half-speed bot still gets 5+; the rail is rarely dry", () => {
+    for (const [bot, min] of [[{ skill: 0.55, pace: 1 }, 10], [{ skill: 0.55, pace: 0.5 }, 5]] as const) {
+      const days = playBotDays(7, bot, 7);
+      expect(days.length).toBeGreaterThanOrEqual(4);
+      for (const d of days) {
+        expect(d.summary.plates, `day ${d.day} pace ${bot.pace}`).toBeGreaterThanOrEqual(min);
+        expect(d.drySeconds).toBeLessThan(30);
+        // one plate every ~10–30 s of real time, and a shift of 2–5 minutes
+        expect(d.seconds / d.summary.plates).toBeLessThan(30);
+        expect(d.seconds).toBeGreaterThan(120);
+        expect(d.seconds).toBeLessThan(300);
+      }
+    }
+  }, 120_000);
+
+  it("the station's rail can grow mid-shift (RAIL_RESIZED re-sends SET_HANDS_ON, keeping `since`)", () => {
+    let s = careerChefStart(5);
+    s = appReducer(s, { type: "command", cmd: { type: "START_SERVICE" } });
+    s = appReducer(s, { type: "handsOnStart", meta: { role: "chef", jumpIn: false } });
+    const since = s.game!.handsOn!.since;
+    s = appReducer(s, { type: "handsOnResults", results: [{ type: "RAIL_RESIZED", cap: 3 }] });
+    expect(s.game!.handsOn).toMatchObject({ since, station: { cap: 3 } });
   });
 });

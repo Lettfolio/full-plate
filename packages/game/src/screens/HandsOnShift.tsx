@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  botInput, createInputSource, createSession, render, summarise, updateSession,
+  botInput, createInputSource, createSession, render, shiftTempo, summarise, updateSession,
   type HandsOnResult, type HandsOnRole, type HandsOnSession, type ShiftSummary, type StationPlan,
 } from "@full-plate/handson";
 import { content, HOOKS, SERVICE_TICKS } from "../sim";
 import { clockLabel } from "../lib/calendar";
 
-/** Real seconds per sim tick while a hands-on session is live (HANDSON-NOTES: a 120-tick service is 3 minutes). */
+/**
+ * Real seconds per sim tick while a hands-on session is live with no station (HANDSON-NOTES: a 120-tick service is 3
+ * minutes). A career chef's station paces itself (handson `shiftTempo`: fast-forward on an empty rail, gentler for a
+ * slow player).
+ */
 export const HANDS_ON_SECONDS_PER_TICK = 1.5;
+
+/** Seconds until the next sim tick for this session (the station's tempo, else the flat pace). */
+export const secondsPerTick = (session: HandsOnSession, game: GameState): number =>
+  session.opts.station ? shiftTempo(session, game).secondsPerTick : HANDS_ON_SECONDS_PER_TICK;
 const AUTOPILOT: number | undefined = (() => {
   try {
     const v = new URLSearchParams(window.location.search).get("autopilot");
@@ -96,9 +104,10 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
           acc -= STEP;
         }
         if (results.length) L.sendResults(results);
-        const due = Math.floor(tickAcc / HANDS_ON_SECONDS_PER_TICK);
+        const spt = secondsPerTick(sessionRef.current!, L.game);
+        const due = Math.floor(tickAcc / spt);
         if (due > 0) {
-          tickAcc -= due * HANDS_ON_SECONDS_PER_TICK;
+          tickAcc -= due * spt;
           L.onScore?.(summarise(sessionRef.current!));
           L.runTicks(Math.min(due, 4));
         }

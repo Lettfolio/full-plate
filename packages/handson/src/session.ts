@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import { chefSpeedBonus, chopHit, cookBand, cookQuality, plateExecution, POINTS, pourQuality, serveSpeedBonus, TUNING } from "./verbs";
 import { COVER_EXECUTION, stationTickets, type StationPlan } from "./station";
+import { railCapFor } from "./pacing";
 
 /** A plate whose ticket waited longer than this (seconds) "went cold" on the end-of-shift notes. */
 export const COLD_PLATE_SECS = 60;
@@ -656,7 +657,11 @@ export function updateSession(session: HandsOnSession, state: GameState, input: 
 
   sync(s, state);
   if (s.role !== "chef" && payingParties(s, state).length) s.score.tillWait = round6(s.score.tillWait + step);
-  if (s.opts.station) sousChef(s, state, results);
+  if (s.opts.station) {
+    sousChef(s, state, results);
+    const cap = railCapFor(s);
+    if (cap !== (s.railCap ?? s.opts.station.cap)) { s.railCap = cap; results.push({ type: "RAIL_RESIZED", cap }); }
+  }
 
   const a = s.activeAction;
   if (a) {

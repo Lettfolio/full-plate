@@ -168,6 +168,8 @@ export interface HandsOnSession {
   nudgedAt?: number;
   /** [round 4] Session times of the player's plates (newest last, ≤ 40) for the rolling plates-per-minute. */
   plateTimes?: number[];
+  /** [round 4] Rail size last sent to the sim (pacing.ts railCapFor); a change emits RAIL_RESIZED. */
+  railCap?: number;
   carrying?: Item;
   activeAction?: ActiveAction;
   stations: Station[];
@@ -223,6 +225,8 @@ export type HandsOnResult =
   /** The player picked a ticket up (fridge grab, or started a pour): the sim should stop an AI cook taking it. */
   | { type: "TICKET_CLAIMED"; ticketId: string }
   | { type: "PAYMENT_TAKEN"; customerId: CustomerId }
+  /** [round 4] Pacing changed the station's rail size: the game re-sends SET_HANDS_ON with the new `cap`. */
+  | { type: "RAIL_RESIZED"; cap: number }
   | { type: "DROPPED"; cost: Pence; item: Item["kind"]; ticketIds?: string[] };
 
 export interface UpdateResult {
