@@ -249,7 +249,10 @@ export function eveningHooks(game: GameState, meta: PathMeta): { game: GameState
 
   if (careerLive(m)) {
     // A shift the player played hands-on today (reset at START_SERVICE; only counts if they scored anything).
-    const played = m.shiftSummary && m.shiftSummary.points > 0 ? { stars: m.shiftSummary.stars, points: m.shiftSummary.points, meanQuality: m.shiftSummary.meanQuality } : undefined;
+    const sum = m.shiftSummary;
+    const played = sum && sum.points > 0
+      ? { stars: sum.stars, points: sum.points, meanQuality: sum.meanQuality, plates: sum.role === "server" ? sum.served : sum.plates }
+      : undefined;
     const r = stepCareerDay(careerContent, m.career!, g, result, played);
     m = { ...m, career: r.career, careerEvents: [...r.events], ownerCommands: r.nextOwnerCommands };
   }

@@ -1,0 +1,5 @@
+/* Round 4: career progress checklist and the end-of-shift score card (kept out of theme.css). */
+.promo-progress { margin: 4px 0 8px; }
+.checklist--progress .checklist__item { align-items: center; }
+.checklist__meter { display: block; margin-top: 4px; max-width: 260px; }
+.checklist__meter .bar { gap: 0; }

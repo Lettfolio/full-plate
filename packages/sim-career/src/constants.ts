@@ -25,25 +25,25 @@ export const SHIFT_HOURS = 10;
 export const LADDER: Record<CareerTrack, readonly RungDef[]> = {
   chef: [
     { id: "commis", title: "Apprentice chef (commis)", simRole: "chef", wage: NLW, troncPoints: 0.8 },
-    { id: "chef_de_partie", title: "Chef de partie", simRole: "chef", wage: 1360, troncPoints: 0.9, criteria: { stat: 36, shiftsAtRung: 50, reviewAvg: 3.2, ownerMood: 50 } },
-    { id: "sous_chef", title: "Sous chef", simRole: "chef", wage: 1575, troncPoints: 1.1, criteria: { stat: 50, shiftsAtRung: 80, reviewAvg: 3.4, ownerMood: 55 } },
-    { id: "head_chef", title: "Head chef", simRole: "chef", wage: 1825, troncPoints: 1.3, criteria: { stat: 66, shiftsAtRung: 110, reviewAvg: 3.7, ownerMood: 60, reputation: 40 } },
+    { id: "chef_de_partie", title: "Chef de partie", simRole: "chef", wage: 1360, troncPoints: 0.9, criteria: { stat: 30, shiftsAtRung: 10, reviewAvg: 3.2, ownerMood: 50 } },
+    { id: "sous_chef", title: "Sous chef", simRole: "chef", wage: 1575, troncPoints: 1.1, criteria: { stat: 46, shiftsAtRung: 36, reviewAvg: 3.4, ownerMood: 55 } },
+    { id: "head_chef", title: "Head chef", simRole: "chef", wage: 1825, troncPoints: 1.3, criteria: { stat: 62, shiftsAtRung: 70, reviewAvg: 3.7, ownerMood: 60, reputation: 40 } },
   ],
   bar: [
     { id: "bar_back", title: "Bar back", simRole: "bar", wage: NLW, troncPoints: 0.9 },
-    { id: "bartender", title: "Bartender", simRole: "bar", wage: 1320, troncPoints: 1, criteria: { stat: 40, shiftsAtRung: 40, reviewAvg: 3.2, ownerMood: 50 } },
-    { id: "bar_manager", title: "Bar manager", simRole: "bar", wage: 1490, troncPoints: 1.2, criteria: { stat: 52, shiftsAtRung: 80, reviewAvg: 3.4, ownerMood: 55 } },
-    { id: "general_manager", title: "General manager", simRole: "manager", wage: 1750, troncPoints: 1.3, criteria: { stat: 64, shiftsAtRung: 110, reviewAvg: 3.7, ownerMood: 60, reputation: 40 } },
+    { id: "bartender", title: "Bartender", simRole: "bar", wage: 1320, troncPoints: 1, criteria: { stat: 40, shiftsAtRung: 12, reviewAvg: 3.2, ownerMood: 50 } },
+    { id: "bar_manager", title: "Bar manager", simRole: "bar", wage: 1490, troncPoints: 1.2, criteria: { stat: 52, shiftsAtRung: 40, reviewAvg: 3.4, ownerMood: 55 } },
+    { id: "general_manager", title: "General manager", simRole: "manager", wage: 1750, troncPoints: 1.3, criteria: { stat: 64, shiftsAtRung: 70, reviewAvg: 3.7, ownerMood: 60, reputation: 40 } },
   ],
   waiter: [
     { id: "waiter", title: "Waiter", simRole: "server", wage: NLW, troncPoints: 1 },
-    { id: "head_waiter", title: "Head waiter", simRole: "server", wage: 1375, troncPoints: 1.2, criteria: { stat: 60, shiftsAtRung: 50, reviewAvg: 3.3, ownerMood: 50 } },
-    { id: "restaurant_manager", title: "Restaurant manager", simRole: "manager", wage: 1625, troncPoints: 1.3, criteria: { stat: 70, shiftsAtRung: 100, reviewAvg: 3.6, ownerMood: 58, reputation: 35 } },
+    { id: "head_waiter", title: "Head waiter", simRole: "server", wage: 1375, troncPoints: 1.2, criteria: { stat: 60, shiftsAtRung: 12, reviewAvg: 3.3, ownerMood: 50 } },
+    { id: "restaurant_manager", title: "Restaurant manager", simRole: "manager", wage: 1625, troncPoints: 1.3, criteria: { stat: 70, shiftsAtRung: 60, reviewAvg: 3.6, ownerMood: 58, reputation: 35 } },
   ],
   manager: [
     { id: "manager", title: "Restaurant manager", simRole: "manager", wage: 1550, troncPoints: 1.2, bonusPct: 0.03 },
-    { id: "general_manager", title: "General manager", simRole: "manager", wage: 1850, troncPoints: 1.3, bonusPct: 0.05, criteria: { stat: 64, shiftsAtRung: 60, reviewAvg: 3.4, ownerMood: 55 } },
-    { id: "partner", title: "Partner (equity)", simRole: "manager", wage: 1850, troncPoints: 1.3, equityPct: 0.1, criteria: { stat: 70, shiftsAtRung: 90, reviewAvg: 3.7, ownerMood: 65, reputation: 50 } },
+    { id: "general_manager", title: "General manager", simRole: "manager", wage: 1850, troncPoints: 1.3, bonusPct: 0.05, criteria: { stat: 64, shiftsAtRung: 20, reviewAvg: 3.4, ownerMood: 55 } },
+    { id: "partner", title: "Partner (equity)", simRole: "manager", wage: 1850, troncPoints: 1.3, equityPct: 0.1, criteria: { stat: 70, shiftsAtRung: 60, reviewAvg: 3.7, ownerMood: 65, reputation: 50 } },
   ],
 };
 
@@ -225,6 +225,13 @@ export const WEEKEND_MOOD_COST = 1.2;
 // ── growth ──
 /** Track-stat points per shift at each rung before multipliers; diminishing as the stat approaches 100. */
 export const GROWTH_PER_SHIFT: readonly number[] = [0.15, 0.12, 0.1, 0.08];
+/**
+ * Round 4: learning by doing. A shift played hands-on adds `perStar` × stars + `perPlate` × plates (up to `maxPlates`)
+ * to the track stat, × the owner's growthMult × (1 − stat / GROWTH_SOFT_CAP). A ★★ shift of 10 plates at a balanced
+ * owner is ≈ +0.8 cooking on top of the ≈ 0.12 a watched shift gives, so the first promotion (cooking 22 → 30, 10
+ * shifts) takes ~8–12 good hands-on shifts (about an hour of play) and ~65 watched ones.
+ */
+export const HANDS_ON_GROWTH = { perStar: 0.3, perPlate: 0.04, maxPlates: 15 } as const;
 /** Growth × (1 − stat / GROWTH_SOFT_CAP). */
 export const GROWTH_SOFT_CAP = 115;
 export const MENTOR_GROWTH_MULT = 1.5;

@@ -155,6 +155,8 @@ export interface HandsOnShiftScore {
   points: number;
   /** Mean execution of the player's plates, 0-100 (0 when none). */
   meanQuality: number;
+  /** [round 4] The player's own plates (or served plates for front of house); drives HANDS_ON_GROWTH. */
+  plates?: number;
 }
 
 export interface CareerLogEntry {
@@ -255,6 +257,8 @@ export type CareerEvent =
   | { type: "RIVAL_CHANGED"; rival?: StaffId; name?: string }
   | { type: "MENTOR_SESSION"; gain: number }
   | { type: "TRAINED"; gain: number }
+  /** [round 4] Tonight's growth on the track stat (a "+0.8 cooking" chip): `handsOn` is the share from playing. */
+  | { type: "GREW"; gain: number; handsOn: number; stat: number }
   | { type: "BURNOUT"; untilDay: number }
   | { type: "CAN_OPEN_OWN" }
   | { type: "EMPLOYER_CLOSED"; reason: string }

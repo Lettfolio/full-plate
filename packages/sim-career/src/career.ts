@@ -25,6 +25,7 @@ import {
   FIRE_REVIEW,
   GROWTH_PER_SHIFT,
   GROWTH_SOFT_CAP,
+  HANDS_ON_GROWTH,
   LIVING_COSTS_WEEK,
   LOG_MAX,
   MAX_SHIFTS_PER_WEEK,
@@ -139,6 +140,13 @@ export function shiftGrowth(career: CareerState, mentorOnShift: boolean): number
   const mentor = mentorOnShift ? MENTOR_GROWTH_MULT : 1;
   const stress = 1 - career.stress / STRESS_GROWTH_DIV;
   return Math.max(0, base * owner * mentor * stress * (1 - stat / GROWTH_SOFT_CAP));
+}
+
+/** Round 4: extra growth from a shift played hands-on (HANDS_ON_GROWTH). */
+export function handsOnGrowth(career: CareerState, h: HandsOnShiftScore): number {
+  const stat = trackStat(career.track, career.stats);
+  const raw = HANDS_ON_GROWTH.perStar * clamp(h.stars, 0, 3) + HANDS_ON_GROWTH.perPlate * clamp(h.plates ?? 0, 0, HANDS_ON_GROWTH.maxPlates);
+  return Math.max(0, raw * OWNERS[career.owner.strategy].growthMult * (1 - stat / GROWTH_SOFT_CAP));
 }
 
 /** Stress after a shift (or a rest day: fatigue-only). */
@@ -353,7 +361,12 @@ export function stepCareerDay(content: ContentPack, career0: CareerState, state:
     worked && (c.mentor === "owner" || (!!c.mentor && workedOn(state, result.day).some((s) => s.id === c.mentor)));
   if (mentorOnShift) week.mentorShifts += 1;
   let stats = c.stats;
-  if (worked) stats = applyGain(c.track, stats, shiftGrowth(c, mentorOnShift));
+  if (worked) {
+    const play = handsOn ? handsOnGrowth(c, handsOn) : 0;
+    const gain = shiftGrowth(c, mentorOnShift) + play;
+    stats = applyGain(c.track, stats, gain);
+    events.push({ type: "GREW", gain: round2(gain), handsOn: round2(play), stat: round2(trackStat(c.track, stats)) });
+  }
   if (training && me) {
     const gain = Math.max(0, me.skill - c.stats.skill);
     stats = applyGain(c.track, stats, gain);
@@ -598,8 +611,11 @@ export function autoCommands(career: CareerState, policy: AutoPolicy = DEFAULT_P
   return cmds;
 }
 
-/** One whole day: morning commands, owner planning, service, career evening, owner close. */
-export function advanceCareerDay(content: ContentPack, game: CareerGame, policy?: AutoPolicy): { game: CareerGame; events: CareerEvent[] } {
+/**
+ * One whole day: morning commands, owner planning, service, career evening, owner close. `handsOn` (round 4) stands in
+ * for a shift played hands-on (headless "a child playing ★★ shifts"); it only counts on days the player works.
+ */
+export function advanceCareerDay(content: ContentPack, game: CareerGame, policy?: AutoPolicy, handsOn?: HandsOnShiftScore): { game: CareerGame; events: CareerEvent[] } {
   const events: CareerEvent[] = [];
   let g = game;
   if (policy) {
@@ -618,7 +634,7 @@ export function advanceCareerDay(content: ContentPack, game: CareerGame, policy?
   g = begun.game;
   const served = runService(content, g.career.owner.strategy, g.state);
   const result = served.history.at(-1)!;
-  const r = stepCareerDay(content, g.career, served, result);
+  const r = stepCareerDay(content, g.career, served, result, begun.playerWorks ? handsOn : undefined);
   events.push(...r.events);
   g = finishCareerDay(content, { career: r.career, state: served }, r.nextOwnerCommands);
   return { game: g, events };

@@ -6,6 +6,7 @@ export * from "./types";
 export {
   CAREER_SAVE_VERSION,
   CONTRACT_DAYS,
+  HANDS_ON_GROWTH,
   LADDER,
   LIVING_COSTS_WEEK,
   MAX_SHIFTS_PER_WEEK,
@@ -30,6 +31,7 @@ export {
   planFor,
   raiseAvailable,
   serializeCareer,
+  handsOnGrowth,
   shiftGrowth,
   stepCareerDay,
   type AutoPolicy,
@@ -46,6 +48,7 @@ export {
   promotionChecklist,
   reviewAverage,
   rungDef,
+  rungFloorStat,
   rungsOf,
   rungWage,
   topRung,

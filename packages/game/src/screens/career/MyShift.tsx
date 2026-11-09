@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
   canAskPromotion, mentorSessionAvailable, openingBudget, perHour, PLAYER_ID, promotionChecklist, raiseAvailable, rungDef,
-  trackStat, trackStatName, type CareerCommand, type CareerState,
+  rungFloorStat, trackStat, trackStatName, type CareerCommand, type CareerState, type ChecklistItem,
 } from "@full-plate/sim-career";
+import { commisStation } from "@full-plate/handson";
+import "./career.css";
 import { careerContent, extras } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
@@ -46,6 +48,12 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
   const slip = career.payslips.at(-1);
   const savingsTarget = Math.max(1, budget.savingsNeeded);
   const role = handsOnRoleFor(career.role);
+  // Round 4: a chef owns a station; show what's on it today (the same pick the shift will make).
+  const station = role === "chef" && working ? commisStation(game, careerContent, career.track === "chef" ? career.rung : 0) : undefined;
+  const missing = list.items.filter((i) => !i.met).map((i) => i.label.toLowerCase());
+  const promoWhy = !employed ? "You need a job first"
+    : !list.ready ? (missing.length ? `Tick every box first — still to do: ${missing.join(", ")}` : list.note ?? "Not yet")
+    : !canAskPromotion(career) ? "You asked this week — give the boss a few days" : "Ask the boss for the next rung";
   const ownerMorning = meta.ownerMorning.filter((c) => c.type === "HIRE" || c.type === "FIRE" || c.type === "BUY_TABLE" || c.type === "TRAIN");
 
   return (
@@ -65,7 +73,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           ) : training ? (
             <p className="callout"><b>📚 Training course today.</b> The boss is paying for a day of learning instead of a shift.</p>
           ) : working ? (
-            <p className="callout callout--good"><b>You're on today.</b> {role ? `You'll be ${role === "chef" ? "on the pass" : role === "bar" ? "behind the bar" : "on the floor"}.` : "You'll run the floor and the office."}</p>
+            <p className="callout callout--good"><b>You're on today.</b> {station ? <>Your station: <b>{station.label}</b> ({station.title.toLowerCase()}).</> : role ? `You'll be ${role === "chef" ? "on the pass" : role === "bar" ? "behind the bar" : "on the floor"}.` : "You'll run the floor and the office."}</p>
           ) : (
             <p className="callout"><b>Day off.</b> The team runs the place without you today.</p>
           )}
@@ -104,7 +112,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
         </div>
         <p className="xs muted" style={{ marginTop: 6 }}>Mon–Thu are contract shifts. Fri–Sun are optional: they cost a little mood and please the boss.</p>
         <div className="row row--wrap" style={{ marginTop: 10 }}>
-          <button className="btn btn--sm" disabled={!employed || !list.ready || !canAskPromotion(career)} onClick={() => sendCareer({ type: "REQUEST_PROMOTION" })}>Ask for a promotion</button>
+          <button className="btn btn--sm" disabled={!employed || !list.ready || !canAskPromotion(career)} title={promoWhy} onClick={() => sendCareer({ type: "REQUEST_PROMOTION" })}>Ask for a promotion</button>
           <button className="btn btn--sm" disabled={!employed || !raiseAvailable(career)} onClick={() => sendCareer({ type: "ASK_FOR_RAISE" })} title={raiseAvailable(career) ? undefined : "You asked recently — wait a few weeks"}>
             Ask for a raise{raiseAvailable(career) ? "" : " (wait)"}
           </button>
@@ -117,18 +125,27 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
       <section className="card" aria-labelledby="promo-h">
         <div className="card__title"><h3 id="promo-h">{list.nextTitle ? `Next: ${list.nextTitle}` : "Top of the ladder"}</h3>{list.ready && <span className="pill pill--star">Ready!</span>}</div>
         {list.nextRung !== undefined && (careerTextFor(career.track, list.nextRung) ?? null)}
-        <ul className="checklist">
+        {list.items.length > 0 && (
+          <div className="promo-progress" aria-label="Progress to promotion">
+            <Bar value={list.items.filter((i) => i.met).length} max={list.items.length} tone="basil" size="sm" label={`${list.items.filter((i) => i.met).length} of ${list.items.length} ticked`} />
+          </div>
+        )}
+        <ul className="checklist checklist--progress">
           {list.items.map((i) => (
             <li key={i.key} className={i.met ? "checklist__item checklist__item--met" : "checklist__item"}>
               <span aria-hidden="true">{i.met ? "✅" : "⬜"}</span>
-              <span className="spacer">{i.label}</span>
+              <span className="spacer">
+                {i.key === "stat" ? `${i.label} (play your shifts hands-on to learn faster)` : i.label}
+                <span className="checklist__meter"><Bar value={progressOf(i, career)} max={1} tone={i.met ? "basil" : "amber"} size="sm" title={`${i.label}: ${valueText(i)} of ${i.target}`} /></span>
+              </span>
               {i.key === "reviewAvg" && career.weeklyReview.length === 0
                 ? <span className="xs muted">{6 - (career.day % 7) === 0 ? "first review tonight" : `first review in ${6 - (career.day % 7)} day${6 - (career.day % 7) === 1 ? "" : "s"}`}</span>
-                : <><b>{i.key === "reviewAvg" ? i.current.toFixed(1) : Math.floor(i.current)}</b><span className="xs muted">/ {i.target}</span></>}
+                : <><b>{valueText(i)}</b><span className="xs muted">/ {i.target}</span></>}
             </li>
           ))}
         </ul>
         {list.note && <p className="xs muted">{list.note}</p>}
+        {!list.ready && list.items.length > 0 && <p className="xs muted">The boss promotes you at the Sunday review once every box is ticked — or ask straight away.</p>}
       </section>
 
       <section className="card" aria-labelledby="team-h">
@@ -229,6 +246,15 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
       </div>
     </div>
   );
+}
+
+const valueText = (i: ChecklistItem): string => (i.key === "reviewAvg" ? i.current.toFixed(1) : String(Math.floor(i.current)));
+
+/** 0..1 toward a checklist line: the track stat from this rung's starting point; everything else from zero. */
+export function progressOf(i: ChecklistItem, career: CareerState): number {
+  if (i.met) return 1;
+  const from = i.key === "stat" ? Math.min(rungFloorStat(career.track, career.rung), i.target - 1) : 0;
+  return Math.max(0, Math.min(1, (i.current - from) / Math.max(1e-9, i.target - from)));
 }
 
 function careerTextFor(track: CareerState["track"], rung: number) {
