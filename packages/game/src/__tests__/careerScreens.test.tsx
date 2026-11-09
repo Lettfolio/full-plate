@@ -56,3 +56,12 @@ describe("round 4 review: one cooking-skill number everywhere", () => {
     expect(container.textContent).toMatch(/learn faster\)\s*22\s*\/\s*30/);
   });
 });
+
+describe("round 4 review: the hands-on HUD names the commis station", () => {
+  it("a career chef reads their station, not 'On the pass'; owners jumping in keep the role", async () => {
+    const { shiftKicker } = await import("../screens/HandsOnShift");
+    expect(shiftKicker("chef", false, { title: "Commis station", label: "Sides · Desserts" })).toBe("Your shift · Commis station: Sides · Desserts");
+    expect(shiftKicker("chef", true)).toBe("Jumped in · On the pass");
+    expect(shiftKicker("server", false)).toBe("Your shift · On the floor");
+  });
+});

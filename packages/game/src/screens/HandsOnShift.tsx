@@ -50,6 +50,9 @@ interface Props {
 }
 
 const ROLE_LABEL: Record<HandsOnRole, string> = { chef: "On the pass", server: "On the floor", bar: "Behind the bar" };
+/** The HUD's kicker. A career commis owns a station, not the pass (round 4 review: it said "On the pass"). */
+export const shiftKicker = (role: HandsOnRole, jumpIn: boolean | undefined, station?: Pick<StationPlan, "title" | "label">): string =>
+  `${jumpIn ? "Jumped in" : "Your shift"} · ${station ? `${station.title}: ${station.label}` : ROLE_LABEL[role]}`;
 
 /**
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
@@ -141,7 +144,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     <div className="handson">
       <div className="handson__bar">
         <div>
-          <div className="xs faint handson__kicker">{jumpIn ? "Jumped in" : "Your shift"} · {ROLE_LABEL[role]}</div>
+          <div className="xs faint handson__kicker">{shiftKicker(role, jumpIn, station)}</div>
           <div className="handson__clock">{clockLabel(game.tick)}</div>
         </div>
         <div className="clock__track" style={{ flex: 1 }}>
