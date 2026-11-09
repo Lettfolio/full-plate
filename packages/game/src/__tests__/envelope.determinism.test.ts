@@ -10,6 +10,11 @@ import { appReducer, initialAppState, type AppState } from "../state/gameReducer
 import { decodeSave, encodeSave } from "../state/save";
 import { content } from "../sim";
 import { FORK_DAY, initialMeta } from "../state/paths";
+import { botInput, createSession, updateSession } from "@full-plate/handson";
+import { PLAYER_ID } from "@full-plate/sim-career";
+import { deserialize, serialize } from "@full-plate/sim-core";
+import { careerChefStart } from "./handsOnHarness";
+import { secondsPerTick } from "../screens/HandsOnShift";
 
 /** Plays `ticks` ticks, then the rest of the day and the next day, through the reducer. Returns a fingerprint. */
 function continueFrom(s0: AppState, days = 2): string {
@@ -95,5 +100,51 @@ describe("reload during a hands-on shift", () => {
     const r = reload(s);
     expect(r.meta.handsOn).toBeUndefined();
     expect(r.game!.handsOn).toBeUndefined();
+  });
+});
+
+// ───────── Round 4 review: the career commis station (GameState.handsOn.station) survives a mid-service save ─────────
+
+/** A career chef plays hands-on (the bot at a child's skill) for `ticks` sim ticks; the shift is left running. */
+function stationMidShift(ticks: number): AppState {
+  let s = appReducer(careerChefStart(7), { type: "command", cmd: { type: "START_SERVICE" } });
+  s = appReducer(s, { type: "handsOnStart", meta: { role: "chef", jumpIn: false } });
+  const station = s.meta.handsOn!.station!;
+  let session = createSession(s.game!, "chef", { content, tutorial: true, playerStaffId: PLAYER_ID, station });
+  let acc = 0;
+  let n = 0;
+  while (n < ticks && s.game!.phase === "service") {
+    const r = updateSession(session, s.game!, botInput(session, s.game!, 0.55, 0.5), 1 / 60);
+    session = r.session;
+    if (r.results.length) s = appReducer(s, { type: "handsOnResults", results: r.results });
+    acc += 1 / 60;
+    const spt = secondsPerTick(session, s.game!);
+    if (acc >= spt) { acc -= spt; s = appReducer(s, { type: "ticks", n: 1 }); n++; }
+  }
+  return s;
+}
+
+describe("round 4: a save during a commis-station shift", () => {
+  const s = stationMidShift(45);
+
+  it("is mid-service with a station, and the player's plates already booked", () => {
+    expect(s.game!.phase).toBe("service");
+    expect(s.game!.handsOn?.station?.dishIds.length).toBeGreaterThan(0);
+    expect(s.game!.service?.chefs?.[PLAYER_ID]?.plates ?? 0).toBeGreaterThan(0);
+  });
+
+  it("sim-core serialize/deserialize keeps handsOn.station, and the shift continues byte-identically", () => {
+    const g2 = deserialize(serialize(s.game!));
+    expect(g2.handsOn).toEqual(s.game!.handsOn);
+    expect(serialize(g2)).toBe(serialize(s.game!));
+    expect(continueFrom({ ...s, game: g2 }, 3)).toBe(continueFrom(s, 3));
+  });
+
+  it("an envelope reload ends the station exactly as walking away from the canvas does", () => {
+    const r = reload(s);
+    expect(r.game!.handsOn).toBeUndefined();
+    expect(r.meta.handsOn).toBeUndefined();
+    const walked = appReducer(s, { type: "handsOnStop" });
+    expect(continueFrom(r, 3)).toBe(continueFrom(walked, 3));
   });
 });
