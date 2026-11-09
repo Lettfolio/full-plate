@@ -16,6 +16,7 @@ import type {
 import { chefSpeedBonus, chopHit, cookBand, cookQuality, plateExecution, POINTS, pourQuality, serveSpeedBonus, TUNING } from "./verbs";
 import { stationTickets, type StationPlan } from "./station";
 import { railCapFor } from "./pacing";
+import { bookSousWalk, SOUS_WALK_TOTAL } from "./sous";
 
 /** A plate whose ticket waited longer than this (seconds) "went cold" on the end-of-shift notes. */
 export const COLD_PLATE_SECS = 60;
@@ -589,7 +590,7 @@ function sync(s: HandsOnSession, state: GameState) {
 // ───────────────────────── round 4: the sous chef covers an idle commis ─────────────────────────
 
 /** The AI chef who covers (the first other chef on today's floor), for the nudge. */
-function sousName(s: HandsOnSession, state: GameState): string {
+export function sousName(s: HandsOnSession, state: GameState): string {
   const pid = s.opts.playerStaffId;
   const other = state.staff.find((x) => x.role === "chef" && x.id !== pid && x.rota[weekdayOf(state.day)]);
   return other ? other.name.split(" ")[0]! : "Chef";
@@ -648,7 +649,11 @@ function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly Kitche
     const tn = c.tableId ? s.tableNumbers[c.tableId] : undefined;
     say(s, `${who}: “I've sent ${tn ? `table ${tn}'s ` : "the "}${profile(s, was.dishId).short} — grab your next ticket!”`, 3.4);
     toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
+    // Round 6: act it out on the canvas (cosmetic; sous.ts). The slip lifts from where its party's slip hung.
+    const slot = Math.max(0, [...new Set((s.railSeen ?? []).map((x) => x.customerId))].indexOf(was.customerId));
+    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, slot, ...(tn ? { table: tn } : {}) }, s.time);
   }
+  if (s.sousWalks?.length && s.sousWalks.every((w) => w.at + SOUS_WALK_TOTAL <= s.time)) delete s.sousWalks;
   const now = new Map(rail.map((t) => [t.id, { id: t.id, customerId: t.customerId, dishId: t.dishId }]));
   const inHand = s.carrying && "ticketId" in s.carrying ? live.get(s.carrying.ticketId) : undefined;
   if (inHand) now.set(inHand.id, { id: inHand.id, customerId: inHand.customerId, dishId: inHand.dishId });

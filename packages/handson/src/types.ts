@@ -8,6 +8,7 @@
  */
 import type { CustomerId, DishId, Pence, TableId } from "@full-plate/sim-core";
 import type { StationPlan } from "./station";
+import type { SousWalk } from "./sous";
 
 /** Roles that can be played hands-on. (Porter/manager have no floor verbs of their own yet.) */
 export type HandsOnRole = "chef" | "server" | "bar";
@@ -175,6 +176,8 @@ export interface HandsOnSession {
   railCap?: number;
   /** [round 5] Ticket ids on the player's rail (or in hand) last update: one that vanishes uncooked was covered. */
   railSeen?: { id: string; customerId: string; dishId: string }[];
+  /** [round 6] Covers the sous chef is acting out on the canvas (cosmetic; sous.ts). Absent when none are running. */
+  sousWalks?: SousWalk[];
   carrying?: Item;
   activeAction?: ActiveAction;
   stations: Station[];

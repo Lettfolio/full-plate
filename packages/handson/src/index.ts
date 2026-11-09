@@ -1,6 +1,6 @@
 /** @full-plate/handson public API. */
 export * from "./types";
-export { COLD_PLATE_SECS, NUDGE_SHARE, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
+export { COLD_PLATE_SECS, NUDGE_SHARE, sousName, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
 export type { SessionOptions } from "./session";
 export { render, viewMetrics, C as HANDSON_PALETTE } from "./render";
 export type { HandsOnView, ViewMetrics } from "./render";
@@ -14,6 +14,10 @@ export { TUNING, POINTS, cookQuality, chopHit, pourQuality, plateExecution, chef
 export { botInput, HESITATE_SECS } from "./bot";
 export { commisStation, stationTickets, stationLevel, railCapOf, STATION_LEVELS } from "./station";
 export type { StationPlan, StationLevel } from "./station";
+export { railView, courseMarkers, helperAtWork, coverSoon, HELPER_SUFFIX } from "./crew";
+export type { RailEntry, RailOwner, CourseMarker, HelperWork } from "./crew";
+export { bookSousWalk, sousPose, sousLine, SOUS_WALK, SOUS_WALK_TOTAL, SOUS_POST } from "./sous";
+export type { SousWalk, SousPose, SousPhase } from "./sous";
 export { PACING, railCapFor, rollingPpm, shiftTempo } from "./pacing";
 export type { ShiftTempo } from "./pacing";
 export { findPath, steerToward, standTiles } from "./nav";
