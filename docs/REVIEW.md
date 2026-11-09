@@ -1038,3 +1038,111 @@ Top three next steps:
 1. **A first-week coach for the owner.** The same tip card from day 1 with "starter" tips (stock for tomorrow, put your best dish on, give a tired cook a day off), each measured by a learner variant, so the tip habit forms before the first losing fortnight.
 2. **Play-test with a child on an iPad**, using the onboarding and touch play as the script: log taps that miss (the touch controller already knows the hit test), Skips of the onboarding, and how long the first slip takes; tune the USE/Drop column and tile size from that, not from bots.
 3. **Tidy the last shared-shell seams:** a single place for toast anchoring per screen (the "Done" toast over the rota), first names on rota collisions, and an Empire KPI row of four with the hero tabs doing the rest (C19), so every screen has one hero and one primary button.
+
+# Round 8: integration review and playtest (looks: maps, interface system, floor & kitchen art)
+
+Reviewer: lead. Date: 9 Nov 2026. Covers `7a4fe8f` … `365b59a` and this docs commit. Three streams merged onto master with merge commits in the order asked: `r8-a` (`95046e2`, clean), `r8-b` (`c3d1b31`), `r8-c` (`868e1df`). Fixes are `adb71fa` … `365b59a`, then this docs commit.
+
+**Status at the end of this pass:**
+- `pnpm -r typecheck` ✓ (7 packages). `pnpm -r test` ✓: sim-core 243, content 54, handson 91, sim-career 61, sim-stars 67, sim-empire 96, game 320 (**932**; the merged streams were 925 = 879 + A 14 + B 17 + C 15, +7 this pass in `round8.review.test.ts` (6) and `round8.review.dialog.test.tsx` (1)).
+- `pnpm --filter @full-plate/game build` ✓ from the final commit. Type audit on a private port (`FP_AUDIT_URL=http://localhost:5050/`): **31 screens, 0 text runs below 13 px, 0 page errors**, normal and `FP_AUDIT_TEXT=large` — now including the canvas labels painted into C's cached layers (see R8.2 b).
+- Worktrees `fp-r8a`/`fp-r8b`/`fp-r8c` removed, branches `r8-a`/`r8-b`/`r8-c` deleted; A's orphaned `vite preview` on :4917 and its esbuild child killed. The temporary "before" worktree (master `7a4fe8f`, scratchpad `r8rev/before`, :5051) removed. Tree clean.
+
+Artefacts (scratchpad): `r8rev/probe.mjs` (R7's probe + a maps step: zoomed, tooltip, city map, Open here, a city not entered), `r8rev/summ.cjs`, `r8rev/play.mjs` (playtests: kid, owner, jump, paths, maps, win), `r8rev/trap.mjs` (focus trap + drag), `r8rev/extra.mjs`, `r8rev/loadall.mjs` (33 old saves in the browser), `r8rev/perf.sh` (C's `r8c/play.mjs` frame timing, 4× CPU throttle); results `r8rev/probe-{before,after}/probe.json`, `r8rev/audit-{normal,large}/`; screenshots `shots/r8/review/{kid,owner,jump,paths,maps,win,touch,kid-1024-full,kid-rm,perf}/`.
+
+## R8.1 What landed and how it merged
+- **A (maps):** a drawn world map (seeded coastlines, terrain, halos for recognition, supply routes, HTML pins in the tab order with a tooltip, wheel/drag/pinch/± zoom, minimap, map key), a city district map with **+ Open here**, a Stars map of the home city. All styles in `map.css`; city x/y moved in content and `sim-empire/world.ts` (ids unchanged).
+- **B (interface system):** a token block, a 50-icon set, Panel/StatTile, the dark ink HUD header, 44/52/56 px buttons, tables, charts, `.switch`; emoji out of chrome.
+- **C (floor & kitchen art):** one art direction for both canvases, a cached opaque scene layer + cached sprites, palette modules that read theme tokens, `?perf=1`, dpr cap 2, reduced motion.
+- **Merge resolutions.** `EmpireTab.tsx` auto-merged cleanly (A's rewrite only touched the map card and the side panel's ref/handlers; B's hunk was the side-tab icon line) — checked by hand: A's structure (`WorldMap`/`CityMap`, `mapView`, `openHere`, `data-opensite`, `data-enter-city`) with B's `<Icon name={TAB_ICONS[p]}>`; `PANEL_LABEL` keeps its emoji prefix and the label strips it, as on B's branch. `Service.tsx` auto-merged cleanly: B's `SPEED_ICON` and live-tile icons, C's `canvasDpr`, perf meter and reduced-motion option. `docs/UI-NOTES.md` was the only textual conflict (both appended at the end): **both kept, A then B**. `theme.css` did not conflict (A never touched it). Nothing was dropped from any side.
+
+## R8.2 Integration seams
+- **(a) Dark header vs the map; map controls under B's buttons.** Nothing inside `.status` inherits cream: B scoped header rules to `.status__stat` / `.status__end >` and kept `.modal { color: var(--ink) }`; the probe's contrast check finds no header or map run under 4.5:1. A's `.mapbtn` (44 px, its own class) is untouched by `.btn` heights; the district tiles' Open here (`.btn--sm.btn--tap`) are 44 px. **B's `.pill { text-transform: capitalize }` produced Title Case** ("You Run This One", "In Season", "Out Of Season") — `none` now and the eight lower-case pill strings written in sentence case (`de35ec2`). The city map's "←" and "+" text glyphs became `back`/`plus` icons so icon weight matches the rest of the chrome.
+- **(b) Tokens.** Every token C's `palette.ts`/`floorPalette.ts` and A's `map.css` read resolves to a literal hex in theme.css (or a `var()` alias of one — `--own/--franchise/--licence`); `round8.review.test.ts` resolves the list. `--awning` is still the two-colour stripe C parses. A's ownership colours now use **`--own/--franchise/--licence`** (`OWN_COLOUR`), so map pins, the key, the My shops bars and site dots share B's tokens. **The type audit missed C's cached labels**: canvas text drawn into an `OffscreenCanvas`/detached canvas was skipped (`isConnected`), and the layers were painted before each screen's reset. The audit now patches `OffscreenCanvasRenderingContext2D`, divides by the layer dpr and nudges the viewport 1 px so the scenes repaint (`de35ec2`, `365b59a`): KITCHEN, PASS, WASH-UP, BAR, TILL, OFFICE, OPEN measure **13.0 px** — exactly at the floor.
+- **(c) Dead rules.** `.empire__map svg*`, `.empire__map .pin-hit`, `.empire__legend` (theme.css) were unused by A's HTML map; removed with map.css's ten-line block that undid them (`de35ec2`). Visual check: pins, crown, legend, minimap, shop icons unchanged.
+- **(d) Service.** SPEED_ICON deck and live tiles render with C's canvas (`owner/`, `perf/owner-*`). `?perf=1` meter is live (`window.__fpPerf.floor`) at the floor canvas's top-left; R7's service toast anchors under PAUSED at the top-centre of the floor — no overlap in the samples (`jump/01-service-perf1.png`). "Jump in" **On the pass / On the floor / Behind the bar** each mount the hands-on canvas (1232×605) with C's art. The evening light comes up after 18:00 (shots at 18:50 and 20:55: darker pavement, lamp pools). After the lazy split (R8.6) the floor appears one chunk-load after the first frame; the clock is unaffected.
+- **(e) Hands-on.** R7 onboarding spotlights land on C's redrawn rail (36,188 298×60), fryer (636,295 80×46) and pass (296,431 318×46) — geometry is unchanged. Touch at 1024×768 (`touch/`): tap fridge → USE → tap board → chop marks; "Yours" outlines, mood faces, PASS label, the course cloche and the named colleagues visible (the helper badge and sous walk were not specifically caught in a shot — judged from C's tests). Autopilot shifts complete at 1280 (208 s and 198 s, 9 plates each, 3 stars; no onboarding on shift 2) and 1024 (204 s), 0 errors. Reduced motion (`kid-rm/`): C's test pins identical frames 0.25 s apart; shots show no bob artefacts. The hands-on kicker was the last all-caps label ("YOUR SHIFT · SIDES · DESSERTS") — sentence case now (`deda4d6`).
+- **(f) Maps.** Wheel zoom about the cursor: the pin under the cursor moved **0.8 px** at 1.93×. Drag (60, 30) moved the map (60, 30) (a drag started on the part of the map under the action dock hits the dock — expected). Pinch 80 → 240 px (CDP touch) → 3.00×. + / − / reset: 1 → 1.6 → 4 (+ disabled) → 2.5 → 1; minimap only while zoomed. Focusing an off-frame pin (Kingsbridge at 4×) re-centres it; the map tooltip shows on hover and focus. All 12 pins are in the tab order. Escape on the world map or the city map changes nothing. City map **+ Open here** scrolls to and focuses the district's row (`high_street`, "Company · £357,801", in view); **← World map** returns. Stars map: every restaurant pinned (flagship, satellites, rival), "Inspectors are about" in season; hidden visits stay hidden (A's test). **The Settings sheet over the map holds the keys (+, −, arrows, Space: zoom 1.6 → 1.6) but Tab walked out of it** onto the tabs and pins behind (16/25 presses; the R7 build does the same — pre-existing). Dialog now traps Tab/Shift+Tab (`faf377a`, test).
+- **(g) Saves.** All **33 old saves** (r6/review 3, r6/c 5, r7c 9, the R7 audit 8, r7/b 8) decode → encode with the same game keys and equal game objects, re-encoding byte-stable, and each loads in the browser with **0 errors**. City positions come from content (`cityPos` reads `extras.world.cities`; the save's own x/y is only a fallback), so old saves show the new map.
+- **(h) Determinism.** Purity/determinism scans pass in every sim package. A's coastline noise is mulberry32 with fixed seeds in `worldGeo.ts` (no `Math.random`); C's `performance.now` is render-only (`RestaurantView`'s sprite positions are view-local; `perfMeter` reads timings only). `"sideEffects": false` in handson dropped nothing: handson's 91 tests and four built autopilot/jump-in shifts run with 0 errors.
+- **(i) Open items handed over.** B: career eyebrows (My shift, career evening) now `.panel__eyebrow`, `.caps` removed; the Empire six-number row is **three columns at ≤ 1180 px** (four-line "Shop owners' mood" at 1024 before). A: the Map key under the dock until scrolled — accepted (the dock is the pinned primary; the page scrolls).
+
+## R8.3 Fixes in this pass
+| Commit | Fix |
+|---|---|
+| `adb71fa` | Main chunk over budget (228.7 kB): `RestaurantView` + `floorPalette` + handson sprites/layers/palette are a lazy chunk, prefetched in idle time; the frame loop (sim clock) starts at once and draws once the view lands. |
+| `de35ec2` | Pills sentence case; career eyebrows; ownership tokens on the map; dead map rules out of theme.css and map.css; Empire totals 3 columns ≤ 1180 px; city-map icons; audit measures offscreen canvas text; `round8.review.test.ts`. |
+| `deda4d6` | Hands-on kicker sentence case, `.caps` removed; UI-NOTES "Round 8 — review". |
+| `faf377a` | Dialog traps Tab / Shift+Tab (pre-existing; found with the map open). |
+| `365b59a` | Type audit repaints cached layers before measuring. |
+
+## R8.4 Bundle
+| Chunk | master `7a4fe8f` | merged, before split | final |
+|---|---|---|---|
+| main JS (`index`) | 195.9 kB | 228.7 kB | **183.2 kB** (gzip 59.7) |
+| main CSS | 110.0 kB | 129.2 kB | 128.7 kB |
+| EmpireTab | 33.4 kB | 47.3 kB | 47.3 kB |
+| StarsTab | 19.0 kB | 23.9 kB | 23.9 kB |
+| mapParts (shared by both paths) | — | 9.9 kB JS + 15.5 kB CSS | 9.9 kB JS + 14.9 kB CSS |
+| HandsOnShift | 96.3 kB | 109.9 kB | 109.9 kB |
+| RestaurantView (new lazy) | — | — | 36.5 kB |
+| sprites (shared by both canvases) | — | — | 10.6 kB |
+
+## R8.5 Probe: every screen, before (master `7a4fe8f`) vs after
+`r8rev/probe.mjs` on the built dists (`7a4fe8f` in a temporary worktree on :5051; the final build on :5050), old R7 audit saves for both. 28 screens before, 33 after (+ map zoomed, map tooltip, city map, Open here, a city not entered).
+
+| | 1280 normal | 1024 normal | 1280 Bigger | 1024 Bigger |
+|---|---|---|---|---|
+| Targets < 44 px | 1 → **0** | 1 → **0** | 1 → **0** | 1 → **0** |
+| Text < 13 px | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+| Contrast < 4.5:1 (unique runs, all screens) | 13 → **4** | 11 → **4** | 12 → **4** | 9 → **4** (+2 transient) |
+| Screens with sideways scroll | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+| Term tips widening the page | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+| Covered controls (not the dock/strip) on the 28 shared screens | 3 → 2 | 4 → 5 | 1 → 3 | 4 → 4 |
+| Page / console errors | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+
+The last target (Settings' 26 px pause checkbox) is B's 72×44 `.switch`. The four contrast runs left are decorative and unchanged since R7: the matrix legend's ●, empty ☆ on Stars, the scorecard and the career evening; the 1024 Bigger watch view caught the ticker's newest line mid-fade (a different line each run; before had 2–4 of these too). The 🍽️/🌙 day-strip emoji are icons now. The "covered" differences are rows scrolled under the pinned primary button (`.btn--xl` in the dock — Stock steppers at Bigger text, an Empire pin at 1024): scroll position, by design. On the new map screens the only "covered" hits are pins the zoom pushed off the frame (transparent, unclickable, focusable — focusing re-centres them) and rows under the sticky header after Open here scrolls.
+
+## R8.6 Frame times (C's method: every rAF callback timed over 5 s, autopilot, 4× CPU throttle, dpr 1, headless Chromium software raster)
+ms of JS per frame (avg) / ms between frames (avg, p95):
+
+| | early / 1× | mid / 4× |
+|---|---|---|
+| hands-on 1280 | 3.10 / 17.1 (p95 16.8) | 2.23 / 16.8 (16.8) |
+| hands-on 1024 | 2.67 / 16.7 (16.7) | 2.21 / 16.7 (16.8) |
+| floor 1280 (1× / 4×) | 1.59 / 16.9 (16.8) | 1.93 / 17.1 (16.8) |
+| floor 1024 (1× / 4×) | 1.22 / 16.7 (16.8) | 2.16 / **17.9 (33.3)** |
+| jump-in hands-on (owner, 1280) | 1.03 / 16.8 (16.7) | — |
+
+JS per frame is 1–3 ms everywhere — the lazy split changed nothing here. Flagged over 16.7 ms between frames: **floor 1024 at 4×** (avg 17.9, p95 33 — about one dropped frame in twelve) and hands-on 1280 "early" (17.1: the window includes building the scene and sprite caches). C measured the same floor case at 17.9 on its branch and 17.2 on master, so it is not new to the merge; the cost is raster in the software renderer (JS is 2.2 ms), which a GPU-rastered laptop does as a texture copy. Watch it on a real tablet.
+
+## R8.7 Playtests (`vite preview` of the built dist on :5050, Chromium via Playwright; 0 page errors and 0 console errors in every run)
+**(1) A new player** (`kid/`, 1280×800, `?autopilot=0.55,0.5`): title → How do I win? → New game → Apprentice chef, Cosy, "Mia" → My shift → watch → onboarding (three steps, spotlights on the rail, the fryer, the pass) → **shift 1** 208 s, 9 plates, 88%, ★★★ → Next day → **shift 2** no onboarding, 198 s, 9 plates, 89%. **Full shift at 1024** (`kid-1024-full/`, `?autopilot=1`): 204 s. **Touch only** (`touch/`, 1024×768 `hasTouch`, viewport shots): tap fridge → USE → tap board → CHOP → taps. **Reduced motion** (`kid-rm/`).
+**(2) Owner, normal** (`owner/`, 1280×800): lease → three days: Menu list and matrix, hire a chef and a server, the rota grid, Stock fill + order, Service at 1× with table 1 selected (gold brackets), 4×, after 18:00 (18:50, evening light), Evening each night, day 4 morning. Day 2: Settings over service holds the clock (16:05 → 16:05). Jump in (`jump/`): pass, floor, bar from an owner save with `?perf=1`.
+**(3) Paths** (`paths/`, `maps/`): Empire year 4 (`empire-board`, day 1,109, 59 shops + 13 building): board card answered → world map (routes, halos, donuts, crown), wheel-zoomed, hover tooltip, Harbourton's district map (24 shops, "+2" overflow), Open here → the row focused, ← World map, Money (12 month bars), The brand; at 1024 with Bigger text the map and tooltip fit and the totals sit three to a row. Stars (A's `stars-season`, C's `stars-nights`): 40 / 54 days to guide day, inspection season, the night strip (63 cells), the Harbourton map with Rosie's, Chef's Table, The Little Bar, Bistro Rosie and the rival Maison Lune, "Inspectors are about".
+**(4) Win** (`win/`): "A dynasty"; Save a picture → `full-plate-rosie-s.png`, 69,636 bytes, PNG signature ok; reduced motion → no confetti.
+
+**Looks, judged from the shots.** One icon weight across header, tabs, speed deck, live tiles and the map controls; labels sentence case everywhere except cartographic region names on the map and canvas signage (KITCHEN, PASS, BAR — painted signs, deliberately caps). The dark HUD band sits above the map card and the canvases with the cream page between, so it frames rather than fights them; the map's sea/land palette is lighter than the band and the awning stripe ties both. Nothing muddy: the floor's evening tint is subtle (night 0.34 on the street, 0.16 in the room).
+
+| Sev | Finding | State |
+|---|---|---|
+| **P2** | Main chunk 228.7 kB after the merge (budget 225). | Fixed (`adb71fa`, 183.2 kB) |
+| **P2** | Type audit never measured C's cached canvas labels (offscreen, painted before the reset). | Fixed (`de35ec2`, `365b59a`; all 13.0 px) |
+| **P2** | Tab walked out of the Settings sheet (and every Dialog) onto the page behind — pre-existing, found over the map. | Fixed (`faf377a`) |
+| P3 | `.pill` capitalize → Title Case ("You Run This One", "Out Of Season"). | Fixed (`de35ec2`) |
+| P3 | Map ownership colours on raw accents, not B's `--own/--franchise/--licence`. | Fixed (`de35ec2`) |
+| P3 | Dead `.empire__map svg*`, `.pin-hit`, `.empire__legend` (+ map.css's undo block). | Fixed (`de35ec2`) |
+| P3 | Empire six-number row cramped at 1024 (B). | Fixed (`de35ec2`) |
+| P3 | All-caps eyebrows: career screens (B), hands-on kicker. | Fixed (`de35ec2`, `deda4d6`) |
+| P3 | City map "←"/"+" text glyphs beside drawn icons. | Fixed (`de35ec2`) |
+| P3 | Floor at 4× on 1024 drops ~1 frame in 12 under a 4× throttle (raster, not JS). | Open (measure on a real tablet) |
+| P3 | Map key (and the map's bottom edge) under the dock until scrolled (A). | Accepted |
+| P3 | Canvas signage labels sit exactly at 13.0 px. | Accepted (at the floor; don't shrink them) |
+| P3 | Menu matrix on day 1: "No sales yet" overlaps the "Dogs" quadrant label. | Open (pre-existing) |
+| P3 | "📚 Train" keeps an emoji in a button (no book icon in the set). | Open (add a `book` icon) |
+| P3 | Goal toasts can land over the button they're about (Staff "Let go…"); R7's toast-anchoring item. | Open |
+
+## R8.8 Next round
+1. **Play-test on a real tablet** with the `?perf=1` counter on: the floor at 4× and the kitchen at dpr 2 are the two places the software-raster numbers are marginal; if a GPU tablet holds 60 fps, close it; if not, drop the floor's live light pools at 4×.
+2. **One toast anchor per screen** (R7's open item, still visible over the Staff tab) and the day-1 matrix label collision — both small, both in the first five minutes of an owner's game.
+3. **Finish the icon set** (`book`, and any remaining emoji in buttons) and add a lint-style test that no `<button>` text starts with an emoji, so B's rule holds without a reviewer.
