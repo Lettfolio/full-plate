@@ -5,7 +5,8 @@
  * and emit GOAL_COMPLETED.
  */
 import { GOAL_PROFIT_WEEK_DAYS } from "../constants";
-import { GOAL_LADDER, GOAL_LINES, type GoalDef } from "../goals/text";
+import { goalLadderOf, goalLinesOf } from "../contentText";
+import type { GoalDef } from "../goals/text";
 import type { ContentPack, GameState, Goal, SimEvent } from "../types";
 import { clamp, logEvent, round2 } from "../util";
 import type { SystemResult } from "./system";
@@ -15,7 +16,7 @@ function targetOf(content: ContentPack, def: GoalDef): number {
 }
 
 export function goalsForTier(content: ContentPack, tier: number): Goal[] {
-  return GOAL_LADDER.filter((d) => d.tier === tier).map((d) => {
+  return goalLadderOf(content).filter((d) => d.tier === tier).map((d) => {
     const target = targetOf(content, d);
     return {
       id: d.id,
@@ -103,7 +104,8 @@ export function updateGoals(content: ContentPack, state: GameState): SystemResul
       popularity += g.reward?.popularity ?? 0;
       events.push({ type: "GOAL_COMPLETED", goalId: g.id, ...(g.reward ? { reward: { ...g.reward } } : {}) });
       const reward = rewardText(g);
-      const line = reward ? GOAL_LINES.reward.replace("{reward}", reward) : GOAL_LINES.completed;
+      const lines = goalLinesOf(content);
+      const line = reward ? lines.reward.replace("{reward}", reward) : lines.completed;
       events.push(logEvent(state, line.replace("{title}", g.title), "good"));
       return { ...g, progress: g.target, done: true };
     }

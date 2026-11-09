@@ -30,7 +30,8 @@ import {
   STAFF_WOBBLE_FATIGUE,
   VIP_MIN_POPULARITY,
 } from "../constants";
-import { INCIDENT_LINES, INCIDENT_TEXT, fill } from "../incidents/text";
+import { incidentLinesOf, incidentTextOf } from "../contentText";
+import { fill } from "../incidents/text";
 import type { Rng } from "../rng";
 import { addStock, canPlate, consumeDish, purchaseCost } from "../stock";
 import type {
@@ -207,7 +208,7 @@ function buildIncident(content: ContentPack, state: GameState, rng: Rng, kind: I
     ...(ctx.dishId ? { dishId: ctx.dishId } : {}),
     ...(ctx.value !== undefined ? { value: ctx.value } : {}),
   };
-  const text = INCIDENT_TEXT[kind];
+  const text = incidentTextOf(content)[kind];
   const options: IncidentOption[] = Object.entries(optionCosts(content, state, kind, ctx)).map(([id, cost]) => {
     const o = text.options[id]!;
     const vars = textVars(content, state, base, cost);
@@ -229,19 +230,19 @@ function buildIncident(content: ContentPack, state: GameState, rng: Rng, kind: I
 // ── option availability (IncidentOption.disabled) ──
 /** Why an option can't be chosen right now, mirroring the checks in respondIncident/applyOption. */
 function optionBlocker(content: ContentPack, state: GameState, inc: Incident, o: IncidentOption): string | undefined {
-  if ((o.cost ?? 0) > 0 && o.id !== "comp" && state.cash < o.cost!) return INCIDENT_LINES.cantAfford;
+  if ((o.cost ?? 0) > 0 && o.id !== "comp" && state.cash < o.cost!) return incidentLinesOf(content).cantAfford;
   switch (`${inc.kind}:${o.id}`) {
     case "big_party:push": {
       const first = findTable(state.tables, 1);
-      return first && findTable(state.tables.filter((x) => x.id !== first.id), 1) ? undefined : INCIDENT_LINES.needTablesShort;
+      return first && findTable(state.tables.filter((x) => x.id !== first.id), 1) ? undefined : incidentLinesOf(content).needTablesShort;
     }
     case "sent_back:remake": {
       const dish = inc.dishId ? findDish(content, inc.dishId) : undefined;
-      return dish && !canPlate(state.stock, dish) ? fill(INCIDENT_LINES.noStockRemake, { dish: dish.name }) : undefined;
+      return dish && !canPlate(state.stock, dish) ? fill(incidentLinesOf(content).noStockRemake, { dish: dish.name }) : undefined;
     }
     case "staff_wobble:break": {
       const who = state.staff.find((x) => x.id === inc.staffId);
-      return who && onFloor(who, state) ? undefined : fill(INCIDENT_LINES.notOnFloor, { name: who?.name ?? "They" });
+      return who && onFloor(who, state) ? undefined : fill(incidentLinesOf(content).notOnFloor, { name: who?.name ?? "They" });
     }
   }
   return undefined;
@@ -361,7 +362,7 @@ function maybeStart(content: ContentPack, state: GameState, rng: Rng): SystemRes
     if (kind === "spill" && onShift(s, "porter").length) {
       s = patchCustomer(s, inc.customerId, bonus(INCIDENT.spillCleanBonus));
       const porter = onShift(s, "porter")[0]!;
-      const r = finish(s, inc, "porter", fill(INCIDENT_LINES.porterMopped, { name: porter.name, table: tableNo(inc.tableId) }), "good");
+      const r = finish(s, inc, "porter", fill(incidentLinesOf(content).porterMopped, { name: porter.name, table: tableNo(inc.tableId) }), "good");
       return { state: r.state, events: r.events };
     }
     s = onStart(s, inc);
@@ -394,7 +395,7 @@ function finish(state: GameState, inc: Incident, resolution: string, outcome: st
 }
 
 function outcomeText(content: ContentPack, state: GameState, inc: Incident, optionId: string, staffId?: string): string {
-  const text = INCIDENT_TEXT[inc.kind];
+  const text = incidentTextOf(content)[inc.kind];
   const template = optionId === "ignored" ? text.ignored : text.options[optionId]?.outcome ?? text.ignored;
   const vars = textVars(content, state, { ...inc, ...(staffId ? { staffId } : {}) }, inc.options.find((o) => o.id === optionId)?.cost);
   return fill(template, vars);
@@ -449,7 +450,7 @@ export function incidentSystem(content: ContentPack, state: GameState, rng: Rng)
   for (const c of s.customers) {
     if (c.vip && c.walkedOut && c.leftTick === s.tick) {
       s = patchTally(s, { prestigeBonus: round2((tallyOf(s).prestigeBonus ?? 0) + INCIDENT.vipWalkoutPrestige) });
-      events.push(logEvent(s, INCIDENT_LINES.vipWalkout, "bad"));
+      events.push(logEvent(s, incidentLinesOf(content).vipWalkout, "bad"));
     }
   }
   const started = maybeStart(content, s, rng);
@@ -458,17 +459,17 @@ export function incidentSystem(content: ContentPack, state: GameState, rng: Rng)
 }
 
 /** Prestige verdict when a critic pays (called by PaymentSystem). */
-export function vipVerdict(state: GameState, rating: number, delta: number): SimEvent[] {
-  const line = delta > 0 ? INCIDENT_LINES.vipVerdictGood : delta < 0 ? INCIDENT_LINES.vipVerdictBad : INCIDENT_LINES.vipVerdictMeh;
+export function vipVerdict(content: ContentPack, state: GameState, rating: number, delta: number): SimEvent[] {
+  const line = delta > 0 ? incidentLinesOf(content).vipVerdictGood : delta < 0 ? incidentLinesOf(content).vipVerdictBad : incidentLinesOf(content).vipVerdictMeh;
   return [logEvent(state, fill(line, { stars: rating }), delta > 0 ? "good" : delta < 0 ? "bad" : "info")];
 }
 
 /** At close: whatever is still live ends quietly. */
-export function closeIncidents(state: GameState): SystemResult {
+export function closeIncidents(state: GameState, content?: ContentPack): SystemResult {
   let s = state;
   const events: SimEvent[] = [];
   for (const inc of liveIncidents(state)) {
-    const r = finish(dropMods(s, inc.id), inc, "ignored", INCIDENT_LINES.closingTime, "neutral");
+    const r = finish(dropMods(s, inc.id), inc, "ignored", incidentLinesOf(content).closingTime, "neutral");
     s = r.state;
     events.push(r.events[0]!); // no ticker line for each one at closing
   }
@@ -482,7 +483,7 @@ function remake(content: ContentPack, state: GameState, inc: Incident): Applied 
   const c = state.customers.find((x) => x.id === inc.customerId);
   const dish = inc.dishId ? findDish(content, inc.dishId) : undefined;
   if (!c || c.stage === "left" || !dish) return { error: "That table has already gone." };
-  if (!canPlate(state.stock, dish)) return { error: fill(INCIDENT_LINES.noStockRemake, { dish: dish.name }) };
+  if (!canPlate(state.stock, dish)) return { error: fill(incidentLinesOf(content).noStockRemake, { dish: dish.name }) };
   const used = consumeDish(content, state.stock, dish, state.day, monthOf(state.day));
   const t = tallyOf(state);
   // The best cook on the floor drops everything for it.
@@ -515,7 +516,7 @@ function pushTables(content: ContentPack, state: GameState, inc: Incident): Appl
   const size = inc.value ?? content.balance.seatsPerTable + 1;
   const first = findTable(state.tables, 1);
   const second = first && findTable(state.tables.filter((x) => x.id !== first.id), 1);
-  if (!first || !second) return { error: INCIDENT_LINES.needTables };
+  if (!first || !second) return { error: incidentLinesOf(content).needTables };
   const t = tallyOf(state);
   // The district's commonest walk-in segment (deterministic).
   const plan = [...(t.arrivals.length ? t.arrivals : planArrivals(content, state))].sort((a, b) => b.potentialParties - a.potentialParties || a.segment.localeCompare(b.segment));
@@ -532,7 +533,7 @@ function pushTables(content: ContentPack, state: GameState, inc: Incident): Appl
 
 function giveBreakTo(content: ContentPack, state: GameState, staffId: string | undefined): Applied {
   const who = state.staff.find((x) => x.id === staffId);
-  if (!who || !onFloor(who, state)) return { error: fill(INCIDENT_LINES.notOnFloor, { name: who?.name ?? "They" }) };
+  if (!who || !onFloor(who, state)) return { error: fill(incidentLinesOf(content).notOnFloor, { name: who?.name ?? "They" }) };
   return { state: startBreak(content, state, who) };
 }
 
