@@ -17,7 +17,7 @@ export type { StationPlan, StationLevel } from "./station";
 export { railView, courseMarkers, helperAtWork, coverSoon, HELPER_SUFFIX } from "./crew";
 export type { RailEntry, RailOwner, CourseMarker, HelperWork } from "./crew";
 export { bookSousWalk, sousPose, sousLine, SOUS_WALK, SOUS_WALK_TOTAL, SOUS_POST } from "./sous";
-export type { SousWalk, SousPose, SousPhase } from "./sous";
+export type { SousWalk, SousItem, SousPose, SousPhase } from "./sous";
 export { PACING, railCapFor, rollingPpm, shiftTempo } from "./pacing";
 export type { ShiftTempo } from "./pacing";
 export { findPath, steerToward, standTiles } from "./nav";

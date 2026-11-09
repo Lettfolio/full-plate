@@ -651,7 +651,7 @@ function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly Kitche
     toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
     // Round 6: act it out on the canvas (cosmetic; sous.ts). The slip lifts from where its party's slip hung.
     const slot = Math.max(0, [...new Set((s.railSeen ?? []).map((x) => x.customerId))].indexOf(was.customerId));
-    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, slot, ...(tn ? { table: tn } : {}) }, s.time);
+    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, ...(tn ? { table: tn } : {}) }, slot, s.time);
   }
   if (s.sousWalks?.length && s.sousWalks.every((w) => w.at + SOUS_WALK_TOTAL <= s.time)) delete s.sousWalks;
   const now = new Map(rail.map((t) => [t.id, { id: t.id, customerId: t.customerId, dishId: t.dishId }]));

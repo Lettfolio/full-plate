@@ -9,8 +9,10 @@ import type { Customer, GameState, KitchenTicket, SegmentId } from "@full-plate/
 import { nextHint } from "./hints";
 import { DOOR, FRONT_WALL_ROW, PASS_ROW, WORLD_H, WORLD_W } from "./layout";
 import { summarise } from "./score";
-import { isReady, profile, readyGroups } from "./session";
+import { courseMarkers, helperAtWork, railView, HELPER_SUFFIX, type CourseMarker, type HelperWork, type RailEntry } from "./crew";
+import { isReady, profile, readyGroups, sousName } from "./session";
 import { stationTickets } from "./station";
+import { sousLine, sousPose, type SousPose } from "./sous";
 import type { ActiveAction, HandsOnSession, Item, Station } from "./types";
 import { TUNING } from "./verbs";
 
@@ -59,22 +61,58 @@ export function render(ctx: CanvasRenderingContext2D, session: HandsOnSession, s
   drawFloors(ctx, m, P);
   drawProps(ctx, session, m, P);
   const hint = session.tutorial || view.forceHint ? nextHint(session, state) : undefined;
+  // Round 6: the kitchen crew a career commis works with (who has which ticket, the course coming, the sous chef's walk).
+  const crew = crewView(session, state, m);
   // station glow first, under the furniture edges
   for (const st of session.stations) drawGlow(ctx, session, st, m, P, now, hint?.stationId === st.id);
-  for (const st of session.stations) drawStation(ctx, session, state, st, m, P, now);
+  for (const st of session.stations) drawStation(ctx, session, state, st, m, P, now, crew);
   drawColleagues(ctx, session, state, m, P, now);
+  if (crew) drawCrew(ctx, session, state, crew, m, P, now);
   drawPlayer(ctx, session, m, P, now);
   if (hint?.stationId && !session.activeAction) drawArrow(ctx, session, hint.stationId, m, P, now);
   drawToasts(ctx, session, m, P, now);
+  if (crew) drawSousBubble(ctx, session, crew, m, P);
   if (session.activeAction) drawActionWidget(ctx, session, session.activeAction, m, P);
   else drawPrompt(ctx, session, m, P);
-  drawHeader(ctx, session, state, m, now);
+  drawHeader(ctx, session, state, m, now, crew);
+  if (crew) drawFlyingSlip(ctx, crew, m, P);
   drawBanner(ctx, session, hint?.text, m);
   if (session.shift?.over) drawScoreScreen(ctx, session, m, view.continueLabel ?? "Press E to play again");
   ctx.restore();
 }
 
 type PFn = (tx: number, ty: number) => { x: number; y: number };
+
+// ───────────────────────── round 6: the crew view (derived once a frame) ─────────────────────────
+
+/** Header rail geometry (CSS px), shared by the rail and the sous chef's walk to it. */
+const RAIL = { x: 10, hudW: 250, tagW: 160, slipW: 132, gap: 6 } as const;
+
+interface CrewView {
+  rail: RailEntry[];
+  markers: Map<string, CourseMarker>;
+  helper?: HelperWork;
+  sous: SousPose;
+  sousName: string;
+  /** Header x (CSS px) of the centre of rail slot `i`. */
+  slotPx: (i: number) => number;
+}
+
+function crewView(s: HandsOnSession, state: GameState, m: ViewMetrics): CrewView | undefined {
+  if (s.role !== "chef" || !s.opts.station) return undefined;
+  const slotPx = (i: number) => RAIL.x + RAIL.tagW + i * (RAIL.slipW + RAIL.gap) + RAIL.slipW / 2;
+  // The sous chef stands in the kitchen under the slip he takes (clamped to the walkable strip).
+  const railX = (i: number) => clamp((slotPx(i) - m.ox) / m.T, 2.5, 19.5);
+  const helper = helperAtWork(s, state);
+  return {
+    rail: railView(s, state),
+    markers: new Map(courseMarkers(s, state).map((k) => [k.tableId, k])),
+    ...(helper ? { helper } : {}),
+    sous: sousPose(s.sousWalks, s.time, railX),
+    sousName: sousName(s, state),
+    slotPx,
+  };
+}
 
 // ───────────────────────── floors and walls ─────────────────────────
 
@@ -184,11 +222,11 @@ function drawGlow(ctx: CanvasRenderingContext2D, s: HandsOnSession, st: Station,
   }
 }
 
-function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, st: Station, m: ViewMetrics, P: PFn, now: number) {
+function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, st: Station, m: ViewMetrics, P: PFn, now: number, crew?: CrewView) {
   const { T } = m;
   const p = P(st.x, st.y);
   const w = st.w * T, h = st.h * T;
-  const busy = s.activeAction?.stationId === st.id;
+  const busy = s.activeAction?.stationId === st.id || crew?.helper?.stationId === st.id;
   switch (st.kind) {
     case "fridge": {
       ctx.fillStyle = C.paper; ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1.5;
@@ -283,11 +321,11 @@ function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Ga
       label(ctx, "TILL", p.x + w / 2, p.y + h + 14, { align: "center", size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
       break;
     }
-    case "table": drawTable(ctx, s, state, st, m, P, now); break;
+    case "table": drawTable(ctx, s, state, st, m, P, now, crew); break;
   }
 }
 
-function drawTable(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, st: Station, m: ViewMetrics, P: PFn, now: number) {
+function drawTable(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, st: Station, m: ViewMetrics, P: PFn, now: number, crew?: CrewView) {
   const { T } = m;
   const table = state.tables.find((t) => t.id === st.tableId);
   if (!table) return;
@@ -350,6 +388,9 @@ function drawTable(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Game
       label(ctx, `${served}/${c.order.length}`, bx, by + 3.5, { align: "center", size: 13, weight: 900, colour: C.inkSoft });
     }
   }
+  // Round 6: their own course is coming (her dessert/side/starter while they eat the mains)
+  const course = c && table ? crew?.markers.get(table.id) : undefined;
+  if (course) drawCourseMarker(ctx, s, course, cx - r * 0.78, cy - r * 0.78, now);
   // table number badge: big and always visible
   const tx = cx + r * 0.75, ty = cy - r * 0.75;
   dot(ctx, tx, ty, 11, c ? C.ink : "rgba(43,38,34,0.6)");
@@ -387,11 +428,11 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMet
 }
 
 /** A staff character seen from above-front: shoulders, head, role hat, face toward `facing`. */
-function character(ctx: CanvasRenderingContext2D, x: number, y: number, T: number, role: "chef" | "server" | "bar", facing: string, scale = 1, you = false) {
+function character(ctx: CanvasRenderingContext2D, x: number, y: number, T: number, role: "chef" | "server" | "bar", facing: string, scale = 1, you = false, jacket?: string) {
   const r = T * 0.3 * scale;
   ctx.fillStyle = "rgba(60,40,20,0.2)";
   ctx.beginPath(); ctx.ellipse(x + 1, y + r * 1.05, r * 1.15, r * 0.42, 0, 0, Math.PI * 2); ctx.fill();
-  const body = role === "chef" ? C.paper : role === "server" ? "#2f3a33" : C.plum;
+  const body = jacket ?? (role === "chef" ? C.paper : role === "server" ? "#2f3a33" : C.plum);
   ctx.fillStyle = body; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.ellipse(x, y + r * 0.35, r * 1.1, r * 0.85, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   if (role === "chef") { ctx.fillStyle = C.tomato; ctx.fillRect(x - r * 0.15, y + r * 0.1, r * 0.3, r * 0.9); } // apron tie
@@ -623,13 +664,13 @@ const VERB_WORD: Record<string, string> = { grab: "Grabbing…", plate: "Plating
 
 // ───────────────────────── header: ticket rail, timer, score ─────────────────────────
 
-function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, m: ViewMetrics, now: number) {
+function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, m: ViewMetrics, now: number, crew?: CrewView) {
   ctx.fillStyle = C.paper;
   ctx.fillRect(0, 0, m.w, m.header);
   ctx.fillStyle = "rgba(43,38,34,0.12)"; ctx.fillRect(0, m.header - 2, m.w, 2);
   // rail
-  const hudW = 250;
-  const railX = 10, railW = m.w - hudW - 20;
+  const hudW = RAIL.hudW;
+  const railX = RAIL.x, railW = m.w - hudW - 20;
   ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(railX, 8); ctx.lineTo(railX + railW, 8); ctx.stroke();
   // Round 4: a career chef with a station sees only their own rail, behind a station tag.
@@ -640,24 +681,38 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     const drink = profile(s, t.dishId).method === "pour";
     return s.role === "chef" ? !drink : s.role === "bar" ? true : true;
   };
-  const tagW = station ? 160 : 0;
+  const tagW = station ? RAIL.tagW : 0;
   if (station) {
     const tx = railX, ty = 10, th = m.header - 20;
     ctx.fillStyle = C.tomato; roundRect(ctx, tx, ty, tagW - 8, th, 9); ctx.fill();
     label(ctx, station.title.toUpperCase(), tx + 8, ty + 17, { size: 13, weight: 900, colour: C.paper, spacing: 0.5, maxW: tagW - 18 });
     wrap(ctx, station.label, tx + 8, ty + 35, tagW - 22, 16, { size: 14, weight: 800, colour: C.paper });
   }
+  // Round 6: with a station, slips come from the crew view: hers first (tomato band), then the sous chef's about-to-go
+  // (amber, his name) and her station's dishes another cook has (sky, "HELPER") — one slip per party and owner.
   const groups = new Map<string, KitchenTicket[]>();
-  for (const t of [...state.tickets].sort((a, b) => a.createdTick - b.createdTick || (a.id < b.id ? -1 : 1))) {
-    if (!relevant(t) || s.served[t.id]) continue;
-    const g = groups.get(t.customerId) ?? [];
-    g.push(t);
-    groups.set(t.customerId, g);
+  const owners = new Map<string, RailEntry[]>();
+  if (crew) {
+    for (const e of crew.rail) {
+      if (s.served[e.ticket.id]) continue;
+      const key = `${e.ticket.customerId}|${e.owner === "helper" ? "h" : "m"}`;
+      groups.set(key, [...(groups.get(key) ?? []), e.ticket]);
+      owners.set(key, [...(owners.get(key) ?? []), e]);
+    }
+  } else {
+    for (const t of [...state.tickets].sort((a, b) => a.createdTick - b.createdTick || (a.id < b.id ? -1 : 1))) {
+      if (!relevant(t) || s.served[t.id]) continue;
+      const g = groups.get(t.customerId) ?? [];
+      g.push(t);
+      groups.set(t.customerId, g);
+    }
   }
-  const slipW = 132, gap = 6;
+  const slipW = RAIL.slipW, gap = RAIL.gap;
   const max = Math.max(1, Math.floor((railW - tagW + gap) / (slipW + gap)));
   const list = [...groups.entries()];
-  list.slice(0, max).forEach(([cid, tks], i) => {
+  list.slice(0, max).forEach(([key, tks], i) => {
+    const cid = tks[0]?.customerId ?? key;
+    const es = owners.get(key);
     const x = railX + tagW + i * (slipW + gap);
     const ageSecs = s.time - Math.min(...tks.map((t) => s.seenAt[`t:${t.id}`] ?? s.time));
     const ageTicks = state.tick - (tks[0]?.createdTick ?? state.tick);
@@ -672,17 +727,23 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     ctx.fillRect(-slipW / 2, 0, slipW, h);
     ctx.shadowColor = "transparent"; ctx.strokeRect(-slipW / 2, 0, slipW, h);
     ctx.fillStyle = head; ctx.fillRect(-slipW / 2, 0, slipW, 4);
+    const own = es ? slipOwner(es) : undefined;
+    if (own) { ctx.fillStyle = OWNER_COLOUR[own]; ctx.fillRect(-slipW / 2, 0, 5, h); } // whose slip: the band down the left
+    const tx0 = -slipW / 2 + (own ? 9 : 6);
     const tn = tableNo(s, state, cid);
-    label(ctx, tn ? `TABLE ${tn}` : "—", -slipW / 2 + 6, 19, { size: 13, weight: 900, colour: C.ink, spacing: 0.5 });
+    label(ctx, tn ? `TABLE ${tn}` : "—", tx0, 19, { size: 13, weight: 900, colour: C.ink, spacing: 0.5 });
+    if (es && own === "helper") pill(ctx, es[0]!.cook?.endsWith(HELPER_SUFFIX) ? "HELPER" : cookName(state, es[0]!.cook).toUpperCase(), slipW / 2 - 4, 12, OWNER_COLOUR.helper);
+    else if (es && own === "sous") pill(ctx, crew!.sousName.toUpperCase(), slipW / 2 - 4, 12, C.amberDeep);
+    else if (es?.some((e) => e.course)) cloche(ctx, slipW / 2 - 12, 15, 7, C.tomato);
     tks.slice(0, 3).forEach((t, j) => {
       const yy = 34 + j * 15;
       const st = ticketStatus(s, t);
       const col = st === "ready" ? C.basil : st === "mine" ? C.amber : st === "ai" ? C.steelDark : C.inkFaint;
-      if (st === "open") { ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(-slipW / 2 + 10, yy - 4.5, 4, 0, Math.PI * 2); ctx.stroke(); }
-      else dot(ctx, -slipW / 2 + 10, yy - 4.5, 4.4, col);
-      label(ctx, profile(s, t.dishId).short, -slipW / 2 + 20, yy, { size: 14, weight: 800, colour: st === "ready" ? C.basilDeep : C.ink, maxW: slipW - 26 });
+      if (st === "open") { ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(tx0 + 4, yy - 4.5, 4, 0, Math.PI * 2); ctx.stroke(); }
+      else dot(ctx, tx0 + 4, yy - 4.5, 4.4, col);
+      label(ctx, profile(s, t.dishId).short, tx0 + 14, yy, { size: 14, weight: 800, colour: st === "ready" ? C.basilDeep : C.ink, maxW: slipW - 20 - (tx0 + slipW / 2) });
     });
-    if (tks.length > 3) label(ctx, `+${tks.length - 3}`, slipW / 2 - 5, 19, { align: "right", size: 13, weight: 900, colour: C.tomatoDeep });
+    if (tks.length > 3 && (!own || own === "hers")) label(ctx, `+${tks.length - 3}`, slipW / 2 - 5, 19, { align: "right", size: 13, weight: 900, colour: C.tomatoDeep });
     ctx.restore();
     dot(ctx, x + slipW / 2, 8, 2.5, C.tomato);
   });
@@ -710,6 +771,131 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
   } else {
     label(ctx, clockOf(state.tick), hx + hudW - 12, 45, { align: "right", size: 22, weight: 900, colour: C.paper });
   }
+}
+
+/** Round 6: whose slip it is — the band down its left and the pill. A slip with any of hers is hers unless all are going. */
+const OWNER_COLOUR: Record<RailEntry["owner"], string> = { hers: C.tomato, sous: C.amber, helper: C.sky };
+function slipOwner(es: readonly RailEntry[]): RailEntry["owner"] {
+  if (es.some((e) => e.owner === "hers")) return "hers";
+  return es.some((e) => e.owner === "sous") ? "sous" : "helper";
+}
+
+function cookName(state: GameState, cook: string | undefined): string {
+  const st = cook ? state.staff.find((x) => x.id === cook) : undefined;
+  return st ? st.name.split(" ")[0]! : "Chef";
+}
+
+/** A small right-aligned pill (13 px caps) ending at x, centred on y. */
+function pill(ctx: CanvasRenderingContext2D, text: string, right: number, y: number, bg: string) {
+  ctx.font = `900 13px ${FONT}`;
+  const w = Math.min(64, ctx.measureText(text).width + 10);
+  ctx.fillStyle = bg; roundRect(ctx, right - w, y - 8, w, 16, 8); ctx.fill();
+  label(ctx, text, right - w / 2, y + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper, maxW: w - 6 });
+}
+
+/** A serving cloche (dome, knob, base) centred on (x, y) with radius r. */
+function cloche(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, accent: string) {
+  ctx.fillStyle = "#dfe4e6"; ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.arc(x, y + r * 0.35, r, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.05, r * 0.22, 0, Math.PI * 2); ctx.fill();
+  dot(ctx, x, y + r * 0.35 - r - r * 0.12, Math.max(1.6, r * 0.2), accent);
+  ctx.fillStyle = C.inkSoft; ctx.fillRect(x - r * 1.2, y + r * 0.35, r * 2.4, Math.max(1.5, r * 0.18));
+}
+
+/**
+ * Round 6: "dessert coming" on a table eating its mains while its own course cooks. A cloche on a paper disc with a ring
+ * that fills through the mains (it is due as they finish); tomato when it's on her rail, sky when a helper has it.
+ */
+function drawCourseMarker(ctx: CanvasRenderingContext2D, s: HandsOnSession, k: CourseMarker, x: number, y: number, now: number) {
+  const col = k.owner === "hers" ? C.tomato : C.sky;
+  const held = s.carrying && "ticketId" in s.carrying && k.ticketIds.includes(s.carrying.ticketId);
+  const R = 13 + (held ? Math.sin(now * 6) * 1.2 : 0);
+  dot(ctx, x, y, R + 2, "rgba(255,253,248,0.96)");
+  ctx.strokeStyle = "rgba(43,38,34,0.18)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke();
+  if (k.progress > 0) {
+    ctx.strokeStyle = col; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k.progress); ctx.stroke(); ctx.lineCap = "butt";
+  }
+  cloche(ctx, x, y - 1, 7.5, col);
+}
+
+/** Round 6: the sous chef (charcoal jacket, at his post or acting out a cover) and the commis's AI hands at her station. */
+function drawCrew(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, crew: CrewView, m: ViewMetrics, P: PFn, now: number) {
+  const { T } = m;
+  if (crew.helper) {
+    const st = s.stations.find((x) => x.id === crew.helper!.stationId);
+    if (st) {
+      let hx = st.x + st.w / 2, hy = st.y + st.h + 0.3;
+      if (Math.abs(s.player.x - hx) < 0.9 && Math.abs(s.player.y - hy) < 1) hx += s.player.x <= hx ? 0.95 : -0.95; // make room for her
+      const q = P(hx, hy);
+      const bob = Math.sin(now * 7) * 1;
+      character(ctx, q.x, q.y + bob, T, "chef", "up", 0.82, false, "#cfe2ef");
+      // the "helping" badge: subtle, under the sprite
+      ctx.font = `800 13px ${FONT}`;
+      const w = ctx.measureText("helping").width + 10;
+      ctx.fillStyle = "rgba(79,143,184,0.92)";
+      roundRect(ctx, q.x - w / 2, q.y + T * 0.5, w, 16, 8); ctx.fill();
+      label(ctx, "helping", q.x, q.y + T * 0.5 + 12.5, { align: "center", size: 13, weight: 800, colour: C.paper });
+    }
+  }
+  const sp = crew.sous;
+  const q = P(sp.x, sp.y);
+  const bob = sp.moving ? Math.sin(now * 14) * 1.5 : Math.sin(now * 3) * 0.8;
+  character(ctx, q.x, q.y + bob, T, "chef", sp.facing, 0.92, false, "#3b4650");
+  nameTag(ctx, crew.sousName, q.x, q.y + T * 0.55);
+  if (sp.carrying) {
+    // the plate (and its slip) held up, like the player's carried items
+    const ix = q.x + (sp.facing === "left" ? -1 : sp.facing === "right" ? 1 : 0) * T * 0.4, iy = q.y + bob - T * 0.9;
+    ctx.fillStyle = "rgba(255,253,248,0.92)"; ctx.strokeStyle = C.inkFaint; ctx.lineWidth = 1;
+    roundRect(ctx, ix - T * 0.4, iy - T * 0.28, T * 0.8, T * 0.52, 8); ctx.fill(); ctx.stroke();
+    plate(ctx, ix - T * 0.06, iy, T * 0.19, true);
+    ctx.fillStyle = C.paper; ctx.strokeStyle = C.inkSoft; ctx.fillRect(ix + T * 0.12, iy - T * 0.2, T * 0.2, T * 0.26); ctx.strokeRect(ix + T * 0.12, iy - T * 0.2, T * 0.2, T * 0.26);
+    ctx.fillStyle = C.tomato; ctx.fillRect(ix + T * 0.12, iy - T * 0.2, T * 0.2, 3);
+  }
+  // the plate he set down stays on the pass a moment
+  if ((sp.phase === "set" && sp.t >= 0.5) || (sp.phase === "back" && sp.t < 0.35)) {
+    const pp = P(sp.phase === "set" ? sp.x : 9.5, 5.5);
+    plate(ctx, pp.x, pp.y, T * 0.2, true);
+  }
+}
+
+/** Round 6: the sous chef's speech bubble ("I've got table 3's Chips!"), drawn over the toasts. */
+function drawSousBubble(ctx: CanvasRenderingContext2D, s: HandsOnSession, crew: CrewView, m: ViewMetrics, P: PFn) {
+  const sp = crew.sous;
+  if (!sp.talking || !sp.walk) return;
+  const text = sousLine(sp.walk.items, (d) => profile(s, d).short);
+  const q = P(sp.x, sp.y);
+  ctx.font = `800 14px ${FONT}`;
+  const w = Math.min(m.w - 16, ctx.measureText(text).width + 20), h = 26;
+  const x = clamp(q.x - w / 2, 8, m.w - w - 8);
+  const y = Math.max(m.header + 4, q.y - m.T * (sp.carrying ? 1.75 : 1.35) - h);
+  ctx.fillStyle = C.paper; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+  roundRect(ctx, x, y, w, h, 12); ctx.fill(); ctx.stroke();
+  const tx = clamp(q.x, x + 14, x + w - 14);
+  ctx.beginPath(); ctx.moveTo(tx - 6, y + h - 1); ctx.lineTo(tx, y + h + 8); ctx.lineTo(tx + 6, y + h - 1); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(tx - 6, y + h); ctx.lineTo(tx, y + h + 8); ctx.lineTo(tx + 6, y + h); ctx.stroke();
+  label(ctx, text, x + w / 2, y + 18, { align: "center", size: 14, weight: 800, colour: C.ink, maxW: w - 14 });
+}
+
+/** Round 6: while the sous chef takes it, the slip drops from its place on the header rail into his hand. */
+function drawFlyingSlip(ctx: CanvasRenderingContext2D, crew: CrewView, m: ViewMetrics, P: PFn) {
+  const sp = crew.sous;
+  if (sp.phase !== "take" || !sp.walk || sp.t >= 0.5) return;
+  const k = sp.t / 0.5;
+  const e = k * k * (3 - 2 * k);
+  const from = { x: crew.slotPx(sp.walk.slot), y: 30 };
+  const q = P(sp.x, sp.y);
+  const to = { x: q.x, y: q.y - m.T * 0.9 };
+  const x = lerp(from.x, to.x, e), y = lerp(from.y, to.y, e);
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate((1 - e) * 0.25);
+  ctx.fillStyle = C.paper; ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 1;
+  ctx.shadowColor = "rgba(0,0,0,0.2)"; ctx.shadowBlur = 4;
+  ctx.fillRect(-14, -10, 28, 20); ctx.shadowColor = "transparent"; ctx.strokeRect(-14, -10, 28, 20);
+  ctx.fillStyle = C.amber; ctx.fillRect(-14, -10, 4, 20);
+  ctx.fillStyle = C.inkFaint; ctx.fillRect(-6, -4, 16, 2); ctx.fillRect(-6, 1, 12, 2);
+  ctx.restore();
 }
 
 function ticketStatus(s: HandsOnSession, t: KitchenTicket): "ready" | "mine" | "ai" | "open" {

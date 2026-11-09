@@ -6,7 +6,8 @@ import { createFixture } from "../src/fixture";
 import { createSession, NO_INPUT, updateSession } from "../src/session";
 import type { StationPlan } from "../src/station";
 import { courseMarkers, coverSoon, helperAtWork, railView } from "../src/crew";
-import { bookSousWalk, PASS_STAND, SOUS_MAX_LAG, SOUS_POST, SOUS_WALK, SOUS_WALK_TOTAL, sousLine, sousPose, RAIL_STAND_Y } from "../src/sous";
+import { bookSousWalk, PASS_STAND, SOUS_POST, SOUS_WALK, SOUS_WALK_TOTAL, sousLine, sousPose, RAIL_STAND_Y } from "../src/sous";
+import { render } from "../src/render";
 import { DT } from "./helpers";
 
 const plan: StationPlan = {
@@ -103,8 +104,8 @@ describe("helperAtWork: her AI hands at her station", () => {
 describe("the sous chef's walk (cosmetic)", () => {
   const railX = (slot: number) => 6 + slot * 4;
   it("walks post → under the slip → the pass → back, carrying from the take until the plate is down", () => {
-    const walks = bookSousWalk(undefined, { ticketId: "d1", dishId: "brownie", table: 3, slot: 1 }, 10);
-    expect(walks).toEqual([{ ticketId: "d1", dishId: "brownie", table: 3, slot: 1, at: 10 }]);
+    const walks = bookSousWalk(undefined, { ticketId: "d1", dishId: "brownie", table: 3 }, 1, 10);
+    expect(walks).toEqual([{ items: [{ ticketId: "d1", dishId: "brownie", table: 3 }], slot: 1, at: 10 }]);
     expect(sousPose(walks, 9.9, railX)).toMatchObject({ phase: "idle", x: SOUS_POST.x, y: SOUS_POST.y, talking: false });
     expect(sousPose(walks, 10, railX)).toMatchObject({ phase: "toRail", x: SOUS_POST.x, carrying: false, talking: true, facing: "left" });
     const atRail = sousPose(walks, 10 + SOUS_WALK.toRail + 0.01, railX);
@@ -117,19 +118,31 @@ describe("the sous chef's walk (cosmetic)", () => {
     expect(set).toMatchObject({ phase: "set", x: PASS_STAND.x, y: PASS_STAND.y });
     expect(sousPose(walks, 10 + SOUS_WALK_TOTAL - 0.01, railX)).toMatchObject({ phase: "back", talking: false, carrying: false });
     expect(sousPose(walks, 10 + SOUS_WALK_TOTAL, railX).phase).toBe("idle");
-    expect(sousLine({ table: 3 }, "Brownie")).toBe("I've got table 3's Brownie!");
-    expect(sousLine({}, "Brownie")).toBe("I've got the Brownie!");
+    const short = (d: string) => (d === "brownie" ? "Brownie" : "Chips");
+    expect(sousLine([{ dishId: "brownie", table: 3 }], short)).toBe("I've got table 3's Brownie!");
+    expect(sousLine([{ dishId: "brownie" }], short)).toBe("I've got the Brownie!");
+    expect(sousLine([{ dishId: "chips", table: 1 }, { dishId: "chips", table: 5 }], short)).toBe("I've got the Chips for tables 1 and 5!");
+    expect(sousLine([{ dishId: "chips", table: 2 }, { dishId: "brownie", table: 4 }, { dishId: "chips", table: 6 }], short)).toBe("I've got tables 2, 4 and 6!");
+    expect(sousLine([{ dishId: "chips", table: 2 }, { dishId: "chips", table: 2 }], short)).toBe("I've got the Chips for table 2!");
   });
 
-  it("queues one walk behind another, skips one that would lag too far, prunes finished ones, never mutates", () => {
-    const one = Object.freeze(bookSousWalk(undefined, { ticketId: "a", dishId: "brownie", slot: 0 }, 10));
-    const two = bookSousWalk(one, { ticketId: "b", dishId: "brownie", slot: 0 }, 11);
+  it("a cover before he has the slip joins the trip; later ones queue one deep; never mutates", () => {
+    const item = (ticketId: string) => ({ ticketId, dishId: "brownie" });
+    const one = Object.freeze(bookSousWalk(undefined, item("a"), 0, 10));
+    const joined = bookSousWalk(one, item("b"), 1, 10.5);
+    expect(joined).toEqual([{ items: [item("a"), item("b")], slot: 0, at: 10 }]);
+    expect(one[0]!.items).toHaveLength(1);
+    const after = 10 + SOUS_WALK.toRail + SOUS_WALK.take;
+    const two = bookSousWalk(one, item("b"), 1, after);
     expect(two.map((w) => w.at)).toEqual([10, 10 + SOUS_WALK_TOTAL]);
-    expect(one).toHaveLength(1);
-    const lagging = bookSousWalk(two, { ticketId: "c", dishId: "brownie", slot: 0 }, 11);
-    expect(10 + 2 * SOUS_WALK_TOTAL - 11).toBeGreaterThan(SOUS_MAX_LAG);
-    expect(lagging.map((w) => w.ticketId)).toEqual(["a", "b"]);
-    expect(bookSousWalk(two, { ticketId: "d", dishId: "brownie", slot: 2 }, 100)).toEqual([{ ticketId: "d", dishId: "brownie", slot: 2, at: 100 }]);
+    // a third while the second is still queued joins it (he hasn't set off for it yet)
+    expect(bookSousWalk(two, item("c"), 0, after + 0.1).map((w) => w.items.length)).toEqual([1, 2]);
+    // past its take, the next trip queues behind it
+    const busy = bookSousWalk(two, item("c"), 0, 10 + SOUS_WALK_TOTAL + SOUS_WALK.toRail + SOUS_WALK.take);
+    expect(busy.map((w) => w.items.map((i) => i.ticketId))).toEqual([["b"], ["c"]]);
+    // so a trip never waits more than one leg's worth: at most one queued behind the one walking
+    expect(busy).toHaveLength(2);
+    expect(bookSousWalk(two, item("d"), 2, 100)).toEqual([{ items: [item("d")], slot: 2, at: 100 }]);
   });
 
   it("the session books a walk when the sim covers a rail ticket (with its table and slip), and drops it when done", () => {
@@ -140,8 +153,42 @@ describe("the sous chef's walk (cosmetic)", () => {
     const after: GameState = { ...before, tickets: before.tickets.filter((t) => t.id !== "b3") };
     s = updateSession(s, after, NO_INPUT, DT).session;
     expect(s.score.covered).toBe(1);
-    expect(s.sousWalks).toEqual([{ ticketId: "b3", dishId: "brownie", table: 2, slot: 1, at: s.time }]);
+    expect(s.sousWalks).toEqual([{ items: [{ ticketId: "b3", dishId: "brownie", table: 2 }], slot: 1, at: s.time }]);
     for (let i = 0; i < Math.ceil((SOUS_WALK_TOTAL + 0.1) / DT); i++) s = updateSession(s, after, NO_INPUT, DT).session;
     expect(s.sousWalks).toBeUndefined();
+  });
+});
+
+describe("render (round 6 crew)", () => {
+  /** A recording 2D context: every call is a no-op; fonts and texts are kept. */
+  function fakeCtx() {
+    const texts: { text: string; px: number }[] = [];
+    let font = "";
+    const grad = { addColorStop() {} };
+    const target: Record<string, unknown> = {
+      fillText: (t: string) => texts.push({ text: t, px: Number(/(\d+(?:\.\d+)?)px/.exec(font)?.[1] ?? 0) }),
+      strokeText: () => {}, measureText: (t: string) => ({ width: t.length * 7 }), createLinearGradient: () => grad,
+    };
+    const ctx = new Proxy(target, {
+      get: (o, k: string) => (k in o ? o[k] : k === "font" ? font : () => {}),
+      set: (o, k: string, v) => { if (k === "font") font = v; else o[k] = v; return true; },
+    });
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, texts };
+  }
+
+  it("draws the sous chef's line, the helper badge, the HELPER pill and the course marker, all text ≥ 13 px", () => {
+    const st = world(
+      [tk("d1", "c1", "brownie", 1), tk("b2", "c2", "beef_burger", 2, { chefId: "kid~ai" })],
+      { stage: "eating", courseOut: true, servedTick: 4, eatUntil: 14, platesReady: 1 },
+      6,
+    );
+    const s = { ...session(st), time: 20, sousWalks: [{ items: [{ ticketId: "q", dishId: "brownie", table: 1 }], slot: 0, at: 19.5 }] };
+    const { ctx, texts } = fakeCtx();
+    render(ctx, s, st, { width: 1024, height: 600 });
+    const all = texts.map((t) => t.text);
+    expect(all).toContain("I've got table 1's Brownie!");
+    expect(all).toContain("helping");
+    expect(all).toContain("HELPER");
+    expect(Math.min(...texts.map((t) => t.px))).toBeGreaterThanOrEqual(13);
   });
 });

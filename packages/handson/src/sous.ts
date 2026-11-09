@@ -7,12 +7,21 @@
  * result. Pure functions of (walks, time) so render can draw it without memory, and a paused session draws a still.
  */
 
-/** One cover to act out. `at` is the session time the walk starts (queued behind the previous one). */
-export interface SousWalk {
+/** A plate he sends. */
+export interface SousItem {
   ticketId: string;
   dishId: string;
   /** Table number as the player sees it, when the party is seated. */
   table?: number;
+}
+
+/**
+ * One trip to act out. `at` is the session time the walk starts (queued behind the previous one). Covers noticed
+ * before he has taken the slip join the trip (the sim often covers two tickets in one tick), so what he says always
+ * matches the line the session shows.
+ */
+export interface SousWalk {
+  items: SousItem[];
   /** Which slip on the header rail it was (left to right, by party), so the slip lifts from where it hung. */
   slot: number;
   at: number;
@@ -21,8 +30,6 @@ export interface SousWalk {
 /** Seconds in each leg of the walk. */
 export const SOUS_WALK = { toRail: 1.1, take: 0.45, toPass: 1.5, set: 0.5, back: 1.3 } as const;
 export const SOUS_WALK_TOTAL = SOUS_WALK.toRail + SOUS_WALK.take + SOUS_WALK.toPass + SOUS_WALK.set + SOUS_WALK.back;
-/** A walk that would start this long after the cover is skipped (the line and the count still happen). */
-export const SOUS_MAX_LAG = 6;
 /** Walks kept at once (the oldest finished ones are dropped). */
 const MAX_WALKS = 4;
 
@@ -32,14 +39,16 @@ export const RAIL_STAND_Y = 2.2;
 export const PASS_STAND = { x: 9.5, y: 4.35 } as const;
 
 /**
- * Books a walk for a cover noticed at `now`: it starts when the previous one is over, or not at all if that is more
- * than SOUS_MAX_LAG away. Returns the new list (finished walks pruned), never mutating `walks`.
+ * Books a cover noticed at `now`. It joins the latest trip if he hasn't taken that slip yet; otherwise a new trip starts
+ * when the previous one is over (so at most one trip waits, a few seconds). Returns the new list (finished walks
+ * pruned), never mutating `walks`.
  */
-export function bookSousWalk(walks: readonly SousWalk[] | undefined, walk: Omit<SousWalk, "at">, now: number): SousWalk[] {
+export function bookSousWalk(walks: readonly SousWalk[] | undefined, item: SousItem, slot: number, now: number): SousWalk[] {
   const live = (walks ?? []).filter((w) => w.at + SOUS_WALK_TOTAL > now);
+  const last = live.at(-1);
+  if (last && now < last.at + SOUS_WALK.toRail + SOUS_WALK.take) return [...live.slice(0, -1), { ...last, items: [...last.items, item] }];
   const prevEnd = live.reduce((a, w) => Math.max(a, w.at + SOUS_WALK_TOTAL), now);
-  if (prevEnd - now > SOUS_MAX_LAG) return live;
-  return [...live, { ...walk, at: prevEnd }].slice(-MAX_WALKS);
+  return [...live, { items: [item], slot, at: prevEnd }].slice(-MAX_WALKS);
 }
 
 export type SousPhase = "idle" | "toRail" | "take" | "toPass" | "set" | "back";
@@ -104,6 +113,17 @@ export function sousPose(walks: readonly SousWalk[] | undefined, time: number, r
   return idle;
 }
 
-/** What the sous chef says on the way: "I've got table 3's Chips!" */
-export const sousLine = (w: Pick<SousWalk, "table">, dishShort: string): string =>
-  w.table ? `I've got table ${w.table}'s ${dishShort}!` : `I've got the ${dishShort}!`;
+/**
+ * What the sous chef says on the way: "I've got table 3's Chips!", "I've got the Chips for tables 1 and 5!",
+ * "I've got tables 2 and 4!". `short` names a dish for the slip.
+ */
+export function sousLine(items: readonly Pick<SousItem, "dishId" | "table">[], short: (dishId: string) => string): string {
+  const first = items[0];
+  if (!first) return "";
+  if (items.length === 1) return first.table ? `I've got table ${first.table}'s ${short(first.dishId)}!` : `I've got the ${short(first.dishId)}!`;
+  const tables = [...new Set(items.map((i) => i.table).filter((t): t is number => t !== undefined))];
+  const sameDish = items.every((i) => i.dishId === first.dishId);
+  if (!tables.length) return sameDish ? `I've got the ${short(first.dishId)}s!` : "I've got those plates!";
+  const list = tables.length === 1 ? `table ${tables[0]}` : `tables ${tables.slice(0, -1).join(", ")} and ${tables.at(-1)}`;
+  return sameDish ? `I've got the ${short(first.dishId)} for ${list}!` : `I've got ${list}!`;
+}
