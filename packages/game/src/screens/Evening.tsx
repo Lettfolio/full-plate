@@ -21,6 +21,56 @@ import { compactMeals } from "../components/StatusBar";
 import { inSeason } from "@full-plate/sim-stars";
 import { Term } from "../components/Term";
 import { AdviceCard } from "../components/AdviceCard";
+import { DayRhythm } from "../components/DayRhythm";
+import { lastNights, versusYesterday } from "../lib/dayLoop";
+import { formatPence } from "../lib/format";
+
+/**
+ * Round 7 (B): tonight's money as one big friendly figure (count-up, ▲/▼, green/red), what that is against last
+ * night, and the last seven nights as bars, so "a tough night" has a size. The sums stay one tap away.
+ */
+export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
+  const up = r.profit >= 0;
+  const vs = versusYesterday(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
+  const nights = lastNights(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
+  const peak = Math.max(1, ...nights.map((n) => Math.abs(n.profit)));
+  return (
+    <section className={`tonight tonight--${up ? "up" : "down"}`} aria-label="Tonight's money">
+      <div className="tonight__main">
+        <div className="tonight__k">{up ? "Tonight you made" : "Tonight you lost"}</div>
+        <div className="tonight__v">
+          <span className="tonight__arrow" aria-hidden="true">{up ? "▲" : "▼"}</span>
+          <MoneyText pence={Math.abs(r.profit)} whole countUp="mount" />
+        </div>
+        {vs !== undefined && (
+          <div className={`tonight__vs tonight__vs--${vs >= 0 ? "up" : "down"}`}>
+            {vs === 0 ? "The same as last night" : `${formatPence(Math.abs(vs), { whole: true })} ${vs > 0 ? "better" : "worse"} than last night`}
+          </div>
+        )}
+        <div className="tonight__facts">
+          <span><b>{r.covers}</b> <Term id="covers" inline>guests</Term></span>
+          <span className={r.walkouts ? "tonight__bad" : ""}><b>{r.walkouts}</b> walked out</span>
+          <span><b>{r.averageRating.toFixed(1)}</b> <Stars rating={r.averageRating} size={15} /></span>
+          <span>Cash in the bank <b><MoneyText pence={game.cash} whole tone /></b></span>
+        </div>
+      </div>
+      {nights.length > 1 && (
+        <div className="tonight__week" role="img" aria-label={`Last ${nights.length} nights: ${nights.map((n) => `${WEEKDAY_NAMES[weekdayIndex(n.day)]} ${n.profit < 0 ? "lost" : "made"} ${formatPence(Math.abs(n.profit), { whole: true })}`).join(", ")}`}>
+          <div className="tonight__bars" aria-hidden="true">
+            {nights.map((n) => (
+              <div key={n.day} className={`tonight__col ${n.day === r.day ? "is-tonight" : ""}`}>
+                <div className="tonight__half tonight__half--up">{n.profit > 0 && <i style={{ height: `${Math.max(6, (n.profit / peak) * 100)}%` }} />}</div>
+                <div className="tonight__half tonight__half--down">{n.profit < 0 && <i style={{ height: `${Math.max(6, (-n.profit / peak) * 100)}%` }} />}</div>
+                <span className="tonight__day">{n.day === r.day ? "Today" : WEEKDAY_NAMES[weekdayIndex(n.day)]!.slice(0, 3)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="tonight__weeknote">Your last {nights.length} nights</div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 interface Props {
   game: GameState;
@@ -194,16 +244,13 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   return (
     <div className="page">
       <div className="evening">
-        <div className="evening__head">
-          <div>
-            <div className="xs faint" style={{ fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>Evening · Day {r.day + 1} · {dateLabel(r.day)}</div>
-            <h1>{good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
-          </div>
-          <span className="spacer" />
-          <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>{nextLabel}</button>
+        <div className="evening__head beathead">
+          <DayRhythm beat="evening" weekday={WEEKDAY_NAMES[weekdayIndex(r.day)]!} />
+          <h1 title={`Day ${r.day + 1} · ${dateLabel(r.day)}`}>{good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
         </div>
         {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
         {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
+        <div className="evening__money"><TonightMoney game={game} r={r} /></div>
 
         <div className="stack">
           {game.phase !== "gameover" && <Restock game={game} send={send} inspection={!!meta?.stars && !meta.stars.ending && inSeason(meta.stars, game.day + 1)} stars={meta?.stars?.guides.michelin.stars ?? 0} />}
@@ -233,8 +280,8 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
               {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("restaurant")}>Buy a table →</button>}
             </div>
           )}
-          <div className="card">
-            <div className="card__title"><h3>Today's takings</h3><span className="xs faint">% of revenue</span></div>
+          <details className="card sums">
+            <summary className="sums__summary"><h3>Where the money went</h3><span className="small muted">tap to see the sums</span></summary>
             <table className="pnl">
               <tbody>
                 <tr><td>Food & drink sales</td><td><MoneyText pence={r.revenue} /></td></tr>
@@ -254,7 +301,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
             <p className="xs faint" style={{ marginTop: 8 }}>
               Left on plates: <MoneyText pence={r.waste.plate} /> (already in food cost) · Tips for the team: <MoneyText pence={r.tips} /> (not your money) · Cash now: <MoneyText pence={game.cash} tone />
             </p>
-          </div>
+          </details>
 
           <div className="card">
             <div className="card__title"><h3>Reputation</h3></div>
@@ -266,13 +313,6 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
         </div>
 
         <div className="stack">
-          <div className="kpis">
-            <div className="kpi"><div className="kpi__k"><Term id="covers" /></div><div className="kpi__v">{r.covers}</div></div>
-            <div className="kpi"><div className="kpi__k">Walkouts</div><div className="kpi__v" style={{ color: r.walkouts ? "var(--tomato-deep)" : undefined }}>{r.walkouts}</div></div>
-            <div className="kpi"><div className="kpi__k">Avg spend</div><div className="kpi__v"><MoneyText pence={r.averageSpend} /></div></div>
-            <div className="kpi"><div className="kpi__k">Avg rating</div><div className="kpi__v">{r.averageRating.toFixed(1)} <Stars rating={r.averageRating} size={15} /></div></div>
-          </div>
-
           <div className="dishpair">
             <div className="dishpick dishpick--best">
               <span className="dishpick__icon" aria-hidden="true">🏆</span>
@@ -334,6 +374,11 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
             )}
           </div>
         </div>
+      </div>
+      {/* Round 7: the same bottom-right place as Planning's "Open for service". */}
+      <div className="actiondock actiondock--page">
+        <span className="actiondock__note small muted">Average spend <b><MoneyText pence={r.averageSpend} /></b> a guest</span>
+        <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>{nextLabel}</button>
       </div>
     </div>
   );
