@@ -286,6 +286,19 @@ export interface Customer {
   vip?: boolean;
   /** [round 3, sim-core] The party ordered the set menu (GameState.setMenu): one sale of setMenu.price per head. */
   setMenu?: boolean;
+  /**
+   * [round 5, hands-on station] The party started eating its mains while the human's course (station starters, sides
+   * or desserts) was still being cooked; it lands as its own course and the party pays only once it has. Cleared when
+   * the last plate lands.
+   */
+  courseOut?: boolean;
+  /**
+   * [round 5, hands-on station] The tick the party would have had every plate had an AI cook done the human's: AI
+   * plates count when they land, the human's (and covered) ones at their AI-time. Only set while a station is on.
+   * The excess `servedTick − dueTick` is "station dilation": it is refunded from eating time and from the wait the
+   * party rates, so a slow child's plate never slows the dining room.
+   */
+  dueTick?: number;
 }
 
 export interface Table {
@@ -301,6 +314,11 @@ export interface HandsOnStation {
   dishIds: DishId[];
   /** Tickets of those dishes held on the human's rail at once (1–6), counting ones they have picked up. */
   cap: number;
+  /**
+   * [round 5] The sim's sous chef covers a rail ticket (picked up or not) once it is this many ticks old, counted from
+   * when it fired or hands-on began (1–40; HANDS_ON.stationCoverTicks when absent). Higher rungs send fewer.
+   */
+  coverTicks?: number;
 }
 
 export interface KitchenTicket {

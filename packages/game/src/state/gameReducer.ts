@@ -265,8 +265,9 @@ function reduce(s: AppState, a: AppAction): AppState {
       // Career: pass the player's staff id so their plates are credited to them (perChef, the weekly review).
       const staffId = s.meta.mode === "career" && !s.meta.career?.handover ? s.meta.career?.playerStaffId : undefined;
       // Round 4: an employee chef owns a commis station (wider at higher rungs); the AI never takes its rail.
+      // Round 5: the sim's sous chef covers it by ticket age (station.coverTicks, tighter at higher rungs).
       const station = staffId ? careerStation(pack, game, s.meta, a.meta) : undefined;
-      const cmd: Command = { type: "SET_HANDS_ON", role: a.meta.role, ...(staffId ? { staffId } : {}), ...(station ? { station: { dishIds: station.dishIds, cap: station.cap } } : {}) };
+      const cmd: Command = { type: "SET_HANDS_ON", role: a.meta.role, ...(staffId ? { staffId } : {}), ...(station ? { station: { dishIds: station.dishIds, cap: station.cap, ...(station.coverTicks ? { coverTicks: station.coverTicks } : {}) } } : {}) };
       if (HOOKS.handsOn) game = applyCommand(pack, game, cmd).state;
       return { ...s, game, meta: { ...s.meta, handsOn: { ...a.meta, ...(station ? { station } : {}) } } };
     }
@@ -284,7 +285,7 @@ function reduce(s: AppState, a: AppAction): AppState {
       const resized = a.results.filter((r): r is Extract<HandsOnResult, { type: "RAIL_RESIZED" }> => r.type === "RAIL_RESIZED").at(-1);
       if (resized && game.handsOn?.station) {
         const h = game.handsOn;
-        const cmd: Command = { type: "SET_HANDS_ON", role: h.role, ...(h.staffId ? { staffId: h.staffId } : {}), station: { dishIds: h.station!.dishIds, cap: resized.cap } };
+        const cmd: Command = { type: "SET_HANDS_ON", role: h.role, ...(h.staffId ? { staffId: h.staffId } : {}), station: { ...h.station!, cap: resized.cap } };
         const r = applyCommand(pack, game, cmd);
         if (!serviceRejection(r.events)) game = r.state;
       }

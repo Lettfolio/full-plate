@@ -12,7 +12,7 @@
  * Roles without a station (server, bar, owner jump-in) keep the flat HANDS_ON-notes pace of 1.5 s a tick.
  */
 import type { GameState } from "@full-plate/sim-core";
-import { railCapOf, stationTickets } from "./station";
+import { coverDueTick, railCapOf, stationTickets } from "./station";
 import type { HandsOnSession } from "./types";
 
 export const PACING = {
@@ -22,6 +22,20 @@ export const PACING = {
   baseSpt: [1.6, 1.5, 1.4, 1.3] as readonly number[],
   /** Empty rail: fast-forward until the next station ticket arrives. */
   drySpt: 0.5,
+  /**
+   * Round 5, pace to the pass: while the player has a station ticket in hand (or a verb going), a sim tick takes this
+   * long by level, so a child's plate lands in about as many sim ticks as an AI cook's would and rarely meets the sim's
+   * cover (station coverTicks). The restaurant's rules don't depend on it (they are in sim ticks); it only decides how
+   * many plates are the child's own.
+   */
+  workSpt: [3, 2.7, 2.4, 2.2] as readonly number[],
+  /**
+   * …and when the next tick would have the sim's sous chef take the ticket the player is busy with (station.ts
+   * `coverDueTick`), that tick waits this many times longer, as long as the player keeps working (a verb going, or one
+   * within `workingSecs`). A child who is cooking is given the time; one who wandered off is covered as usual.
+   */
+  lastTickStretch: 3,
+  workingSecs: 8,
   /** Rail has room: hurry the next ticket a little. */
   roomFactor: 0.8,
   /** Full rail and the player below target: slow the restaurant by up to this much. */
@@ -69,6 +83,14 @@ export function shiftTempo(session: HandsOnSession, state: GameState): ShiftTemp
   const base = PACING.baseSpt[Math.max(0, Math.min(PACING.baseSpt.length - 1, st.level))]!;
   if (session.shift?.over) return { secondsPerTick: base, dry: false, ppm, railSize: rail };
   if (rail === 0 && !carrying) return { secondsPerTick: PACING.drySpt, dry: true, ppm, railSize: 0 };
+  if (carrying || session.activeAction?.ticketId) {
+    const work = PACING.workSpt[Math.max(0, Math.min(PACING.workSpt.length - 1, st.level))]!;
+    const id = session.carrying && "ticketId" in session.carrying ? session.carrying.ticketId : session.activeAction?.ticketId;
+    const t = id ? state.tickets.find((x) => x.id === id) : undefined;
+    const working = !!session.activeAction || session.time - (session.lastActiveAt ?? 0) < PACING.workingSecs;
+    const due = t ? coverDueTick(session, state, t) - state.tick : Infinity;
+    return { secondsPerTick: working && due <= 1 ? round3(work * PACING.lastTickStretch) : work, dry: false, ppm, railSize: rail };
+  }
   const cap = railCapOf(session, state);
   if (rail < cap) return { secondsPerTick: round3(base * PACING.roomFactor), dry: false, ppm, railSize: rail };
   const slow = ppm > 0 ? Math.min(PACING.maxSlowFactor, Math.max(1, st.targetPpm / ppm)) : PACING.maxSlowFactor;

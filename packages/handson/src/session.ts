@@ -14,15 +14,13 @@ import type {
   Station, UpdateResult, Verb,
 } from "./types";
 import { chefSpeedBonus, chopHit, cookBand, cookQuality, plateExecution, POINTS, pourQuality, serveSpeedBonus, TUNING } from "./verbs";
-import { COVER_EXECUTION, stationTickets, type StationPlan } from "./station";
+import { stationTickets, type StationPlan } from "./station";
 import { railCapFor } from "./pacing";
 
 /** A plate whose ticket waited longer than this (seconds) "went cold" on the end-of-shift notes. */
 export const COLD_PLATE_SECS = 60;
 /** The "need a hand?" nudge comes at this share of the sous chef's idle cover time. */
 export const NUDGE_SHARE = 0.6;
-/** The sous chef covers a station ticket when its party's patience (0–100) is down to this (round 4 review). */
-export const COVER_PATIENCE = 40;
 
 export interface SessionOptions {
   /** Show the next sensible action as a hint with a pointer (default true for the first shift). */
@@ -361,16 +359,11 @@ function stationCentre(s: HandsOnSession, id: string) {
 function emitPlate(s: HandsOnSession, ticketId: string, dishId: string, execution: number, method: DishProfile["method"], results: HandsOnResult[], state: GameState) {
   const prof = profile(s, dishId);
   const ticket = state.tickets.find((t) => t.id === ticketId);
-  if (!ticket && s.opts.station) {
-    // Round 4: nobody else cooks a station's rail, so a vanished ticket means the table left (or service closed).
-    // Not the player's fault: no cost, no penalty.
-    say(s, "That table has gone — no harm done. Grab your next ticket!");
-    return;
-  }
   if (!ticket) {
     // The table left, service closed, or (round 5) another cook sent it: the food was only ever cooked once (its
     // stock went when it fired), so it costs nothing and the player loses nothing.
-    say(s, "That one already went out — no harm done. Grab the next ticket!");
+    say(s, s.opts.station ? "That table has gone — no harm done. Grab your next ticket!" : "That one already went out — no harm done. Grab the next ticket!");
+    void prof;
     return;
   }
   const age = s.time - (s.seenAt[`t:${ticketId}`] ?? s.time);
@@ -603,12 +596,13 @@ function sousName(s: HandsOnSession, state: GameState): string {
 }
 
 /**
- * With a station, nobody hard-stalls service: if the player has done nothing for `idleCoverSecs` while a ticket sits
- * on their rail (or in their hands), the sous chef plates it (PLATE_COOKED `covered`, COVER_EXECUTION quality, no
- * points) with a friendly nudge; a rail ticket left `hardCoverSecs` is covered however busy the player is.
- * A "need a hand?" nudge comes first, at NUDGE_SHARE of the idle time.
+ * Round 5: the restaurant runs on sim ticks, so the sim's sous chef does the covering (sim-core station.ts: a rail
+ * ticket `coverTicks` old, a table down to its last patience, or a dessert/side/starter due as the mains are
+ * finished). The session only talks: a "need a hand?" nudge at NUDGE_SHARE of `idleCoverSecs` idle, a reminder at
+ * `idleCoverSecs`, and when a ticket on the rail (or in hand) vanishes uncooked while its party is still in, it was
+ * covered: let go of it, count it and say so.
  */
-function sousChef(s: HandsOnSession, state: GameState, results: HandsOnResult[]) {
+function sousChef(s: HandsOnSession, state: GameState) {
   const st = s.opts.station!;
   if (s.shift?.over) return;
   const rail = stationTickets(s, state);
@@ -622,50 +616,43 @@ function sousChef(s: HandsOnSession, state: GameState, results: HandsOnResult[])
   const idleFrom = Math.max(s.lastActiveAt ?? 0, workSince);
   const idle = s.activeAction ? 0 : s.time - idleFrom;
   const who = sousName(s, state);
-  if (idle >= st.idleCoverSecs) {
-    const t = heldTicket ?? oldest!;
-    cover(s, state, t, results, true);
-    const tn = tableNumberOf(s, state, t.customerId);
-    say(s, `${who}: “I've plated ${tn ? `table ${tn}'s ` : "the "}${profile(s, t.dishId).short} for you — grab your next ticket!”`, 3.6);
-    s.lastActiveAt = s.time;
-    return;
-  }
-  if (idle >= st.idleCoverSecs * NUDGE_SHARE && (s.nudgedAt ?? -Infinity) < idleFrom) {
+  coveredBySim(s, state, rail, idle >= st.idleCoverSecs * NUDGE_SHARE || s.time - (s.lastActiveAt ?? 0) >= st.idleCoverSecs * NUDGE_SHARE, who);
+  if (idle >= st.idleCoverSecs && (s.nudgedAt ?? -Infinity) < idleFrom + st.idleCoverSecs) {
+    s.nudgedAt = s.time;
+    say(s, `${who}: “${heldTicket ? "Keep going — take it to the next station!" : "Your ticket's still on the rail — the fridge is top left!"}”`, 3);
+  } else if (idle >= st.idleCoverSecs * NUDGE_SHARE && (s.nudgedAt ?? -Infinity) < idleFrom) {
     s.nudgedAt = s.time;
     say(s, `${who}: “Need a hand? ${heldTicket ? "Keep going with that one" : "Your ticket's on the rail — grab it from the fridge"}!”`, 3);
   }
-  // Round 4 review: the restaurant's clock is sim ticks, not the child's seconds. A party only eats once every plate
-  // is in, and walks out (paying nothing) when patience runs out, so a station ticket can't sit on a slow child's rail
-  // until its table gives up: the sous chef plates it when that party's patience falls to COVER_PATIENCE.
-  const patienceOf = (t: KitchenTicket) => state.customers.find((c) => c.id === t.customerId)?.patience ?? 100;
-  const cross = [...(heldTicket ? [heldTicket] : []), ...waiting].find((t) => patienceOf(t) <= COVER_PATIENCE);
-  if (cross) {
-    cover(s, state, cross, results, false);
-    const tn = tableNumberOf(s, state, cross.customerId);
-    say(s, `${who}: “${tn ? `Table ${tn}` : "That table"} can't wait any longer — I've sent their ${profile(s, cross.dishId).short}!”`, 3.4);
-    return;
-  }
-  const stale = waiting.find((t) => s.time - seen(t) >= st.hardCoverSecs);
-  if (stale) {
-    cover(s, state, stale, results, false);
-    const tn = tableNumberOf(s, state, stale.customerId);
-    say(s, `${who}: “I'll take ${tn ? `table ${tn}'s ` : "that "}${profile(s, stale.dishId).short} — you keep going!”`, 3);
-  }
 }
 
-function cover(s: HandsOnSession, state: GameState, t: KitchenTicket, results: HandsOnResult[], idle: boolean) {
-  const prof = profile(s, t.dishId);
-  results.push({ type: "PLATE_COOKED", ticketId: t.id, quality: round2(COVER_EXECUTION * prof.ceiling), execution: COVER_EXECUTION, station: prof.method, speedBonus: 0, covered: true });
-  s.cooked[t.id] = true;
-  delete s.claimed[t.id];
-  if (s.carrying && "ticketId" in s.carrying && s.carrying.ticketId === t.id) {
-    s.carrying = undefined;
-    if (s.activeAction?.ticketId === t.id) s.activeAction = undefined;
+/** Station tickets that left the rail since the last update without the player plating them, party still in: covered. */
+function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly KitchenTicket[], idle: boolean, who: string) {
+  const held = s.carrying && "ticketId" in s.carrying ? s.carrying : undefined;
+  const live = new Map(state.tickets.map((t) => [t.id, t]));
+  for (const was of s.railSeen ?? []) {
+    if (live.has(was.id) || s.cooked[was.id]) continue;
+    if (held?.ticketId === was.id) {
+      s.carrying = undefined;
+      if (s.activeAction?.ticketId === was.id) s.activeAction = undefined;
+    }
+    delete s.claimed[was.id];
+    const c = state.customers.find((x) => x.id === was.customerId);
+    if (!c || c.walkedOut || c.stage === "left") {
+      // the table gave up or service closed: nobody's fault
+      if (held?.ticketId === was.id) say(s, "That table has gone — no harm done. Grab your next ticket!");
+      continue;
+    }
+    s.score.covered = (s.score.covered ?? 0) + 1;
+    if (idle) s.score.idleCovers = (s.score.idleCovers ?? 0) + 1;
+    const tn = c.tableId ? s.tableNumbers[c.tableId] : undefined;
+    say(s, `${who}: “I've sent ${tn ? `table ${tn}'s ` : "the "}${profile(s, was.dishId).short} — grab your next ticket!”`, 3.4);
+    toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
   }
-  s.score.covered = (s.score.covered ?? 0) + 1;
-  if (idle) s.score.idleCovers = (s.score.idleCovers ?? 0) + 1;
-  toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
-  void state;
+  const now = new Map(rail.map((t) => [t.id, { id: t.id, customerId: t.customerId, dishId: t.dishId }]));
+  const inHand = s.carrying && "ticketId" in s.carrying ? live.get(s.carrying.ticketId) : undefined;
+  if (inHand) now.set(inHand.id, { id: inHand.id, customerId: inHand.customerId, dishId: inHand.dishId });
+  s.railSeen = [...now.values()];
 }
 
 // ───────────────────────── the update ─────────────────────────
@@ -687,7 +674,7 @@ export function updateSession(session: HandsOnSession, state: GameState, input: 
   sync(s, state);
   if (s.role !== "chef" && payingParties(s, state).length) s.score.tillWait = round6(s.score.tillWait + step);
   if (s.opts.station) {
-    sousChef(s, state, results);
+    sousChef(s, state);
     const cap = railCapFor(s);
     if (cap !== (s.railCap ?? s.opts.station.cap)) { s.railCap = cap; results.push({ type: "RAIL_RESIZED", cap }); }
   }

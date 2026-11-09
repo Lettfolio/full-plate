@@ -6,7 +6,7 @@
  *
  * Pure and deterministic: everything is derived from the GameState (menu, 7-day sales) and the content pack.
  */
-import type { ContentPack, DishId, GameState, KitchenTicket } from "@full-plate/sim-core";
+import { HANDS_ON, type ContentPack, type Customer, type DishId, type GameState, type KitchenTicket } from "@full-plate/sim-core";
 import type { HandsOnSession } from "./types";
 
 /** Per hands-on level (career rung on the chef track: 0 commis, 1 chef de partie, 2 sous chef, 3 head chef). */
@@ -25,17 +25,19 @@ export interface StationLevel {
   maxMains: number;
   /** Target plates per minute for pacing (see pacing.ts): one ticket every 60 / targetPpm seconds. */
   targetPpm: number;
+  /**
+   * Round 5: the sim's sous chef covers a rail ticket this many sim ticks after it fired (sim-core SET_HANDS_ON
+   * station.coverTicks). Starters, sides and desserts are their own course and are due when the mains are eaten instead.
+   */
+  coverTicks: number;
 }
 
 export const STATION_LEVELS: readonly StationLevel[] = [
-  { title: "Commis station", cap: 2, idleCoverSecs: 30, hardCoverSecs: 80, minShare: 0.3, maxMains: 1, targetPpm: 2.2 },
-  { title: "Your section", cap: 2, idleCoverSecs: 26, hardCoverSecs: 70, minShare: 0.45, maxMains: 2, targetPpm: 2.6 },
-  { title: "The pass", cap: 3, idleCoverSecs: 22, hardCoverSecs: 60, minShare: 1, maxMains: Infinity, targetPpm: 3 },
-  { title: "The pass", cap: 3, idleCoverSecs: 20, hardCoverSecs: 55, minShare: 1, maxMains: Infinity, targetPpm: 3.4 },
+  { title: "Commis station", cap: 2, idleCoverSecs: 30, hardCoverSecs: 80, minShare: 0.3, maxMains: 1, targetPpm: 2.2, coverTicks: 8 },
+  { title: "Your section", cap: 2, idleCoverSecs: 26, hardCoverSecs: 70, minShare: 0.45, maxMains: 2, targetPpm: 2.6, coverTicks: 7 },
+  { title: "The pass", cap: 3, idleCoverSecs: 22, hardCoverSecs: 60, minShare: 1, maxMains: Infinity, targetPpm: 3, coverTicks: 6 },
+  { title: "The pass", cap: 3, idleCoverSecs: 20, hardCoverSecs: 55, minShare: 1, maxMains: Infinity, targetPpm: 3.4, coverTicks: 5 },
 ];
-
-/** Execution a covered plate is booked at (the sous chef rushed it between their own tickets). */
-export const COVER_EXECUTION = 0.6;
 
 /** What the session stores (HandsOnSession.opts.station) and the game sends to sim-core (dishIds + cap). */
 export interface StationPlan {
@@ -45,9 +47,17 @@ export interface StationPlan {
   label: string;
   dishIds: DishId[];
   cap: number;
+  /** Round 5: wall-clock nudges only ("Need a hand?" at 60%, then a reminder); the sim covers by `coverTicks`. */
   idleCoverSecs: number;
   hardCoverSecs: number;
   targetPpm: number;
+  /** Round 5: sent to sim-core SET_HANDS_ON station.coverTicks (absent on plans saved before round 5). */
+  coverTicks?: number;
+  /**
+   * Round 5: the station's starters, sides and desserts — served as their own course (sim-core STATION_COURSES), so
+   * the rail can hold more than one of them; only one main at a time (sim-core station.ts `humanTickets`).
+   */
+  coursed?: DishId[];
 }
 
 const SECTION_NAME: Record<string, string> = { starter: "Starters", side: "Sides", dessert: "Desserts" };
@@ -103,6 +113,8 @@ export function commisStation(state: GameState, content: ContentPack, level = 0)
     idleCoverSecs: L.idleCoverSecs,
     hardCoverSecs: L.hardCoverSecs,
     targetPpm: L.targetPpm,
+    coverTicks: L.coverTicks,
+    coursed: picked.filter((x) => (SECTIONS as readonly string[]).includes(x.d.course)).map((x) => x.d.id),
   };
 }
 
@@ -123,22 +135,49 @@ export function railCapOf(session: HandsOnSession, state: GameState): number {
 
 /**
  * The player's rail: their station's tickets they have picked up, then the oldest unassigned ones, up to the rail
- * size — the same rule sim-core's `stationRail` reserves. Oldest first. Cooked/covered tickets drop off.
+ * size, with at most one main (a ticket that isn't its party's own course) — the same rule sim-core's station.ts
+ * `humanTickets` reserves. Oldest first. Cooked/covered tickets drop off.
  */
 export function stationTickets(session: HandsOnSession, state: GameState): KitchenTicket[] {
   const st = session.opts.station;
   if (!st) return [];
   const dishes = new Set(st.dishIds);
   const pid = session.opts.playerStaffId;
+  const orders = new Map(state.customers.map((c) => [c.id, c]));
+  const blocking = (t: KitchenTicket) => !ownCourse(session, t, orders.get(t.customerId));
   const live = state.tickets.filter((t) => dishes.has(t.dishId) && t.ticksRemaining > 0 && !t.atPass && !session.cooked[t.id]);
   const held = live.filter((t) => session.claimed[t.id]);
   const out = [...held];
+  let mains = held.filter(blocking).length;
   const cap = Math.max(railCapOf(session, state), held.length);
   for (const t of [...live].sort(byAge)) {
     if (out.length >= cap) break;
     if (session.claimed[t.id]) continue;
     if (t.chefId && t.chefId !== pid) continue;
+    const main = blocking(t);
+    if (main && mains >= 1) continue;
+    if (main) mains++;
     out.push(t);
   }
   return out.sort(byAge);
+}
+
+/** Round 5: this ticket is its party's own course (a station starter, side or dessert for a party with a main). */
+export function ownCourse(session: HandsOnSession, t: KitchenTicket, c: Customer | undefined): boolean {
+  const coursed = new Set(session.opts.station?.coursed ?? []);
+  if (t.remakeOf !== undefined || !coursed.has(t.dishId) || !c) return false;
+  return c.order.some((d) => !coursed.has(d) && session.dishes[d]?.method !== "pour");
+}
+
+/**
+ * Round 5: the sim tick at which sim-core's sous chef would plate this rail ticket (sim-core station.ts
+ * `ticketsToCover`): its own course just before its party finishes the mains (never, until they have started), any
+ * other `coverTicks` after it fired or hands-on began. Pacing slows the clock when the one in hand is about to go.
+ */
+export function coverDueTick(session: HandsOnSession, state: GameState, t: KitchenTicket): number {
+  const st = session.opts.station;
+  if (!st) return Infinity;
+  const c = state.customers.find((x) => x.id === t.customerId);
+  if (ownCourse(session, t, c)) return c?.courseOut && c.stage === "eating" && c.eatUntil !== undefined ? c.eatUntil - HANDS_ON.courseLeadTicks : Infinity;
+  return Math.max(t.createdTick, state.handsOn?.since ?? 0) + (st.coverTicks ?? HANDS_ON.stationCoverTicks);
 }

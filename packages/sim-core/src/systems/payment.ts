@@ -28,6 +28,7 @@ import type { ContentPack, Customer, GameState, SegmentDef, ServiceTally, SimEve
 import { clamp, findDish, findSegment, plateCost, round2, tallyOf } from "../util";
 import { frontCharm, type SystemResult } from "./system";
 import { vipVerdict } from "./incidents";
+import { dilationOf } from "./station";
 
 export interface SatisfactionInputs {
   quality: number;   // mean plate quality 0-100
@@ -140,7 +141,8 @@ export function settleParty(
   const quality = c.order.length ? (c.qualitySum ?? 0) / c.order.length : 0;
   const satisfaction = satisfactionOf(seg, {
     quality,
-    waitTicks: (c.servedTick ?? state.tick) - c.arrivedTick,
+    // Round 5 station dilation: the ticks the party waited on the hands-on human beyond an AI's time don't count.
+    waitTicks: (c.servedTick ?? state.tick) - dilationOf(c) - c.arrivedTick,
     spendPerHead: c.spend / c.partySize,
     charm,
     comped: !!c.comped,

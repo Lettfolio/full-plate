@@ -38,4 +38,12 @@ describe("end-of-shift notes (round 4)", () => {
     expect(sum.stars).toBe(2);
     expect(sum.notes).toHaveLength(3);
   });
+
+  it("round 5: the sous chef sending what a busy commis couldn't reach is teamwork; only idle covers are a 'work on'", () => {
+    const busy = shiftNotes(withScore({ plates: 9, qualitySum: 9 * 70, speedBonus: 3, speedCount: 9, covered: 18, points: 500 }));
+    expect(busy.map((x) => x.text).join(" | ")).not.toMatch(/covered/);
+    const away = shiftNotes(withScore({ plates: 9, qualitySum: 9 * 90, speedBonus: 8, speedCount: 9, covered: 18, idleCovers: 2, points: 600 }));
+    expect(away[2]).toEqual({ text: "The sous chef covered two tickets while you were away", tone: "work" });
+    expect(summarise(withScore({ covered: 4 })).lines).toContainEqual({ label: "Sent out by the sous chef", value: "4" });
+  });
 });

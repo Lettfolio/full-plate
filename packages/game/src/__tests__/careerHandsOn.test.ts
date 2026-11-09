@@ -1,7 +1,8 @@
 /** Round 4: the career hands-on chef owns a commis station; flow and pacing for a slow child. */
 import { describe, expect, it } from "vitest";
 import { PLAYER_ID } from "@full-plate/sim-career";
-import { HANDS_ON } from "@full-plate/sim-core";
+import { isCoursed, stationRailTickets } from "@full-plate/sim-core";
+import { content } from "../sim";
 import { appReducer } from "../state/gameReducer";
 import { careerChefStart, playBotDays, playBotShift } from "./handsOnHarness";
 
@@ -13,14 +14,22 @@ describe("commis station (round 4)", () => {
     const st = s.meta.handsOn!.station!;
     expect(st.dishIds.length).toBeGreaterThan(0);
     expect(st.title).toBe("Commis station");
-    expect(s.game!.handsOn).toMatchObject({ role: "chef", staffId: PLAYER_ID, station: { dishIds: st.dishIds, cap: st.cap } });
-    // Without the player doing anything, the rail's tickets sit unassigned (the session's sous chef covers them).
+    expect(s.game!.handsOn).toMatchObject({ role: "chef", staffId: PLAYER_ID, station: { dishIds: st.dishIds, cap: st.cap, coverTicks: st.coverTicks } });
+    // Without the player doing anything, the rail's tickets sit unassigned until the sim's sous chef covers them
+    // (round 5: by age in ticks, or as their party finishes its mains).
     let held = 0;
     for (let i = 0; i < 30; i++) {
       s = appReducer(s, { type: "ticks", n: 1 });
       const g = s.game!;
-      const rail = g.tickets.filter((t) => st.dishIds.includes(t.dishId) && !t.atPass && t.ticksRemaining > 0).slice(0, st.cap);
-      for (const t of rail) if (g.tick - t.createdTick < HANDS_ON.stationFallbackTicks) { expect(t.chefId).toBeUndefined(); held++; }
+      const rail = stationRailTickets(content, g, g.handsOn!.station!);
+      expect(rail.length).toBeLessThanOrEqual(st.cap);
+      for (const t of rail) {
+        expect(t.chefId).toBeUndefined();
+        // a main is covered by age (+1: it can join the rail in the tick another leaves); a dessert is its own course,
+        // due as its party finishes the mains
+        if (!isCoursed(content, g.handsOn!.station!, t.dishId)) expect(g.tick - t.createdTick).toBeLessThanOrEqual(st.coverTicks! + 1);
+        held++;
+      }
     }
     expect(held).toBeGreaterThan(10);
   });
@@ -40,14 +49,17 @@ describe("commis station (round 4)", () => {
     expect(r.summary.covered).toBeGreaterThan(3);
     const day = r.app.game!.history.at(-1)!;
     expect(day.covers).toBeGreaterThan(30);
-    expect(day.perChef?.[PLAYER_ID]?.plates ?? 0).toBe(r.summary.covered); // covered plates are booked to the station
+    // Round 5: covered plates are booked to the cook who covered (the sim's sous chef), not the player.
+    expect(day.perChef?.[PLAYER_ID]?.plates ?? 0).toBe(0);
+    expect(r.summary.covered).toBeLessThanOrEqual(Object.values(day.perChef ?? {}).reduce((a, x) => a + x.plates, 0));
   });
 
   it("a bot commis cooks 10+ plates of its own on the first shift", () => {
     const r = playBotShift(careerChefStart(5), { skill: 0.55 });
     expect(r.summary.plates).toBeGreaterThanOrEqual(10);
-    // Round 4 review: the sous chef still steps in for a table that is about to give up (COVER_PATIENCE).
-    expect(r.summary.covered ?? 0).toBeLessThanOrEqual(5);
+    // Round 5: the sim's sous chef sends what the player can't reach in time (desserts as their party finishes the
+    // mains, a ticket 8 ticks old), but never because a busy player "idled".
+    expect(r.session.score.idleCovers ?? 0).toBe(0);
   });
 
   it("round 4 review: a slow child's station no longer empties the dining room (patience-aware sous chef)", () => {
@@ -67,8 +79,9 @@ describe("a steady flow at the station (round 4 pacing)", () => {
       for (const d of days) {
         expect(d.summary.plates, `day ${d.day} pace ${bot.pace}`).toBeGreaterThanOrEqual(min);
         expect(d.drySeconds).toBeLessThan(30);
-        // one plate every ~10–30 s of real time, and a shift of 2–5 minutes
-        expect(d.seconds / d.summary.plates).toBeLessThan(30);
+        // one plate every ~10–33 s of real time, and a shift of 2–5 minutes (round 5: the restaurant slows to the
+        // child's pace while they cook — PACING.workSpt — so a half-speed child's shift runs a little longer)
+        expect(d.seconds / d.summary.plates).toBeLessThan(33);
         expect(d.seconds).toBeGreaterThan(120);
         expect(d.seconds).toBeLessThan(300);
       }

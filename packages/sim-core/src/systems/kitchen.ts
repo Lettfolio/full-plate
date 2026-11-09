@@ -23,9 +23,10 @@ import {
   SPEED_TICKS_SLOPE,
 } from "../constants";
 import type { Rng } from "../rng";
-import type { ContentPack, Customer, DishDef, GameState, KitchenTicket, ServiceTally, SimEvent, Staff } from "../types";
+import type { ContentPack, Customer, DishDef, GameState, HandsOnStation, KitchenTicket, ServiceTally, SimEvent, Staff } from "../types";
 import { clamp, dither, findDish, mapIfChanged, onShift, round2, tallyOf, traitMult } from "../util";
 import { effectiveSkill, effectiveSpeed, multMod, ownerStats, type SystemResult } from "./system";
+import { aiDueTick, humanTickets, startCourses, stationOf, ticketsToCover } from "./station";
 
 /** A cook working this tick: a staff member or the owner (id "owner"). */
 export interface Cook {
@@ -43,6 +44,8 @@ export interface Cook {
 }
 
 export const OWNER_ID = "owner";
+/** Round 5: the cook id of a hands-on commis's AI hands (their capacity beyond the station; DayResult.perChef key). */
+export const SHADOW_COOK_SUFFIX = "~ai";
 
 /**
  * Cooks depend only on the staff array (breaks, training and mid-service mood changes replace it), content, day and
@@ -70,6 +73,15 @@ export function cooksOnShift(content: ContentPack, state: GameState): Cook[] {
   const human = state.handsOn?.staffId;
   if (human && (state.handsOn?.role === "chef" || state.handsOn?.role === "bar")) {
     const rest = cooks.filter((k) => k.id !== human);
+    const me = cooks.find((k) => k.id === human);
+    const station = state.handsOn?.role === "chef" ? state.handsOn.station : undefined;
+    if (me && station) {
+      // Round 5: on a day off the commis is an AI cook (CHEF_PARALLEL_TICKETS at their own skill and speed). Playing
+      // their station must not take that capacity away from the rest of the kitchen, or every main queues behind the
+      // remaining chefs (measured: twice the time waiting for food). Their station is the human's (and the sim's sous
+      // chef's covers); their hands keep cooking everything else as on a day off, under SHADOW_COOK_SUFFIX.
+      return [...rest, { ...me, id: `${human}${SHADOW_COOK_SUFFIX}` }];
+    }
     if (rest.length !== cooks.length) return rest.some((k) => !k.drinksOnly) || state.handsOn?.role === "bar" ? rest : buildCooks(content, { ...state, staff: state.staff.filter((x) => x.id !== human) });
   }
   return cooks;
@@ -160,17 +172,29 @@ export function assignTickets(
   });
 }
 
-/** Adds a plated dish to its customer (a remake swaps the old plate's quality for the new one). */
-export function deliverPlate(c: Customer, quality: number, tick: number, remakeOf: number | undefined): Customer {
+/**
+ * Adds a plated dish to its customer (a remake swaps the old plate's quality for the new one).
+ * Round 5 (hands-on station): `dueTick` is when an AI cook would have had this plate out (station.ts `aiDueTick`); a
+ * party with a dueTick keeps the latest one. The last plate of a party already eating its mains (`courseOut`) ends the
+ * course (it is eaten in HANDS_ON.courseEatTicks if the mains are finished).
+ */
+export function deliverPlate(c: Customer, quality: number, tick: number, remakeOf: number | undefined, dueTick?: number): Customer {
   if (remakeOf !== undefined) return { ...c, qualitySum: (c.qualitySum ?? 0) - remakeOf + quality };
   const platesReady = (c.platesReady ?? 0) + 1;
   const done = platesReady >= c.order.length;
-  return {
+  const due = dueTick !== undefined ? Math.max(c.dueTick ?? dueTick, dueTick) : c.dueTick !== undefined ? Math.max(c.dueTick, tick) : undefined;
+  const next: Customer = {
     ...c,
     platesReady,
     qualitySum: (c.qualitySum ?? 0) + quality,
-    ...(done ? { servedTick: tick } : {}),
+    ...(due !== undefined && !c.courseOut ? { dueTick: due } : {}),
   };
+  if (c.courseOut) {
+    if (!done) return next;
+    const { courseOut: _o, ...rest } = next;
+    return c.eatUntil !== undefined ? { ...rest, eatUntil: Math.max(c.eatUntil, tick + HANDS_ON.courseEatTicks) } : rest;
+  }
+  return done ? { ...next, servedTick: tick } : next;
 }
 
 /** Whole kitchen steps this tick, given incident slow-downs (fractions carry over in the tally). */
@@ -204,7 +228,7 @@ function humanCooks(content: ContentPack, state: GameState, t: KitchenTicket): b
 export function reservedForHuman(content: ContentPack, state: GameState): ReadonlySet<string> | undefined {
   const h = state.handsOn;
   if (!h || (h.role !== "chef" && h.role !== "bar")) return undefined;
-  if (h.role === "chef" && h.station) return stationRail(state, h.station);
+  if (h.role === "chef" && h.station) return stationRail(content, state, h.station);
   const out = new Set<string>();
   let n = 0;
   for (const t of state.tickets) {
@@ -220,18 +244,15 @@ export function reservedForHuman(content: ContentPack, state: GameState): Readon
  * Round 4 commis station: the human's rail is the oldest `cap` tickets of their station's dishes, counting the ones
  * they have already picked up (claimed). AI cooks leave these alone except as a safety net after
  * HANDS_ON.stationFallbackTicks; station tickets beyond the rail, and every other dish, are the AI's as normal.
- * The hands-on view uses the same rule (handson `stationRail`) to draw the player's rail.
+ * Round 5: at most one of them is a main (station.ts `humanTickets`), and the sim's sous chef covers rail tickets by
+ * age in ticks, so the fallback is only reached with a very long coverTicks.
+ * The hands-on view uses the same rule (handson `stationTickets`) to draw the player's rail.
  */
-export function stationRail(state: GameState, station: { dishIds: readonly string[]; cap: number }): ReadonlySet<string> {
-  const dishes = new Set(station.dishIds);
+export function stationRail(content: ContentPack, state: GameState, station: HandsOnStation): ReadonlySet<string> {
   const h = state.handsOn!;
   const out = new Set<string>();
-  const human = h.staffId ?? PLAYER_COOK_ID;
-  let n = state.tickets.filter((t) => t.claimedAtTick !== undefined && t.chefId === human && !t.atPass).length;
-  for (const t of state.tickets) {
-    if (n >= station.cap) break;
-    if (t.chefId || t.atPass || t.ticksRemaining <= 0 || !dishes.has(t.dishId)) continue;
-    n++;
+  for (const t of humanTickets(content, state, station)) {
+    if (t.claimedAtTick !== undefined) continue;
     if (state.tick - Math.max(t.createdTick, h.since) < HANDS_ON.stationFallbackTicks) out.add(t.id);
   }
   return out;
@@ -307,24 +328,45 @@ export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng):
   const cooks = cooksOnShift(content, state);
   const byId = new Map(cooks.map((k) => [k.id, k]));
   const handsOn = state.handsOn;
+  const station = stationOf(state);
   const released = releaseStaleClaims(state);
-  // Reserve against the released rail so a stale claim the human still holds stays on their station (round 4).
-  const assigned = assignTickets(content, released, cooks, handsOn ? reservedForHuman(content, released === state.tickets ? state : { ...state, tickets: released as KitchenTicket[] }) : undefined);
   let tally = tallyOf(state);
-  const { steps, carry } = kitchenSteps(state, tally);
   const events: SimEvent[] = [];
-  const delivered = new Map<string, { q: number; remakeOf: number | undefined }[]>();
-  const remaining: KitchenTicket[] = [];
+  const delivered = new Map<string, { q: number; remakeOf: number | undefined; due?: number }[]>();
   let dishes: ServiceTally["dishes"] | undefined;
-  const deliver = (t: KitchenTicket, q: number) =>
-    delivered.set(t.customerId, [...(delivered.get(t.customerId) ?? []), { q, remakeOf: t.remakeOf }]);
+  const deliver = (t: KitchenTicket, q: number, due?: number) =>
+    delivered.set(t.customerId, [...(delivered.get(t.customerId) ?? []), { q, remakeOf: t.remakeOf, ...(due !== undefined ? { due } : {}) }]);
+  // Round 5: with a station, AI plates count toward a party's dueTick when they land.
+  const aiDue = station ? state.tick : undefined;
+  // Round 5 rule 2: the sim's sous chef covers rail tickets by age in ticks, patience, or course deadline.
+  let pending: readonly KitchenTicket[] = released;
+  const toCover = station ? ticketsToCover(content, state, released) : [];
+  if (toCover.length) {
+    const sous = cooks.find((k) => !k.drinksOnly) ?? cooks[0];
+    const gone = new Set<string>();
+    for (const t of toCover) {
+      const dish = findDish(content, t.dishId);
+      if (!sous || !dish) continue;
+      const quality = round2(Math.max(0, plateQuality(rng, dish, sous, t.freshness ?? 0).quality - HANDS_ON.coverQualityHit));
+      events.push({ type: "DISH_PLATED", ticketId: t.id, quality });
+      dishes ??= { ...tally.dishes };
+      tally = tallyPlate(tally, dishes, t, sous.id, quality);
+      deliver(t, quality, aiDueTick(content, t, state.tick));
+      gone.add(t.id);
+    }
+    pending = released.filter((t) => !gone.has(t.id));
+  }
+  // Reserve against the released rail so a stale claim the human still holds stays on their station (round 4).
+  const assigned = assignTickets(content, pending, cooks, handsOn ? reservedForHuman(content, pending === state.tickets ? state : { ...state, tickets: pending as KitchenTicket[] }) : undefined);
+  const { steps, carry } = kitchenSteps(state, tally);
+  const remaining: KitchenTicket[] = [];
   for (const t of assigned) {
     if (t.atPass) {
       // Held plates: the human carries them (PLAYER_SERVED); an AI colleague takes one once it has waited long enough,
       // or straight away when hands-on no longer holds this kind of plate.
       if (holdsAtPass(content, state, t) && state.tick - (t.platedAtTick ?? state.tick) < HANDS_ON.passHoldTicks) remaining.push(t);
       else {
-        deliver(t, t.quality);
+        deliver(t, t.quality, aiDue);
         dishes ??= { ...tally.dishes };
       }
       continue;
@@ -344,19 +386,21 @@ export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng):
     dishes ??= { ...tally.dishes };
     tally = tallyPlate(tally, dishes, t, cook.id, quality);
     if (handsOn && holdsAtPass(content, state, t)) remaining.push(toPass(t, cook.id, quality, state.tick));
-    else deliver(t, quality);
+    else deliver(t, quality, aiDue);
   }
+  const fed = delivered.size
+    ? state.customers.map((c) => {
+        const qs = delivered.get(c.id);
+        return qs ? qs.reduce((acc, p) => deliverPlate(acc, p.q, state.tick, p.remakeOf, p.due), c) : c;
+      })
+    : state.customers;
+  // Round 5 rule 1: a party whose only missing plates are the human's course starts on its mains.
+  const customers = station ? startCourses(content, state, fed, remaining) : fed;
   if (!dishes) {
     // Nothing plated: only touch the tally if the slow-kitchen carry moved.
     const service = carry === (tally.kitchenCarry ?? 0) ? state.service : { ...tally, kitchenCarry: carry };
-    return { state: { ...state, tickets: remaining, service }, events };
+    return { state: { ...state, tickets: remaining, service, ...(customers !== state.customers ? { customers: customers as Customer[] } : {}) }, events };
   }
   const service = { ...tally, kitchenCarry: carry };
-  const customers = delivered.size
-    ? state.customers.map((c) => {
-        const qs = delivered.get(c.id);
-        return qs ? qs.reduce((acc, p) => deliverPlate(acc, p.q, state.tick, p.remakeOf), c) : c;
-      })
-    : state.customers;
-  return { state: { ...state, tickets: remaining, customers, service }, events };
+  return { state: { ...state, tickets: remaining, customers: customers as Customer[], service }, events };
 }

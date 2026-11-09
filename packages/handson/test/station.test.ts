@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { content } from "@full-plate/content";
 import type { GameState, KitchenTicket, MenuItem } from "@full-plate/sim-core";
 import { createFixture } from "../src/fixture";
-import { COVER_PATIENCE, createSession, NO_INPUT, openFoodTickets, updateSession } from "../src/session";
-import { commisStation, COVER_EXECUTION, STATION_LEVELS, stationTickets, type StationPlan } from "../src/station";
+import { createSession, NO_INPUT, openFoodTickets, updateSession } from "../src/session";
+import { commisStation, STATION_LEVELS, stationTickets, type StationPlan } from "../src/station";
 import { nextHint } from "../src/hints";
 import { DT } from "./helpers";
 
@@ -27,6 +27,10 @@ describe("commisStation (round 4)", () => {
     expect(s2.dishIds.length).toBe(5);
     expect(s2.label).toBe("Every food ticket");
     expect(s2.idleCoverSecs).toBeLessThan(s0.idleCoverSecs);
+    // round 5: the sim covers by ticket age in ticks, tighter as the rung (and the section) grows
+    expect(s0.coverTicks).toBe(8);
+    expect(s1.coverTicks!).toBeLessThan(s0.coverTicks!);
+    expect(s2.coverTicks!).toBeLessThan(s1.coverTicks!);
   });
 
   it("starters and sides come first; drinks are never on a station; an empty menu has none", () => {
@@ -50,67 +54,70 @@ describe("the player's rail and the sous chef (round 4)", () => {
   }
 
   it("shows only the station's oldest `cap` unassigned tickets; AI-assigned and other dishes are not the player's", () => {
-    const st = state([tk("a", "tomato_soup", 1), tk("b", "beef_burger", 2), tk("c", "tomato_soup", 3, { chefId: "chef-1" }), tk("d", "tomato_soup", 4), tk("e", "tomato_soup", 5)]);
-    const s = createSession(st, "chef", { content, station: plan(["tomato_soup"]), playerStaffId: "player" });
+    const party = { ...createFixture({ role: "chef", seed: 3 }).state.customers[0]!, id: "c-x", stage: "ordered" as const, order: ["beef_burger", "tomato_soup"] };
+    const st = { ...state([tk("a", "tomato_soup", 1), tk("b", "beef_burger", 2), tk("c", "tomato_soup", 3, { chefId: "chef-1" }), tk("d", "tomato_soup", 4), tk("e", "tomato_soup", 5)]), customers: [party] };
+    const s = createSession(st, "chef", { content, station: plan(["tomato_soup"], { coursed: ["tomato_soup"] }), playerStaffId: "player" });
     expect(stationTickets(s, st).map((t) => t.id)).toEqual(["a", "d"]);
     expect(openFoodTickets(s, st).map((t) => t.id)).toEqual(["a", "d"]);
+    // round 5: at most one main on the rail (soup for a party with no main is a main; the next goes to the AI)
+    const mains = createSession(st, "chef", { content, station: plan(["tomato_soup"]), playerStaffId: "player" });
+    expect(stationTickets(mains, st).map((t) => t.id)).toEqual(["a"]);
     expect(nextHint(s, st)?.text).toMatch(/^Your ticket: /);
     const empty = state([tk("b", "beef_burger", 2)]);
     expect(openFoodTickets(s, empty)).toEqual([]);
     expect(nextHint(s, empty)?.text).toMatch(/Commis station is clear/);
   });
 
-  it("an idle player is nudged, then the sous chef covers the oldest ticket (lower quality, no points)", () => {
+  it("round 5: an idle player is nudged and reminded, but the session never plates for them (the sim covers)", () => {
     const st = state([tk("a", "tomato_soup", 1), tk("d", "tomato_soup", 4)]);
     let s = createSession(st, "chef", { content, station: plan(["tomato_soup"]), playerStaffId: "player" });
-    let nudged = false;
+    const said: string[] = [];
     const results = [];
     for (let i = 0; i < 31 * 60; i++) {
       const r = updateSession(s, st, NO_INPUT, DT);
       s = r.session;
       results.push(...r.results);
-      if (s.message?.text.includes("Need a hand")) nudged = true;
+      if (s.message && said.at(-1) !== s.message.text) said.push(s.message.text);
     }
-    expect(nudged).toBe(true);
-    const covered = results.filter((r) => r.type === "PLATE_COOKED");
-    expect(covered).toHaveLength(1);
-    expect(covered[0]).toMatchObject({ ticketId: "a", covered: true, execution: COVER_EXECUTION, speedBonus: 0 });
-    expect(s.score).toMatchObject({ covered: 1, idleCovers: 1, plates: 0, points: 0 });
-    expect(s.message?.text).toMatch(/plated .*Soup|grab your next ticket/);
-    expect(stationTickets(s, st).map((t) => t.id)).toEqual(["d"]);
+    expect(said.some((t) => t.includes("Need a hand"))).toBe(true);
+    expect(said.some((t) => t.includes("still on the rail"))).toBe(true);
+    expect(results.filter((r) => r.type === "PLATE_COOKED")).toEqual([]);
+    expect(s.score.covered ?? 0).toBe(0);
   });
 
-  it("round 4 review: a table about to give up is covered at once, even while the player is busy with it", () => {
+  it("round 5: a rail ticket that vanishes uncooked while its party is in was covered by the sim: let go, counted, said", () => {
     const f = createFixture({ role: "chef", seed: 3 });
     const cust = f.state.customers[0]!;
-    const mk = (patience: number): GameState => ({
+    const before: GameState = {
       ...f.state,
-      customers: f.state.customers.map((c) => (c.id === cust.id ? { ...c, stage: "ordered", patience } : c)),
-      tickets: [tk("a", "tomato_soup", 1, { customerId: cust.id }), tk("d", "tomato_soup", 4)],
-    });
-    const calm = mk(80);
-    let s = createSession(calm, "chef", { content, station: plan(["tomato_soup"]), playerStaffId: "player" });
+      customers: f.state.customers.map((c) => (c.id === cust.id ? { ...c, stage: "ordered", order: ["beef_burger", "tomato_soup", "tomato_soup"] } : c)),
+      tickets: [tk("a", "tomato_soup", 1, { customerId: cust.id, chefId: "player", claimedAtTick: 2 }), tk("d", "tomato_soup", 4, { customerId: cust.id })],
+    };
+    let s = createSession(before, "chef", { content, station: plan(["tomato_soup"], { coursed: ["tomato_soup"] }), playerStaffId: "player" });
     s = { ...s, carrying: { kind: "raw", ticketId: "a", dishId: "tomato_soup" }, claimed: { a: true }, lastActiveAt: 0 };
-    const r0 = updateSession(s, calm, NO_INPUT, DT);
-    expect(r0.results.filter((r) => r.type === "PLATE_COOKED")).toEqual([]);
-    const cross = mk(COVER_PATIENCE);
-    const r1 = updateSession(r0.session, cross, NO_INPUT, DT);
-    expect(r1.results.filter((r) => r.type === "PLATE_COOKED")).toEqual([expect.objectContaining({ ticketId: "a", covered: true })]);
-    expect(r1.session.carrying).toBeUndefined();
-    expect(r1.session.message?.text).toMatch(/can't wait any longer/);
-    expect(r1.session.score.idleCovers ?? 0).toBe(0);
+    s = updateSession(s, before, NO_INPUT, DT).session;
+    expect(s.railSeen?.map((x) => x.id).sort()).toEqual(["a", "d"]);
+    const after: GameState = { ...before, tickets: before.tickets.filter((t) => t.id !== "a") };
+    const r = updateSession(s, after, NO_INPUT, DT);
+    expect(r.results.filter((x) => x.type === "PLATE_COOKED" || x.type === "DROPPED")).toEqual([]);
+    expect(r.session.carrying).toBeUndefined();
+    expect(r.session.score).toMatchObject({ covered: 1, plates: 0, drops: 0 });
+    expect(r.session.message?.text).toMatch(/I've sent .*Soup|I've sent .*— grab your next ticket/);
+    // a ticket whose table walked out is nobody's fault and not a cover
+    const left: GameState = { ...after, customers: after.customers.map((c) => ({ ...c, stage: "left", walkedOut: true })), tickets: [] };
+    const r2 = updateSession(r.session, left, NO_INPUT, DT);
+    expect(r2.session.score.covered).toBe(1);
   });
 
-  it("waiting for a ticket is not idling: the clock starts when the work arrives", () => {
+  it("waiting for a ticket is not idling: the nudge clock starts when the work arrives", () => {
     const quiet = state([]);
     let s = createSession(quiet, "chef", { content, station: plan(["tomato_soup"]), playerStaffId: "player" });
     for (let i = 0; i < 40 * 60; i++) s = updateSession(s, quiet, NO_INPUT, DT).session;
     const busy = state([tk("a", "tomato_soup", 1)]);
-    let out = 0;
-    for (let i = 0; i < 20 * 60; i++) { const r = updateSession(s, busy, NO_INPUT, DT); s = r.session; out += r.results.length; }
-    expect(out).toBe(0);
-    for (let i = 0; i < 11 * 60; i++) { const r = updateSession(s, busy, NO_INPUT, DT); s = r.session; out += r.results.length; }
-    expect(out).toBe(1);
+    const nudged = () => !!s.message?.text.includes("Need a hand");
+    for (let i = 0; i < 17 * 60; i++) { s = updateSession(s, busy, NO_INPUT, DT).session; expect(nudged()).toBe(false); }
+    for (let i = 0; i < 2 * 60; i++) s = updateSession(s, busy, NO_INPUT, DT).session;
+    expect(nudged()).toBe(true);
   });
 });
 

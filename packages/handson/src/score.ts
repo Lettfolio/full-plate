@@ -66,7 +66,7 @@ export function summarise(session: HandsOnSession): ShiftSummary {
     lines.push({ label: "Mean quality", value: s.plates ? `${Math.round(meanQuality)}%` : "—" });
     lines.push({ label: "Speed bonus", value: s.speedCount ? `${Math.round(speedPct)}%` : "—" });
     lines.push({ label: "Perfect cooks", value: `${s.perfect}` });
-    if (session.opts.station) lines.push({ label: "Covered by the sous chef", value: String(s.covered ?? 0) });
+    if (session.opts.station) lines.push({ label: "Sent out by the sous chef", value: String(s.covered ?? 0) });
   } else {
     lines.push({ label: "Plates served", value: String(s.served) });
     if (session.role === "bar") lines.push({ label: "Drinks poured", value: `${s.pours}${s.pours ? ` (${Math.round((s.pourSum / s.pours) * 100)}%)` : ""}` });
@@ -111,7 +111,9 @@ export function shiftNotes(session: HandsOnSession): ShiftNote[] {
     if (q >= 60 && q < 85) good.push(`Tasty plates — ${Math.round(q)}% quality`);
     if (s.perfect >= 1 && !(s.perfect >= 3 && s.perfect >= s.plates / 2)) good.push(`${plural(s.perfect, "perfect cook", "perfect cooks")}!`);
     if (s.slowPlates) work.push(`${plural(s.slowPlates, "plate", "plates")} went cold`);
-    if (s.covered) work.push(`The sous chef covered ${plural(s.covered, "ticket", "tickets").toLowerCase()}`);
+    // Round 5: the sim's sous chef sends what a busy commis can't reach in time — that's teamwork, not a mistake. Only
+    // tickets covered while the player had wandered off are worth working on.
+    if (s.idleCovers) work.push(`The sous chef covered ${plural(s.idleCovers, "ticket", "tickets").toLowerCase()} while you were away`);
     if (s.drops) work.push(`${plural(s.drops, "dish", "dishes")} hit the bin`);
     if (s.overcooked > s.perfect) work.push("A few cooks went past the green");
     if (speed < 0.5) work.push("Tickets waited a bit long");

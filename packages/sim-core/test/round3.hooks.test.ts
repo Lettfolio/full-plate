@@ -675,19 +675,21 @@ describe("career hands-on chef (round 3 review)", () => {
 
 describe("commis station (round 4: SET_HANDS_ON station)", () => {
   /** Six tickets: soup ×3 (the human's station), burger ×3 (the AI's). */
-  function stationKitchen(cap = 2) {
+  function stationKitchen(cap = 2, extra: { dishIds?: string[]; coverTicks?: number } = {}) {
     const s0 = withOrder();
     const ai = s0.staff.find((x) => x.role === "chef")!;
     const me = { ...ai, id: "player", name: "Mia", skill: 22 };
     const c = customer("c1", { stage: "ordered", tableId: "T1", order: ["soup", "soup", "soup", "burger", "burger", "burger"], spend: 6 * 1000, stageTick: 8 });
     const dishes = ["soup", "burger", "soup", "burger", "soup", "burger"];
     const s = { ...s0, staff: [...s0.staff, me], customers: [c], tickets: dishes.map((d, n) => ticket(`k${n + 1}`, "c1", { dishId: d, createdTick: 10 + n, ticksRemaining: 20 })) };
-    return apply(s, { type: "SET_HANDS_ON", role: "chef", staffId: "player", station: { dishIds: ["soup"], cap } }).state;
+    return apply(s, { type: "SET_HANDS_ON", role: "chef", staffId: "player", station: { dishIds: extra.dishIds ?? ["soup"], cap, ...(extra.coverTicks ? { coverTicks: extra.coverTicks } : {}) } }).state;
   }
 
   it("AI cooks never take the human's rail (oldest `cap` station tickets) and are not held back on other dishes", () => {
-    let s = stationKitchen(2);
-    expect(s.handsOn!.station).toEqual({ dishIds: ["soup"], cap: 2 });
+    // Round 5: coverTicks 40 and a party that orders soup only, so neither the age cover nor the course deadline fires.
+    let s = stationKitchen(2, { coverTicks: 40 });
+    s = { ...s, customers: s.customers.map((c) => ({ ...c, order: c.order.map(() => "soup") })) };
+    expect(s.handsOn!.station).toEqual({ dishIds: ["soup"], cap: 2, coverTicks: 40 });
     for (let i = 0; i < 6; i++) s = tickOnce(s);
     const by = (id: string) => s.tickets.find((t) => t.id === id);
     expect(by("k1")?.chefId).toBeUndefined(); // soup, on the rail
@@ -700,7 +702,9 @@ describe("commis station (round 4: SET_HANDS_ON station)", () => {
   });
 
   it("a claimed ticket counts toward the rail and stays the human's after the claim times out", () => {
-    let s = stationKitchen(2);
+    // Round 5: the sim's sous chef covers by ticket age (and soup would be its own course), so this rail holds every
+    // food dish and covers only after 40 ticks.
+    let s = stationKitchen(2, { dishIds: ["soup", "burger"], coverTicks: 40 });
     s = apply(s, { type: "PLAYER_CLAIMED", ticketId: "k1" }).state;
     for (let i = 0; i < HANDS_ON.claimTimeoutTicks + 2; i++) s = tickOnce(s);
     const k1 = s.tickets.find((t) => t.id === "k1")!;

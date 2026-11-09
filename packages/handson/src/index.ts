@@ -1,6 +1,6 @@
 /** @full-plate/handson public API. */
 export * from "./types";
-export { COLD_PLATE_SECS, COVER_PATIENCE, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
+export { COLD_PLATE_SECS, NUDGE_SHARE, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
 export type { SessionOptions } from "./session";
 export { render, viewMetrics, C as HANDSON_PALETTE } from "./render";
 export type { HandsOnView, ViewMetrics } from "./render";
@@ -12,7 +12,7 @@ export type { InputSource } from "./input";
 export { buildLayout, cookMethod, dishProfiles, WORLD_W, WORLD_H, MAX_TABLES } from "./layout";
 export { TUNING, POINTS, cookQuality, chopHit, pourQuality, plateExecution, chefSpeedBonus, serveSpeedBonus } from "./verbs";
 export { botInput, HESITATE_SECS } from "./bot";
-export { commisStation, stationTickets, stationLevel, railCapOf, STATION_LEVELS, COVER_EXECUTION } from "./station";
+export { commisStation, stationTickets, stationLevel, railCapOf, STATION_LEVELS } from "./station";
 export type { StationPlan, StationLevel } from "./station";
 export { PACING, railCapFor, rollingPpm, shiftTempo } from "./pacing";
 export type { ShiftTempo } from "./pacing";

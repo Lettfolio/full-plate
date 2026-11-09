@@ -7,6 +7,7 @@ import { PLAYER_ID } from "@full-plate/sim-career";
 import { appReducer, initialAppState, type AppState } from "../state/gameReducer";
 import { content, weekdayOf } from "../sim";
 import { secondsPerTick } from "../screens/HandsOnShift";
+import type { DayResult } from "@full-plate/sim-core";
 
 const STEP = 1 / 60;
 
@@ -66,4 +67,36 @@ export function playBotDays(seed = 5, bot: BotSpec = {}, days = 7): (BotShift & 
     s = appReducer(s, { type: "nextDay" });
   }
   return out;
+}
+
+/** The same first shift as a day off: START_SERVICE then "Skip to end of shift" (the AI does everything). */
+export function skipBotShift(start: AppState): DayResult {
+  let s = appReducer(start, { type: "command", cmd: { type: "START_SERVICE" } });
+  s = appReducer(s, { type: "skipShift" });
+  return s.game!.history.at(-1)!;
+}
+
+export interface ParityRow {
+  seed: number;
+  skip: { covers: number; walkouts: number; profit: number };
+  played: { covers: number; walkouts: number; profit: number; plates: number; covered: number; seconds: number };
+}
+
+/**
+ * Round 5 (REVIEW R4 P1): playing the commis station must never be worse for the restaurant than a day off. For each
+ * seed, the first career shift is played twice from the same morning — skipped, and by the bot — fully
+ * deterministically (fixed 60 Hz steps, the same tempo as the browser, no clock, no Math.random).
+ */
+export function parityRun(seeds: readonly number[], bot: BotSpec): ParityRow[] {
+  return seeds.map((seed) => {
+    const start = careerChefStart(seed);
+    const d0 = skipBotShift(start);
+    const r = playBotShift(start, bot);
+    const d1 = r.app.game!.history.at(-1)!;
+    return {
+      seed,
+      skip: { covers: d0.covers, walkouts: d0.walkouts, profit: d0.profit },
+      played: { covers: d1.covers, walkouts: d1.walkouts, profit: d1.profit, plates: r.summary.plates, covered: r.summary.covered ?? 0, seconds: r.seconds },
+    };
+  });
 }

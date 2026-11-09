@@ -27,6 +27,7 @@ import { updateGoals } from "./systems/goals";
 import { respondIncident, startBreak } from "./systems/incidents";
 import { advanceDay, closeForDay, openService, withRng } from "./engine";
 import { deliverPlate, holdsAtPass, tallyPlate, toPass, untallyPlate } from "./systems/kitchen";
+import { aiDueTick, stationOf } from "./systems/station";
 import { bookTakings, settleParty } from "./systems/payment";
 import { frontCharm } from "./systems/system";
 import { staffFromCandidate } from "./staff";
@@ -335,7 +336,8 @@ const playerCooked: Handler<"PLAYER_COOKED"> = (content, state, cmd) => {
       ...state,
       service: tally,
       tickets: state.tickets.filter((x) => x !== t),
-      customers: state.customers.map((c) => (c.id === t.customerId ? deliverPlate(c, quality, state.tick, t.remakeOf) : c)),
+      // Round 5: with a station, the plate's dueTick is when an AI cook would have had it out (station dilation).
+      customers: state.customers.map((c) => (c.id === t.customerId ? deliverPlate(c, quality, state.tick, t.remakeOf, stationOf(state) ? aiDueTick(content, t, state.tick) : undefined) : c)),
     };
   }
   return { state: foldLog(next, events), events };
@@ -440,6 +442,7 @@ const setHandsOn: Handler<"SET_HANDS_ON"> = (_c, state, cmd) => {
   if (st !== undefined) {
     if (cmd.role !== "chef") return reject(state, "Only a chef has a station.");
     if (!st || !Array.isArray(st.dishIds) || st.dishIds.some((d) => typeof d !== "string") || !isInt(st.cap) || st.cap < 1 || st.cap > HANDS_ON.stationMaxCap) return reject(state, "That station doesn't make sense.");
+    if (st.coverTicks !== undefined && (!isInt(st.coverTicks) || st.coverTicks < 1 || st.coverTicks > HANDS_ON.stationMaxCoverTicks)) return reject(state, "That station doesn't make sense.");
   }
   // Round 4: re-sending the same role/person (a new station or rail size) keeps `since`.
   const prev = state.handsOn;
@@ -448,7 +451,7 @@ const setHandsOn: Handler<"SET_HANDS_ON"> = (_c, state, cmd) => {
     role: cmd.role,
     since: same ? prev.since : state.phase === "service" ? state.tick : 0,
     ...(cmd.staffId !== undefined ? { staffId: cmd.staffId } : {}),
-    ...(st ? { station: { dishIds: [...st.dishIds], cap: st.cap } } : {}),
+    ...(st ? { station: { dishIds: [...st.dishIds], cap: st.cap, ...(st.coverTicks !== undefined ? { coverTicks: st.coverTicks } : {}) } } : {}),
   };
   return ok({ ...state, handsOn });
 };

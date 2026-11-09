@@ -49,7 +49,6 @@ describe("round 4 seams with deep-frozen inputs", () => {
       const inp = idle ? NO_INPUT : botInput(deepFreeze(session), s.game!, 0.55, 0.5);
       const r = updateSession(deepFreeze(session), deepFreeze(s.game!), deepFreeze(inp), 1 / 60);
       session = r.session;
-      covered += r.results.filter((x) => x.type === "PLATE_COOKED" && x.covered).length;
       if (r.results.length) s = step(s, { type: "handsOnResults", results: r.results });
       stationTickets(deepFreeze(session), s.game!);
       shiftTempo(session, s.game!);
@@ -59,6 +58,8 @@ describe("round 4 seams with deep-frozen inputs", () => {
       if (acc >= spt) { acc -= spt; s = step(s, { type: "ticks", n: 1 }); }
     }
     expect(["evening", "event"]).toContain(s.game!.phase);
+    // Round 5: the sim's sous chef covers (by ticket age in ticks); the session counts what vanished off the rail.
+    covered = session.score.covered ?? 0;
     expect(covered).toBeGreaterThan(0);
     expect(session.score.plates).toBeGreaterThan(0);
   });

@@ -419,7 +419,31 @@ export const HANDS_ON = {
   stationFallbackTicks: 40,
   /** Largest rail SET_HANDS_ON accepts. */
   stationMaxCap: 6,
+  // ── round 5: the station in sim time (docs/SIM-NOTES.md "Round 5") ──
+  /**
+   * The sim's sous chef covers a station rail ticket (picked up or not) once it is this many ticks old (from when it
+   * fired, or hands-on began) — the commis default; SET_HANDS_ON station.coverTicks overrides per rung.
+   */
+  stationCoverTicks: 8,
+  /** Largest coverTicks SET_HANDS_ON accepts. */
+  stationMaxCoverTicks: 40,
+  /** …or at once when the party waiting for it is down to this much patience (was the session's COVER_PATIENCE). */
+  coverPatience: 40,
+  /** A covered plate is the covering cook's plate less this (rushed between their own tickets). */
+  coverQualityHit: 12,
+  /** Coursing: the sous chef sends a coursed plate still on the rail this many ticks before the party finishes its mains. */
+  courseLeadTicks: 1,
+  /** A course that lands after the mains are finished takes this long to eat. */
+  courseEatTicks: 1,
+  /** Station dilation: a party kept waiting by the human beyond an AI's time eats that much faster, down to this. */
+  dilationMinEatTicks: 3,
+  /** …and loses patience at this share of the usual rate while every plate it still waits for is on the human's rail. */
+  stationPatienceMult: 0.5,
+  /** The AI time a human plate is measured against: cookTicks at this speed. */
+  aiReferenceSpeed: 50,
 } as const;
+/** [round 5] Courses a hands-on station serves as their own course (the party eats its mains meanwhile). */
+export const STATION_COURSES: readonly string[] = ["starter", "side", "dessert"];
 /** Key used for the human in DayResult.perChef and KitchenTicket.chefId when SET_HANDS_ON gave no staffId. */
 export const PLAYER_COOK_ID = "player";
 /** CLOSE_TODAY: rostered staff are paid this share of a shift (notice pay for a shut day). */

@@ -129,7 +129,10 @@ export interface HandsOnScore {
   tillWait: number;
   /** Running points total (see score.ts for the table). */
   points: number;
-  /** [round 4] Station tickets the sous chef covered (no points, lower quality); `idleCovers` of them while you idled. */
+  /**
+   * [round 4] Station tickets the sous chef covered (no points, lower quality); `idleCovers` of them while you idled.
+   * Round 5: the sim covers (by ticket age in ticks, patience, or course deadline); the session counts them.
+   */
   covered?: number;
   idleCovers?: number;
   /** [round 4] Plates whose ticket had waited more than COLD_PLATE_SECS ("went cold"). */
@@ -170,6 +173,8 @@ export interface HandsOnSession {
   plateTimes?: number[];
   /** [round 4] Rail size last sent to the sim (pacing.ts railCapFor); a change emits RAIL_RESIZED. */
   railCap?: number;
+  /** [round 5] Ticket ids on the player's rail (or in hand) last update: one that vanishes uncooked was covered. */
+  railSeen?: { id: string; customerId: string; dishId: string }[];
   carrying?: Item;
   activeAction?: ActiveAction;
   stations: Station[];
@@ -217,8 +222,6 @@ export type HandsOnResult =
       station: CookMethod;
       /** Chef/bar speed bonus 0..1 (ticket age when plated). */
       speedBonus: number;
-      /** [round 4] The sous chef plated it for an idle (or swamped) player: same command, lower quality, no points. */
-      covered?: boolean;
     }
   | { type: "TABLE_SERVED"; customerId: CustomerId; ticketId: string; speedBonus: number }
   | { type: "TABLE_CLEARED"; tableId: TableId }

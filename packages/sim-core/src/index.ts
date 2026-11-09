@@ -128,6 +128,12 @@ export {
 } from "./constants";
 /** Calendar helpers: month 1-12, weekday 0 = Monday (rota index), weekend footfall days. */
 export { isWeekend, monthOf, weekdayOf } from "./util";
+/**
+ * [round 5] The hands-on station in sim time (systems/station.ts): `stationRailTickets` is the human's rail as the sim
+ * reserves it (the view draws the same rule); `ticketsToCover` what the sim's sous chef plates this tick.
+ */
+export { humanTickets as stationRailTickets, ticketsToCover, aiTicks, isCoursed } from "./systems/station";
+export { STATION_COURSES } from "./constants";
 /** Cost of one rostered shift for a staff member (wage × SHIFT_HOURS × (1 + EMPLOYER_ONCOST)). */
 export { shiftCost } from "./systems/finance";
 /** Opening stock allowance in effect for a content pack (BalanceDef.openingStockBudget or the default). */
