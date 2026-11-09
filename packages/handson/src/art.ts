@@ -22,13 +22,13 @@ type PFn = (tx: number, ty: number) => { x: number; y: number };
 /** Depth of a counter's front face, in tiles. */
 export const FACE = 0.3;
 
-/** Key for the static layers: the station/prop layout and table sizes. */
+/** Key for the static layers: the station/prop layout and table sizes, folded to a number (no per-frame strings). */
 export function artKey(s: HandsOnSession, state: GameState): string {
-  let k = "";
-  for (const st of s.stations) k += `${st.id}${st.x},${st.y},${st.w},${st.h};`;
-  for (const p of s.props) k += `${p.kind}${p.x},${p.y};`;
-  for (const t of state.tables) k += `${t.id}:${t.seats};`;
-  return k;
+  let h = 17;
+  for (const st of s.stations) h = (Math.imul(h, 31) + st.x * 1000003 + st.y * 10007 + st.w * 101 + st.h + st.kind.length) | 0;
+  for (const p of s.props) h = (Math.imul(h, 31) + p.x * 1009 + p.y * 13 + p.kind.length) | 0;
+  for (const t of state.tables) h = (Math.imul(h, 31) + t.seats + t.id.length * 7) | 0;
+  return String(h >>> 0);
 }
 
 /** Seat positions round a table (CSS px) — shared by the static chairs and the live guests. */
@@ -186,12 +186,19 @@ function paintWalls(ctx: CanvasRenderingContext2D, _s: HandsOnSession, m: ArtMet
     ctx.fillStyle = faceCol; ctx.fillRect(x, kw + T * 0.72, w, T * 0.28);
   };
   part(0.42, 5); part(14, 15); part(19, 21);
-  // swing doors (x 15..17): two leaves, propped open, and a threshold strip
+  // swing doors (x 15..17): a threshold strip and two leaves swung open into the kitchen, each with a porthole
   const sd = P(15, PASS_ROW);
-  ctx.fillStyle = C.steelDark; ctx.fillRect(sd.x, sd.y + T * 0.84, 2 * T, T * 0.08);
-  ctx.fillStyle = mix(C.wallTop, C.paper, 0.35); ctx.strokeStyle = C.wallFace; ctx.lineWidth = 1;
-  roundRect(ctx, sd.x + 1, sd.y + T * 0.32, T * 0.16, T * 0.62, 2); ctx.fill(); ctx.stroke();
-  roundRect(ctx, sd.x + 2 * T - T * 0.16 - 1, sd.y + T * 0.32, T * 0.16, T * 0.62, 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = C.steelDark; ctx.fillRect(sd.x, sd.y + T * 0.62, 2 * T, T * 0.1);
+  for (const side of [0, 1]) {
+    ctx.save();
+    ctx.translate(sd.x + side * 2 * T, sd.y + T * 0.66);
+    ctx.rotate(side ? -Math.PI * 0.62 : -Math.PI * 0.38);
+    ctx.fillStyle = C.shadow; ctx.fillRect(2, 1, T * 0.8, T * 0.16);
+    ctx.fillStyle = C.steelTop; ctx.fillRect(0, -T * 0.08, T * 0.8, T * 0.16);
+    ctx.strokeStyle = C.steelDeep; ctx.lineWidth = 1; ctx.strokeRect(0, -T * 0.08, T * 0.8, T * 0.16);
+    ctx.fillStyle = C.steelDeep; ctx.fillRect(T * 0.62, -T * 0.08, 1.5, T * 0.16);
+    ctx.restore();
+  }
   // office walls: west side and the south wall with a door gap
   const o = P(21, 0);
   ctx.fillStyle = faceCol; ctx.fillRect(o.x - T * 0.2, o.y, T * 0.24, 6 * T);
@@ -396,7 +403,7 @@ function paintStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: G
       counter(ctx, p.x, p.y + T * 0.08, w, h - T * 0.08, T, C.steelTop, C.steelFace, C.steelDark, 5);
       // heat-lamp gantry along the back edge: housings with a warm spot under each
       const gy = p.y + T * 0.1;
-      ctx.fillStyle = "rgba(255,176,90,0.13)"; roundRect(ctx, p.x + 4, gy + 2, w - 8, h - T * FACE - T * 0.16, 4); ctx.fill();
+      ctx.fillStyle = "rgba(255,176,90,0.07)"; roundRect(ctx, p.x + 4, gy + 2, w - 8, h - T * FACE - T * 0.16, 4); ctx.fill();
       ctx.fillStyle = C.steelDeep; ctx.fillRect(p.x + 6, gy, w - 12, 3);
       for (let x = p.x + T * 1.2; x < p.x + w - T * 0.8; x += T * 2.2) {
         ctx.fillStyle = C.outline; roundRect(ctx, x - T * 0.5, gy - 2, T, 5, 2); ctx.fill();

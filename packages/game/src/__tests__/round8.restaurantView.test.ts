@@ -20,7 +20,8 @@ beforeAll(() => {
       fillText: (t: string) => { texts.push(t); },
       measureText: (t: string) => ({ width: t.length * 7 }),
       createLinearGradient: () => grad, createRadialGradient: () => grad,
-      drawImage: () => { drawImages++; },
+      // full-canvas blits only (people are small sprite blits)
+      drawImage: (_i: unknown, x: number, y: number, w: number) => { if (x === 0 && y === 0 && w >= 800) drawImages++; },
     };
     return new Proxy(target, { get: (o, k: string) => (k in o ? o[k] : () => {}), set: (o, k: string, v) => { o[k] = v; return true; } });
   };
@@ -45,24 +46,26 @@ describe("RestaurantView (round 8)", () => {
     texts.length = 0; drawImages = 0;
     for (let i = 0; i < 5; i++) view.render(game, { content, speed: 1, now: 1000 + i * 16, selected: game.customers.find((c) => c.tableId)?.id ?? null });
     for (let i = 1; i <= game.tables.length; i++) expect(texts).toContain(String(i));
-    expect(view.layerBuilds).toBe(2); // floor + furniture, once
-    expect(drawImages).toBe(10);
+    expect(view.layerBuilds).toBe(1); // the scene, once
+    expect(drawImages).toBe(5); // one blit a frame
     view.resize(1200, 760, 2);
     view.render(game, { content, speed: 1, now: 2000 });
     view.render(game, { content, speed: 1, now: 2016, reducedMotion: true });
-    expect(view.layerBuilds).toBe(4);
+    expect(view.layerBuilds).toBe(2);
     // the restaurant name and the OPEN sign are painted into the furniture layer
     expect(texts).toContain(game.restaurantName.toUpperCase());
     expect(texts).toContain("OPEN");
   });
 
-  it("evening adds the cached light layer", () => {
+  it("evening light is drawn live (no extra full-canvas layer)", () => {
     const game = { ...busyState(), tick: 100 };
     const view = new RestaurantView(document.createElement("canvas"));
     view.resize(900, 640, 1);
+    drawImages = 0;
     view.render(game, { content, speed: 1, now: 0 });
     view.render(game, { content, speed: 1, now: 16 });
-    expect(view.layerBuilds).toBe(3);
+    expect(view.layerBuilds).toBe(1);
+    expect(drawImages).toBe(2);
   });
 
   it("caps the backing store at 2× device pixels", () => {

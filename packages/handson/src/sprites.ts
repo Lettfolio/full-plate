@@ -8,6 +8,8 @@
  * when still or under reduced motion.
  */
 
+import { defaultSurface, type SurfaceFactory } from "./layers";
+
 export type Facing = "up" | "down" | "left" | "right";
 
 /** Facing from a movement vector; a vector shorter than `dead` keeps `fallback` (standing still keeps its facing). */
@@ -196,4 +198,50 @@ export function guestLook(segment: string, key: string, kid: boolean, colours: {
   if (s.includes("tourist")) return { body: colours.basil, skin, hair, hat: "sunhat", hatColour: colours.straw, kid };
   const pool = [colours.sky, colours.amber, colours.plum, colours.basil, "#c46b8c", "#5a8f8a"];
   return { body: pool[hashKey(s) % pool.length]!, skin, hair, kid };
+}
+
+/** Where the hands are (y) for a pose — what drawPerson returns, without drawing. */
+export function handsYOf(y0: number, r: number, look: Look, pose: Pose): number {
+  r *= look.kid ? 0.78 : 1;
+  const y = y0 + walkBob(pose, r) + (pose.seated ? r * 0.12 : 0);
+  if (!pose.carrying) return y + r * 0.55;
+  return pose.facing === "up" ? y - r * 0.55 : pose.facing === "down" ? y + r * 0.78 : y + r * 0.35;
+}
+
+const WALK_FRAMES = 8;
+const TAU = Math.PI * 2;
+
+/**
+ * Round 8: a cache of pre-drawn people. Each (look, facing, walk frame, seated, carrying, size, dpr) is drawn once into
+ * a small offscreen canvas and blitted after — a crowded dining room is ~30 small blits a frame instead of ~500 path
+ * fills. The walk cycle is quantised to 8 frames. Where no offscreen surface can be made (node tests) it draws live.
+ */
+export class SpriteCache {
+  private map = new Map<string, { image: CanvasImageSource; w: number; h: number; ax: number; ay: number }>();
+  /** Sprites drawn into the cache so far (tests). */
+  builds = 0;
+  constructor(private make: SurfaceFactory = defaultSurface, private max = 400) {}
+
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, look: Look, pose: Pose, dpr = 1): number {
+    const frame = pose.moving && pose.phase !== undefined ? Math.floor((((pose.phase % TAU) + TAU) % TAU) / (TAU / WALK_FRAMES)) : -1;
+    const p: Pose = frame >= 0 ? { ...pose, phase: (frame + 0.5) * (TAU / WALK_FRAMES) } : { ...pose, moving: false, phase: 0 };
+    const key = `${look.body}${look.skin}${look.hair}${look.hat ?? ""}${look.hatColour ?? ""}${look.trim ?? ""}${look.apron ?? ""}${look.shirt ? 1 : 0}${look.kid ? 1 : 0}|${p.facing}${frame}${p.seated ? 1 : 0}${p.carrying ? 1 : 0}|${Math.round(r * 4)}|${dpr}|${p.outline}${p.shadow ?? ""}`;
+    let e = this.map.get(key);
+    if (!e) {
+      const left = r * 1.6, right = r * 1.7, top = r * 2.05, bottom = r * 1.6;
+      const w = Math.ceil(left + right + 4), h = Math.ceil(top + bottom + 4);
+      const surface = this.make(Math.ceil(w * dpr), Math.ceil(h * dpr));
+      const c = surface ? (surface.getContext("2d") as CanvasRenderingContext2D | null) : null;
+      if (!surface || !c || typeof c.setTransform !== "function" || typeof ctx.drawImage !== "function") return drawPerson(ctx, x, y, r, look, p);
+      if (this.map.size >= this.max) this.map.clear();
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawPerson(c, left + 2, top + 2, r, look, p);
+      this.builds++;
+      e = { image: surface as unknown as CanvasImageSource, w, h, ax: left + 2, ay: top + 2 };
+      this.map.set(key, e);
+    }
+    // snap to device pixels so the bitmap isn't resampled
+    ctx.drawImage(e.image, Math.round((x - e.ax) * dpr) / dpr, Math.round((y - e.ay) * dpr) / dpr, e.w, e.h);
+    return handsYOf(y, r, look, p);
+  }
 }

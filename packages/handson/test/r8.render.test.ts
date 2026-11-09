@@ -9,7 +9,7 @@ import { createSession } from "../src/session";
 import { render } from "../src/render";
 import { DEFAULT_PALETTE, readPalette, toHex } from "../src/palette";
 import { LayerCache, layerKey, type LayerSurface } from "../src/layers";
-import { drawPerson, facingFrom, walkBob } from "../src/sprites";
+import { drawPerson, facingFrom, handsYOf, SpriteCache, walkBob } from "../src/sprites";
 
 /** A 2D context that records every call (name + args) and the texts drawn. */
 function recCtx() {
@@ -85,21 +85,21 @@ describe("static layers (cached offscreen, rebuilt on resize)", () => {
     expect(surfaces.at(-1)).toMatchObject({ w: 2048, h: 1200 });
   });
 
-  it("render: floor and furniture are built once, blitted every frame, rebuilt when the canvas resizes", () => {
+  it("render: the scene layer is built once, blitted every frame (one blit), rebuilt when the canvas resizes", () => {
     const f = createFixture({ role: "chef", seed: 3 });
     const s = createSession(f.state, "chef", { content, seed: 3 });
     const layers = new LayerCache(factory);
     const { ctx, calls, texts } = recCtx();
     for (let i = 0; i < 4; i++) render(ctx, { ...s, time: i / 60 }, f.state, { width: 1024, height: 600, layers });
-    expect(layers.builds).toBe(2);
-    expect(calls.filter((c) => c.startsWith("drawImage")).length).toBe(8);
+    expect(layers.builds).toBe(1);
+    expect(calls.filter((c) => c.startsWith("drawImage")).length).toBe(4);
     // static labels went into the layer, not the frame
     expect(texts).not.toContain("WASH-UP");
     expect(surfaces.some((x) => x.rec.texts.includes("WASH-UP"))).toBe(true);
     render(ctx, s, f.state, { width: 1280, height: 800, layers });
-    expect(layers.builds).toBe(4);
+    expect(layers.builds).toBe(2);
     render(ctx, s, f.state, { width: 1280, height: 800, layers });
-    expect(layers.builds).toBe(4);
+    expect(layers.builds).toBe(2);
   });
 
   it("with no offscreen surface (node) the static art is drawn straight onto the frame", () => {
@@ -146,5 +146,21 @@ describe("sprites", () => {
     };
     expect(frame(10, true)).toBe(frame(10.25, true));
     expect(frame(10, false)).not.toBe(frame(10.25, false));
+  });
+
+  it("people are pre-drawn once per (look, facing, walk frame, size) and blitted; the walk cycle has 8 frames", () => {
+    const made: number[] = [];
+    const cache = new SpriteCache((w, h) => { made.push(w * h); return { width: w, height: h, getContext: () => recCtx().ctx }; });
+    const look = { body: "#2f3a33", skin: "#d9a77c", hair: "#1f1b18", hat: "cap" as const, hatColour: "#3c7a37" };
+    const { ctx, calls } = recCtx();
+    for (let i = 0; i < 10; i++) cache.draw(ctx, 100 + i, 100, 10, look, { facing: "down", outline: "#000" });
+    expect(cache.builds).toBe(1);
+    for (let i = 0; i < 200; i++) cache.draw(ctx, 100, 100, 10, look, { facing: "right", moving: true, phase: i * 0.37, outline: "#000" });
+    expect(cache.builds).toBe(1 + 8);
+    expect(calls.filter((c) => c.startsWith("drawImage")).length).toBe(210);
+    // the hands it reports match what drawPerson returns
+    const pose = { facing: "down" as const, carrying: true, outline: "#000" };
+    expect(cache.draw(ctx, 50, 50, 10, look, pose)).toBeCloseTo(drawPerson(recCtx().ctx, 50, 50, 10, look, pose));
+    expect(handsYOf(50, 10, look, { ...pose, facing: "up" })).toBeLessThan(50);
   });
 });

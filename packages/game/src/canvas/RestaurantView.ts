@@ -16,7 +16,7 @@
  * `floorPalette.ts` (theme tokens read from the canvas on resize + art colours).
  */
 import type { ContentPack, Customer, CustomerId, GameState, Staff, Table, TableId } from "@full-plate/sim-core";
-import { drawPerson, facingFrom, guestLook, hashKey, HAIRS, SKINS, type Facing, type Look } from "@full-plate/handson/sprites";
+import { facingFrom, guestLook, hashKey, HAIRS, SKINS, SpriteCache, type Facing, type Look } from "@full-plate/handson/sprites";
 import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { weekdayIndex } from "../lib/calendar";
 import { FLOOR_DEFAULTS, readFloorPalette, type FloorPalette } from "./floorPalette";
@@ -194,8 +194,15 @@ export class RestaurantView {
   private lastNow = 0;
   private firstFrame = true;
   private layers = new LayerCache();
+  /** Round 8: pre-drawn people (one small blit each). */
+  private people = new SpriteCache();
   private paletteVersion = 0;
   private name = "";
+  /** The static-layer key, recomputed only when the layout, name or palette changes. */
+  private key = "";
+  private keyFor: Layout | null = null;
+  private keyName = "";
+  private keyPalette = -1;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -245,19 +252,22 @@ export class RestaurantView {
     this.name = game.restaurantName;
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.clearRect(0, 0, this.w, this.h);
 
     this.updateSprites(game, L, dt, opts);
 
-    const key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}`);
-    this.layers.draw(ctx, "floor", key, this.w, this.h, this.dpr, (c) => paintFloor(c, L));
+    if (this.keyFor !== L || this.keyName !== this.name || this.keyPalette !== this.paletteVersion) {
+      this.keyFor = L; this.keyName = this.name; this.keyPalette = this.paletteVersion;
+      this.key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}`);
+    }
+    const key = this.key;
+    // one cached, opaque scene layer: one full blit a frame and no clear (the blit is the costly part in software raster)
+    this.layers.draw(ctx, "scene", key, this.w, this.h, this.dpr, (c) => { paintFloor(c, L); paintFurniture(c, L, this.name); });
     this.drawTableGlows(game, L, opts);
-    this.layers.draw(ctx, "furniture", key, this.w, this.h, this.dpr, (c) => paintFurniture(c, L, this.name));
     this.drawKitchen(game, L, opts);
     this.drawTables(game, L, opts);
     this.drawStaff(game, L, opts, dt);
     this.drawPeople(game, L, opts);
-    this.drawLighting(game, L, key);
+    this.drawLighting(game, L);
     this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
@@ -460,15 +470,10 @@ export class RestaurantView {
       if (!s) continue;
       const c = t.occupiedBy ? byId.get(t.occupiedBy) : undefined;
       if (c) {
+        // a band round the table, under the guests: their mood at a glance
         const col = c.stage === "eating" ? C.basil : c.stage === "paying" ? C.gold : patienceColour(c.patience);
-        const R = s.r + L.person * 2.6;
-        ctx.fillStyle = radial(ctx, s.x, s.y, R, alpha(col, 0.3), alpha(col, 0.05));
-        ctx.beginPath(); ctx.arc(s.x, s.y, R, 0, Math.PI * 2); ctx.fill();
-      }
-      if (c && opts.selected === c.id) {
-        const R = s.r + L.person * 3.6;
-        ctx.fillStyle = radial(ctx, s.x, s.y, R, alpha(C.gold, 0.45), alpha(C.gold, 0));
-        ctx.beginPath(); ctx.arc(s.x, s.y, R, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = alpha(col, opts.selected === c.id ? 0.42 : 0.26); ctx.lineWidth = L.person * 2.4;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 1.3, 0, Math.PI * 2); ctx.stroke();
       }
     }
   }
@@ -562,9 +567,9 @@ export class RestaurantView {
   private drawGuest(s: Sprite, L: Layout, c: Customer | undefined, walking = false, now = 0) {
     const look = this.lookOf(s);
     const seated = !walking && !!c && SEATED.has(c.stage) && !s.leaving;
-    drawPerson(this.ctx, s.x, s.y - (seated ? L.person * 0.25 : 0), L.person, look, {
+    this.people.draw(this.ctx, s.x, s.y - (seated ? L.person * 0.25 : 0), L.person, look, {
       facing: s.facing, seated, moving: walking && !!motion, phase: walking ? now / 90 + s.phase : 0, outline: C.outline, shadow: C.shadow,
-    });
+    }, this.dpr);
   }
 
   private lookOf(s: Sprite): Look {
@@ -622,16 +627,17 @@ export class RestaurantView {
   }
 
   /** Round 8: evening comes in from 18:00 — the street darkens, lamps and windows glow (one cached light layer). */
-  private drawLighting(game: GameState, L: Layout, key: string) {
+  private drawLighting(game: GameState, L: Layout) {
     const dusk = clamp((game.tick - 72) / 36, 0, 1);
     if (dusk <= 0) return;
     const ctx = this.ctx;
     ctx.fillStyle = alpha(C.night, 0.34 * dusk); ctx.fillRect(0, L.wallY + 5, L.w, L.h - L.wallY - 5);
     ctx.fillStyle = alpha(C.night, 0.16 * dusk); ctx.fillRect(0, 0, L.w, L.wallY + 5);
+    // lamp pools drawn directly (a handful of gradients is cheaper than another full-canvas blit)
     ctx.save();
     ctx.globalAlpha = dusk;
     ctx.globalCompositeOperation = "lighter";
-    this.layers.draw(ctx, "light", key, this.w, this.h, this.dpr, (c) => paintLight(c, L));
+    paintLight(ctx, L);
     ctx.restore();
   }
 
@@ -765,7 +771,7 @@ export class RestaurantView {
     const r = clamp(L_PERSON_STAFF * (this.layout?.person ?? 8), 7, 11);
     const look = staffLook(s);
     const walking = sp.moving && !!motion;
-    const hy = drawPerson(ctx, x, y, r, look, { facing: sp.facing, moving: walking, phase: walking ? opts.now / 85 : 0, carrying: carrying || bill, outline: C.outline, shadow: C.shadow });
+    const hy = this.people.draw(ctx, x, y, r, look, { facing: sp.facing, moving: walking, phase: walking ? opts.now / 85 : 0, carrying: carrying || bill, outline: C.outline, shadow: C.shadow }, this.dpr);
     if (carrying || bill) {
       const fx = sp.facing === "left" ? -1 : sp.facing === "right" ? 1 : 0;
       const ix = x + fx * r * 1.05, iy = sp.facing === "up" ? hy - r * 0.4 : hy;

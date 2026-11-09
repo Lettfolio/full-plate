@@ -24,7 +24,7 @@ import { C, applyPalette, type Palette } from "./palette";
 import { alpha, clamp, dot, FONT, label, lerp, mix, radial, roundRect, type LabelOpts } from "./draw";
 import { LayerCache, layerKey } from "./layers";
 import { artKey, burner, ovenWindow, paintFloor, paintFurniture, seatsOf, tableTop, FACE } from "./art";
-import { drawPerson, guestLook, hashKey, HAIRS, SKINS, type Facing, type Look } from "./sprites";
+import { guestLook, hashKey, HAIRS, SKINS, SpriteCache, type Facing, type Look } from "./sprites";
 
 export { C };
 export { MIN_TEXT_PX } from "./draw";
@@ -61,6 +61,9 @@ export function viewMetrics(view: HandsOnView): ViewMetrics {
 
 /** 1, or 0 under reduced motion: every bob, sway, pulse and flicker is multiplied by it. Set per render call. */
 let motion = 1;
+/** Pre-drawn people (sprites.ts) and the dpr they're drawn at this frame. */
+const people = new SpriteCache();
+let frameDpr = 1;
 /** A pulse in 0..1 at `speed` rad/s, or a steady 0.5 under reduced motion. */
 const pulseAt = (now: number, speed: number) => (motion ? (Math.sin(now * speed) + 1) / 2 : 0.5);
 
@@ -77,24 +80,24 @@ export function render(ctx: CanvasRenderingContext2D, session: HandsOnSession, s
   const dpr = view.dpr ?? 1;
   const pv = applyPalette(view.palette);
   motion = view.reducedMotion ? 0 : 1;
+  frameDpr = dpr;
   ctx.save();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = (tx: number, ty: number) => ({ x: m.ox + tx * m.T, y: m.oy + ty * m.T });
   const now = session.time;
 
-  // static floor: floors, walls, rugs, light pools (cached)
+  // the static scene — floors, walls, counters, appliances at rest, tables and chairs, labels — is one cached, opaque
+  // layer: one blit a frame (a full-canvas blit is the costliest thing a software-rastered canvas does), no clear
   const layers = view.layers ?? layersFor(ctx);
   const key = layerKey(m.w, m.h, dpr, pv, artKey(session, state));
-  layers.draw(ctx, "floor", key, m.w, m.h, dpr, (c) => paintFloor(c, session, m, P));
+  layers.draw(ctx, "scene", key, m.w, m.h, dpr, (c) => { paintFloor(c, session, m, P); paintFurniture(c, session, state, m, P); });
   const hint = session.tutorial || view.forceHint ? nextHint(session, state) : undefined;
   // Round 6: the kitchen crew a career commis works with (who has which ticket, the course coming, the sous chef's walk).
   const crew = crewView(session, state, m);
   const keyName = view.keyLabel ?? "E";
-  // station glows and table halos go under the furniture
+  // station glows and table halos: translucent bands round the furniture
   for (const st of session.stations) drawGlow(ctx, session, st, m, P, now, hint?.stationId === st.id);
   for (const st of session.stations) if (st.kind === "table") drawTableUnder(ctx, state, st, m, P);
-  // static furniture: counters, appliances, tables and chairs, labels (cached)
-  layers.draw(ctx, "furniture", key, m.w, m.h, dpr, (c) => paintFurniture(c, session, state, m, P));
   drawYourStation(ctx, session, m, P);
   for (const st of session.stations) drawStation(ctx, session, state, st, m, P, now, crew);
   drawPeople(ctx, session, state, crew, m, P, now);
@@ -197,9 +200,10 @@ function drawGlow(ctx: CanvasRenderingContext2D, s: HandsOnSession, st: Station,
   const col = enabled ? alpha(C.gold, 0.4 + 0.3 * pulse) : hinted ? alpha(C.gold, 0.16 + 0.16 * pulse) : "rgba(143,133,122,0.26)";
   const pad = m.T * 0.24;
   const tall = st.kind === "fridge" ? m.T * 0.5 : 0;
-  ctx.fillStyle = col;
-  if (st.kind === "table") { ctx.beginPath(); ctx.arc(p.x + st.w * m.T / 2, p.y + st.h * m.T / 2, (st.w * m.T) / 2 + m.T * 0.78, 0, Math.PI * 2); ctx.fill(); }
-  else { roundRect(ctx, p.x - pad, p.y - pad - tall, st.w * m.T + pad * 2, st.h * m.T + pad * 2 + tall, 10); ctx.fill(); }
+  // a soft band round the station (over the cached scene, so it frames the appliance instead of tinting it)
+  ctx.strokeStyle = col; ctx.lineWidth = pad * 1.5;
+  if (st.kind === "table") { ctx.beginPath(); ctx.arc(p.x + st.w * m.T / 2, p.y + st.h * m.T / 2, (st.w * m.T) / 2 + m.T * 0.4, 0, Math.PI * 2); ctx.stroke(); }
+  else { roundRect(ctx, p.x - pad * 0.25, p.y - pad * 0.25 - tall, st.w * m.T + pad * 0.5, st.h * m.T + pad * 0.5 + tall, 8); ctx.stroke(); }
   if (enabled) {
     ctx.strokeStyle = C.amberDeep; ctx.lineWidth = 2;
     if (st.kind === "table") { ctx.beginPath(); ctx.arc(p.x + st.w * m.T / 2, p.y + st.h * m.T / 2, (st.w * m.T) / 2 + m.T * 0.78, 0, Math.PI * 2); ctx.stroke(); }
@@ -301,10 +305,6 @@ function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Ga
       const pr = T * 0.26;
       let x = p.x + T * 0.45;
       const py = p.y + T * 0.08 + (h - T * 0.08 - T * FACE) * 0.58;
-      if (groups.length) {
-        ctx.fillStyle = "rgba(255,170,80,0.16)";
-        roundRect(ctx, p.x + 4, p.y + T * 0.16, w - 8, topH - T * 0.1, 5); ctx.fill();
-      }
       for (const g of groups) {
         if (x > p.x + w - T * 0.6) break;
         const tn = g.tickets[0] ? tableNo(s, state, g.tickets[0].customerId) : undefined;
@@ -343,8 +343,9 @@ function drawTableUnder(ctx: CanvasRenderingContext2D, state: GameState, st: Sta
   if (!table || !c) return;
   const g = seatsOf(st, table.seats, m, P);
   const col = c.stage === "eating" ? C.basil : c.stage === "paying" ? C.gold : patienceColour(c.patience);
-  ctx.fillStyle = radial(ctx, g.cx, g.cy, g.r + g.person * 2.6, alpha(col, 0.28), alpha(col, 0.04));
-  ctx.beginPath(); ctx.arc(g.cx, g.cy, g.r + g.person * 2.4, 0, Math.PI * 2); ctx.fill();
+  // a band round the table under the guests: their mood, at a glance
+  ctx.strokeStyle = alpha(col, 0.26); ctx.lineWidth = g.person * 2.2;
+  ctx.beginPath(); ctx.arc(g.cx, g.cy, g.r + g.person * 1.25, 0, Math.PI * 2); ctx.stroke();
 }
 
 function drawTableLive(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: GameState, st: Station, m: ViewMetrics, P: PFn, now: number, crew?: CrewView) {
@@ -376,7 +377,7 @@ function drawTableLive(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: 
     const sit = (k: number) => {
       const seat = seats[k]!;
       const f: Facing = Math.abs(cx - seat.x) > Math.abs(cy - seat.y) ? (cx < seat.x ? "left" : "right") : cy < seat.y ? "up" : "down";
-      drawPerson(ctx, seat.x, seat.y - person * 0.2, person * 0.98, look(k), { facing: f, seated: true, outline: C.outline, shadow: C.shadow });
+      people.draw(ctx, seat.x, seat.y - person * 0.2, person * 0.98, look(k), { facing: f, seated: true, outline: C.outline, shadow: C.shadow }, frameDpr);
     };
     // guests on the far side sit behind the table top; the near side in front of it
     for (let k = 0; k < n; k++) if (seats[k]!.y < cy - 1) sit(k);
@@ -505,7 +506,7 @@ function drawPeople(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     const nm = named(p.role);
     list.push({ y: q.y, draw: () => {
       const idle = Math.sin(now * 2.2 + p.x) * 0.8 * motion;
-      drawPerson(ctx, q.x, q.y + idle, R * 0.92, staffLook(p.role, nm ?? p.role), { facing: p.facing, outline: C.outline, shadow: C.shadow });
+      people.draw(ctx, q.x, q.y + idle, R * 0.92, staffLook(p.role, nm ?? p.role), { facing: p.facing, outline: C.outline, shadow: C.shadow }, frameDpr);
       if (nm) nameTag(ctx, nm, q.x, q.y + T * 0.55);
     } });
   }
@@ -517,7 +518,7 @@ function drawPeople(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
         const q = P(at.x, at.y);
         list.push({ y: q.y, draw: () => {
           const work = Math.sin(now * 7) * 1 * motion;
-          drawPerson(ctx, q.x, q.y + work, R * 0.88, staffLook("helper", crew.helper!.cook), { facing: "up", carrying: true, outline: C.outline, shadow: C.shadow });
+          people.draw(ctx, q.x, q.y + work, R * 0.88, staffLook("helper", crew.helper!.cook), { facing: "up", carrying: true, outline: C.outline, shadow: C.shadow }, frameDpr);
           // the "helping" badge: subtle, under the sprite
           ctx.font = `800 13px ${FONT}`;
           const w = ctx.measureText("helping").width + 10;
@@ -533,7 +534,7 @@ function drawPeople(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     list.push({ y: q.y, draw: () => {
       const pose = walkPose(now, sp.moving);
       const idle = sp.moving ? 0 : Math.sin(now * 3) * 0.8 * motion;
-      const hy = drawPerson(ctx, q.x, q.y + idle, R * 0.95, staffLook("sous", crew.sousName), { facing: sp.facing, ...pose, carrying: sp.carrying, outline: C.outline, shadow: C.shadow });
+      const hy = people.draw(ctx, q.x, q.y + idle, R * 0.95, staffLook("sous", crew.sousName), { facing: sp.facing, ...pose, carrying: sp.carrying, outline: C.outline, shadow: C.shadow }, frameDpr);
       nameTag(ctx, crew.sousName, q.x, q.y + T * 0.55);
       if (sp.carrying) {
         // the plate (and its slip) held up in his hands
@@ -575,7 +576,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMet
   const bob = moving && motion ? -Math.abs(Math.sin(pose.phase)) * R * 0.16 : 0;
   const head = { x: p.x, y: p.y + bob - T * (facing === "up" && item ? 1.05 : 0.78) };
   if (item && facing === "up") carried(ctx, item, p.x, p.y + bob - R * 1.25, T, wob, now, s, head);
-  const hy = drawPerson(ctx, p.x, p.y, R, staffLook(role, "you", true), pose);
+  const hy = people.draw(ctx, p.x, p.y, R, staffLook(role, "you", true), pose, frameDpr);
   if (item && facing !== "up") carried(ctx, item, p.x + fx * R * 1.15, hy + (facing === "down" ? R * 0.05 : -R * 0.1), T, wob, now, s, head);
 }
 
@@ -614,7 +615,8 @@ function carried(ctx: CanvasRenderingContext2D, item: Item, ix0: number, iy: num
     case "plates": { // a tray of plates (or drinks)
       const n = item.plates.length;
       ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.ellipse(1.5, 2.5, T * 0.42, T * 0.24, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#8b6a4a"; ctx.beginPath(); ctx.ellipse(0, 0, T * 0.42, T * 0.24, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = C.steelTop; ctx.beginPath(); ctx.ellipse(0, 0, T * 0.42, T * 0.24, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = C.steelDark; ctx.beginPath(); ctx.ellipse(0, 0, T * 0.36, T * 0.19, 0, 0, Math.PI * 2); ctx.stroke(); ctx.strokeStyle = C.outline;
       for (let i = 0; i < n; i++) {
         const pl = item.plates[i]!;
         const px = -T * 0.22 + i * T * 0.22, py = -i * 1.5;
