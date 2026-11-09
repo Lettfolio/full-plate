@@ -378,3 +378,53 @@ plates a shift, half speed 7–11, shifts 154–252 s, the rail dry < 25 s.
   `stationTickets`/`coverDueTick`); a plan saved before round 5 has no `coursed`, so the view would show one ticket
   fewer than the sim reserves until the next shift (an envelope reload ends the station anyway).
 
+
+## Round 6: the help on the canvas (REVIEW R5.6 next step 1)
+
+Round 5's covers were honest but invisible: the child read "Sous chef helped: 7" on the evening card. Now she sees the
+kitchen help her while she plays. **Render only**: no sim rule, timing, result or pacing changed; the session gained one
+cosmetic field (`sousWalks`). The career parity and hands-on harness tests are unchanged and pass.
+
+### What's on the canvas (career chef with a station)
+- **The sous chef** (charcoal jacket, name tag — the same first name the "I've sent…" line uses) stands by the sink.
+  When the sim covers a ticket off her rail he **walks to the spot under that slip**, the slip **drops off the header
+  rail into his hand**, he carries the plate to the pass, puts it down and walks back — with a speech bubble: "I've got
+  table 3's Chips!" (two covers in one tick: "I've got the Chips for tables 1 and 5!"). The banner line and the toast
+  stay. One trip is ~4.9 s (`SOUS_WALK`); a cover noticed before he has taken the slip joins the trip, so what he says
+  always matches the banner, and at most one trip waits behind the one he is walking.
+- **"Course coming"**: a table eating its mains while its own course (her dessert/side/starter) is still cooking shows
+  a silver **cloche** by its top-left edge with a ring that fills through the mains (from `servedTick` to the cover tick
+  `eatUntil − courseLeadTicks`, the tick the sous chef would send it). Tomato ring = on her rail or in her hands (it
+  pulses while she carries it); sky = the kitchen has it. It clears the frame the course lands (`courseOut` cleared).
+- **Her AI hands** (`<staffId>~ai`) cooking one of *her* station's dishes (the second main, a full rail) stand at that
+  dish's hob/oven/fryer (prep board for cold dishes) in light whites with a small blue **"helping"** badge, and the
+  station animates as busy. Steps aside a tile if she is standing there.
+- **The rail says whose each slip is**: a band down the left of each slip — **tomato = hers** (matching the station
+  tag), **amber + the sous chef's name = he sends it within a tick** (its cover tick has come, or its table is at its last
+  patience), **sky + "HELPER"** (or the cook's first name) = one of her station's dishes another cook is cooking (≤ 2 such
+  slips, after hers). Hers that are a course already "coming" carry a small cloche. One slip per party and owner.
+- My shift's "You're on today" line explains it in one sentence ("Red-edged slips on the rail are yours, blue ones a
+  helper's. A silver dome on a table means they're waiting for your course.").
+
+### Read-only helpers (`crew.ts`, `sous.ts`; exported, tested in `test/crew.test.ts`)
+```ts
+railView(session, state, maxHelper = 2): { ticket; owner: "hers" | "sous" | "helper"; course; cook? }[]
+coverSoon(session, state, ticket)        // the sim's sous chef sends this rail ticket within a tick (station.ts coverDueTick + patience)
+courseMarkers(session, state): { customerId; tableId; ticketIds; dishIds; owner: "hers" | "helper"; progress; dueTick }[]
+helperAtWork(session, state): { ticket; cook; stationId: "stove" | "oven" | "fryer" | "prep" } | undefined
+bookSousWalk(walks, item, slot, now) · sousPose(walks, time, railX) · sousLine(items, short)   // pure; render draws sousPose
+```
+All derive from the same rules as `stationTickets`/`coverDueTick` (which mirror sim-core `humanTickets`/`ticketsToCover`),
+so the rail colours can't disagree with what the sim does. `sousName` is now exported from the session.
+
+### Numbers (headless, the half-speed bot on the balanced employer "Desserts · Burgers", seeds 1–3, every frame)
+The sous chef is on a trip in 32–35% of frames, a slip is amber (going within a tick) in 27–42%, a course marker shows in
+56–75% and the `~ai` helper is at her station in 6–9%. Bundle: HandsOnShift chunk 75.1 → 84.1 kB (budget ~170).
+Type audit: 25 screens, 0 text runs below 13 px.
+
+### Still open
+- The walk is a replay: the sim plates the cover in the tick it happens, so the slip has already left the header when he
+  reaches for it (the flying slip stands in for it). Starting the walk a tick early (when `coverSoon` turns amber) would
+  need the game's tick clock in render; not worth it yet.
+- The sous chef walks through the player (no collision for NPCs); at the pass they can overlap for a moment.
+- The "Covered by the sous chef" toast still rises from the pass and can overlap his bubble when he is there.

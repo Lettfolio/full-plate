@@ -74,7 +74,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           ) : training ? (
             <p className="callout"><b>📚 Training course today.</b> The boss is paying for a day of learning instead of a shift.</p>
           ) : working ? (
-            <p className="callout callout--good"><b>You're on today.</b> {station ? <>Your station: <b>{station.label}</b> ({station.title.toLowerCase()}).</> : role ? `You'll be ${role === "chef" ? "on the pass" : role === "bar" ? "behind the bar" : "on the floor"}.` : "You'll run the floor and the office."}</p>
+            <p className="callout callout--good"><b>You're on today.</b> {station ? <>Your station: <b>{station.label}</b> ({station.title.toLowerCase()}). Red-edged slips on the rail are yours, blue ones a helper's. A silver dome on a table means they're waiting for your course.</> : role ? `You'll be ${role === "chef" ? "on the pass" : role === "bar" ? "behind the bar" : "on the floor"}.` : "You'll run the floor and the office."}</p>
           ) : (
             <p className="callout"><b>Day off.</b> The team runs the place without you today.</p>
           )}
