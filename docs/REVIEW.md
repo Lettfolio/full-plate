@@ -702,7 +702,7 @@ Next three:
 Reviewer: lead. Date: 9 Nov 2026. Covers `d26ab5f` … `3ca1ba0` (three parallel streams: A Empire, B Stars, C Career). Fixes are `7853bc8` … `cf5c11f`, one commit per fix.
 
 **Status at the end of this pass:**
-- `pnpm -r typecheck` ✓ (7 packages). `pnpm -r test` ✓: sim-core 194, content 51, handson 58, sim-career 61, sim-empire 59, sim-stars 67, game 109 (**599**; +44 this round of which +12 this pass).
+- `pnpm -r typecheck` ✓ (7 packages). `pnpm -r test` ✓: sim-core 194, content 51, handson 58, sim-career 61, sim-empire 59, sim-stars 67, game 109 (**599**; +75 since round 3, of which +14 this pass).
 - `pnpm --filter @full-plate/game build` ✓, largest chunk 159 kB.
 - The three streams landed together cleanly: typecheck, tests and build were green before any fix. No merge damage in App.tsx, pathEngine.ts, gameReducer.ts, paths.ts or sim-core constants/kitchen.
 
