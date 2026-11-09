@@ -9,7 +9,7 @@ import { FatigueNote } from "../components/FatigueNote";
 import { MoneyText } from "../components/MoneyText";
 import { isOpeningDay } from "../lib/calendar";
 import { MenuTab } from "./planning/MenuTab";
-import { StaffTab } from "./planning/StaffTab";
+import { StaffTab, type KnownPerson } from "./planning/StaffTab";
 import { StockTab } from "./planning/StockTab";
 import { RestaurantTab } from "./planning/RestaurantTab";
 import { stockNeeds } from "./planning/stockNeeds";
@@ -131,7 +131,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
-          {tab === "staff" && <StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} />}
+          {tab === "staff" && <StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} />}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
           {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
@@ -189,4 +189,15 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
       </div>
     </div>
   );
+}
+
+/** Former colleagues from a finished career (sim-career relationships), for the Staff tab's "Old colleagues". */
+function knownPeople(meta: PathMeta | undefined): KnownPerson[] {
+  const c = meta?.career;
+  if (!c?.handover) return [];
+  return c.relationships
+    .filter((r) => r.snapshot && r.snapshot.role !== "porter")
+    .sort((a, b) => b.bond - a.bond)
+    .slice(0, 4)
+    .map((r) => ({ staff: { ...r.snapshot, id: `known-${r.staffId}` }, bond: r.bond, employer: r.employer }));
 }

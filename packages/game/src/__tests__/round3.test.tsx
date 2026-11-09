@@ -217,3 +217,30 @@ describe("hands-on → sim-core", () => {
     expect(s.game!.handsOn).toMatchObject({ role: "chef", staffId: PLAYER_ID });
   });
 });
+
+describe("former colleagues (HIRE_STAFF, round 3 review)", () => {
+  it("after a handover the Staff tab lists old colleagues and HIRE_STAFF brings one in", async () => {
+    const { StaffTab } = await import("../screens/planning/StaffTab");
+    let s = appReducer(initialAppState, { type: "newCareer", seed: 7, track: "waiter", strategy: "balanced", playerName: "Robin", difficulty: "cosy" });
+    // Work a fortnight so there are relationships, then pretend the savings are there and open up.
+    for (let d = 0; d < 14; d++) {
+      s = appReducer(s, { type: "command", cmd: { type: "START_SERVICE" } });
+      s = appReducer(s, { type: "skipShift" });
+      s = appReducer(s, { type: "nextDay" });
+    }
+    const rel = s.meta.career!.relationships.filter((r) => r.bond >= 0);
+    expect(rel.length).toBeGreaterThan(0);
+    const career = { ...s.meta.career!, handover: { day: s.game!.day } as never };
+    const friend = rel.sort((a, b) => b.bond - a.bond)[0]!;
+    const sent: unknown[] = [];
+    const known = [{ staff: { ...friend.snapshot, id: `known-${friend.staffId}` }, bond: friend.bond, employer: friend.employer }];
+    render(<StaffTab game={{ ...s.game!, staff: [], cash: 1_000_000 }} send={(c) => sent.push(c)} known={known} />);
+    expect(screen.getByText("Old colleagues")).toBeTruthy();
+    const card = screen.getByText(friend.name).closest(".candidate") as HTMLElement;
+    fireEvent.click(card.querySelector("button")!);
+    expect(sent).toEqual([{ type: "HIRE_STAFF", staff: known[0]!.staff }]);
+    const g = applyCommand(content, { ...s.game!, phase: "planning", cash: 1_000_000 }, sent[0] as never).state;
+    expect(g.staff.some((x) => x.name === friend.name)).toBe(true);
+    expect(career.handover).toBeTruthy();
+  });
+});

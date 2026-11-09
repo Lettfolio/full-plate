@@ -1,13 +1,23 @@
 import { useMemo, useState } from "react";
 import type { Candidate, Command, GameState, Staff, StaffRole } from "@full-plate/sim-core";
-import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, RECRUITMENT_FEE, shiftCost, TRAINING_FEE, TRAINING_SKILL_GAIN } from "../../sim";
+import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, recruitmentFeeOf, shiftCost, TRAINING_FEE, TRAINING_SKILL_GAIN } from "../../sim";
 import { Bar } from "../../components/Bar";
 import { MoneyText } from "../../components/MoneyText";
 import { traitName } from "../../lib/content";
 import { WEEKDAYS, weekdayIndex } from "../../lib/calendar";
 import { coverage, initials, isTrainingToday, moodFace, moodWord, ROLE_LABEL, SHIFT_HOURS, trainBlocker } from "../../lib/staff";
 
-interface Props { game: GameState; send: (cmd: Command) => void; /** List this role's candidates first and mark them (a "Hire a …" goal). */ wantRole?: StaffRole }
+/** A former colleague from the career (sim-career Relationship), hireable with HIRE_STAFF. */
+export interface KnownPerson { staff: Staff; bond: number; employer: string }
+
+interface Props {
+  game: GameState;
+  send: (cmd: Command) => void;
+  /** List this role's candidates first and mark them (a "Hire a …" goal). */
+  wantRole?: StaffRole;
+  /** Round 3: people you worked with in career mode (after the handover). */
+  known?: KnownPerson[];
+}
 
 function TraitTags({ ids }: { ids: string[] }) {
   return (
@@ -98,10 +108,10 @@ function PersonCard({ s, game, today, send }: { s: Staff; game: GameState; today
   );
 }
 
-function CandidateCard({ c, cash, onHire, wanted = false }: { c: Candidate; cash: number; onHire: () => void; wanted?: boolean }) {
-  // Same rule as sim-core's HIRE: cash ≥ fee + a few shifts' wages.
+function CandidateCard({ c, cash, fee, onHire, wanted = false }: { c: Candidate; cash: number; fee: number; onHire: () => void; wanted?: boolean }) {
+  // Same rule as sim-core's HIRE: cash ≥ fee + a few shifts' wages. The fee is the game's (a manager's perk lowers it).
   const perShift = shiftCost(c);
-  const needed = RECRUITMENT_FEE + HIRE_CASH_BUFFER_SHIFTS * perShift;
+  const needed = fee + HIRE_CASH_BUFFER_SHIFTS * perShift;
   const canAfford = cash >= needed;
   return (
     <div className={`candidate ${wanted ? "candidate--wanted" : ""}`}>
@@ -113,7 +123,7 @@ function CandidateCard({ c, cash, onHire, wanted = false }: { c: Candidate; cash
           <div className="xs muted">{ROLE_LABEL[c.role]} · <MoneyText pence={c.wage} />/h · <i>{c.potentialHint}</i></div>
         </div>
         <button className="btn btn--green btn--sm" onClick={onHire} disabled={!canAfford} title={canAfford ? undefined : `Needs £${Math.ceil(needed / 100)} in the bank`}>
-          Hire · <MoneyText pence={RECRUITMENT_FEE} whole />
+          Hire · <MoneyText pence={fee} whole />
         </button>
       </div>
       <div className="xs muted">Costs about <MoneyText pence={perShift} whole /> per shift worked</div>
@@ -125,7 +135,7 @@ function CandidateCard({ c, cash, onHire, wanted = false }: { c: Candidate; cash
   );
 }
 
-export function StaffTab({ game, send, wantRole }: Props) {
+export function StaffTab({ game, send, wantRole, known = [] }: Props) {
   const today = weekdayIndex(game.day);
   const pool = useMemo(() => candidates(content, game), [game]);
   // Indices stay stable after a hire (HIRE uses them); sim-core flags hired candidates with `hired`.
@@ -136,6 +146,8 @@ export function StaffTab({ game, send, wantRole }: Props) {
     .sort((a, b) => Number(b.c.role === wantRole) - Number(a.c.role === wantRole));
   const roles: StaffRole[] = ["chef", "server", ...(["bar", "porter", "manager"] as const).filter((r) => game.staff.some((s) => s.role === r))];
   const wageBill = game.staff.reduce((a, s) => a + (s.rota[today] ? shiftCost(s) : 0), 0);
+  const fee = recruitmentFeeOf(game);
+  const friends = known.filter((k) => k.bond >= 0 && !game.staff.some((s) => s.id === k.staff.id || s.name === k.staff.name));
 
   return (
     <div className="staffgrid">
@@ -161,9 +173,24 @@ export function StaffTab({ game, send, wantRole }: Props) {
 
       <aside className="stack stack--sm">
         <h3>Looking for work</h3>
-        <p className="small muted">New faces every morning. Wages are per hour; a shift is {SHIFT_HOURS} hours. Hiring costs a <MoneyText pence={RECRUITMENT_FEE} whole /> agency fee.</p>
+        <p className="small muted">New faces every morning. Wages are per hour; a shift is {SHIFT_HOURS} hours. Hiring costs a <MoneyText pence={fee} whole /> agency fee.</p>
         {shown.length === 0 && <div className="empty small">No one else today. Check again tomorrow.</div>}
-        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} cash={game.cash} wanted={c.role === wantRole} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
+        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} fee={fee} cash={game.cash} wanted={c.role === wantRole} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
+        {friends.length > 0 && (
+          <>
+            <h3 style={{ marginTop: 10 }}>Old colleagues</h3>
+            <p className="small muted">People you worked with before you opened. They know you, and they'd come.</p>
+            {friends.map((k) => (
+              <CandidateCard
+                key={k.staff.id}
+                c={{ ...k.staff, potentialHint: `worked with you at ${k.employer} · bond ${Math.round(k.bond)}` } as Candidate}
+                fee={fee}
+                cash={game.cash}
+                onHire={() => send({ type: "HIRE_STAFF", staff: k.staff })}
+              />
+            ))}
+          </>
+        )}
       </aside>
     </div>
   );

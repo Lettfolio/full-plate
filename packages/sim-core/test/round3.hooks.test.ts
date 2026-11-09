@@ -596,3 +596,34 @@ describe("saves", () => {
     expect(run()).toBe(run());
   });
 });
+
+describe("HIRE_STAFF (round 3 review)", () => {
+  const known = (over: Partial<import("../src/types").Staff> = {}) => ({
+    id: "former-orla", name: "Orla Gallagher", role: "chef" as const, skill: 74.5, speed: 61, charm: 40, wage: 1650, mood: 12, fatigue: 90,
+    traits: ["steady"], hiredDay: -300, potential: 80, rota: [true, true, true, true, true, true, true], ...over,
+  });
+
+  it("hires a known person: keeps who they are, starts them fresh, charges the fee", () => {
+    const s = fresh(5);
+    const r = apply(s, { type: "HIRE_STAFF", staff: known() });
+    const o = r.state.staff.find((x) => x.id === "former-orla")!;
+    expect(o).toMatchObject({ name: "Orla Gallagher", role: "chef", skill: 74.5, wage: 1650, potential: 80, traits: ["steady"], mood: 70, fatigue: 0, hiredDay: s.day });
+    expect(o.rota).toEqual([false, false, true, true, true, true, true]);
+    expect(r.state.cash).toBe(s.cash - recruitmentFeeOf(s));
+    // the per-game fee (manager perk) applies too
+    const cheap = apply({ ...s, recruitmentFee: 0 }, { type: "HIRE_STAFF", staff: known() });
+    expect(cheap.state.cash).toBe(s.cash);
+  });
+
+  it("rejects duplicates, bad records, a full team, no cash, and outside planning", () => {
+    const s = fresh(5);
+    const once = apply(s, { type: "HIRE_STAFF", staff: known() }).state;
+    rejected(once, { type: "HIRE_STAFF", staff: known() });
+    rejected(s, { type: "HIRE_STAFF", staff: known({ role: "wizard" as never }) });
+    rejected(s, { type: "HIRE_STAFF", staff: known({ wage: 12.5 }) });
+    rejected(s, { type: "HIRE_STAFF", staff: known({ name: "" }) });
+    rejected({ ...s, cash: 0 }, { type: "HIRE_STAFF", staff: known() });
+    rejected({ ...s, staff: Array.from({ length: 12 }, (_, i) => ({ ...known(), id: `x${i}`, name: `X ${i}` })) }, { type: "HIRE_STAFF", staff: known() });
+    rejected(inService(ready(5)), { type: "HIRE_STAFF", staff: known() });
+  });
+});

@@ -662,7 +662,9 @@ export type Command =
   // round 3 — paths and career
   | { type: "CLOSE_TODAY" }                              // planning → evening with a closed DayResult
   | { type: "SET_SET_MENU"; dishIds: DishId[]; price: Pence; active: boolean } // planning
-  | { type: "SET_OWNER_PROFILE"; skill: number; speed: number; charm: number }; // planning/evening/event
+  | { type: "SET_OWNER_PROFILE"; skill: number; speed: number; charm: number } // planning/evening/event
+  /** [round 3 review] Hire a known person (a former colleague, a poached chef): planning; fee + cash buffer as HIRE. */
+  | { type: "HIRE_STAFF"; staff: Staff };
 
 // ───────────────────────── events (sim → UI) ─────────────────────────
 export type SimEvent =

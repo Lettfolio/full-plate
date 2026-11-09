@@ -4,6 +4,7 @@
  */
 import {
   COMP_SATISFACTION_BONUS,
+  DEFAULT_ROTA,
   DIFFICULTY,
   FIRE_MOOD_HIT,
   HANDS_ON,
@@ -15,6 +16,7 @@ import {
   MAX_PRICE,
   MAX_STAFF,
   RECRUITMENT_FEE,
+  START_MOOD,
   STOCK_OVERDRAFT_LIMIT,
   TABLE_COST,
   TRAINING_FEE,
@@ -122,6 +124,45 @@ const hire: Handler<"HIRE"> = (content, state, cmd) => {
     hiredCandidates: [...(state.hiredCandidates ?? []), cmd.candidateIndex],
   };
   return ok(next, `Hired ${staff.name} (${staff.role}).`, "good");
+};
+
+const STAFF_ROLES: readonly StaffRole[] = ["chef", "server", "bar", "porter", "manager"];
+
+/**
+ * HIRE_STAFF: bring a known person in (CAREER-NOTES "former colleagues", Empire poaching). Same fee and cash rule as
+ * HIRE. The record's id, name, role, stats, wage, traits and potential are kept (stats clamped 0-100, wage whole
+ * pence ≥ 1); mood, fatigue, hiredDay and the default rota start fresh, as for any new hire.
+ */
+const hireStaff: Handler<"HIRE_STAFF"> = (_c, state, cmd) => {
+  const bad = requirePhase(state, PLANNING, "hire");
+  if (bad) return bad;
+  const p = cmd.staff;
+  if (!p || typeof p.id !== "string" || !p.id || typeof p.name !== "string" || !p.name) return reject(state, "That person needs a name and an id.");
+  if (!STAFF_ROLES.includes(p.role)) return reject(state, "Unknown role.");
+  if (!isNum(p.skill) || !isNum(p.speed) || !isNum(p.charm)) return reject(state, "Skills must be numbers 0-100.");
+  if (!isInt(p.wage) || p.wage < 1) return reject(state, "A wage must be whole pence per hour.");
+  if (state.staff.some((s) => s.id === p.id || s.name === p.name)) return reject(state, `${p.name} already works here.`);
+  if (state.staff.length >= MAX_STAFF) return reject(state, `There's no room for more than ${MAX_STAFF} staff.`);
+  const skill = round2(clamp(p.skill, 0, 100));
+  const staff = {
+    id: p.id,
+    name: p.name,
+    role: p.role,
+    skill,
+    speed: round2(clamp(p.speed, 0, 100)),
+    charm: round2(clamp(p.charm, 0, 100)),
+    wage: p.wage,
+    mood: START_MOOD,
+    fatigue: 0,
+    traits: Array.isArray(p.traits) ? p.traits.filter((t) => typeof t === "string") : [],
+    hiredDay: state.day,
+    potential: round2(clamp(isNum(p.potential) ? Math.max(p.potential, skill) : skill, 0, 100)),
+    rota: DEFAULT_ROTA.slice(),
+  };
+  const fee = recruitmentFeeOf(state);
+  const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
+  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
+  return ok({ ...state, cash: state.cash - fee, staff: [...state.staff, staff] }, `Hired ${staff.name} (${staff.role}).`, "good");
 };
 
 const fire: Handler<"FIRE"> = (_c, state, cmd) => {
@@ -415,6 +456,7 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
   ADD_MENU_ITEM: addMenuItem,
   REMOVE_MENU_ITEM: removeMenuItem,
   HIRE: hire,
+  HIRE_STAFF: hireStaff,
   FIRE: fire,
   SET_ROTA: setRota,
   ORDER_STOCK: orderStock,
