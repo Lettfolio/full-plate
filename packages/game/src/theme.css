@@ -846,11 +846,12 @@ button, input { font: inherit; color: inherit; }
 .handson__btn { min-height: 44px; padding: 8px 16px; font-size: var(--fs-sm); flex: none; }
 .handson__help { width: 44px; padding: 0; font-family: var(--font-display); font-size: 22px; font-weight: 600; border-radius: 50%; }
 .handson__stage canvas { touch-action: none; -webkit-user-select: none; user-select: none; }
-.handson__pad { position: absolute; right: 16px; bottom: 56px; display: flex; align-items: flex-end; gap: 14px; pointer-events: none; }
+/* A column at the far right, over the back-bar shelves: clear of the tables, the bar counter and the till. */
+.handson__pad { position: absolute; right: 10px; bottom: 64px; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; }
 .handson__pad > button { pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none; border: 3px solid var(--ink); border-radius: 50%; font-family: var(--font-display); font-weight: 600; color: var(--ink); cursor: pointer; }
-.handson__use { width: 96px; height: 96px; font-size: 24px; background: var(--star); box-shadow: 0 5px 0 var(--star-edge); }
+.handson__use { width: 88px; height: 88px; font-size: 23px; background: var(--star); box-shadow: 0 5px 0 var(--star-edge); }
 .handson__use:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--star-edge); }
-.handson__drop { width: 64px; height: 64px; font-size: 17px; background: var(--paper); box-shadow: 0 4px 0 var(--line-strong); }
+.handson__drop { width: 62px; height: 62px; font-size: 16px; background: var(--paper); box-shadow: 0 4px 0 var(--line-strong); }
 .handson__drop:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line-strong); }
 .handson__pad > button:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
 
