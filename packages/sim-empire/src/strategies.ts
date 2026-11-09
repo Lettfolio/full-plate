@@ -28,11 +28,24 @@ import { menuBreaksRules } from "./model";
 import type { City, EmpireCommand, EmpireEvent, EmpireState, SiteSummary } from "./types";
 
 export type EmpireStyle = "franchise" | "company" | "innout";
+/**
+ * [round 6] What a scripted player does with the monthly board meeting: `skip` never answers (each meeting is skipped
+ * at the next one, with its consequence), `follow` takes the board's advice the evening it is held ("board-follower").
+ */
+export type BoardPolicy = "skip" | "follow";
+
+/** The board-follower's answer to the pending meeting (undefined when none is waiting). */
+export function boardFollower(e: EmpireState): EmpireCommand | undefined {
+  return e.boardMeeting ? { type: "BOARD_DECIDE", optionId: e.boardMeeting.decision.advice } : undefined;
+}
 
 export const FAST_FOOD_MENU = ["beef_burger", "chicken_burger", "halloumi_burger", "chunky_chips", "onion_rings", "milkshake", "soft_drink", "sundae"];
 
 export interface EmpireRun {
   style: EmpireStyle;
+  board: BoardPolicy;
+  /** Board answers taken, "kind:option" → count (round 6). */
+  decisions: Record<string, number>;
   seed: number;
   /** Day the run started on. */
   startDay: number;
@@ -277,21 +290,31 @@ export function playStyleWeek(content: ContentPack, e: EmpireState, style: Empir
   return { empire: run.e, events: run.events };
 }
 
-export function runStyle(content: ContentPack, style: EmpireStyle, seed: number, years: number, start?: EmpireState): EmpireRun {
+export function runStyle(content: ContentPack, style: EmpireStyle, seed: number, years: number, start?: EmpireState, board: BoardPolicy = "skip"): EmpireRun {
   const run: Run = { e: start ?? startingEmpire(content, seed), events: [], rejected: 0 };
   const startDay = run.e.hq.day;
   const days = years * K.DAYS_PER_YEAR;
+  const decisions: Record<string, number> = {};
   for (let d = 0; d < days && run.e.status === "running"; d++) {
     if (d % 7 === 0) STYLE_FN[style](content, run);
     const r = stepEmpireDay(content, run.e);
     run.e = r.empire;
     for (const ev of r.events) run.events.push(ev);
+    const answer = board === "follow" ? boardFollower(run.e) : undefined;
+    // A rejected answer (the advice became unaffordable) leaves the meeting to be skipped next month.
+    if (answer && answer.type === "BOARD_DECIDE") {
+      const key = `${run.e.boardMeeting!.decision.kind}:${answer.optionId}`;
+      if (step(content, run)(answer)) decisions[key] = (decisions[key] ?? 0) + 1;
+    }
   }
-  return { style, seed, startDay, final: run.e, events: run.events, rejected: run.rejected };
+  return { style, board, decisions, seed, startDay, final: run.e, events: run.events, rejected: run.rejected };
 }
 
 export interface RunSummary {
   style: EmpireStyle;
+  board: BoardPolicy;
+  /** Board decisions taken (not skipped), by kind (round 6). */
+  decisions: Record<string, number>;
   seed: number;
   sites: number;
   company: number;
@@ -318,6 +341,8 @@ export function summariseRun(r: EmpireRun): RunSummary {
   const sales = open.reduce((a, s) => a + s.revenueYear, 0);
   return {
     style: r.style,
+    board: r.board,
+    decisions: r.decisions,
     seed: r.seed,
     sites: open.length,
     company: open.filter((s) => s.ownership === "company").length,
@@ -341,10 +366,11 @@ export function summariseRun(r: EmpireRun): RunSummary {
 const m = (p: number) => `£${(p / 100 / 1e6).toFixed(1)}m`;
 
 export function formatTable(rows: RunSummary[]): string {
-  const head = "style      seed  sites (co/fr)  closed  meals      HQ cash   HQ net/yr  avg site/yr  mood  regions  plots  scandals  win";
+  const head = "style      board   seed  sites (co/fr)  closed  meals      HQ cash   HQ net/yr  avg site/yr  mood  regions  plots  scandals  win";
   const lines = rows.map((r) =>
     [
       r.style.padEnd(10),
+      r.board.padEnd(6),
       String(r.seed).padStart(4),
       `${r.sites} (${r.company}/${r.franchise})`.padStart(13),
       String(r.closed).padStart(7),

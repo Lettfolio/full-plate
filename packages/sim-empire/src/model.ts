@@ -410,10 +410,13 @@ export function openingFactor(site: Pick<SiteSummary, "openedTrading">, day: num
   return ramp * honeymoon;
 }
 
-/** [round 5 review] 0 for a site's first MATURE_FROM_DAYS of trading, rising linearly to 1 at MATURE_FULL_DAYS. */
-export function maturity(site: Pick<SiteSummary, "openedTrading">, day: number): number {
+/**
+ * [round 5 review] 0 for a site's first MATURE_FROM_DAYS of trading, rising linearly to 1 at MATURE_FULL_DAYS.
+ * Round 6: a refurbishment (REFURBISH) takes `refurbDays` off the age the drag reads.
+ */
+export function maturity(site: Pick<SiteSummary, "openedTrading" | "refurbDays">, day: number): number {
   if (site.openedTrading === undefined) return 0;
-  const age = day - site.openedTrading;
+  const age = day - site.openedTrading - (site.refurbDays ?? 0);
   return clamp((age - K.MATURE_FROM_DAYS) / (K.MATURE_FULL_DAYS - K.MATURE_FROM_DAYS), 0, 1);
 }
 

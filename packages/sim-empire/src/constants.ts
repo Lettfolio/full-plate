@@ -377,5 +377,30 @@ export const EVENT_LOG_MAX = 200;
 export const MONTHLY_HISTORY_MAX = 240;
 
 // ── round 6: the monthly board meeting (EMPIRE-NOTES §3 "Board meeting") ──
+/** A meeting is held on the evening of each month's last day (sim-core's 30-day month), with the monthly snapshot. */
+export const BOARD_MONTH_DAYS = 30;
+export const BOARD_MINUTES_MAX = 36;
 /** The founder's restaurant had traded this long when newEmpire is called without a fork (the headless start). */
 export const FLAGSHIP_AGE_DAYS = 720;
+/** REFURBISH: what HQ pays (× cost index × price level) and the trading age it buys back from the maturity drag. */
+export const REFURB_COST = 12_000_000;
+export const REFURB_DAYS = 540;
+/** A site counts as "tired" (the board's maturity worry and refurb question) at this share of the full drag. */
+export const REFURB_MIN_MATURITY = 0.5;
+export const REFURB_CONSISTENCY_BONUS = 5;
+/** A franchisee whose shop HQ refurbishes or remodels at HQ's cost. */
+export const MOOD_HQ_INVESTS = 4;
+/** FEE_HOLIDAY: allowed lengths, and the mood it buys (+base, +per 30 days). */
+export const FEE_HOLIDAY_DAYS: [number, number] = [30, 180];
+export const MOOD_FEE_HOLIDAY_BASE = 6;
+export const MOOD_FEE_HOLIDAY_PER_MONTH = 3;
+/** A franchisee who asked for a fee holiday and was ignored or refused. */
+export const MOOD_FEE_HOLIDAY_REFUSED = 4;
+/** Franchisees who hoped for a lower royalty when the board skipped the question. */
+export const MOOD_ROYALTY_IGNORED = 2;
+/** SET_SUPPLY_MARKUP: the cap, the step the board offers, and the mood cost per point of rise. */
+export const SUPPLY_MARKUP_MAX = 0.05;
+export const SUPPLY_MARKUP_STEP = 0.02;
+export const MOOD_SUPPLY_MARKUP_SHOCK = 3;
+/** The royalty step the board offers (one point). */
+export const BOARD_ROYALTY_STEP = 0.01;

@@ -36,7 +36,11 @@ export {
   spendable,
   developmentFacility,
   TECH_LABEL,
+  emptyBook,
+  bookNet,
+  refurbCost,
 } from "./engine";
+export { buildBoardMeeting, boardRisk, boardHash, districtSales, refurbGain } from "./board";
 export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent, SiteGameOptions, FranchiseOutlook } from "./engine";
 export {
   aggregateSiteDay,

@@ -1,6 +1,6 @@
 /**
  * Headless Empire runner: scripted growth from one site over N years under three styles.
- *   pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--perf] [--unit]
+ *   pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--board skip|follow|both] [--perf] [--unit]
  * --unit prints the first-year unit economics of one new site (franchise and company, with and without supply deals).
  * Prints sites, meals served, HQ cash, franchisee mood, regions won and whether the win condition is reached.
  * The strategies themselves live in strategies.ts (pure, browser-safe).
@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import type { ContentPack } from "@full-plate/sim-core";
 import { applyEmpireCommand } from "./engine";
-import { benchmark, formatTable, runStyle, startingEmpire, summariseRun, type EmpireStyle, type RunSummary } from "./strategies";
+import { benchmark, formatTable, runStyle, startingEmpire, summariseRun, type BoardPolicy, type EmpireStyle, type RunSummary } from "./strategies";
 import { formatUnitEconomics, probeUnitEconomics } from "./unitEconomics";
 
 export * from "./strategies";
@@ -41,11 +41,22 @@ async function main(): Promise<void> {
   const seeds = Number(get("seeds") ?? 5);
   const styleArg = get("style") ?? "all";
   const styles: EmpireStyle[] = styleArg === "all" ? ["franchise", "company", "innout"] : [styleArg as EmpireStyle];
+  // Round 6: --board skip (never answers the monthly meeting), follow (takes the board's advice) or both.
+  const boardArg = get("board") ?? "skip";
+  const boards: BoardPolicy[] = boardArg === "both" ? ["skip", "follow"] : [boardArg as BoardPolicy];
   const rows: RunSummary[] = [];
   const t0 = performance.now();
-  for (const style of styles) for (let s = 1; s <= seeds; s++) rows.push(summariseRun(runStyle(content, style, s, years)));
+  for (const board of boards) for (const style of styles) for (let s = 1; s <= seeds; s++) rows.push(summariseRun(runStyle(content, style, s, years, undefined, board)));
   console.log(`Full Plate Empire headless — ${years} years, ${seeds} seeds per style`);
   console.log(formatTable(rows));
+  if (boards.includes("follow")) {
+    // What the board-follower actually decided, per style (counts over all its seeds).
+    for (const style of styles) {
+      const tally: Record<string, number> = {};
+      for (const r of rows) if (r.board === "follow" && r.style === style) for (const [k, n] of Object.entries(r.decisions)) tally[k] = (tally[k] ?? 0) + n;
+      console.log(`${style} board decisions over all seeds: ${Object.entries(tally).sort().map(([k, n]) => `${k} ${n}`).join(", ")}`);
+    }
+  }
   console.log(`(${((performance.now() - t0) / 1000).toFixed(1)}s)`);
 }
 

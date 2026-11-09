@@ -74,6 +74,11 @@ export interface SiteSummary {
    * founder's flagship (a two-year-old room) and on pre-round-5 saves, which trade at run-rate.
    */
   openedTrading?: number;
+  /**
+   * [round 6] Days of age a refurbishment bought back (REFURBISH): the maturity drag reads the site's trading age minus
+   * this. Absent = never refurbished.
+   */
+  refurbDays?: number;
   /** Temporary demand multipliers on this site (roadworks, events...). */
   footfallMods: { mult: number; daysRemaining: number; reason: string }[];
   /** 0-1: share of demand lost to the brand's own neighbours in the city (recomputed daily). */
@@ -109,6 +114,8 @@ export interface Franchisee {
   margin30d: number;
   /** Day they last took on a site (multi-unit operators wait MULTI_UNIT_COOLDOWN_DAYS between sites). */
   lastExpansionDay?: number;
+  /** [round 6] A royalty holiday granted at a board meeting: no royalty on their sites before this day. */
+  feeHolidayUntil?: number;
 }
 
 /** Someone who wants a franchise; becomes a Franchisee when given a site. */
@@ -246,7 +253,12 @@ export type EmpireEventKind =
   | "contract" | "property" | "formula" | "research" | "supplier" | "supplier_outage" | "campaign"
   | "city_entered" | "localised" | "tradition" | "product" | "scandal" | "remodel" | "inspection"
   | "skimming" | "franchisee_bankrupt" | "association" | "forced_exit" | "idea" | "rent_review"
-  | "milestone" | "win" | "bankrupt" | "rejected" | "transfer" | "focus";
+  | "milestone" | "win" | "bankrupt" | "rejected" | "transfer" | "focus"
+  /** [round 6] The monthly board meeting was held (`EmpireState.boardMeeting` holds it until answered). */
+  | "boardMeeting"
+  /** [round 6] A board decision was taken (or skipped). */
+  | "boardDecision"
+  | "refurb" | "fee_holiday" | "supply_markup";
 
 export interface EmpireEvent {
   day: number;
@@ -333,6 +345,75 @@ export interface CalibrationParams {
   source: { covers: number; revenue: Pence; profit: Pence };
 }
 
+/**
+ * [round 6] HQ's money over one month by where it came from (pence; costs negative). `shops` is the company sites' profit
+ * after occupancy and the ad fund (the focused site's till is not HQ's); `rent` is landlord income net of the head
+ * leases HQ pays; `fees` are franchise joining fees; `supply` the markup on food HQ supplies to franchisees; `costs`
+ * HQ's overheads, mortgages and overdraft interest.
+ */
+export interface BoardIncome {
+  shops: Pence;
+  royalties: Pence;
+  rent: Pence;
+  fees: Pence;
+  supply: Pence;
+  costs: Pence;
+}
+
+export type BoardDecisionKind = "royalty" | "localise" | "buyPlot" | "refurbish" | "feeHoliday" | "driveThru" | "supplyMarkup" | "campaign";
+
+export interface BoardOption {
+  id: string;
+  /** Short button text ("Raise it to 6%"). */
+  label: string;
+  /** One or two short sentences: what it costs now and what it changes later. */
+  detail: string;
+  /** The real sim command the option applies (absent = do nothing). */
+  cmd?: EmpireCommand;
+  /** Up-front cost to HQ (pence), when there is one. */
+  cost?: Pence;
+}
+
+export interface BoardRisk {
+  kind: "mood" | "collapse" | "borrowing" | "maturity" | "none";
+  text: string;
+  siteId?: SiteId;
+}
+
+/** [round 6] The monthly board meeting: the month's money, its top mover, one worry and exactly one decision. */
+export interface BoardMeeting {
+  id: string;
+  /** The day it was held (the month's last day). */
+  day: number;
+  /** Month index (day / 30). */
+  month: number;
+  income: BoardIncome;
+  /** The district whose yearly sales rose most since the last meeting. */
+  topMover?: { cityId: CityId; districtId: DistrictId; change: Pence; salesYear: Pence };
+  risk: BoardRisk;
+  decision: {
+    kind: BoardDecisionKind;
+    question: string;
+    options: BoardOption[];
+    /** The option a sensible board would pick (the board-follower strategy and the card's tip). */
+    advice: string;
+    /** What happens if the meeting is skipped ("Nothing changes." / "Ana will feel ignored."). */
+    skipText: string;
+  };
+}
+
+/** [round 6] One line of the board's minutes (the Money panel's history). */
+export interface BoardMinute {
+  id: string;
+  day: number;
+  kind: BoardDecisionKind;
+  /** The option id taken, or "skip". */
+  choice: string;
+  text: string;
+  /** HQ's net that month (pence, fees included). */
+  net: Pence;
+}
+
 export interface EmpireState {
   version: 1;
   seed: number;
@@ -371,6 +452,16 @@ export interface EmpireState {
   win: WinStatus;
   status: "running" | "bankrupt";
   nextId: number;
+  /** [round 6] This month's money by source so far (reset at each board meeting). Absent in older saves (read as 0). */
+  monthBook?: BoardIncome;
+  /** [round 6] The board meeting waiting for an answer (BOARD_DECIDE). Skipped automatically at the next one. */
+  boardMeeting?: BoardMeeting;
+  /** [round 6] The last BOARD_MINUTES_MAX decisions, oldest first. */
+  boardMinutes?: BoardMinute[];
+  /** [round 6] Yearly sales per "cityId|districtId" at the last meeting (the top mover reads it). */
+  boardDistrictSales?: Record<string, Pence>;
+  /** [round 6] Markup HQ charges franchisees on the food it supplies (0–SUPPLY_MARKUP_MAX). Absent = 0. */
+  supplyMarkupPct?: number;
 }
 
 /** One aggregate site-day from the closed-form model (or a focused DayResult mapped into the same shape). */
@@ -412,7 +503,16 @@ export type EmpireCommand =
   | { type: "LOCALISE_MENU"; cityId: CityId }
   | { type: "LAUNCH_PRODUCT"; name: string; budget: Pence; fit: "core" | "stretch" | "franchiseeIdea" }
   | { type: "CLOSE_SITE"; siteId: SiteId }
-  | { type: "REMODEL"; siteId: SiteId }
+  /** hqPays (round 6): HQ funds a franchisee's remodel, so it isn't forced on them. */
+  | { type: "REMODEL"; siteId: SiteId; hqPays?: boolean }
+  /** [round 6] HQ pays to refurbish a tired site: buys back REFURB_DAYS of its maturity drag. */
+  | { type: "REFURBISH"; siteId: SiteId }
+  /** [round 6] No royalty on this franchisee's sites for `days` (mood up, HQ cash down). */
+  | { type: "FEE_HOLIDAY"; franchiseeId: FranchiseeId; days: number }
+  /** [round 6] HQ's markup on the food it supplies to franchisees (0–SUPPLY_MARKUP_MAX). */
+  | { type: "SET_SUPPLY_MARKUP"; pct: number }
+  /** [round 6] Answer the pending board meeting: one of its option ids, or "skip". */
+  | { type: "BOARD_DECIDE"; optionId: string }
   | { type: "BUILD_COMMISSARY"; regionId: RegionId }
   | { type: "SET_INSPECTIONS"; everyDays: number }
   /** The game moves cash from the focused restaurant's till into HQ (it must deduct the same from GameState). */

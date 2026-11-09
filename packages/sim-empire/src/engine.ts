@@ -13,6 +13,7 @@ import * as K from "./constants";
 import {
   aggregateSiteDay,
   calibrate,
+  maturity,
   clamp,
   defaultCalibration,
   brandMenu,
@@ -31,8 +32,11 @@ import {
   type SiteDayContext,
 } from "./model";
 import { Rng } from "./rng";
+import { buildBoardMeeting, districtSales } from "./board";
 import type {
   Applicant,
+  BoardIncome,
+  BoardMeeting,
   CalibrationParams,
   City,
   DayResult,
@@ -357,6 +361,8 @@ function draft(e: EmpireState): EmpireState {
     events: e.events.slice(),
     history: e.history.slice(),
     win: { ...e.win, regionsWon: e.win.regionsWon.slice() },
+    ...(e.monthBook ? { monthBook: { ...e.monthBook } } : {}),
+    ...(e.boardMinutes ? { boardMinutes: e.boardMinutes.slice() } : {}),
   };
 }
 
@@ -502,6 +508,9 @@ interface SiteFlows {
   royalty: number;
   rent: number;
   loan: number;
+  /** [round 6] HQ's landlord income net of the head lease it pays (franchise/licence sites), and the food markup. */
+  hqRent: number;
+  supply: number;
 }
 
 /**
@@ -517,8 +526,8 @@ function siteFlows(x: Ctx, s: SiteSummary, r: SiteDayResult): SiteFlows {
     const ad = net * K.DEFAULT_AD_FUND_PCT;
     const occupancy = s.land === "hqOwned" ? 0 : marketDaily;
     s.margin7d = s.margin7d * (6 / 7) + (r.contribution - occupancy);
-    if (s.focused) return { hq: 0, operator: 0, netSales: net, ad: 0, royalty: 0, rent: occupancy, loan: 0 };
-    return { hq: r.contribution - occupancy - ad, operator: 0, netSales: net, ad, royalty: 0, rent: occupancy, loan: 0 };
+    if (s.focused) return { hq: 0, operator: 0, netSales: net, ad: 0, royalty: 0, rent: occupancy, loan: 0, hqRent: 0, supply: 0 };
+    return { hq: r.contribution - occupancy - ad, operator: 0, netSales: net, ad, royalty: 0, rent: occupancy, loan: 0, hqRent: 0, supply: 0 };
   }
   const c = s.contract!;
   const fr = s.franchisee ? x.fr.get(s.franchisee) : undefined;
@@ -526,7 +535,10 @@ function siteFlows(x: Ctx, s: SiteSummary, r: SiteDayResult): SiteFlows {
   const skim = fr ? Math.max(0, (K.SKIM_HONESTY_THRESHOLD - fr.honesty) / 100) * K.SKIM_RATE : 0;
   const reported = net * (1 - skim);
   s.unreported += Math.round(net - reported);
-  const royalty = reported * c.royaltyPct;
+  // Round 6: a royalty holiday granted at a board meeting waives the royalty (not the ad fund or rent).
+  const royalty = fr?.feeHolidayUntil !== undefined && e.hq.day < fr.feeHolidayUntil ? 0 : reported * c.royaltyPct;
+  // Round 6: HQ's markup on the food it supplies to franchisees (licensees buy their own).
+  const supply = s.ownership === "franchise" && e.supplyMarkupPct ? r.foodCost * e.supplyMarkupPct : 0;
   const ad = reported * c.adFundPct;
   let opRent = marketDaily;
   let hqRent = 0;
@@ -542,13 +554,13 @@ function siteFlows(x: Ctx, s: SiteSummary, r: SiteDayResult): SiteFlows {
     loan = Math.min(s.operatorLoan.daily, s.operatorLoan.remaining);
     s.operatorLoan = { ...s.operatorLoan, remaining: s.operatorLoan.remaining - loan };
   }
-  const operator = r.contribution - royalty - ad - opRent - loan;
+  const operator = r.contribution - royalty - ad - opRent - loan - supply;
   s.margin7d = s.margin7d * (6 / 7) + (r.contribution - opRent);
   if (hqRent > 0) {
     const p = x.prop.get(s.id);
     if (p) p.rentIncome = p.rentIncome * (29 / 30) + hqRent;
   }
-  return { hq: royalty + hqRent - hqLeaseCost, operator, netSales: net, ad, royalty, rent: opRent, loan };
+  return { hq: royalty + hqRent - hqLeaseCost + supply, operator, netSales: net, ad, royalty, rent: opRent, loan, hqRent: hqRent - hqLeaseCost, supply };
 }
 
 export interface StepOptions {
@@ -599,6 +611,11 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   const profitableByRegion: Record<string, boolean> = {};
   const opNet = new Map<string, { net: number; sales: number }>();
   const trace: SiteTrace[] = [];
+  // Round 6: today's HQ money by source (the board meeting's income lines).
+  let bookShops = 0;
+  let bookRoyalties = 0;
+  let bookRent = 0;
+  let bookSupply = 0;
   const ctxBase: SiteDayContext = { day, calibration: e.calibration, priceLevel: e.hq.priceLevel, foodMult };
   for (const s of e.sites) {
     if (s.status === "building") {
@@ -625,6 +642,12 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     const flow = siteFlows(x, s, r);
     if (opts.trace?.includes(s.id)) trace.push({ day, siteId: s.id, result: r, netSales: flow.netSales, royalty: flow.royalty, adFund: flow.ad, rent: flow.rent, loan: flow.loan, operator: flow.operator, hq: flow.hq });
     hqNet += flow.hq;
+    if (s.ownership === "company") bookShops += flow.hq;
+    else {
+      bookRoyalties += flow.royalty;
+      bookRent += flow.hqRent;
+      bookSupply += flow.supply;
+    }
     adByRegion[rid] = (adByRegion[rid] ?? 0) + flow.ad;
     sitesByRegion[rid] = (sitesByRegion[rid] ?? 0) + 1;
     visByRegion[rid] = (visByRegion[rid] ?? 0) + siteVisibility(e, s);
@@ -727,6 +750,19 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   e.hq.cash += net;
   e.hq.lastDayNet = net;
   e.hq.income30d = Math.round(e.hq.income30d * (29 / 30) + net);
+  {
+    // The parts are rounded and the costs line takes the remainder, so the month's lines add up to HQ's net exactly.
+    const b = e.monthBook ?? emptyBook();
+    const parts = { shops: Math.round(bookShops), royalties: Math.round(bookRoyalties), rent: Math.round(bookRent), supply: Math.round(bookSupply) };
+    e.monthBook = {
+      shops: b.shops + parts.shops,
+      royalties: b.royalties + parts.royalties,
+      rent: b.rent + parts.rent,
+      fees: b.fees,
+      supply: b.supply + parts.supply,
+      costs: b.costs + net - parts.shops - parts.royalties - parts.rent - parts.supply,
+    };
+  }
   e.hq.priceLevel *= (1 + K.INFLATION) ** (1 / K.DAYS_PER_YEAR);
   if (e.hq.cash < -K.HQ_CREDIT_LINE * e.hq.priceLevel) {
     e.status = "bankrupt";
@@ -742,6 +778,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   updateWin(x, profitableByRegion, sitesByRegion);
   e.hq.day = day + 1;
   if ((day + 1) % 30 === 0) snapshot(e, day);
+  if ((day + 1) % K.BOARD_MONTH_DAYS === 0 && e.status === "running") holdBoardMeeting(x, day);
   const out = finish(x);
   return opts.trace ? { ...out, trace } : out;
 }
@@ -852,15 +889,19 @@ function franchiseeBankrupt(x: Ctx, fr: Franchisee): void {
   for (const o of x.e.franchisees) if (o !== fr && o.sites.length) o.mood = clamp(o.mood - 3, 0, 100);
 }
 
-function doRemodel(x: Ctx, s: SiteSummary, forced: boolean): void {
+function doRemodel(x: Ctx, s: SiteSummary, forced: boolean, hqPays = false): void {
   const e = x.e;
   const city = x.city.get(s.cityId)!;
   const cost = remodelCost(s, city, e.hq.priceLevel);
   const fr = s.franchisee ? x.fr.get(s.franchisee) : undefined;
-  if (fr) {
+  if (fr && !hqPays) {
     fr.cash -= cost;
     fr.mood = clamp(fr.mood - (forced ? K.MOOD_FORCED_REMODEL : K.MOOD_SCHEDULED_REMODEL), 0, 100);
-  } else e.hq.cash -= cost;
+  } else {
+    e.hq.cash -= cost;
+    // Round 6: HQ paying for a franchisee's refit is an investment in their shop, not an order.
+    if (fr) fr.mood = clamp(fr.mood + K.MOOD_HQ_INVESTS, 0, 100);
+  }
   s.lastRemodel = e.hq.day;
   s.brandConsistency = clamp(s.brandConsistency + K.REMODEL_CONSISTENCY_BONUS, 0, 100);
   const addDrive = e.brand.formula.driveThru && !s.driveThru;
@@ -869,7 +910,7 @@ function doRemodel(x: Ctx, s: SiteSummary, forced: boolean): void {
     // The lane needs the bigger corner plot: the rent moves to the drive-thru plot's (round 5).
     s.rent = Math.max(s.rent, marketRent(x.content, city, s.districtId, e.hq.priceLevel, plotRentMult(true)));
   }
-  emit(x, "remodel", `${s.name} remodelled for ${pounds(cost)}${fr ? ` (paid by ${fr.name}${forced ? ", forced" : ""})` : ""}${addDrive ? ", now with a drive-thru" : ""}.`, forced ? "bad" : "money", { siteId: s.id });
+  emit(x, "remodel", `${s.name} remodelled for ${pounds(cost)}${fr ? (hqPays ? " (paid by HQ)" : ` (paid by ${fr.name}${forced ? ", forced" : ""})`) : ""}${addDrive ? ", now with a drive-thru" : ""}.`, forced ? "bad" : "money", { siteId: s.id });
 }
 
 function inspect(x: Ctx, s: SiteSummary): void {
@@ -1016,6 +1057,61 @@ export function forceEvent(content: ContentPack, empire: EmpireState, ev: Forced
   return finish(x);
 }
 
+// ───────────────────────── round 6: the board meeting ─────────────────────────
+export const emptyBook = (): BoardIncome => ({ shops: 0, royalties: 0, rent: 0, fees: 0, supply: 0, costs: 0 });
+export const bookNet = (b: BoardIncome): number => b.shops + b.royalties + b.rent + b.fees + b.supply + b.costs;
+
+function bookFee(e: EmpireState, fee: number): void {
+  const b = e.monthBook ?? emptyBook();
+  e.monthBook = { ...b, fees: b.fees + Math.round(fee) };
+}
+
+/** What REFURBISH costs HQ for this site today. */
+export function refurbCost(s: Pick<SiteSummary, "cityId">, city: City, priceLevel: number): number {
+  return Math.round(K.REFURB_COST * city.costIndex * priceLevel);
+}
+
+/** Month's end: an unanswered meeting is skipped, then this month's is held and the month's book starts again. */
+function holdBoardMeeting(x: Ctx, day: number): void {
+  const e = x.e;
+  if (e.boardMeeting) closeMeeting(x, "skip", true);
+  const m = buildBoardMeeting(x.content, e, e.monthBook ?? emptyBook(), day);
+  e.boardMeeting = m;
+  e.boardDistrictSales = districtSales(e);
+  e.monthBook = emptyBook();
+  emit(x, "boardMeeting", `Board meeting: HQ made ${pounds(bookNet(m.income))} this month. ${m.decision.question}`, "info", { day });
+}
+
+/** What a skipped (or refused) question costs: an ignored franchisee sulks; owners who hoped for a lower royalty grumble. */
+function boardConsequence(x: Ctx, m: BoardMeeting, choice: string): string | undefined {
+  const d = m.decision;
+  if (d.kind === "feeHoliday" && (choice === "skip" || choice === "no")) {
+    const id = d.options.map((o) => o.cmd).find((c) => c?.type === "FEE_HOLIDAY");
+    const fr = id && id.type === "FEE_HOLIDAY" ? x.fr.get(id.franchiseeId) : undefined;
+    if (fr && fr.sites.length) {
+      fr.mood = clamp(fr.mood - K.MOOD_FEE_HOLIDAY_REFUSED, 0, 100);
+      return `${fr.name} is upset`;
+    }
+  }
+  if (d.kind === "royalty" && choice === "skip" && d.advice === "lower") {
+    for (const fr of x.e.franchisees) if (fr.sites.length) fr.mood = clamp(fr.mood - K.MOOD_ROYALTY_IGNORED, 0, 100);
+    return "shop owners feel ignored";
+  }
+  return undefined;
+}
+
+function closeMeeting(x: Ctx, choice: string, auto: boolean): void {
+  const e = x.e;
+  const m = e.boardMeeting!;
+  const after = boardConsequence(x, m, choice);
+  const opt = m.decision.options.find((o) => o.id === choice);
+  const what = choice === "skip" ? (auto ? "No answer" : "Skipped") : opt?.label ?? choice;
+  const text = `${what}${after ? ` (${after})` : ""}`;
+  e.boardMinutes = [...(e.boardMinutes ?? []), { id: m.id, day: m.day, kind: m.decision.kind, choice, text, net: bookNet(m.income) }].slice(-K.BOARD_MINUTES_MAX);
+  delete e.boardMeeting;
+  emit(x, "boardDecision", `Board decision: ${text}.`, choice === "skip" ? "info" : "good");
+}
+
 // ───────────────────────── commands ─────────────────────────
 export const TECH_LABEL: Record<Tech, string> = { academy: "The training academy", driveThru: "Drive-thru", appOrdering: "App ordering" };
 
@@ -1032,10 +1128,11 @@ export function associationBlocks(e: EmpireState, cmd: EmpireCommand): string | 
     if (next.royaltyPct > e.contract.royaltyPct || next.adFundPct > e.contract.adFundPct || next.rentPctOfSales > e.contract.rentPctOfSales)
       return "The franchisee association blocks raising fees on existing agreements.";
   }
-  if (cmd.type === "REMODEL") {
+  if (cmd.type === "REMODEL" && !cmd.hqPays) {
     const s = e.sites.find((x) => x.id === cmd.siteId);
     if (s && s.ownership !== "company") return "The franchisee association blocks forced remodels.";
   }
+  if (cmd.type === "SET_SUPPLY_MARKUP" && cmd.pct > (e.supplyMarkupPct ?? 0)) return "The franchisee association blocks a bigger food markup.";
   if (cmd.type === "LAUNCH_CAMPAIGN" && cmd.kind === "discount") return "The franchisee association blocks discount campaigns: it's their margin.";
   if (cmd.type === "OPEN_SITE") {
     const crowd = e.sites.some((s) => s.status !== "closed" && s.ownership === "franchise" && s.cityId === cmd.cityId && s.districtId === cmd.districtId);
@@ -1149,6 +1246,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       if (fr.cash < fee + equity) return `${fr.name} needs ${pounds(fee + equity)} (fee + equity) and has ${pounds(fr.cash)}.`;
       fr.cash -= fee + equity;
       e.hq.cash += fee;
+      bookFee(e, fee);
       const days = K.OPERATOR_LOAN_YEARS * K.DAYS_PER_YEAR;
       const daily = annuityDaily(build - equity, K.OPERATOR_LOAN_APR, days);
       s.operatorLoan = { remaining: daily * days, daily };
@@ -1181,6 +1279,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (fr.cash < e.contract.fee + equity) return `${fr.name} needs ${pounds(e.contract.fee + equity)} and has ${pounds(fr.cash)}.`;
     fr.cash -= e.contract.fee + equity;
     e.hq.cash += e.contract.fee + book;
+    bookFee(e, e.contract.fee);
     const days = K.OPERATOR_LOAN_YEARS * K.DAYS_PER_YEAR;
     const daily = annuityDaily(book - equity, K.OPERATOR_LOAN_APR, days);
     s.operatorLoan = { remaining: daily * days, daily };
@@ -1391,8 +1490,71 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const s = x.site.get(cmd.siteId);
     if (!s || s.status !== "open") return "Only an open site can be remodelled.";
     const cost = remodelCost(s, x.city.get(s.cityId)!, x.e.hq.priceLevel);
-    if (s.ownership === "company" && spendable(x.e) < cost) return `Remodelling ${s.name} costs ${pounds(cost)}.`;
-    doRemodel(x, s, s.ownership !== "company");
+    const hqPays = s.ownership !== "company" && !!cmd.hqPays;
+    if ((s.ownership === "company" || hqPays) && spendable(x.e) < cost) return `Remodelling ${s.name} costs ${pounds(cost)}.`;
+    doRemodel(x, s, s.ownership !== "company" && !hqPays, hqPays);
+    return undefined;
+  },
+
+  REFURBISH: (x, cmd) => {
+    const e = x.e;
+    const s = x.site.get(cmd.siteId);
+    if (!s || s.status !== "open") return "Only an open shop can be refurbished.";
+    const day = e.hq.day;
+    if (s.openedTrading === undefined || maturity(s, day) <= 0) return `${s.name} isn't tired yet: a refurb pays once a shop has traded for a few years.`;
+    const cost = refurbCost(s, x.city.get(s.cityId)!, e.hq.priceLevel);
+    if (spendable(e) < cost) return `Refurbishing ${s.name} costs ${pounds(cost)}.`;
+    e.hq.cash -= cost;
+    // The drag reads (age − refurbDays): take it back REFURB_DAYS from where it is (or from full maturity if past it).
+    const age = day - s.openedTrading - (s.refurbDays ?? 0);
+    s.refurbDays = (s.refurbDays ?? 0) + Math.max(0, age - (Math.min(age, K.MATURE_FULL_DAYS) - K.REFURB_DAYS));
+    s.brandConsistency = clamp(s.brandConsistency + K.REFURB_CONSISTENCY_BONUS, 0, 100);
+    const fr = s.franchisee ? x.fr.get(s.franchisee) : undefined;
+    if (fr) fr.mood = clamp(fr.mood + K.MOOD_HQ_INVESTS, 0, 100);
+    emit(x, "refurb", `${s.name} refurbished for ${pounds(cost)}${fr ? " (paid by HQ)" : ""}: it feels new again.`, "money", { siteId: s.id });
+    return undefined;
+  },
+
+  FEE_HOLIDAY: (x, cmd) => {
+    const e = x.e;
+    const fr = x.fr.get(cmd.franchiseeId);
+    if (!fr || !fr.sites.length) return "No such franchisee.";
+    if (fr.feeHolidayUntil !== undefined && fr.feeHolidayUntil > e.hq.day) return `${fr.name} already has a royalty holiday.`;
+    const days = Math.round(clamp(cmd.days, ...K.FEE_HOLIDAY_DAYS));
+    fr.feeHolidayUntil = e.hq.day + days;
+    fr.mood = clamp(fr.mood + K.MOOD_FEE_HOLIDAY_BASE + (K.MOOD_FEE_HOLIDAY_PER_MONTH * days) / 30, 0, 100);
+    emit(x, "fee_holiday", `${fr.name} pays no royalty for ${days} days.`, "money");
+    return undefined;
+  },
+
+  SET_SUPPLY_MARKUP: (x, cmd) => {
+    const e = x.e;
+    if (!(cmd.pct >= 0)) return "The markup can't be negative.";
+    const pct = Math.round(clamp(cmd.pct, 0, K.SUPPLY_MARKUP_MAX) * 1000) / 1000;
+    const before = e.supplyMarkupPct ?? 0;
+    const risePp = Math.max(0, (pct - before) * 100);
+    if (risePp > 0) for (const fr of e.franchisees) if (fr.sites.length) fr.mood = clamp(fr.mood - risePp * K.MOOD_SUPPLY_MARKUP_SHOCK, 0, 100);
+    if (pct > 0) e.supplyMarkupPct = pct;
+    else delete e.supplyMarkupPct;
+    emit(x, "supply_markup", pct > 0 ? `HQ now adds ${(pct * 100).toFixed(0)}% to the food it sells franchisees.` : "HQ sells franchisees their food at cost again.", "info");
+    return undefined;
+  },
+
+  BOARD_DECIDE: (x, cmd) => {
+    const e = x.e;
+    const m = e.boardMeeting;
+    if (!m) return "No board meeting is waiting.";
+    if (cmd.optionId !== "skip") {
+      const opt = m.decision.options.find((o) => o.id === cmd.optionId);
+      if (!opt) return "That isn't one of the board's options.";
+      if (opt.cmd) {
+        const blocked = associationBlocks(e, opt.cmd);
+        if (blocked) return blocked;
+        const why = HANDLERS[opt.cmd.type](x, opt.cmd as never);
+        if (why) return why;
+      }
+    }
+    closeMeeting(x, cmd.optionId, false);
     return undefined;
   },
 
