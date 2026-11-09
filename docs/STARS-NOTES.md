@@ -28,7 +28,7 @@ const cooking = withSignatures(content, stars);      // memoised; stable object 
 
 // EVENING (phase "evening" or "event", BEFORE END_DAY / RESOLVE_EVENT, while game.service still holds the tally):
 const result = game.history.at(-1)!;
-const r = stepStarsDay(cooking, stars, result.covers > 0 ? result : closedDay(result.day), game);
+const r = stepStarsDay(cooking, stars, result.closed ? closedDay(result.day) : result, game);   // a 0-cover stock-out is NOT a day off
 stars = r.stars;                                     // r.events → news feed / modals (section 3)
 ({ state: game, stars } = applyStarsEffects(game, stars));   // cash, prestige, popularity, footfall mods
 for (const e of r.events) if (e.type === "HEAD_CHEF_LEFT" && e.staffId) game = applyCommand(content, game, { type: "FIRE", staffId: e.staffId }).state;
@@ -131,6 +131,40 @@ off night is more than 8 below the series mean. (Round 3 review: was 3·sd / 60�
 weak-cover-two-nights week at exactly 0. `starsView().weakNights` names the weekdays that drag it down; the window
 records its sim days in `consistencyDays`.)
 
+**Short menu (round 3 review P1).** A service where at least `SHORT_MENU_MIN_86` (3) food dishes were 86'd *for most
+of the night* enters the window `SHORT_MENU_DROP_PER_DISH` (8) points lower per dish off, so it always reads as an off
+night (and today's consistency criterion sees it). "For most of the night" = on the evening state's `eightySixed` and
+plated under `SHORT_MENU_EARLY_SHARE` (½) of its usual night (`sold7d` / `recent.length`; with no history, plated 0).
+Selling out late on a busy night is not a short menu (the scripted perfectionist does that ~40 nights a year).
+- A night that ran out of everything (0 covers, not `CLOSE_TODAY`, not a refit) is a **failed service**: it enters the
+  window from the window's own mean minus the drop, and the year's quality stats, but not `openDays` (Fat Duck count),
+  and inspectors/critics still treat it as shut. The game and the script now pass that `DayResult` in, not `closedDay`.
+- It emits `SHORT_MENU { day, dishIds, inspectionSeason, quality, text }` (and a bad `LOG`). `text` names the dishes:
+  "A short menu tonight: 4 dishes were off (Duck, Ramen, Lamb and 1 more). The guide counts that as an off night, and
+  your steadiness slips — in inspection season, when an inspector may have been in. Restock every evening."
+- `pulledFoodDishes(content, state, day)` (proxies.ts) is the rule; it is pure and draws no RNG.
+
+### Hints: "what's holding you back" (round 3 review P2)
+`starsHints(content, stars, state): StarsHint[]` (src/hints.ts) — all five criteria, ranked by how far the player's
+own last week sits below the next star's bar (`STAR_THRESHOLDS[min(stars, 2)]`), each `{ criterion, label, text,
+behind }`. The estimate re-runs `dayCriteria` on `recentInputs()`: the last 7 open nights' `DayResult.perDish` (sold,
+plated, quality) as one typical night, with the current steadiness window; older saves without `perDish` fall back to
+the menu's `sold7d` at the window's mean quality. It never reads this year's visits, `scheduled`, `assessment`,
+`lastCriteria`, `dailyScoreEma` or `inspectorModel` (a test feeds it tampered secrets and checks the output is equal),
+and it returns words only. The sentences use the player's own numbers:
+
+| Criterion (label) | Line, by case |
+| --- | --- |
+| consistency | weakest weekday from `weakNights` ("Your weakest night is Tuesday: it cooks about 40 against 92… (no chef on — you're cooking)"); else disruption, stress > 70, untrained satellites, or the steadiness number |
+| technique | sold-weighted skill of the food you sell and the simplest best-seller; "ambitious enough, cook it better" once 1.35 × ambition ≥ 90 |
+| harmony ("Flavour") | the weakest dish against the rest, if ≥ 3 points below; else the plate level |
+| personality | "None of your 6 dishes is your own…" / signatures off the menu / research in progress |
+| ingredients | no partners → sign one; < 50% in season; young relationships; unsigned suppliers |
+
+Without signatures or partners, personality (~55) and ingredients (~56–61) are usually the first two: that is the
+model being honest (the review's bistro scored personality 48, technique 54). The Stars tab shows the top two that are
+behind and folds the rest under "Also worth a look".
+
 ### Chef stress, burnout, the Smyth arc
 - `stress → target` at 1.5% a day. Target when open = 20 + 14/star + 10 in inspection season + 3 per year of
   three-star streak + 5 per untrained satellite − 1 per stagiaire. When closed the target is 10. Guide day adds a
@@ -173,6 +207,7 @@ for 60 days and +15 stress, and the programme is suspended.
 `INSPECTOR_HINT` (rumour; may be a decoy) · `INSPECTION_SEASON` · `GUIDE_DAY { result, visits }` · `FIFTY_BEST` ·
 `GAULT_MILLAU` · `GOOD_FOOD` · `CRITIC_REVIEW` · `STRESS_WARNING` · `BURNOUT` · `STAGIAIRE_SCANDAL` · `RESEARCH_DONE` ·
 `SMYTH_ARC_STARTED { deadline }` · `HEAD_CHEF_LEFT { staffId, backed, rival? }` (game must FIRE `staffId`) ·
+`SHORT_MENU { dishIds, inspectionSeason, quality, text }` (round 3 review: show `text` in the evening) ·
 `HEAD_CHEF_CHANGED` · `SATELLITE_OPENED` · `SATELLITE_CHEF_TRAINED` · `REFIT_STARTED` · `ENDING` · `REJECTED` · `LOG`.
 
 ## 4. Headless results (real content pack, High Street, `normal`)
@@ -184,17 +219,20 @@ once profitable, opens the test kitchen when thriving, researches the mains, add
 stagiaire at ★★ (let go in a red month) and a bar satellite with a trained head chef, and backs the head chef in
 the Smyth arc when it can afford to.
 
-`pnpm --filter @full-plate/sim-stars headless --years 6 --seed 3`:
+`pnpm --filter @full-plate/sim-stars headless --years 6 --seed 3` (after the short-menu rule; the script's own few bad
+stock nights now count, so scores are 1–2 points lower than before and every year's stars are unchanged):
 ```
 yr  guide  stars    score  visits (day:total)                     stress end/max  prestige  50Best  G&M   GFG  critic  quality  covers   cash
- 1    300 —→★        80.9  59:82 101:80 124:79 190:81 263:84             33/33        99       —  13.5     6      ★4     96.2   15149    £14,184
- 2    660 ★→★        82.2  352:83 435:81 509:83                          39/46        99       —  15.5     8      ★5     96.3   17861    £25,690
- 3   1020 ★→★★       93.4  838:93 898:92 932:94                          51/51       100     #24  18.5    10      ★5     97.5   18960    £38,225
- 4   1380 ★★→★★      90.5  1104:89 1297:92 1344:91                       54/63       100     HoF  19.0    10      ★5     97.5   19538   £135,076
- 5   1740 ★★→★★★     94.3  1629:95 1693:94 1695:94                       65/67       100     HoF  19.5    10      ★5     97.7   19123   £274,328
- 6   2100 ★★★→★★★    92.8  1791:93 1808:93 2038:92 2053:93 2068:92       74/84       100     HoF  19.5    10      ★5     97.6   19494   £438,392
+ 1    300 —→★        79.8  59:82 101:78 124:77 190:79 263:84             33/33        99       —  13.5     6      ★4     95.6   15149    £14,184
+ 2    660 ★→★        80.1  352:81 435:79 509:80                          39/46        99       —  15.0     7      ★5     95.3   17785    £23,770
+ 3   1020 ★→★★       91.7  838:92 898:91 932:92                          51/51       100     #34  18.0    10      ★5     96.9   18870    £38,571
+ 4   1380 ★★→★★      89.5  1104:88 1297:90 1344:90                       54/63       100     HoF  19.0    10      ★5     96.6   19501   £134,546
+ 5   1740 ★★→★★★     92.8  1629:95 1693:91 1695:92                       65/67       100     HoF  19.5    10      ★5     96.7   18992   £282,212
+ 6   2100 ★★★→★★★    91.5  1791:89 1808:89 2038:92 2053:92 2068:93       74/84       100     HoF  19.5    10      ★5     97.3   19668   £449,244
 three-star streak: 2   win (3★ × 5 guides): no
 ```
+From-fork (`--fork-day 365 --year1 balanced`, seeds 1, 3, 4): ★ on the first guide day (87.8 / 79.7 / 81.3), as before.
+The 10-year × 12-seed figures below predate the rule and were not re-run.
 - Signatures land in year 2. The Smyth arc fires in year 4 and the chef is backed (alumni satellite).
 - **The win does not trigger within 6 years, by design.** The guide climbs one star a year, so the earliest
   dynasty is year 7.
@@ -229,6 +267,14 @@ three-star streak: 2   win (3★ × 5 guides): no
    (`withSignatures`).
 8. **Prestige pull in arrivals** is already `PRESTIGE_APPEAL_WEIGHT × qualityWeight`. A "better applicants" hook
    (candidate skill shift by prestige or stars) would complete the BRIEF's star bump.
+
+9. **A same-day stock buy** (round 3 review). `ORDER_STOCK` arrives tomorrow, so the morning's short-menu warning
+   can only order for tomorrow; tonight the choices are a shorter menu or `CLOSE_TODAY`. A planning-only
+   `BUY_NOW { ingredientId, qty }` at the corner-shop markup (`INCIDENT.cornerShopMult`, delivered at once) would let
+   "Order to cover tonight" exist honestly.
+10. **Which 86s were stock-outs.** `eightySixed` mixes door stock-outs, mid-service sell-outs and manual pulls; the
+   short-menu rule infers "off most of the night" from plates vs the usual night. A `DayResult.perDish[id].offAtTick`
+   would make it exact.
 
 ## 6. Open questions
 1. **Pace of stars.** A focused player with two strong chefs and the most technical dishes gets ★ in year 1. Michelin

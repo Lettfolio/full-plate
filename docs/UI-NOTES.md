@@ -14,6 +14,7 @@ Keys during service: <kbd>Space</kbd> pause/resume, <kbd>1</kbd>/<kbd>2</kbd>/<k
 ## The sim door
 
 - `src/sim.ts` is the **only** module that touches the simulation or content. It re-exports the sim-core API, `content`, and the constants the UI shows (`SERVICE_TICKS`, calendar constants and `weekdayOf`/`monthOf`, `TABLE_COST`, `RECRUITMENT_FEE`, `HIRE_CASH_BUFFER_SHIFTS`, `SHIFT_HOURS`, `MAX_MENU_ITEMS`, `shiftCost`).
+- **Hiring affordability** has one home: `hireCheck(state, person)` in sim.ts → `{ fee, perShift, needed, canAfford }`, built only from sim-core's `recruitmentFeeOf`, `HIRE_CASH_BUFFER_SHIFTS` and `shiftCost` (sim-core's HIRE/HIRE_STAFF rule). The Staff tab's candidate and old-colleague cards call it; no screen does the sum itself. Swap in a sim-core `canHire` here if one is ever exported (it would also cover `MAX_STAFF`, which isn't exported).
 - The milestone-1 stubs (`src/dev/`, `VITE_USE_STUBS`, tsconfig `paths` fallbacks) were removed at integration; see docs/REVIEW.md.
 
 ## Structure
@@ -174,3 +175,19 @@ All four path packages are mounted, and the round-3 sim-core hooks (`3161364`, `
 
 ### Screenshots (scratchpad `shots/r3/`, script `shots/r3.mjs`; fixture saves generated with the real sim)
 `01-start-picker` · `02-my-shift` · `03-watch-shift` · `04-employee-handson-shift` · `05-career-evening` · `06-career-next-morning` · `07-fork-card` · `08-evening-after-snooze` · `09-owner-service-jumpin` · `10-owner-jumped-in` · `11-back-to-office` · `12-empire-map` · `13-empire-city` · `14-empire-brand` · `15-stars-tab` · `16-guide-envelope` · `17-guide-envelope-open`. The run had no JS errors.
+
+### Round 3 review: Stars fixes (`d26ab5f`, `ebada83`, `ff57da7`)
+
+| Where | What |
+| --- | --- |
+| Planning, notices strip (every tab) | **Stock warning** (`planning/StockWarning.tsx`) when the larder **on hand** won't cover sim-core's forecast (`forecastNeeds`) for a menu dish: "📦 Tonight's larder won't cover 4 dishes (2 will be off the menu when the doors open): Duck (none left), Lamb (about 3)…", then "Deliveries arrive tomorrow morning, so tonight cooks from what's on the shelf." Buttons: **Order to cover tomorrow · ≈£X** (sim-core `suggestedOrder` → ORDER_STOCK lines; becomes "✓ Ordered") and **See the larder**. Hidden on day 0 and while closed for a refit. Logic: `tonightRisk()` in `planning/stockNeeds.ts`. |
+| Same, Stars in inspection season | The callout turns red with `role="alert"` and a headline: "🕵️ **Inspectors are about — a short menu tonight could cost you a star.**" ("the star" once one is held), plus "3 dishes or more off counts as an off night for the guide. Closing tonight doesn't count against you." (the existing **Close tonight** button). |
+| Evening, Stock for tomorrow | In inspection season (for tomorrow) with something short, the card is red and adds "🕵️ Inspectors are about. Run out tomorrow and a short menu could cost you a star." |
+| Evening, News from the guides | 📉 the sim-stars `SHORT_MENU` sentence: which dishes were off and that the guide counted an off night. |
+| Stars tab, top of the left column | **What's holding you back** (from your last week): the top two criteria below the next star's bar as a pill + one sentence (`starsHints`), the rest under "Also worth a look (n)", a line after a guide day naming the criterion last year's inspectors marked lowest (revealed visits only), and "The inspectors' own marks stay secret until guide day." |
+| Staff tab | Hire buttons use `hireCheck` (see "The sim door"). |
+
+Why the button says "tomorrow": `ORDER_STOCK` is delivered the next morning, so nothing ordered in the morning can cover tonight. The honest choices tonight are a shorter menu or closing; the order protects tomorrow. A same-day buy needs sim-core (STARS-NOTES §5.9).
+
+Tests: `src/__tests__/starsReview.test.tsx` (real sim + reducer): `tonightRisk` vs `suggestedOrder`; the plain and the inspection-season warning; no warning when covered; an empty larder in inspection season played through the reducer ends with a named `SHORT_MENU` and one more window entry; the Stars tab hint card; `hireCheck` against sim-core's HIRE at the cash edge (with and without the career fee) and the Hire button's disabled state.
+
