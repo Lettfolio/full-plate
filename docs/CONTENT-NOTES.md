@@ -362,3 +362,99 @@ prefers the round-1 archetypes.
 
 Note: during this run the working tree had an uncommitted change in `packages/sim-core/src/systems/incidents.ts`
 (outcome text only) from another agent. It doesn't affect any economics.
+
+## Round 3 (path content)
+
+Round 3 adds the content the brief's two paths and the career ladder need, so the integration pass can wire it in.
+The integration pass should not need to type any game text. `sim-core/src/types.ts` is unchanged, and **the default
+`content` pack is byte-for-byte the round-2 pack**, so sim-core balance and headless results don't move.
+
+### What was added
+
+| File | Count | What |
+| --- | --- | --- |
+| `ingredients.json` (+49) | 111 total | 20 fast-food lines: frozen fries, patties, nuggets, crumbed fillets and hash browns at 180 days; buns, muffins and wraps at 21–90 days; shake and soft-serve mix at 60–120 days; a "toy surprise" (25p, not food). 21 fine-dining lines with seasonality: turbot (Mar–Sep), venison (Oct–Feb), black truffle (Dec–Feb), Wye Valley asparagus (Apr–Jun), Scottish langoustine (May–Sep), lobster, morels, wild garlic, girolles, forced rhubarb, blood oranges. 8 wine-by-the-glass lines. |
+| `dishes.json` (+54) | 125 total | **24 fast food** (`ff_*`): 13 mains (burgers, wraps, nugget box, 3 breakfast muffins, 2 kids' meals with a toy), 4 sides, 2 desserts, 5 drinks. **30 fine dining** (`fd_*`): 3 amuses, 4 starters, 4 fish courses, 5 meat courses, 2 pre-desserts, 3 desserts, a cheese trolley and 8 wines by the glass. |
+| `dishTags.json` | 54 | `{ dishId: DishTag[] }`. Tags: `fast_food`, `counter_service`, `burger`, `fries`, `wrap`, `shake`, `breakfast`, `kids_meal`, `vegetarian` / `fine_dining`, `signature_candidate` (10), `seasonal`, `wine`, plus a course tag (`amuse`, `starter_course`, `fish_course`, `meat_course`, `pre_dessert`, `dessert_course`, `cheese_course`). |
+| `libraryHidden.json` | 54 | Every `ff_*` and `fd_*` dish id. These are kept out of `content` (see below). |
+| `formulas.json` | 3 | Presets for the Empire's "lock formula" step (fields map onto `SET_FORMULA`): **Classic Counter** (8 items, burgers, fries, shakes), **Sunrise All Day** (breakfast-led, priceIndex 0.95) and **Garden & Chicken** (no beef or pork, so it is validated `dietarySafe: ["no-beef","no-pork"]` for Vasant). All are ≤ 8 dishes, so they don't hit sim-empire's `STD_PER_EXTRA_DISH` penalty. |
+| `tastingMenus.json` | 3 | **Spring in the Garden** (Apr–Jun), **Summer by the Sea** (Jun–Sep) and **Deep Winter** (Dec–Feb). Each has 6–7 courses (amuse → starter → fish → meat → pre-dessert → dessert [→ cheese]) and a 5-glass pairing. Price per head is £75–£85 (à la carte sum −15%, ~64% GP); the pairing is £45–£55. The validator checks that every seasonal ingredient is in season in at least one of the menu's months. |
+| `wineList.json` | 8 | Bottles with region and a one-line note. Prices are graduated from 4.0× (£10 rosé) down to 2.7× (£26 red Burgundy), so cheap bottles carry more, as the brief says. Each bottle points to its glass dish (`glassDishId`). |
+| `cities.json` | 5 regions, 12 cities, 4 suppliers | A mirror of `sim-empire/src/world.ts`: same ids, order, population, costIndex, dietaryRules, localChampion/championStrength and map x/y. It adds a one-line `blurb` to each region and city, and an `ingredientIds` list and `blurb` to each supplier. A test parses `world.ts` and fails if the two drift apart. |
+| `countries.json` | 10 countries | Rules text for the country-entry puzzle (`rules[]`, `entryText`), plain-English text for each dietary rule, `puzzleLines` templates, and **`dietaryBreakers` / `kosherMeat` / `kosherDairy`**. These are a superset of sim-empire's `DIET_BREAKERS` and include the new patties, nuggets, shellfish and wines. |
+| `criticText.json` | — | Invented guide names (Golden Plate Guide, World's 50 Greatest Tables, Toque Guide, Good Table Guide); 5 critic names; 4 local-critic lines per rating 1–5; 10 inspector rumours; the inspection-season line; guide-day envelope text (gained, first star, third star, kept, lost, lost all, not assessed, excluded, still none); 50 Best, Toque and Good Table lines; head-chef stress, burnout and "I want my own place" dialogue with the back/let-go choices; and three endings (closing at the top, dynasty, handed back). |
+| `careerText.json` | — | Owner weekly-review lines for each personality (balanced, cheap, premium) × band (great, good, ok, poor), with score cut-offs in `bands` (4.3 / 3.6 / 2.8). Promotion copy for every rung above 0 on every track, keyed by sim-career `LADDER` rung id (a test checks the ids against `constants.ts`). Also: mentor lines for each track, rival offer pitches for each personality and an offer letter, raise outcomes (granted, small, refused, annoyed, matched offer), and the farewell, handover and perk lines for "open your own place". |
+| `incidentText.json` / `goalText.json` | 8 incidents / 17 goals | Verbatim copies of sim-core's `INCIDENT_TEXT`, `INCIDENT_LINES`, `GOAL_LADDER` and `GOAL_LINES`, with the same keys. A test does a deep-equal against the sim-core modules, so any drift fails CI. The sim-core files are untouched. |
+
+**Design numbers.** Fast food: skill 10–20, prep 1–2 ticks, ceiling 55–70. Mains are £1.99–£5.99 at 68–72% GP, and
+sides, desserts and drinks are 70–92%. Appeal is 0.75–1.0 for students and families and ≤ 0.15 for foodies (the counter
+coffee is the one item that leans business). Fine dining: skill 65–85, prep 3–6, ceiling 89–97, priced at 68% GP for
+mains and 67–76% for other courses (mains £16.95–£40.95). Foodies 0.85–0.95, business ≥ 0.65, students ≤ 0.15. Wines by the
+glass are at 2.9–4×. Tone throughout is warm and gently funny. There are no real brand or guide names, and a test scans
+every string for real brands and snark words.
+
+### Why there are two packs (the `inLibrary` flag)
+
+With the path dishes in the general library, headless `typical`/normal **fell from 83% to 59%**. The Business Park
+owner's appeal-sorted menu picked £33–£41 turbot, lobster and truffle beef, and the Student Quarter owner picked 99p
+fries. So the loader exposes two packs:
+
+- **`content`**: the full pack minus `libraryHidden` dishes and any ingredient only those dishes use. It is identical to
+  round 2 (71 dishes, 62 ingredients). With it, headless typical/normal is **83/100 (unchanged; 90.3 covers, 4.23★)**.
+  sim-core, headless, career and the owner game keep using this by default.
+- **`fullContent`**: everything (125 dishes, 111 ingredients). Use it to cook once a path is chosen, so the Empire
+  formula and Stars menus can name `ff_*`/`fd_*` dishes. It is also what `validateExtras` checks against.
+- **`inLibrary(dishId)`** / `LIBRARY_HIDDEN_DISH_IDS` tell the menu editor which dishes to hide from the starter
+  library if the game ever uses `fullContent` everywhere.
+
+### Data model and exports (`src/index.ts`, `src/extras.ts`)
+
+```ts
+import { content, fullContent, extras, dishTags, formulas, tastingMenus, wineList, world, countries,
+         criticText, careerText, incidentText, goalText, inLibrary, tagsOf, dishesWithTag, formulaById,
+         tastingMenuById, cityById, countryByName, rulesTextForCity, dietaryRuleText, dishBreaksRule, fill,
+         libraryPack, validateExtras, LIBRARY_HIDDEN_DISH_IDS } from "@full-plate/content";
+```
+- The `ContentPack` shape is unchanged. Tags are a parallel map (`dishTags.json`) rather than a `DishDef.tags` field.
+- Types for every extra live in `src/extras.ts` (`FormulaDef`, `TastingMenuDef`, `WineDef`, `CityDef`, `RegionDef`,
+  `SupplierDef`, `CountriesData`, `CriticText`, `CareerText`, …). `CityDef`/`SupplierDef` are sim-empire's `City`/`Supplier`
+  without the runtime flags.
+- Importing the module validates everything and throws a single error that lists every problem. The checks cover
+  references to dishes, ingredients, districts and regions; known placeholders per collection (critic, career,
+  countries, incident, goal); unique ids; positive margin at suggested price for every `fast_food` and `fine_dining`
+  dish; the tag bands (skill, prep, ceiling); formula ≤ 8 dishes with honest `dietarySafe` claims; tasting-menu course
+  coverage, cost and seasonality; wine markup 2.5–4×; and each city's dietary rules matching its country's.
+- Templates use `{placeholder}`; `fill(template, vars)` behaves like sim-core's incident `fill`.
+  Placeholder sets: critic `{restaurant} {dish} {critic} {chef} {stars} {starWord} {rank} {points} {tier} {city} {guide}`;
+  career `{name} {owner} {restaurant} {rung} {nextRung} {wage} {raise} {mentor} {rival} {savings} {shifts} {pitch}`;
+  countries `{city} {rules} {cost} {champion} {brand} {country}`.
+
+### What integration should read from where
+
+| Consumer | Today (hard-coded) | Swap to |
+| --- | --- | --- |
+| sim-empire `defaultCities`, `DEFAULT_REGIONS`, `DEFAULT_SUPPLIERS` (`world.ts`) | TS literals | `world.cities` (add `entered/localised/tradition` and filter `districts` as `defaultCities` does), `world.regions`, `world.suppliers` (add `signed:false, exclusive:false`) |
+| sim-empire `DIET_BREAKERS`, `MEAT`, `DAIRY` (`model.ts`) | TS literals | `countries.dietaryBreakers`, `kosherMeat`, `kosherDairy`, or just `dishBreaksRule` |
+| sim-empire `FAST_FOOD_MENU` (`strategies.ts`) and the brand screen | the 8 library burgers/chips/shakes | `formulas[*].menuDishIds` with `fullContent` |
+| sim-empire city panel text | generated notes | `rulesTextForCity`, `countries.puzzleLines`, `city.blurb` |
+| sim-stars `CRITIC_NAMES`, `CRITIC_TEXT` (`constants.ts`, `tracks.ts`) | 3 names, 1 line per rating | `criticText.criticNames`, `criticText.localCritic[rating]` (pick by RNG) |
+| sim-stars hint strings (`step.ts`) | 2 literals | `criticText.inspectorRumours` |
+| sim-stars guide reason / ending text (`inspector.ts`, `commands.ts`, `step.ts`) | literals | `criticText.guideDay.*`, `criticText.endings.*` (UI can show these beside `GuideResult.reason`) |
+| sim-stars `qualityMenu` / test kitchen | library dishes with ceiling ≥ 88 | `tastingMenus` and `dishesWithTag("signature_candidate")` on `fullContent` |
+| sim-career review notes, rung copy, offer pitch, raise and handover messages | generated strings | `careerText.*` (rung copy keyed by `LADDER` rung id) |
+| sim-core `incidents/text.ts`, `goals/text.ts` | TS modules | `incidentText`, `goalText` (same keys; deep-equal tested) |
+| game menu editor | `content.dishes` | unchanged; or `fullContent.dishes.filter(d => inLibrary(d.id))` plus a path tab |
+
+### Notes and open questions for integration
+- **Cook with `fullContent` only after the fork.** The sim must use the same pack for the whole run, because a save
+  that references `ff_*` dishes needs `fullContent` to load. The simplest rule is to always pass `fullContent` to the
+  sim and keep the starter menu editor and the headless owners on library dishes (`inLibrary`).
+- Fast-food covers in the agent sim are still seat-capped (EMPIRE-NOTES open question 3). The low prices assume
+  counter-service volume that only the aggregate model gives today.
+- Fine-dining mains are £17–£41 against a foodie budget of £35/head, so à-la-carte fine dining will read as
+  "over budget" to sim-core's price-gap term. Tasting menus (£75–£85) would need a sim-side "set menu" sale, or a
+  segment budget override while on the Stars path.
+- The `toy_surprise` ingredient is a cost line in the kids' meals. If the Empire ever models a "toy recall" scandal,
+  this is the hook.
+- `cities.json` duplicates sim-empire's numbers until the swap happens. The mirror test will fail if either side
+  changes alone.
