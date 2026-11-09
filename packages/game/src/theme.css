@@ -770,7 +770,17 @@ button, input { font: inherit; color: inherit; }
 .term__plain { font: inherit; }
 .term__real { font-family: var(--font-body); font-size: var(--fs-micro); font-weight: 700; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
 .term--inline { text-decoration: underline dotted var(--ink-faint); text-underline-offset: 3px; cursor: help; }
-.term--inline:focus-visible { outline: 3px solid var(--sky); outline-offset: 1px; }
+.term--inline:focus-visible, .term:focus-visible { outline: 3px solid var(--sky); outline-offset: 1px; border-radius: 3px; }
+/* Round 5 review: the explanation shows on hover and on keyboard focus (role=tooltip, aria-describedby). */
+.term { position: relative; }
+.term__tip {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 30; width: max-content; max-width: 260px;
+  padding: 6px 9px; border-radius: 8px; background: var(--ink); color: var(--paper);
+  font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 500; line-height: 1.35; text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18); pointer-events: none;
+  visibility: hidden; opacity: 0; transition: opacity 0.12s;
+}
+.term:hover > .term__tip, .term:focus > .term__tip, .term:focus-within > .term__tip { visibility: visible; opacity: 1; }
 
 /* ───────── round 5: Empire side panel for a child (My shops / The brand / Money) ───────── */
 .empire__side { font-size: var(--fs-base); }

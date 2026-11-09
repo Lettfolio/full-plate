@@ -12,7 +12,12 @@ describe("Term", () => {
     const el = container.querySelector(".term")!;
     expect(el.querySelector(".term__plain")!.textContent).toBe("Money the brand gets from each shop");
     expect(el.querySelector(".term__real")!.textContent).toBe("royalty");
-    expect(el.getAttribute("title")).toBe(`royalty: ${GLOSSARY.royalty.explain}`);
+    // Round 5 review: a real tooltip, focusable and linked for screen readers (a title never shows on focus).
+    expect(el.getAttribute("tabindex")).toBe("0");
+    const tip = document.getElementById(el.getAttribute("aria-describedby")!)!;
+    expect(tip.getAttribute("role")).toBe("tooltip");
+    expect(tip.textContent).toBe(`royalty: ${GLOSSARY.royalty.explain}`);
+    expect(el.contains(tip)).toBe(true);
   });
 
   it("children replace the plain label but keep the real word", () => {
@@ -21,12 +26,22 @@ describe("Term", () => {
     expect(container.querySelector(".term__real")!.textContent).toBe("covers");
   });
 
-  it("inline form: a focusable abbr whose title carries the term and the one-liner", () => {
+  it("inline form: a focusable abbr described by a tooltip carrying the term and the one-liner", () => {
     render(<Term id="tronc" inline />);
     const abbr = screen.getByText("Shared tips");
     expect(abbr.tagName).toBe("ABBR");
     expect(abbr.getAttribute("tabindex")).toBe("0");
-    expect(abbr.getAttribute("title")).toMatch(/^tronc: /);
+    expect(screen.getByRole("tooltip").textContent).toMatch(/^tronc: /);
+    expect(abbr.getAttribute("aria-describedby")).toBe(screen.getByRole("tooltip").id);
+  });
+
+  it("two Terms get distinct tooltip ids; keyboard focus lands on the term", () => {
+    const { container } = render(<p><Term id="royalty" /><Term id="covers" inline /></p>);
+    const ids = [...container.querySelectorAll("[aria-describedby]")].map((e) => e.getAttribute("aria-describedby"));
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(document.getElementById(id!)).toBeTruthy();
+    (container.querySelector(".term") as HTMLElement).focus();
+    expect(document.activeElement).toBe(container.querySelector(".term"));
   });
 
   it("every glossary entry is filled in, one line, and plainer than the term", () => {

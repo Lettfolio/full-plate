@@ -11,6 +11,13 @@ import { appReducer, initialAppState, type AppState } from "../state/gameReducer
 import { FORK_DAY, initialMeta } from "../state/paths";
 import { applyCommand, content, runDay, suggestedOrder } from "../sim";
 
+/** Text as a sighted reader sees it: without the <Term> tooltips (hidden until hover/focus). */
+function visibleText(el: Element): string {
+  const c = el.cloneNode(true) as Element;
+  c.querySelectorAll(".term__tip").forEach((t) => t.remove());
+  return c.textContent ?? "";
+}
+
 function forkedEmpire(): AppState {
   let s = appReducer(initialAppState, { type: "new", cmd: { type: "NEW_GAME", seed: 21, districtId: "high_street", restaurantName: "Focus Test", difficulty: "cosy" } });
   for (const id of ["beef_burger", "chicken_burger", "chunky_chips", "soft_drink"]) {
@@ -79,7 +86,7 @@ describe("EmpireTab sites copy (round 3)", () => {
     fireEvent.click(screen.getByRole("tab", { name: /My shops/ }));
     expect(screen.getByText(/Hands-on, you run the dining room; the takeaway counter adds about 40% on top/)).toBeTruthy();
     // Round 5: "guests" and "crew skill" are <Term>s, so match the card's text rather than one element.
-    expect(container.querySelector(".sitelist")!.textContent).toMatch(/guests today: \d+ in the dining room \(\d+ tables, crew skill \d+\) \+ \d+ takeaway/);
+    expect(visibleText(container.querySelector(".sitelist")!)).toMatch(/guests today: \d+ in the dining room \(\d+ tables, crew skill \d+\) \+ \d+ takeaway/);
   });
 });
 
