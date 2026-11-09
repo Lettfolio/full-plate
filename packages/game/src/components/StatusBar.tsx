@@ -92,7 +92,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame }: Props) {
           </>
         )}
         <div className="status__end">
-          <span className={`pill pill--${game.difficulty}`}><Icon name={game.difficulty === "cosy" ? "heart" : game.difficulty === "hard" ? "chilli" : "speed"} size={16} />{game.difficulty}</span>
+          <span className={`pill pill--${game.difficulty}`}><Icon name={game.difficulty === "cosy" ? "heart" : game.difficulty === "hard" ? "chilli" : "speed"} size={16} />{game.difficulty[0]!.toUpperCase() + game.difficulty.slice(1)}</span>
           <SettingsMenu onQuit={onQuit} onNewGame={onNewGame} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
         </div>
       </div>

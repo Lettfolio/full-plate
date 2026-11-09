@@ -247,16 +247,6 @@
 
 .opensite__row--flash { outline: 3px solid var(--sky-deep); outline-offset: 2px; border-radius: 8px; transition: outline-color 1.4s ease; }
 
-/* theme.css sizes every svg in .empire__map to the card's width (the old one-svg map); put the map's own svgs back. */
-.empire__map .mappin__donut svg { width: 100%; height: 100%; }
-.empire__map .mappin__hq svg { width: 22px; height: 16px; display: inline; }
-.empire__map .legend__hq svg { width: 20px; height: 14px; display: inline; }
-.empire__map .mapbtn svg { width: 18px; height: 18px; }
-.empire__map .worldmap__mini { width: 150px; height: 75px; }
-.empire__map .legend__route { width: 26px; height: 10px; display: inline; }
-.empire__map .district__blocks { width: 100%; height: 100%; }
-.empire__map .cityboard__sea svg { height: 14px; }
-.empire__map .shopicon { width: 24px; height: 24px; display: inline-block; }
 
 @media (max-width: 1180px) {
   .starsmap__layout { grid-template-columns: minmax(0, 1fr) 200px; }

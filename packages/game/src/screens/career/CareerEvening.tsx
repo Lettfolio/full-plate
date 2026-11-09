@@ -42,7 +42,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
       <div className="evening evening--career">
         <div className="evening__head">
           <div>
-            <div className="xs faint caps">Evening · {r ? `Day ${r.day + 1} · ${dateLabel(r.day)}` : "No shift"}</div>
+            <div className="panel__eyebrow">Evening · {r ? `Day ${r.day + 1} · ${dateLabel(r.day)}` : "No shift"}</div>
             {/* Round 7: with the score card up, its own headline is the shout; the page heading just says where you are. */}
             <h1>{promoted ? `Promoted to ${promoted.title.toLowerCase()}!` : summary && worked ? `Evening at ${career.employer.restaurantName}` : worked ? (r && r.averageRating >= 4.3 ? "Great shift!" : "Shift done.") : "A day off."}</h1>
           </div>
@@ -62,7 +62,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             </div>
           )}
           <div className="card">
-            <div className="card__title"><h3>Your shift</h3>{worked ? <span className="pill pill--star">worked</span> : <span className="pill pill--off">off</span>}</div>
+            <div className="card__title"><h3>Your shift</h3>{worked ? <span className="pill pill--star">Worked</span> : <span className="pill pill--off">Off</span>}</div>
             <table className="pnl">
               <tbody>
                 <tr><td>Pay ({perHour(career.wage)} × 10h)</td><td><MoneyText pence={shiftPay} /></td></tr>

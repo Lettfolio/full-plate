@@ -144,7 +144,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
       <div className="starstab__grid">
         <div className="stack">
           <div className="card stack stack--sm">
-            <div className="card__title"><h3>The kitchen</h3>{v.inspectionSeason && <span className="pill pill--puzzle">inspection season</span>}</div>
+            <div className="card__title"><h3>The kitchen</h3>{v.inspectionSeason && <span className="pill pill--puzzle">Inspection season</span>}</div>
             <Bar label="Head chef stress" value={v.headChef.stress} tone={v.headChef.stress >= 75 ? "accent" : v.headChef.stress >= 50 ? "amber" : "basil"} showValue />
             <Bar label="Steadiness (last 60 nights)" value={v.steadiness} tone="sky" showValue />
             <Bar label="Head chef's reputation" value={v.headChef.reputation} tone="plum" showValue />
@@ -179,7 +179,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
                   <div className="xs muted">{t.blurb}</div>
                   <div className="xs">{t.courses.map((c) => dish(c.dishId)?.name ?? c.dishId).join(" · ")}</div>
                   <div className="row" style={{ marginTop: 4 }}>
-                    <span className={`pill ${inSeason ? "pill--star" : "pill--off"}`}>{inSeason ? "in season" : "out of season"}</span>
+                    <span className={`pill ${inSeason ? "pill--star" : "pill--off"}`}>{inSeason ? "In season" : "Out of season"}</span>
                     <span className="spacer" />
                     {on ? <button className="btn btn--sm btn--ghost" disabled={game.phase !== "planning"} onClick={() => onTastingMenu(null)}>Take it off</button>
                       : <button className="btn btn--sm" disabled={!HOOKS.setMenu || game.phase !== "planning"} title={HOOKS.setMenu ? undefined : "Needs the sim's set-menu support"} onClick={() => onTastingMenu(t.id)}>Serve it</button>}

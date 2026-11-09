@@ -70,7 +70,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
         <div className="row">
           <span className={`avatar avatar--${career.role}`} aria-hidden="true">{initials(career.playerName)}</span>
           <div className="spacer">
-            <div className="xs faint caps">You · {career.employer.restaurantName}</div>
+            <div className="panel__eyebrow">You · {career.employer.restaurantName}</div>
             <h3>{rung.title} · {perHour(career.wage)}</h3>
             <div className="small muted">Boss: {career.owner.name} — {OWNER_BLURB[career.owner.strategy]}</div>
           </div>
@@ -173,7 +173,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
                 <span className={`avatar avatar--${r.role}`} aria-hidden="true">{initials(r.name)}</span>
                 <span className="spacer">
                   <b>{r.name}</b> <span className="xs muted">{r.role}{onToday.has(r.staffId) ? " · on today" : ""}</span>
-                  {r.tag && <span className={`pill pill--${r.tag === "mentor" ? "star" : "dog"}`} style={{ marginLeft: 6 }}>{r.tag}</span>}
+                  {r.tag && <span className={`pill pill--${r.tag === "mentor" ? "star" : "dog"}`} style={{ marginLeft: 6 }}>{r.tag[0]!.toUpperCase() + r.tag.slice(1)}</span>}
                 </span>
                 <span className="xs muted" title="How well you get on">{r.bond >= 0 ? "♥" : "✗"} {Math.round(r.bond)}</span>
               </li>

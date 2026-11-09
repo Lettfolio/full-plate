@@ -503,7 +503,7 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
         {e.suppliers.map((s) => (
           <div key={s.id} className="row">
             <span className="spacer small"><b>{s.name}</b> <span className="xs muted">{s.category} · up to {Math.round(s.discountPct * 100)}% off · {Math.round(s.failureRisk * 100)}%/yr outage risk</span></span>
-            {s.signed ? <span className="pill pill--star">{s.exclusive ? "exclusive" : "signed"}</span> : (
+            {s.signed ? <span className="pill pill--star">{s.exclusive ? "Exclusive" : "Signed"}</span> : (
               <>
                 <button className="btn btn--sm btn--ghost" onClick={() => send({ type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: false })}>Sign</button>
                 <button className="btn btn--sm btn--ghost" onClick={() => send({ type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: true })} title="Full discount, full single-point-of-failure risk">Exclusive</button>

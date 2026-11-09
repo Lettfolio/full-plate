@@ -47,7 +47,10 @@ if (!URL) {
 /** Runs in the page before any app code: records the effective CSS px of every canvas text draw. */
 function canvasProbe() {
   window.__canvasText = [];
-  for (const C of [CanvasRenderingContext2D]) {
+  // R8 review: C's static layers paint their labels into an OffscreenCanvas (or a detached <canvas>) at w·dpr and blit
+  // it at CSS w, so those draws are measured too: font px × transform ÷ the layer's dpr (the canvas dpr cap, 2).
+  const layerDpr = () => Math.min(2, window.devicePixelRatio || 1);
+  for (const C of [CanvasRenderingContext2D, ...(typeof OffscreenCanvasRenderingContext2D !== "undefined" ? [OffscreenCanvasRenderingContext2D] : [])]) {
     for (const fn of ["fillText", "strokeText"]) {
       const orig = C.prototype[fn];
       C.prototype[fn] = function (text, ...rest) {
@@ -55,9 +58,10 @@ function canvasProbe() {
           const m = /(\d+(?:\.\d+)?)px/.exec(this.font);
           const t = this.getTransform();
           const el = this.canvas;
-          const css = el.getBoundingClientRect().width / (el.width || 1);
+          const onPage = typeof el.isConnected === "boolean" && el.isConnected;
+          const css = onPage ? el.getBoundingClientRect().width / (el.width || 1) : 1 / layerDpr();
           const px = m ? Number(m[1]) * Math.hypot(t.a, t.b) * css : 0;
-          if (String(text).trim() && px > 0 && el.isConnected) window.__canvasText.push([Math.round(px * 10) / 10, String(text).slice(0, 30)]);
+          if (String(text).trim() && px > 0) window.__canvasText.push([Math.round(px * 10) / 10, String(text).slice(0, 30)]);
           if (window.__canvasText.length > 20000) window.__canvasText.splice(0, 10000);
         } catch { /* never break the game */ }
         return orig.call(this, text, ...rest);

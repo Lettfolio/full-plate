@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import { cityEntryCost, EMPIRE, type City, type EmpireState, type SiteSummary } from "@full-plate/sim-empire";
 import { Term } from "../../components/Term";
+import { Icon } from "../../components/Icon";
 import { MoneyText } from "../../components/MoneyText";
 import {
   centreOn, cityPos, clampView, DUNES, HILLS, HOME_VIEW, LABEL_SIDE, LANDS, MAP_H, MAP_W, PATCHES, PEAKS, REGION_GEO, RIVERS,
@@ -15,7 +16,8 @@ import {
 } from "./worldGeo";
 import { CityBoard, districtLabel, LegendItem, MapLegend } from "./mapParts";
 
-export const OWN_COLOUR = ["var(--tomato)", "var(--amber)", "var(--plum)"] as const;
+// R8 review: B's ownership tokens, so the map, the legend, city bars and charts agree.
+export const OWN_COLOUR = ["var(--own)", "var(--franchise)", "var(--licence)"] as const;
 type Mix = { company: number; franchise: number; licence: number; building: number };
 
 /** Shops per city (closed ones left out; building ones counted apart). */
@@ -419,7 +421,7 @@ export function CityMap({ e, city, onBack, onOpenHere }: { e: EmpireState; city:
   return (
     <div className="citymap" aria-label={`Map of ${city.name}`} role="region">
       <div className="citymap__top">
-        <button ref={backRef} type="button" className="btn btn--sm btn--ghost btn--tap citymap__back" onClick={onBack}><span aria-hidden="true">←</span> World map</button>
+        <button ref={backRef} type="button" className="btn btn--sm btn--ghost btn--tap citymap__back" onClick={onBack}><Icon name="back" size={18} /> World map</button>
         <div className="citymap__title">
           <h3>{city.name}</h3>
           <span className="citymap__where">{city.country} · {region?.name}{city.id === e.hq.homeCityId ? " · HQ" : ""}</span>
@@ -452,7 +454,7 @@ export function CityMap({ e, city, onBack, onOpenHere }: { e: EmpireState; city:
               ) : <p className="district__empty">No shop here yet</p>}
               {city.entered && !city.exited && (
                 <button type="button" className={`btn btn--sm btn--tap district__open ${here.length ? "btn--ghost" : "btn--green"}`} onClick={() => onOpenHere(d)} aria-label={`${here.length ? "Open another" : "Open here"}: ${districtLabel(d)}`}>
-                  {here.length ? "+ Open another" : "+ Open here"}
+                  <Icon name="plus" size={18} />{here.length ? "Open another" : "Open here"}
                 </button>
               )}
             </>
