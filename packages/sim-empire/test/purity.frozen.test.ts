@@ -32,6 +32,8 @@ function deepFreeze<T>(x: T): T {
 describe("purity (sim-empire)", () => {
   it("sources never read the clock or Math.random", () => {
     expect(scanSources()).toEqual([]);
+    // Round 6 review: the board meeting is in the scan (a flat directory read; keep board.ts at the top of src/).
+    expect(readdirSync(fileURLToPath(new URL("../src", import.meta.url)))).toContain("board.ts");
   });
 
   it("forkFromGameState, stepEmpireDay and commands leave deep-frozen inputs untouched", () => {
