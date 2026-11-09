@@ -27,7 +27,20 @@ export function Dialog({ title, kicker, stamp, onClose, children, wide, role = "
     const before = document.activeElement as HTMLElement | null;
     const first = box.current?.querySelector<HTMLElement>("[data-autofocus]") ?? box.current?.querySelector<HTMLElement>(".modal__body button, .modal__body input") ?? box.current?.querySelector<HTMLElement>("button");
     first?.focus();
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); onClose(); return; }
+      // R8 review: Tab stays inside an open dialog (it walked out onto the page behind, e.g. the Empire map's pins).
+      if (e.key === "Tab" && box.current) {
+        const items = [...box.current.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+          .filter((el) => !el.closest("[hidden], [inert]"));
+        if (!items.length) return;
+        const first = items[0]!, last = items[items.length - 1]!;
+        const active = document.activeElement as HTMLElement | null;
+        const inside = !!active && box.current.contains(active);
+        if (e.shiftKey && (active === first || !inside)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (active === last || !inside)) { e.preventDefault(); first.focus(); }
+      }
+    };
     window.addEventListener("keydown", esc, true);
     return () => { window.removeEventListener("keydown", esc, true); before?.focus?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
