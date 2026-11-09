@@ -9,7 +9,7 @@ export type { HandsOnView, ViewMetrics } from "./render";
 export { nextHint } from "./hints";
 export { summarise, coachingTip, emptyScore, shiftNotes, starBars } from "./score";
 export type { ShiftSummary, ShiftNote } from "./score";
-export { createInputSource, gamepadInput, mergeInputs } from "./input";
+export { createInputSource, gamepadInput, mergeInputs, onControl } from "./input";
 export type { InputSource } from "./input";
 export { buildLayout, cookMethod, dishProfiles, WORLD_W, WORLD_H, MAX_TABLES } from "./layout";
 export { TUNING, POINTS, cookQuality, chopHit, pourQuality, plateExecution, chefSpeedBonus, serveSpeedBonus } from "./verbs";

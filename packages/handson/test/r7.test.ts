@@ -5,6 +5,7 @@ import { createSession } from "../src/session";
 import type { StationPlan } from "../src/station";
 import { bookSousWalk, freeAt, leadIn, RAIL_STAND_Y, SOUS_WALK, SOUS_WALK_TOTAL, sousPose, standDown, walkEnd, walkTimes } from "../src/sous";
 import { avoidPlayer, moodOf, slipTimeLeft, viewMetrics, withKey, yourStations } from "../src/render";
+import { createInputSource, onControl } from "../src/input";
 import { hitTest, MIN_TARGET_PX, padToMin, railSlotRect, railTarget, stationRect } from "../src/touch";
 
 const item = (id: string) => ({ ticketId: id, dishId: "brownie", table: 1 });
@@ -131,5 +132,26 @@ describe("touch targets", () => {
     expect(hitTest(s, view, cx, cy + 21)).toEqual({ kind: "station", stationId: "fridge" });
     const p = padToMin({ x: 10, y: 10, w: 20, h: 60 });
     expect([p.w, p.h, p.x, p.y]).toEqual([44, 60, -2, 10]);
+  });
+});
+
+describe("keys on a button belong to the button", () => {
+  it("Enter/Space on Next, Pause or Skip press it; on the canvas or the page they cook", () => {
+    expect(onControl({ target: { tagName: "BUTTON" } as unknown as EventTarget })).toBe(true);
+    expect(onControl({ target: { tagName: "input" } as unknown as EventTarget })).toBe(true);
+    expect(onControl({ target: { tagName: "CANVAS" } as unknown as EventTarget })).toBe(false);
+    expect(onControl({ target: null })).toBe(false);
+    const handlers: Record<string, (e: unknown) => void> = {};
+    const win = { addEventListener: (k: string, f: (e: unknown) => void) => { handlers[k] = f; }, removeEventListener: () => {} } as unknown as Window;
+    const src = createInputSource(win);
+    let prevented = 0;
+    const key = (code: string, tagName: string) => ({ code, target: { tagName }, preventDefault: () => { prevented++; } });
+    handlers.keydown!(key("Enter", "BUTTON"));
+    expect(src.read().interact).toBe(false);
+    expect(prevented).toBe(0);
+    handlers.keydown!(key("KeyE", "CANVAS"));
+    expect(src.read().interact).toBe(true);
+    expect(prevented).toBe(1);
+    src.dispose();
   });
 });
