@@ -778,9 +778,9 @@ button, input { font: inherit; color: inherit; }
   padding: 6px 9px; border-radius: 8px; background: var(--ink); color: var(--paper);
   font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 500; line-height: 1.35; text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
   box-shadow: 0 4px 12px rgba(0,0,0,0.18); pointer-events: none;
-  visibility: hidden; opacity: 0; transition: opacity 0.12s;
+  visibility: hidden;
 }
-.term:hover > .term__tip, .term:focus > .term__tip, .term:focus-within > .term__tip { visibility: visible; opacity: 1; }
+.term:hover > .term__tip, .term:focus > .term__tip, .term:focus-within > .term__tip { visibility: visible; }
 
 /* ───────── round 5: Empire side panel for a child (My shops / The brand / Money) ───────── */
 .empire__side { font-size: var(--fs-base); }
