@@ -442,11 +442,11 @@ Regression tests now pin all three.
 
 | | first guide (day 660) | ★★ | ★★★ |
 |---|---|---|---|
-| balanced year 1, seed 1 (printed in full) | ★, score 89.2 | game year 3 | game year **4** |
+| balanced year 1, seeds 1–8 (7 survive year 1) | **★ on all 7**, scores 81.1–89.2 | seed 1: game year 3 | seed 1: game year **4** |
 | premium year 1, seed 3 (printed in full) | ★, score 82.6 | year 4 | year **5** |
-| all 15 surviving seeds (balanced 1–8, 7 survive; premium 3–10) | — | — | peak ★★★ in **15/15** |
+| all 15 surviving seeds (balanced 1–8; premium 3–10) | — | — | peak ★★★ in **15/15** |
 
-- `--quiet` prints only the first seed in full, so the first-guide result is verified for those two seeds plus the regression test. The other 13 are known only by their peak (★★★ for all). 0 dynasty wins within 6 years, by design.
+- The first-guide row was re-run without `--quiet` for all balanced seeds. Peaks for the rest come from the 6-year `--quiet` runs. 0 dynasty wins within 6 years, by design.
 - That is **slightly faster than STARS-NOTES' "★★★ by ~year 6"**, because a forked restaurant already has a skilled chef and high prestige.
 - Stars is still open question 1 in STARS-NOTES (thresholds 78/85/91). I left them alone: the first star at the first guide day is what a child needs to see.
 
