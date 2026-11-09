@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useReducer, useState } from "react";
 import type { Command, Difficulty } from "@full-plate/sim-core";
 import type { CareerCommand } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
@@ -12,17 +12,21 @@ import { NewGame } from "./screens/NewGame";
 import { StartPicker, type CareerStartOptions } from "./screens/StartPicker";
 import { Planning, type PlanningTab } from "./screens/Planning";
 import { Service } from "./screens/Service";
-import { HandsOnShift } from "./screens/HandsOnShift";
 import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
 import { GameOver } from "./screens/GameOver";
-import { WinScreen } from "./screens/WinScreen";
 import { ForkCard } from "./screens/paths/ForkCard";
-import { GuideEnvelope } from "./screens/paths/GuideEnvelope";
-import { HandoverModal } from "./screens/career/HandoverModal";
-import { CareerEvening } from "./screens/career/CareerEvening";
-import { MyShift } from "./screens/career/MyShift";
 import { StatusBar } from "./components/StatusBar";
+
+// Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
+// first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
+const HandsOnShift = lazy(() => import("./screens/HandsOnShift").then((m) => ({ default: m.HandsOnShift })));
+const WinScreen = lazy(() => import("./screens/WinScreen").then((m) => ({ default: m.WinScreen })));
+const GuideEnvelope = lazy(() => import("./screens/paths/GuideEnvelope").then((m) => ({ default: m.GuideEnvelope })));
+const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((m) => ({ default: m.HandoverModal })));
+const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
+const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
+const Loading = () => <div className="page"><div className="empty small muted">Loading…</div></div>;
 import { Toast } from "./components/Toast";
 import { handsOnRoleFor } from "./state/paths";
 import { weekdayIndex } from "./lib/calendar";
@@ -145,7 +149,7 @@ export function App() {
   if (!game) return null;
 
   if (meta.win && !meta.win.dismissed) {
-    return <WinScreen game={game} meta={meta} win={meta.win} onKeepPlaying={() => dispatch({ type: "dismissWin" })} onTitle={quitToTitle} />;
+    return <Suspense fallback={<Loading />}><WinScreen game={game} meta={meta} win={meta.win} onKeepPlaying={() => dispatch({ type: "dismissWin" })} onTitle={quitToTitle} /></Suspense>;
   }
 
   if (game.phase === "gameover" && !career) {
@@ -171,6 +175,7 @@ export function App() {
     <div className="app">
       <StatusBar game={game} meta={meta} onMenu={inService ? undefined : quitToTitle} />
       <main className={`screen ${inService ? "screen--fixed" : ""}`}>
+        <Suspense fallback={<Loading />}>
         {game.phase === "planning" && career && !employerOut && <div className="page"><MyShift game={game} meta={meta} career={career} sendCareer={sendCareer} send={send} /></div>}
         {(employerOut && !inService) && (
           <div className="page">
@@ -249,13 +254,16 @@ export function App() {
             shiftSummary={lastShift}
           />
         )}
+        </Suspense>
       </main>
       {!career && game.phase === "event" && eventOpen && <EventModal game={game} send={send} />}
       {isEvening && !career && meta.fork.offered && !meta.fork.chosen && (
         <ForkCard game={game} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} />
       )}
-      {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} onClose={() => dispatch({ type: "openGuide" })} />}
-      {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
+      <Suspense fallback={null}>
+        {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} onClose={() => dispatch({ type: "openGuide" })} />}
+        {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
+      </Suspense>
       <Toast toast={app.toast} onDismiss={dismissToast} />
     </div>
   );

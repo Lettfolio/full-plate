@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import type { Command, GameState, StaffRole } from "@full-plate/sim-core";
 import { GoalsCard } from "../components/GoalsCard";
 import { HelpPopover } from "../components/HelpPopover";
@@ -10,6 +10,9 @@ import { MoneyText } from "../components/MoneyText";
 import { isOpeningDay } from "../lib/calendar";
 import { MenuTab } from "./planning/MenuTab";
 import { StaffTab, type KnownPerson } from "./planning/StaffTab";
+// Round 3 review: the path tabs load on first open (code-split).
+const EmpireTab = lazy(() => import("./paths/EmpireTab").then((m) => ({ default: m.EmpireTab })));
+const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
 import { StockTab } from "./planning/StockTab";
 import { RestaurantTab } from "./planning/RestaurantTab";
 import { stockNeeds } from "./planning/stockNeeds";
@@ -19,8 +22,6 @@ import type { PathKind } from "../lib/library";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import type { PathMeta } from "../state/paths";
-import { EmpireTab } from "./paths/EmpireTab";
-import { StarsTab } from "./paths/StarsTab";
 
 export type PlanningTab = "menu" | "staff" | "stock" | "restaurant" | "empire" | "stars";
 type TabId = PlanningTab;
@@ -134,8 +135,10 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           {tab === "staff" && <StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} />}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
-          {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
-          {tab === "stars" && meta?.stars && sendStars && <StarsTab game={game} meta={meta} stars={meta.stars} send={sendStars} onTastingMenu={onTastingMenu ?? (() => {})} />}
+          <Suspense fallback={<div className="empty small muted">Loading…</div>}>
+            {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
+            {tab === "stars" && meta?.stars && sendStars && <StarsTab game={game} meta={meta} stars={meta.stars} send={sendStars} onTastingMenu={onTastingMenu ?? (() => {})} />}
+          </Suspense>
         </div>
       </div>
       <div className="openbar">
