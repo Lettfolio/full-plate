@@ -49,6 +49,8 @@ export const {
 
 // ── round 6: the evening's one tip ──
 export const { eveningAdvice, adviceTextOf, fillAdvice, actionWords } = sim;
+// R7-B: the Staff tab's week strip and the GameOver cause read the round-5 rota rule (pure, no new sim rules).
+export const { rotaAdvice, meanProfit, ROTA_ADVICE_DAYS } = sim;
 
 // ── round 2 ──
 export const {
