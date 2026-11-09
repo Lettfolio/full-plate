@@ -156,9 +156,9 @@ and it returns words only. The sentences use the player's own numbers:
 | Criterion (label) | Line, by case |
 | --- | --- |
 | consistency | weakest weekday from `weakNights` ("Your weakest night is Tuesday: it cooks about 40 against 92… (no chef on — you're cooking)"); else disruption, stress > 70, untrained satellites, or the steadiness number |
-| technique | sold-weighted skill of the food you sell and the simplest best-seller; "ambitious enough, cook it better" once 1.35 × ambition ≥ 90 |
+| technique | sold-weighted skill of the food you sell ("easy ones (a cook needs only about 24 skill for them)") and the simplest best-seller; "ambitious enough, cook it better" once 1.35 × ambition ≥ 90 |
 | harmony ("Flavour") | the weakest dish against the rest, if ≥ 3 points below; else the plate level |
-| personality | "None of your 6 dishes is your own…" / signatures off the menu / research in progress |
+| personality | "None of your 6 dishes are your own…" ("Your only dish isn't…" for one) / signatures off the menu / research in progress |
 | ingredients | no partners → sign one; < 50% in season; young relationships; unsigned suppliers |
 
 Without signatures or partners, personality (~55) and ingredients (~56–61) are usually the first two: that is the

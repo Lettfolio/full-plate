@@ -91,7 +91,7 @@ function techniqueText(content: ContentPack, inputs: DayInputs): string {
   const simplest = [...inputs.dishes].filter((d) => d.sold > 0).sort((a, b) => (byId.get(a.dishId)?.skillRequired ?? 0) - (byId.get(b.dishId)?.skillRequired ?? 0) || b.sold - a.sold)[0];
   const name = simplest ? byId.get(simplest.dishId)?.name : undefined;
   if (TECHNIQUE_AMBITION_SCALE * ambition >= 90) return `Your menu is ambitious enough. Technique now comes from cooking it better (plates come out at about ${round(inputs.quality)}): a stronger chef, or fewer dishes done perfectly.`;
-  return `The dishes you sell are cautious (they need about ${round(ambition)} skill on average)${name ? `, and ${name} is the simplest` : ""}. Inspectors want ambition: put two harder dishes on and cook them well.`;
+  return `The dishes you sell are easy ones (a cook needs only about ${round(ambition)} skill for them)${name ? `, and ${name} is the simplest` : ""}. Inspectors want ambition: put two harder dishes on and cook them well.`;
 }
 
 function harmonyText(content: ContentPack, inputs: DayInputs): string {
@@ -112,7 +112,9 @@ function personalityText(content: ContentPack, stars: StarsState, state: GameSta
   const sig = food.filter((m) => stars.testKitchen.researched.includes(m.dishId)).length;
   const plain = n - sig;
   const ofYours = (k: number) => `${k} of your ${n} dish${n === 1 ? "" : "es"} ${k === 1 ? "is" : "are"}`;
-  if (!stars.testKitchen.unlocked) return `${sig === 0 ? `None of your ${n} dish${n === 1 ? "" : "es"} is` : `Only ${ofYours(sig)}`} your own. Inspectors want signatures: build the test kitchen and develop one.`;
+  // Round 4 review: "None of your 1 dish is your own" read oddly to a child.
+  const noneYet = n === 1 ? "Your only dish isn't" : `None of your ${n} dishes are`;
+  if (!stars.testKitchen.unlocked) return `${sig === 0 ? noneYet : `Only ${ofYours(sig)}`} your own. Inspectors want signatures: build the test kitchen and develop one.`;
   if (sig < stars.testKitchen.researched.length) return "You have signatures that aren't on the menu. Put them on: inspectors want to taste the chef's own dishes.";
   if (stars.testKitchen.inProgress) return `${ofYours(plain)} still other people's recipes. Your test kitchen is on it — put each new signature on the menu when it's ready.`;
   if (plain === 0) return "Every dish is a signature. The head chef's reputation grows with each open night; keep them happy and in the kitchen.";

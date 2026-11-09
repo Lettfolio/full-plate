@@ -30,10 +30,10 @@ describe("starsHints", () => {
     expect(hints.every((h) => h.text.length > 20 && h.label === CRITERION_LABEL[h.criterion])).toBe(true);
     // No signatures and no partners: personality and ingredients sit furthest below the bar (the review's 48 / 54).
     expect(hints.slice(0, 2).map((h) => h.criterion)).toEqual(["personality", "ingredients"]);
-    expect(hints[0]!.text).toBe("None of your 1 dish is your own. Inspectors want signatures: build the test kitchen and develop one.");
+    expect(hints[0]!.text).toBe("Your only dish isn't your own. Inspectors want signatures: build the test kitchen and develop one.");
     const tech = hints.find((h) => h.criterion === "technique")!;
     expect(tech.behind).toBe(true);
-    expect(tech.text).toMatch(/cautious \(they need about 35 skill on average\), and Fish & chips with mushy peas is the simplest/);
+    expect(tech.text).toMatch(/easy ones \(a cook needs only about 35 skill for them\), and Fish & chips with mushy peas is the simplest/);
     expect(hints.find((h) => h.criterion === "consistency")!.behind).toBe(false);
     // An ambitious menu: technique is not behind, and its line is about execution, not ambition.
     const fine = starsHints(content, steady, withWeek(425, AMBITIOUS)).find((h) => h.criterion === "technique")!;
