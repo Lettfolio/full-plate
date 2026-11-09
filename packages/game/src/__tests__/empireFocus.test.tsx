@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { EmpireTab } from "../screens/paths/EmpireTab";
 import type { GameState } from "@full-plate/sim-core";
-import { BRAND_PULL_SOURCE } from "@full-plate/sim-empire";
+import { BRAND_PULL_SOURCE, defaultCalibration } from "@full-plate/sim-empire";
 import { appReducer, initialAppState, type AppState } from "../state/gameReducer";
 import { FORK_DAY, initialMeta } from "../state/paths";
 import { applyCommand, content, runDay, suggestedOrder } from "../sim";
@@ -100,6 +100,27 @@ describe("round 4 review: the contract panel warns before the formula is locked"
     cleanup();
     panel(appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } }));
     expect(screen.queryByLabelText("Formula warning")).toBeNull();
+  });
+
+  it("round 5: says what a new franchisee should clear in year one under the current terms", () => {
+    const outlook = () => screen.getByLabelText("Franchisee outlook").textContent!;
+    let s = forkedEmpire();
+    panel(s);
+    // Unlocked: the honest verdict.
+    expect(outlook()).toMatch(/^Your franchisee would lose about £[\d,]+ a year — they'll lose money\./);
+    cleanup();
+    s = appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } });
+    for (const sup of s.meta.empire!.suppliers) s = appReducer(s, { type: "empire", cmd: { type: "SIGN_SUPPLIER", supplierId: sup.id, exclusive: sup.failureRisk < 0.05 } });
+    // This fixture's flagship is a 20-day cosy room on four dishes (57 covers a day): give the brand the reference High
+    // Street calibration so the line reads a proven formula.
+    s = { ...s, meta: { ...s.meta, empire: { ...s.meta.empire!, calibration: defaultCalibration(content) } } };
+    panel(s);
+    expect(outlook()).toMatch(/^Your franchisee should clear about £[\d,]+,000 a year — (fair|they'll only just get by)\./);
+    cleanup();
+    // Squeeze the terms: the line turns.
+    s = appReducer(s, { type: "empire", cmd: { type: "SET_CONTRACT", contract: { royaltyPct: 0.12, rentPctOfSales: 0.16 }, applyTo: "new" } });
+    panel(s);
+    expect(outlook()).toMatch(/they'll lose money\./);
   });
 });
 

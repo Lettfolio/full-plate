@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
   associationBlocks, avgFranchiseeMood, boxTables, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE,
-  expectedSiteDay, franchiseCashNeeded, offPremise, openSites, propertyPrice, spendable, TECH_LABEL,
+  expectedSiteDay, franchiseCashNeeded, franchiseOutlook, offPremise, openSites, propertyPrice, spendable, TECH_LABEL,
   type City, type EmpireCommand, type EmpireState, type SiteSummary, type Tech,
 } from "@full-plate/sim-empire";
 import { content, extras } from "../../sim";
@@ -461,13 +461,14 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
 /**
  * Round 4 review (EMPIRE-NOTES open question 8c): before the formula is locked a franchised dining room barely covers
  * its rent, royalty and loan, so the operator loses money and mood slides. Say so wherever a franchise can be sold.
+ * Round 5: once locked, a fair contract clears a modest profit in year one; the contract panel says how much.
  */
 export const UNLOCKED_FORMULA_WARNING = "Lock your formula first — franchisees of an unstandardised brand lose money.";
 function UnlockedFormulaWarning({ e }: { e: EmpireState }) {
   if (e.brand.formula.locked) return null;
   return (
     <p className="small callout callout--warn" role="note" aria-label="Formula warning">
-      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>The brand → Lock the formula</b>: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. Even then a new franchisee only just gets by until drive-thru and app orders arrive, so watch their mood.
+      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>The brand → Lock the formula</b>: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. The contract panel shows what a new franchisee should clear in year one.
     </p>
   );
 }
@@ -485,6 +486,9 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
     </div>
   );
   const attract = contractAttractiveness(c);
+  // Round 5: a new franchisee's year one under these terms (home city, HQ holding the lease), rounded to £1,000.
+  const outlook = useMemo(() => franchiseOutlook(content, e), [e]);
+  const about = Math.round(Math.abs(outlook.net) / 100_000) * 100_000;
   return (
     <div className="card stack stack--sm">
       <div className="card__title"><h3>Franchise contract</h3><span className="xs faint">for new deals</span></div>
@@ -498,6 +502,11 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
       {row("adFund", "Ad fund", `${(c.adFundPct * 100).toFixed(1)}%`, "adFundPct", 0.005)}
       {row("landRent", "Rent on your land", `${(c.rentPctOfSales * 100).toFixed(0)}%`, "rentPctOfSales", 0.01)}
       <Bar label="Applicants like it" value={Math.min(1.5, attract)} max={1.5} tone={attract < 0.6 ? "accent" : attract < 1 ? "amber" : "basil"} size="sm" />
+      <p className="small" aria-label="Franchisee outlook">
+        {outlook.net >= 0 ? <>Your franchisee should clear about <b><MoneyText pence={about} whole /></b> a year</> : <>Your franchisee would lose about <b><MoneyText pence={about} whole /></b> a year</>}
+        {outlook.verdict === "fair" ? " — fair." : outlook.verdict === "thin" ? " — they'll only just get by." : " — they'll lose money."}
+        {outlook.verdict !== "fair" && e.suppliers.some((s) => !s.signed) ? " Supply deals would cut their food bill." : ""}
+      </p>
       <p className="small muted"><Term id="take" inline>You take</Term> <b>{(contractTake(c) * 100).toFixed(1)}%</b> of sales. Higher take = more money per store and fewer, angrier franchisees. Rent income: <MoneyText pence={rentIncome} whole />/month.</p>
     </div>
   );

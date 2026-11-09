@@ -10,6 +10,8 @@ export {
   applyEmpireCommand,
   associationBlocks,
   expectedSiteDay,
+  franchiseOutlook,
+  FAIR_NET_PCT,
   forceEvent,
   recalibrateFromSite,
   newGameFromSite,
@@ -35,7 +37,7 @@ export {
   developmentFacility,
   TECH_LABEL,
 } from "./engine";
-export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent, SiteGameOptions } from "./engine";
+export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent, SiteGameOptions, FranchiseOutlook } from "./engine";
 export {
   aggregateSiteDay,
   boxTables,

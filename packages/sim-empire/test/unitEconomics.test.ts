@@ -4,7 +4,7 @@
  * 4–5%, ad fund 4–4.5%). A franchisee of a proven brand should clear a modest profit in year one.
  */
 import { describe, expect, it } from "vitest";
-import { EMPIRE as K, openingFactor, openProbeSite, probeUnitEconomics, type EmpireState } from "../src/index";
+import { EMPIRE as K, franchiseOutlook, openingFactor, openProbeSite, probeUnitEconomics, type EmpireState } from "../src/index";
 import { content, empire, must } from "./helpers";
 
 const lockedHome = (): EmpireState => must(empire(), { type: "SET_FORMULA", locked: true });
@@ -87,5 +87,37 @@ describe("a new site's first year: ramp-up and honeymoon (round 5)", () => {
     expect(e.sites[0]!.openedTrading).toBeUndefined();
     const { e: opened, siteId } = openProbeSite(content, e, { districtId: "seaside" });
     expect(opened.sites.find((s) => s.id === siteId)!.openedTrading).toBe(opened.hq.day - 1);
+  });
+});
+
+describe("franchiseOutlook: the contract panel's year-one line (round 5)", () => {
+  it("agrees with the full probe within 2 points, with and without supply deals", () => {
+    for (const supplyDeals of [false, true]) {
+      let e = lockedHome();
+      if (supplyDeals) for (const s of e.suppliers) e = must(e, { type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: s.failureRisk < 0.05 });
+      const probe = probeUnitEconomics(content, e, { districtId: "high_street" });
+      const o = franchiseOutlook(content, e, { districtId: "high_street" });
+      expect(Math.abs(o.netPct - probe.netPct)).toBeLessThan(0.02);
+      expect(Number.isInteger(o.net)).toBe(true);
+    }
+  });
+
+  it("says fair for the default terms with supply deals, and 'loses' when the contract squeezes", () => {
+    let e = lockedHome();
+    for (const s of e.suppliers) e = must(e, { type: "SIGN_SUPPLIER", supplierId: s.id, exclusive: s.failureRisk < 0.05 });
+    expect(franchiseOutlook(content, e, { districtId: "high_street" }).verdict).toBe("fair");
+    const squeezed = must(e, { type: "SET_CONTRACT", contract: { royaltyPct: 0.1, rentPctOfSales: 0.15 }, applyTo: "new" });
+    const o = franchiseOutlook(content, squeezed, { districtId: "high_street" });
+    expect(o.verdict).toBe("loses");
+    expect(o.net).toBeLessThan(0);
+    // Unlocked: the brand has no formula to sell yet.
+    expect(franchiseOutlook(content, empire(), { districtId: "high_street" }).verdict).toBe("loses");
+  });
+
+  it("is pure on a frozen empire", () => {
+    const e = lockedHome();
+    const before = JSON.stringify(e);
+    franchiseOutlook(content, Object.freeze(e));
+    expect(JSON.stringify(e)).toBe(before);
   });
 });

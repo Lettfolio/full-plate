@@ -1446,6 +1446,66 @@ export function expectedSiteDay(content: ContentPack, e: EmpireState, siteId: st
   });
 }
 
+export interface FranchiseOutlook {
+  cityId: string;
+  districtId: DistrictId;
+  /** Year one of a new franchise under the current contract, pence: net sales and the franchisee's net. */
+  netSales: number;
+  net: number;
+  netPct: number;
+  /** fair: nets at least FAIR_NET_PCT; thin: above zero; loses: below zero. */
+  verdict: "fair" | "thin" | "loses";
+}
+
+/** A year-one franchise netting at least this share of sales is a fair deal (BRIEF: franchisees net ~6–10%). */
+export const FAIR_NET_PCT = 0.04;
+
+/**
+ * [round 5] What a new franchisee should clear in year one under the current contract (the contract panel's line): a
+ * closed-form pass over the model with no noise and no random events. The site opens after the build, ramps up with its
+ * honeymoon, and its crew and consistency drift toward the franchise targets of an operator of `competence`; royalty,
+ * ad fund, rent (Sonneborn on HQ land) and the build loan come off as in stepEmpireDay. Within a couple of points of
+ * the full probe (test/unitEconomics.test.ts). Defaults: the home city, its first district, HQ holding the lease.
+ */
+export function franchiseOutlook(content: ContentPack, e: EmpireState, opts: { cityId?: string; districtId?: DistrictId; land?: LandMode; competence?: number } = {}): FranchiseOutlook {
+  const city = e.cities.find((c) => c.id === (opts.cityId ?? e.hq.homeCityId))!;
+  const districtId = opts.districtId ?? city.districts[0]!;
+  const land = opts.land ?? "hqLease";
+  const pl = e.hq.priceLevel;
+  const f = e.brand.formula;
+  const driveThru = f.driveThru;
+  const c = siteContract(e.contract, e.hq.day, "franchise");
+  const open = e.hq.day + BUILD_DAYS;
+  const fr = { competence: opts.competence ?? 55 } as Franchisee;
+  const mine = e.sites.filter((s) => s.status !== "closed" && s.cityId === city.id);
+  const nEff = mine.length + 1 + K.SAME_DISTRICT_EXTRA * mine.filter((s) => s.districtId === districtId).length;
+  const base: SiteSummary = {
+    id: "outlook", name: "outlook", cityId: city.id, districtId, opened: open, openedTrading: open, status: "open", ownership: "franchise", land,
+    brandConsistency: f.standardisation + 10, staffQuality: 40, covers7d: 0, revenue7d: 0, margin7d: 0, revenueYear: 0,
+    rent: marketRent(content, city, districtId, pl, plotRentMult(driveThru)), rentReviewedDay: open, driveThru, lastRemodel: open,
+    footfallMods: [], saturationPenalty: saturationPenalty(nEff, city.population), unreported: 0, failingDays: 0, mealsServed: 0,
+  };
+  const t = standardTargets(e, base, fr, city);
+  const build = buildCost(city, driveThru, pl);
+  const loanDaily = annuityDaily(build - Math.round(build * K.FRANCHISEE_EQUITY_SHARE), K.OPERATOR_LOAN_APR, K.OPERATOR_LOAN_YEARS * K.DAYS_PER_YEAR);
+  const ctx: SiteDayContext = { day: open, calibration: e.calibration, priceLevel: pl, foodMult: supplierFoodMult(e), noise: false, breaksRules: !city.localised && menuBreaksRules(content, f.menuDishIds, city.dietaryRules) };
+  const rng = new Rng([1, 2, 3, 4]);
+  const STEP = 3;
+  let netSales = 0;
+  let net = 0;
+  for (let d = 0; d < K.DAYS_PER_YEAR; d += STEP) {
+    const keep = (1 - K.DRIFT_PER_DAY) ** d;
+    const s: SiteSummary = { ...base, staffQuality: t.staff + (40 - t.staff) * keep, brandConsistency: t.consistency + (base.brandConsistency - t.consistency) * keep };
+    const r = aggregateSiteDay(content, s, e.brand, city, rng, { ...ctx, day: open + d });
+    const ns = r.revenue - r.vat;
+    const rent = land === "thirdParty" ? s.rent / 30 : Math.max(ns * c.rentPctOfSales, (s.rent / 30) * (1 + K.RENT_COST_MARKUP));
+    netSales += ns * STEP;
+    net += (r.contribution - ns * (c.royaltyPct + c.adFundPct) - rent - loanDaily) * STEP;
+  }
+  const netPct = netSales > 0 ? net / netSales : 0;
+  return { cityId: city.id, districtId, netSales: Math.round(netSales), net: Math.round(net), netPct, verdict: netPct >= FAIR_NET_PCT ? "fair" : netPct >= 0 ? "thin" : "loses" };
+}
+
 /** Scales the covers, sales and food of a focused DayResult by the off-premise multiplier (1 = unchanged). */
 function withOffPremise(r: SiteDayResult, mult: number, labourMult: number): SiteDayResult {
   if (mult === 1) return r;
