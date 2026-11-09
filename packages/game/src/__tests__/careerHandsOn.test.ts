@@ -75,3 +75,13 @@ describe("a steady flow at the station (round 4 pacing)", () => {
     expect(s.game!.handsOn).toMatchObject({ since, station: { cap: 3 } });
   });
 });
+
+describe("?autopilot (round 4)", () => {
+  it("takes a skill and an optional pace", async () => {
+    const { parseAutopilot } = await import("../screens/HandsOnShift");
+    expect(parseAutopilot(null)).toBeUndefined();
+    expect(parseAutopilot("0.55")).toEqual({ skill: 0.55, pace: 1 });
+    expect(parseAutopilot("0.55,0.5")).toEqual({ skill: 0.55, pace: 0.5 });
+    expect(parseAutopilot("2,-1")).toEqual({ skill: 1, pace: 0 });
+  });
+});

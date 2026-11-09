@@ -17,11 +17,15 @@ export const HANDS_ON_SECONDS_PER_TICK = 1.5;
 /** Seconds until the next sim tick for this session (the station's tempo, else the flat pace). */
 export const secondsPerTick = (session: HandsOnSession, game: GameState): number =>
   session.opts.station ? shiftTempo(session, game).secondsPerTick : HANDS_ON_SECONDS_PER_TICK;
-const AUTOPILOT: number | undefined = (() => {
-  try {
-    const v = new URLSearchParams(window.location.search).get("autopilot");
-    return v === null ? undefined : Math.max(0, Math.min(1, Number(v) || 0));
-  } catch { return undefined; }
+/** `?autopilot=0.55` (skill) or `?autopilot=0.55,0.5` (skill, pace: 0.5 = a half-speed "slow child" bot). */
+export function parseAutopilot(v: string | null): { skill: number; pace: number } | undefined {
+  if (v === null) return undefined;
+  const [a, b] = v.split(",");
+  const unit = (x: string | undefined, d: number) => Math.max(0, Math.min(1, x === undefined || x === "" ? d : Number(x) || 0));
+  return { skill: unit(a, 0), pace: unit(b, 1) };
+}
+const AUTOPILOT = (() => {
+  try { return parseAutopilot(new URLSearchParams(window.location.search).get("autopilot")); } catch { return undefined; }
 })();
 const STEP = 1 / 60;
 
@@ -94,8 +98,8 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
       if (!pausedRef.current && L.game.phase === "service") {
         acc += dt;
         tickAcc += dt;
-        // Playtests/attract mode: `?autopilot=0.4` lets the package's hint-following bot play at that skill.
-        const inp = AUTOPILOT !== undefined ? botInput(sessionRef.current!, L.game, AUTOPILOT) : input.read();
+        // Playtests/attract mode: `?autopilot=0.4[,0.5]` lets the package's hint-following bot play (skill, pace).
+        const inp = AUTOPILOT ? botInput(sessionRef.current!, L.game, AUTOPILOT.skill, AUTOPILOT.pace) : input.read();
         const results: HandsOnResult[] = [];
         while (acc >= STEP) {
           const r = updateSession(sessionRef.current!, L.game, inp, STEP);

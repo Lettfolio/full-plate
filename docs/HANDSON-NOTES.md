@@ -17,7 +17,9 @@ packages/handson/
   src/render.ts    render(ctx, session, state, view) — pure canvas draw
   src/input.ts     keyboard + gamepad (+ optional touch) → HandsOnInput
   src/nav.ts       BFS path / steerToward (tap-to-walk, bots)
-  src/bot.ts       hint-following bot (tests, demo autopilot, attract mode)
+  src/bot.ts       hint-following bot (tests, demo autopilot, attract mode); `pace` < 1 = a slow child
+  src/station.ts   round 4: the career commis station (commisStation, stationTickets, STATION_LEVELS)
+  src/pacing.ts    round 4: tempo (real seconds per sim tick) and rail size for a station
   src/fixture.ts   a tiny deterministic service loop for the demo/tests; applyResults() is the reference
                    implementation of the proposed sim commands below
   demo/            Vite page: playable chef / server / bar shift, 3-minute timer, score screen
@@ -36,11 +38,13 @@ createSession(state: GameState, role: "chef" | "server" | "bar", opts?: {
   playerStaffId?: StaffId;     // career mode: the chef only takes tickets that are unassigned or assigned to them
   content?: ContentPack;       // real dish names, food cost (drop cost), qualityCeiling
   seed?: number;               // verb variation; default hashSeed(state.seed, day, tick, role)
+  station?: StationPlan;       // round 4, career chef: the player's own section (commisStation)
 }): HandsOnSession
 
 updateSession(session, state, input: HandsOnInput, dt: number): { session; results: HandsOnResult[] }
 render(ctx, session, state, { width, height, dpr?, forceHint?, continueLabel? }): void
-nextHint(session, state) · summarise(session) · botInput(session, state, skill) · createInputSource(window)
+nextHint(session, state) · summarise(session) · botInput(session, state, skill, pace?) · createInputSource(window)
+commisStation(state, content, level) · stationTickets(session, state) · shiftTempo(session, state) · shiftNotes(session)
 serialize(session) / deserialize(json)
 ```
 
@@ -55,6 +59,9 @@ type HandsOnResult =
   | { type: "TABLE_CLEARED"; tableId }
   | { type: "PAYMENT_TAKEN"; customerId }
   | { type: "DROPPED"; cost: Pence; item; ticketIds? }                        // ticketIds = plates to re-fire
+  | { type: "TICKET_CLAIMED"; ticketId }                                       // round 3 review → PLAYER_CLAIMED
+  | { type: "RAIL_RESIZED"; cap }                                              // round 4: re-send SET_HANDS_ON station
+// round 4: PLATE_COOKED may carry `covered: true` (the sous chef plated it; same command, 60% quality, no points)
 ```
 
 `quality` = the player's execution × the dish's `qualityCeiling`, so a perfect hands-on plate of a 72-ceiling soup is
@@ -234,3 +241,70 @@ file to import from `@full-plate/sim-core`.
 - Ordering (taking an order at the table) is not a verb yet: tickets arrive from the sim. It would be a natural
   server verb ("tap E for each dish on the order pad") once the sim exposes a seated-but-not-ordered hold.
 - Co-op (parent manages, child on the floor) needs only a second session against the same state.
+
+## Round 4: the commis station and pacing (career chef)
+
+Round 3's playtest: the apprentice raced the head chef for the oldest ticket and a slow child got 1–5 plates a shift.
+Now an employee chef **owns a station**, the restaurant **paces itself** around them, and nobody can stall service.
+
+### The station (`station.ts`)
+- `commisStation(state, content, level)` picks the player's section from today's menu. Starters, sides and desserts
+  first (whole courses), then mains, easiest first (skill required, then prep time), until the section carries
+  `minShare` of the kitchen's expected plates (7-day `sold7d`; course weights before any sales). Drinks are never on a
+  station. The balanced career employer serves 3 mains, a coffee and 2 desserts, so a commis gets **"Desserts ·
+  Burgers"** (≈ 30 tickets a service).
+- `level` is the chef-track rung (the reducer's `careerStation`). Other tracks and owner jump-ins have no station.
+
+| level | title | rail (`cap`) | idle cover | hard cover | section | target plates/min | base s/tick |
+|---|---|---|---|---|---|---|---|
+| 0 commis | Commis station | 2 | 30 s | 80 s | ≥ 30% of plates, ≤ 1 main | 2.2 | 1.6 |
+| 1 chef de partie | Your section | 2 | 26 s | 70 s | ≥ 45%, ≤ 2 mains | 2.6 | 1.5 |
+| 2 sous chef | The pass | 3 | 22 s | 60 s | every food ticket | 3.0 | 1.4 |
+| 3 head chef | The pass | 3 | 20 s | 55 s | every food ticket | 3.4 | 1.3 |
+
+- **The rail** is the oldest `cap` tickets of the station's dishes, counting the ones the player has picked up
+  (`stationTickets`). The canvas rail shows only these, behind a tomato station tag ("COMMIS STATION · Desserts ·
+  Burgers"); an empty rail reads "Your station is clear — next ticket coming…". Hints say "Your ticket: …".
+- **sim-core contract** (additive): `SET_HANDS_ON { role: "chef", staffId, station: { dishIds, cap } }`. Re-sending the
+  same role/person keeps `since`. `kitchen.ts → stationRail` reserves exactly that rail (no 4-tick fallback; only
+  `HANDS_ON.stationFallbackTicks` = 40 as a safety net if the view dies) and reserves nothing else, so station tickets
+  beyond the rail and every other dish are cooked by the AI as normal. The reservation is computed after stale claims
+  are released, so a ticket the child still holds after `claimTimeoutTicks` stays theirs.
+- **The sous chef covers.** If the player does nothing (no verb started or finished) for `idleCoverSecs` while work is
+  on their rail or in their hands, they get a nudge at 60% ("Sam: Need a hand? Your ticket's on the rail…"), then the
+  sous chef plates the oldest (or the one in hand): `PLATE_COOKED { covered: true }`, execution 0.6 × the dish ceiling,
+  speed bonus 0, no points, and a friendly line. The clock starts when the work arrives, so waiting for a ticket is not
+  idling. A rail ticket left `hardCoverSecs` is covered however busy the player is. A ticket that vanishes while
+  carried (the table left) costs nothing.
+
+### Pacing (`pacing.ts`)
+- `shiftTempo(session, state).secondsPerTick` is how long the game waits between sim ticks (HandsOnShift and the
+  headless harness share `secondsPerTick`). Empty rail → **0.5 s** (fast-forward to the next station ticket). Rail
+  with room → base × 0.8. Full rail → the level's base, slowed by `target / rolling plates-per-minute` up to × 1.5 for
+  a slow player (2-minute window, after 45 s of warm-up). A 120-tick service is 2–5 minutes of real time.
+- `railCapFor`: a player at ≥ 1.3 × their target rate gets one more ticket on the rail (≤ 4). The session emits
+  `RAIL_RESIZED`; the reducer re-sends `SET_HANDS_ON` with the new cap.
+- Server, bar and owner jump-ins keep the flat 1.5 s a tick.
+
+### Score card
+- `summarise` adds `notes`: three one-liners from `shiftNotes` — up to two good things, then the one to work on ("Fast
+  on the pass!", "Beautiful plates — 89% quality!", "Two plates went cold"). Plates that waited > `COLD_PLATE_SECS`
+  (60 s) "went cold". The canvas score screen and the career evening card show them.
+- A commis station's star bars are gentler (150 / 380 / 750; chef de partie 200 / 500 / 950; the pass keeps
+  250 / 650 / 1150).
+
+### Verified with the bot (`?autopilot=skill[,pace]`, headless through the real reducer)
+`packages/game/src/__tests__/handsOnHarness.ts` runs the HandsOnShift loop (60 Hz session, a sim tick every
+`secondsPerTick`) with `botInput` through `appReducer` — what `?autopilot=` does in the browser. A career week on
+seeds 5 and 7, every worked shift:
+
+| bot | before (HEAD of round 3) | after round 4 |
+|---|---|---|
+| skill 0.55, full speed | 10–13 plates / 180 s | **13–17 plates** in 134–167 s, ★★★ (mostly) |
+| skill 1 | 11–15 | 14–17, ★★★ |
+| skill 0.55, **half speed** (`pace` 0.5) | 4–7 | **7–8 plates** in 157–176 s (one every ~22 s), ★★ |
+| skill 0.4, pace 0.35 | — | 6–7 plates in 172–196 s |
+| idle (no input) | 0 plates, the AI cooked everything | 0 plates; the sous chef covers the rail; service completes |
+
+The rail is empty for 1–18 s a shift. `careerHandsOn.test.ts` pins ≥ 10 plates (full speed) and ≥ 5 (half speed) on
+every shift of a week, < 30 s dry, and a shift of 2–5 minutes.
