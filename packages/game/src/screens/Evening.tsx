@@ -24,6 +24,7 @@ import { AdviceCard } from "../components/AdviceCard";
 import { DayRhythm } from "../components/DayRhythm";
 import { lastNights, versusYesterday } from "../lib/dayLoop";
 import { formatPence } from "../lib/format";
+import { ArrowLabel, Icon } from "../components/Icon";
 
 /**
  * Round 7 (B): tonight's money as one big friendly figure (count-up, ▲/▼, green/red), what that is against last
@@ -39,7 +40,7 @@ export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
       <div className="tonight__main">
         <div className="tonight__k">{up ? "Tonight you made" : "Tonight you lost"}</div>
         <div className="tonight__v">
-          <span className="tonight__arrow" aria-hidden="true">{up ? "▲" : "▼"}</span>
+          <span className="tonight__arrow" aria-hidden="true"><Icon name={up ? "trendUp" : "trendDown"} size={44} /></span>
           <MoneyText pence={Math.abs(r.profit)} whole countUp="mount" />
         </div>
         {vs !== undefined && (
@@ -202,7 +203,7 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   const w = r.day === game.day ? worstDish(dishDays(content, game), r.worstDish) : null;
   return (
     <div className="dishpick dishpick--worst">
-      <span className="dishpick__icon" aria-hidden="true">🥀</span>
+      <span className="dishpick__icon" aria-hidden="true"><Icon name="trendDown" size={26} /></span>
       <div>
         <div className="dishpick__k">{w?.reason === "unpopular" ? "Least popular" : w ? "Lowest quality" : "Worst dish"}</div>
         <div className="dishpick__name">{w ? dishName(content, w.dishId) : "—"}</div>
@@ -283,6 +284,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
           <details className="card sums">
             <summary className="sums__summary"><h3>Where the money went</h3><span className="small muted">tap to see the sums</span></summary>
             <table className="pnl">
+              <caption className="sr-only">Where tonight's money went: sales, then each cost, then {good ? "profit" : "loss"}</caption>
               <tbody>
                 <tr><td>Food & drink sales</td><td><MoneyText pence={r.revenue} /></td></tr>
                 <tr className="pnl__cost"><td>VAT to the taxman <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
@@ -295,7 +297,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                 <tr className="pnl__cost"><td>Waste <span className="pnl__pct">{ofRev(wasteCost)}</span></td><td><MoneyText pence={-wasteCost} /></td></tr>
                 <tr className="pnl__sub"><td>Prep trimmings</td><td><MoneyText pence={-r.waste.prep} /></td></tr>
                 <tr className="pnl__sub"><td>Spoiled stock</td><td><MoneyText pence={-r.waste.spoil} /></td></tr>
-                <tr className="pnl__total"><td>{good ? "Profit" : "Loss"}</td><td><MoneyText pence={r.profit} tone signed /></td></tr>
+                <tr className="pnl__total"><th scope="row">{good ? "Profit" : "Loss"}</th><td><MoneyText pence={r.profit} tone signed /></td></tr>
               </tbody>
             </table>
             <p className="xs faint" style={{ marginTop: 8 }}>
@@ -315,7 +317,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
         <div className="stack">
           <div className="dishpair">
             <div className="dishpick dishpick--best">
-              <span className="dishpick__icon" aria-hidden="true">🏆</span>
+              <span className="dishpick__icon" aria-hidden="true"><Icon name="trophy" size={26} /></span>
               <div><div className="dishpick__k">Best dish</div><div className="dishpick__name">{r.bestDish ? dishName(content, r.bestDish) : "—"}</div></div>
             </div>
             <Worst game={game} r={r} />
@@ -378,7 +380,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
       {/* Round 7: the same bottom-right place as Planning's "Open for service". */}
       <div className="actiondock actiondock--page">
         <span className="actiondock__note small muted">Average spend <b><MoneyText pence={r.averageSpend} /></b> a guest</span>
-        <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus>{nextLabel}</button>
+        <button className="btn btn--primary btn--xl" onClick={onNext} autoFocus><ArrowLabel text={nextLabel} /></button>
       </div>
     </div>
   );

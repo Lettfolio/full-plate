@@ -12,6 +12,8 @@ import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
 import { compactMeals } from "../../components/StatusBar";
 import { Term } from "../../components/Term";
+import { Icon } from "../../components/Icon";
+import { TAB_ICONS } from "../../components/Tabs";
 import { GLOSSARY, type TermId } from "../../lib/glossary";
 import type { PathMeta } from "../../state/paths";
 
@@ -99,7 +101,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           <div className="tabs tabs--sm empire__tabs" role="tablist" aria-label="Empire panels">
             {(["shops", "brand", "money"] as Panel[]).map((p) => (
               <button key={p} role="tab" aria-selected={panel === p} className={`tab ${panel === p ? "tab--active" : ""}`} onClick={() => setPanel(p)}>
-                <span className="tab__icon" aria-hidden="true">{PANEL_LABEL[p].split(" ")[0]}</span> <span className="tab__label">{PANEL_LABEL[p].replace(/^\S+ /, "")}</span>
+                <span className="tab__icon" aria-hidden="true"><Icon name={TAB_ICONS[p]!} size={20} /></span> <span className="tab__label">{PANEL_LABEL[p].replace(/^\S+ /, "")}</span>
               </button>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "../../components/Icon";
 import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
 import { classifyMenu, content, MAX_MENU_ITEMS } from "../../sim";
 import { suggestedStarterMenu } from "../../lib/starterMenu";
@@ -29,7 +30,7 @@ function RemoveDish({ name, onRemove }: { name: string; onRemove: () => void }) 
   const cross = useRef<HTMLButtonElement>(null);
   // Keep → focus goes back to the ✕ it came from, not to the top of the page.
   useEffect(() => { if (!sure && asked.current) cross.current?.focus(); asked.current = sure; }, [sure]);
-  if (!sure) return <button ref={cross} className="iconbtn dish__remove" aria-label={`Remove ${name}`} title="Remove from menu" onClick={() => setSure(true)}>✕</button>;
+  if (!sure) return <button ref={cross} className="iconbtn dish__remove" aria-label={`Remove ${name}`} title="Remove from menu" onClick={() => setSure(true)}><Icon name="close" size={20} /></button>;
   return (
     <span className="dish__confirm" role="group" aria-label={`Remove ${name}?`}>
       <button className="btn btn--sm btn--primary" onClick={onRemove}>Remove</button>
@@ -83,8 +84,8 @@ export function MenuTab({ game, send, path }: Props) {
   return (
     <div className="stack">
       <div className="menuview" role="group" aria-label="How to show the menu">
-        <button className="menuview__btn" aria-pressed={view === "list"} onClick={() => setView("list")}>📋 Today's menu</button>
-        <button className="menuview__btn" aria-pressed={view === "matrix"} onClick={() => setView("matrix")}>📊 Menu matrix <span className="menuview__note">for experts</span></button>
+        <button className="menuview__btn" aria-pressed={view === "list"} onClick={() => setView("list")}><Icon name="menu" size={20} />Today's menu</button>
+        <button className="menuview__btn" aria-pressed={view === "matrix"} onClick={() => setView("matrix")}><Icon name="chart" size={20} />Menu matrix <span className="menuview__note">for experts</span></button>
       </div>
       <div className={view === "matrix" ? "menu-layout" : "menu-layout menu-layout--list"}>
         {view === "matrix" && (

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSettings, type TextSize } from "../lib/settings";
 import { playSfx } from "../lib/sfx";
 import { ConfirmDialog, Dialog } from "./Dialog";
+import { Icon, type IconName } from "./Icon";
 
 interface Props {
   /** Save and go back to the title screen (absent during service: finish the night first). */
@@ -13,14 +14,14 @@ interface Props {
 }
 
 /** A row of big two/three-way toggles (role=radio). */
-function Choice<T extends string | number>({ label, value, options, onChange }: { label: string; value: T; options: { id: T; label: string; icon?: string }[]; onChange: (v: T) => void }) {
+function Choice<T extends string | number>({ label, value, options, onChange }: { label: string; value: T; options: { id: T; label: string; icon?: IconName }[]; onChange: (v: T) => void }) {
   return (
     <div className="sheet__row">
       <span className="sheet__label" id={`set-${label}`}>{label}</span>
       <div className="seg" role="radiogroup" aria-labelledby={`set-${label}`}>
         {options.map((o) => (
           <button key={String(o.id)} role="radio" aria-checked={value === o.id} className="seg__opt" onClick={() => onChange(o.id)}>
-            {o.icon && <span aria-hidden="true">{o.icon}</span>} {o.label}
+            {o.icon && <Icon name={o.icon} size={20} />}{o.label}
           </button>
         ))}
       </div>
@@ -39,15 +40,15 @@ export function SettingsMenu({ onQuit, onNewGame, saveName }: Props) {
   return (
     <>
       <button className="btn btn--ghost btn--tap shellbtn" aria-label="Settings" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
-        <span aria-hidden="true" className="shellbtn__icon">⚙</span><span className="shellbtn__text">Settings</span>
+        <Icon name="settings" size={22} className="shellbtn__icon" /><span className="shellbtn__text">Settings</span>
       </button>
       {open && !confirm && (
-        <Dialog title="Settings" kicker="Your game" stamp="⚙️" onClose={() => setOpen(false)} className="sheet">
-          <Choice<TextSize> label="Text size" value={s.textSize} onChange={(v) => set({ textSize: v })} options={[{ id: "normal", label: "Normal" }, { id: "large", label: "Bigger", icon: "🔍" }]} />
-          <Choice<"on" | "off"> label="Sound" value={s.sound ? "on" : "off"} onChange={(v) => { set({ sound: v === "on" }); if (v === "on") playSfx("good"); }} options={[{ id: "on", label: "On", icon: "🔔" }, { id: "off", label: "Off", icon: "🔕" }]} />
+        <Dialog title="Settings" kicker="Your game" stamp={<Icon name="settings" size={28} />} onClose={() => setOpen(false)} className="sheet">
+          <Choice<TextSize> label="Text size" value={s.textSize} onChange={(v) => set({ textSize: v })} options={[{ id: "normal", label: "Normal" }, { id: "large", label: "Bigger", icon: "textSize" }]} />
+          <Choice<"on" | "off"> label="Sound" value={s.sound ? "on" : "off"} onChange={(v) => { set({ sound: v === "on" }); if (v === "on") playSfx("good"); }} options={[{ id: "on", label: "On", icon: "sound" }, { id: "off", label: "Off", icon: "soundOff" }]} />
           <Choice<1 | 2 | 4> label="Service starts at" value={s.defaultSpeed} onChange={(v) => set({ defaultSpeed: v })} options={[{ id: 1, label: "1×" }, { id: 2, label: "2×" }, { id: 4, label: "4×" }]} />
           <label className="sheet__row sheet__check">
-            <input type="checkbox" checked={s.autoPause} onChange={(e) => set({ autoPause: e.target.checked })} />
+            <input type="checkbox" className="switch" checked={s.autoPause} onChange={(e) => set({ autoPause: e.target.checked })} />
             <span>Pause when something goes wrong in service <span className="xs muted">(at 1× and 2×; at 4× you get a note instead)</span></span>
           </label>
           <div className="sheet__game">

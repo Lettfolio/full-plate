@@ -138,7 +138,9 @@ describe("round 5: the Empire side panel is three cards and keeps every control"
     const s = forkedEmpire();
     const { container } = render(<EmpireTab game={{ ...s.game!, cash: 5_000_000 }} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
     const tabs = screen.getAllByRole("tab", { name: /My shops|The brand|Money/ });
-    expect(tabs.map((t) => t.textContent)).toEqual(["🏪 My shops", "🍔 The brand", "💷 Money"]);
+    // Round 8: the pictures are drawn icons (aria-hidden SVG), not emoji, so the text is just the words.
+    expect(tabs.map((t) => t.textContent!.trim())).toEqual(["My shops", "The brand", "Money"]);
+    expect(tabs.every((t) => t.querySelector(".tab__icon svg.icon"))).toBe(true);
 
     // My shops: the city (open a site) and every site's actions.
     expect(screen.getAllByRole("button", { name: /^Company ·/ }).length).toBeGreaterThan(0);

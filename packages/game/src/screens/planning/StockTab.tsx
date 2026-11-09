@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../../components/Icon";
 import type { Command, GameState, IngredientId } from "@full-plate/sim-core";
 import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
@@ -58,15 +59,16 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
         The easiest habit: restock from the evening screen after each service.
       </p>
       <table className="stocktable">
+        <caption className="sr-only">The larder: what you have, what the next service needs, and your order</caption>
         <thead>
           <tr>
-            <th>Ingredient</th>
-            <th className="r">On hand</th>
-            <th className="stocktable__wide">Keeps</th>
-            <th>Next service</th>
-            <th className="r stocktable__wide">Unit cost</th>
-            <th>Order</th>
-            <th className="r">Line cost</th>
+            <th scope="col">Ingredient</th>
+            <th scope="col" className="r">On hand</th>
+            <th scope="col" className="stocktable__wide">Keeps</th>
+            <th scope="col">Next service</th>
+            <th scope="col" className="r stocktable__wide">Unit cost</th>
+            <th scope="col">Order</th>
+            <th scope="col" className="r">Line cost</th>
           </tr>
         </thead>
         <tbody>
@@ -75,16 +77,16 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
             const line = lines.get(r.ingredientId)!;
             return (
               <tr key={r.ingredientId}>
-                <td>
+                <th scope="row">
                   <b>{r.name}</b>
                   {r.usedBy.length > 0 && <div className="xs faint">{r.usedBy.join(", ")}</div>}
                   <div className="xs muted stocktable__narrow"><MoneyText pence={r.unitCost} /> each · keeps {r.shelfLifeDays}d</div>
-                </td>
+                </th>
                 <td className="r num"><b>{wholeHave(r.onHand)}</b>{r.incoming > 0 && <div className="xs muted">+{wholeHave(r.incoming)} coming</div>}</td>
                 <td className="stocktable__wide"><Shelf days={r.shelfLifeDays} age={r.age} /></td>
                 <td>
                   <span className={`need need--${line.tone}`} data-testid={`forecast-${r.ingredientId}`}>
-                    {line.tone === "short" ? "▲ " : line.tone === "ok" || line.tone === "coming" ? "✓ " : ""}{line.text}
+                    {line.tone === "short" ? <Icon name="warning" size={16} /> : line.tone === "ok" || line.tone === "coming" ? <Icon name="check" size={16} /> : null}{line.text}
                   </span>
                 </td>
                 <td className="r stocktable__wide"><MoneyText pence={r.unitCost} /></td>

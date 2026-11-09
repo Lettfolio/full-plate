@@ -20,6 +20,7 @@ import { StockWarning } from "./planning/StockWarning";
 import { inSeason } from "@full-plate/sim-stars";
 import { weekdayIndex, WEEKDAYS, WEEKDAY_NAMES } from "../lib/calendar";
 import { DayRhythm } from "../components/DayRhythm";
+import { ArrowLabel } from "../components/Icon";
 import { unplateable } from "../lib/plateable";
 import type { PathKind } from "../lib/library";
 import type { EmpireCommand } from "@full-plate/sim-empire";
@@ -96,8 +97,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
     { id: "staff", label: "Staff", badge: !chefs ? "!" : game.staff.length, badgeTone: !chefs ? "warn" : "info" },
     { id: "stock", label: "Stock", badge: short ? short : "", badgeTone: "warn" },
     { id: "restaurant", label: "Restaurant", badge: game.tables.length },
-    ...(meta?.empire ? [{ id: "empire" as const, label: "🍔 Empire", badge: meta.empire.sites.filter((x) => x.status === "open").length }] : []),
-    ...(meta?.stars ? [{ id: "stars" as const, label: "⭐ Stars", badge: meta.stars.headChef.wantsOwnPlace ? "!" : "", badgeTone: "warn" as const }] : []),
+    ...(meta?.empire ? [{ id: "empire" as const, label: "Empire", badge: meta.empire.sites.filter((x) => x.status === "open").length }] : []),
+    ...(meta?.stars ? [{ id: "stars" as const, label: "Stars", badge: meta.stars.headChef.wantsOwnPlace ? "!" : "", badgeTone: "warn" as const }] : []),
   ];
   const wide = tab === "empire" || tab === "stars";
 
@@ -207,7 +208,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
             title={active.length ? undefined : "Add at least one dish to your menu first"}
             onClick={() => (opening && game.staff.length === 0 ? setConfirmAlone(true) : send({ type: "START_SERVICE" }))}
           >
-            Open for service →
+            <ArrowLabel text="Open for service →" />
           </button>
           </>
         )}

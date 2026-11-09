@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { ToastMsg } from "../state/gameReducer";
 import { playSfx } from "../lib/sfx";
+import { Icon, type IconName } from "./Icon";
 
 interface Props {
   toast: ToastMsg | null;
@@ -8,7 +9,7 @@ interface Props {
 }
 
 const SHOW_MS = 4500;
-const ICON: Record<ToastMsg["tone"], string> = { bad: "⚠️", good: "🎉", info: "🔔" };
+const ICON: Record<ToastMsg["tone"], IconName> = { bad: "warning", good: "check", info: "info" };
 
 /**
  * Where the toast sits. Bottom-centre by default; during service it moves to the top of the restaurant floor, just
@@ -42,10 +43,10 @@ export function Toast({ toast, onDismiss }: Props) {
     <div ref={region} className="toast-region" role="status" aria-live="polite">
       {toast && (
         <div key={toast.id} className={`toast toast--${toast.tone}`}>
-          <span className="toast__icon" aria-hidden="true">{toast.tone === "good" && toast.text.startsWith("🎉") ? "🎉" : ICON[toast.tone]}</span>
+          <span className="toast__icon" aria-hidden="true">{toast.tone === "good" && toast.text.startsWith("🎉") ? <Icon name="trophy" size={22} /> : <Icon name={ICON[toast.tone]} size={22} />}</span>
           {/* Goal toasts carry their own 🎉 in the text: it moves into the round badge. */}
           <span className="spacer">{toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text}</span>
-          <button className="iconbtn iconbtn--tap" aria-label="Dismiss" onClick={onDismiss}>✕</button>
+          <button className="iconbtn iconbtn--tap" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" size={20} /></button>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import type { GameState } from "@full-plate/sim-core";
+import { Icon } from "../components/Icon";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
 import { gameOverCause } from "../lib/dayLoop";
@@ -25,7 +26,7 @@ export function GameOver({ game, reason, onRetrySameSeed, onNewSeed, onTitle }: 
   return (
     <div className="gameover">
       <div className="card gameover__card">
-        <div className="gameover__icon" aria-hidden="true">🔑</div>
+        <div className="gameover__icon" aria-hidden="true"><Icon name="key" size={44} /></div>
         <h1>{game.restaurantName} has closed its doors</h1>
         <p className="gameover__cause" data-testid="gameover-cause">{cause}</p>
         <p className="gameover__reason small">{reason ?? "The money ran out. It happens to the best of them."}</p>
