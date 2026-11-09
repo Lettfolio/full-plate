@@ -53,13 +53,16 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
   // Round 6 review: with no company shop but the one she runs, "Your own shops £0" read like a failing shop.
   const own = e.sites.filter((s) => s.ownership === "company" && s.status !== "closed");
   const onlyFlagship = own.length > 0 && own.every((s) => s.focused) && m.income.shops === 0;
+  // Round 7: each money line gets a bar, so the biggest earner is the longest bar.
+  const biggest = Math.max(1, ...rows.map((r) => Math.abs(m.income[r.key])));
+  const [, dd, mon] = dateLabel(m.day).split(" ");
   return (
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="board-title">
       <div className="modal modal--wide boardmeeting">
-        <div className="modal__banner">
-          <span className="modal__stamp" aria-hidden="true">📋</span>
+        <div className="modal__banner boardmeeting__banner">
+          <span className="boardmeeting__date" aria-hidden="true"><b>{dd}</b><span>{mon}</span></span>
           <div>
-            <div className="modal__kicker"><Term id="boardMeeting" inline>Board meeting</Term> · {dateLabel(m.day)}</div>
+            <div className="modal__kicker"><span aria-hidden="true">📋</span> The <Term id="boardMeeting" inline>board meeting</Term> · {dateLabel(m.day)}</div>
             <h2 id="board-title">How did {e.brand.name} do this month?</h2>
           </div>
         </div>
@@ -74,6 +77,7 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
                     <Term id={r.term} inline>{r.label}</Term>
                     <span className="spacer" />
                     <MoneyText pence={m.income[r.key]} whole tone signed />
+                    <span className="boardmeeting__bar" aria-hidden="true"><span className={m.income[r.key] < 0 ? "neg" : ""} style={{ width: `${(Math.abs(m.income[r.key]) / biggest) * 100}%` }} /></span>
                   </li>
                 ))}
               </ul>
@@ -95,13 +99,15 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
             </section>
           </div>
 
-          <section aria-label="The decision" className="stack stack--sm">
+          <section aria-label="The decision" className="stack stack--sm boardmeeting__decision">
+            <div className="boardmeeting__ask"><span aria-hidden="true">🗳️</span> The board needs you to decide</div>
             <h3 className="boardmeeting__q">{d.question} <span className="xs muted">(<Term id={KIND_TERM[d.kind]} inline>what's this?</Term>)</span></h3>
             <div className="boardmeeting__options">
               {d.options.map((o, i) => {
                 const why = (o.cmd && associationBlocks(e, o.cmd)) ?? (o.cost && spendable(e) < o.cost ? `HQ can only spend ${pounds(Math.max(0, spendable(e)))} right now.` : undefined);
                 return (
-                  <button key={o.id} ref={i === 0 ? first : undefined} className="libdish libdish--btn boardmeeting__option" disabled={!!why} onClick={() => send({ type: "BOARD_DECIDE", optionId: o.id })}>
+                  <button key={o.id} ref={i === 0 ? first : undefined} className={`libdish libdish--btn boardmeeting__option ${o.id === d.advice ? "boardmeeting__option--tip" : ""}`} disabled={!!why} onClick={() => send({ type: "BOARD_DECIDE", optionId: o.id })}>
+                    {o.id === d.advice && <span className="boardmeeting__ribbon" aria-hidden="true">💡 The board's pick</span>}
                     <b>{o.label}</b>
                     <span className="small">{o.detail}</span>
                     {why && <span className="small boardmeeting__why">{why}</span>}
@@ -113,7 +119,7 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
           </section>
 
           <div className="row boardmeeting__skip">
-            <button className="btn btn--ghost btn--sm" onClick={() => send({ type: "BOARD_DECIDE", optionId: "skip" })}>Skip this one</button>
+            <button className="btn btn--ghost btn--tap" onClick={() => send({ type: "BOARD_DECIDE", optionId: "skip" })}>Skip this one</button>
             <span className="small muted">If you skip: {d.skipText}</span>
           </div>
         </div>

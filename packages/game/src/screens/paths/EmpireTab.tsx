@@ -99,19 +99,21 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           <div className="tabs tabs--sm empire__tabs" role="tablist" aria-label="Empire panels">
             {(["shops", "brand", "money"] as Panel[]).map((p) => (
               <button key={p} role="tab" aria-selected={panel === p} className={`tab ${panel === p ? "tab--active" : ""}`} onClick={() => setPanel(p)}>
-                {PANEL_LABEL[p]}
+                <span className="tab__icon" aria-hidden="true">{PANEL_LABEL[p].split(" ")[0]}</span> <span className="tab__label">{PANEL_LABEL[p].replace(/^\S+ /, "")}</span>
               </button>
             ))}
           </div>
           {panel === "shops" && (
             <>
+              <ShopsHero e={e} picked={picked} onPick={setPicked} />
               {city && <CityPanel e={e} city={city} send={send} />}
-              <SitesPanel e={e} send={send} onFocusSite={onFocusSite} />
+              <SitesPanel e={e} send={send} onFocusSite={onFocusSite} cityId={picked} />
             </>
           )}
-          {panel === "brand" && <BrandPanel e={e} send={send} />}
+          {panel === "brand" && <><BrandHero e={e} /><BrandPanel e={e} send={send} /></>}
           {panel === "money" && (
             <>
+              <MoneyHero e={e} />
               <div className="card stack stack--sm">
                 <div className="card__title"><h3>Money at HQ</h3></div>
                 <div className="bignums">
@@ -169,6 +171,97 @@ function BigNum({ label, value }: { label: React.ReactNode; value: React.ReactNo
   return <div className="bignum"><div className="bignum__k">{label}</div><div className="bignum__v">{value}</div></div>;
 }
 
+/** Round 7: shops per city, biggest first, as stacked CSS bars (own / franchise / licence). Tapping a row picks the city. */
+export function shopsByCity(e: EmpireState): { cityId: string; name: string; parts: [number, number, number]; total: number }[] {
+  const rows = new Map<string, [number, number, number]>();
+  for (const s of e.sites) {
+    if (s.status !== "open") continue;
+    const r = rows.get(s.cityId) ?? [0, 0, 0];
+    r[s.ownership === "company" ? 0 : s.ownership === "franchise" ? 1 : 2]++;
+    rows.set(s.cityId, r);
+  }
+  return [...rows.entries()]
+    .map(([cityId, parts]) => ({ cityId, name: e.cities.find((c) => c.id === cityId)?.name ?? cityId, parts, total: parts[0] + parts[1] + parts[2] }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+}
+
+function ShopsHero({ e, picked, onPick }: { e: EmpireState; picked: string; onPick: (id: string) => void }) {
+  const rows = shopsByCity(e);
+  const open = rows.reduce((a, r) => a + r.total, 0);
+  const building = e.sites.filter((x) => x.status === "building").length;
+  const max = Math.max(1, ...rows.map((r) => r.total));
+  const shown = rows.slice(0, 6);
+  return (
+    <div className="card hero" aria-label="Shops summary">
+      <div className="hero__num"><b>{open}</b> <span>shop{open === 1 ? "" : "s"} open{building ? `, ${building} being built` : ""}</span></div>
+      {shown.length > 0 && (
+        <ul className="citybars" aria-label="Shops by city">
+          {shown.map((r) => (
+            <li key={r.cityId}>
+              <button className={`citybar ${r.cityId === picked ? "citybar--on" : ""}`} aria-pressed={r.cityId === picked} onClick={() => onPick(r.cityId)} aria-label={`${r.name}: ${r.parts[0]} your own, ${r.parts[1]} franchise, ${r.parts[2]} licence`}>
+                <span className="citybar__name">{r.name}</span>
+                <span className="citybar__track" aria-hidden="true">
+                  {r.parts.map((n, i) => n > 0 && <span key={i} className="citybar__part" style={{ width: `${(n / max) * 100}%`, background: OWN_COLOUR[i] }} />)}
+                </span>
+                <b className="citybar__n">{r.total}</b>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.length > shown.length && <p className="xs muted">…and {rows.length - shown.length} more {rows.length - shown.length === 1 ? "city" : "cities"}. Tap a city on the map to see it.</p>}
+    </div>
+  );
+}
+
+function BrandHero({ e }: { e: EmpireState }) {
+  const won = e.regions.filter((r) => (e.brand.recognition[r.id] ?? 0) >= EMPIRE.WIN_RECOGNITION).length;
+  const share = Math.min(100, (e.mealsServedTotal / EMPIRE.WIN_MEALS) * 100);
+  return (
+    <div className="card hero" aria-label="Brand summary">
+      <div className="hero__num"><b>{won}</b> <span>of {e.regions.length} regions know your name</span></div>
+      <p className="small muted">A region "knows you" at {EMPIRE.WIN_RECOGNITION}. Get every region there to win, or serve a billion meals.</p>
+      <ul className="regionbars" aria-label="How many people know you, by region">
+        {e.regions.map((r) => {
+          const rec = Math.round(e.brand.recognition[r.id] ?? 0);
+          return (
+            <li key={r.id} className="regionbar">
+              <span className="regionbar__name">{r.name}</span>
+              <span className="regionbar__track"><span className={`regionbar__fill ${rec >= EMPIRE.WIN_RECOGNITION ? "regionbar__fill--won" : ""}`} style={{ width: `${rec}%` }} /><i className="regionbar__goal" style={{ left: `${EMPIRE.WIN_RECOGNITION}%` }} /></span>
+              <b className="regionbar__n">{rec}</b>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mealsline small"><span>🍔 Meals served</span><span className="mealsline__track"><span style={{ width: `${Math.max(0.6, share)}%` }} /></span><b>{compactMeals(e.mealsServedTotal)}</b><span className="muted">of {compactMeals(EMPIRE.WIN_MEALS)}</span></div>
+    </div>
+  );
+}
+
+/** "Mar": the month initial for a board minute. */
+const monthShort = (day: number) => dateLabel(day).split(" ")[2] ?? "";
+
+function MoneyHero({ e }: { e: EmpireState }) {
+  const months = (e.boardMinutes ?? []).slice(-12);
+  const max = Math.max(1, ...months.map((m) => Math.abs(m.net)));
+  const last = e.hq.income30d;
+  return (
+    <div className="card hero" aria-label="Money summary">
+      <div className="hero__num"><b className={last < 0 ? "money--neg" : "money--pos"}><MoneyText pence={Math.abs(last)} whole /></b> <span>HQ {last < 0 ? "lost" : "made"} in the last 30 days</span></div>
+      {months.length > 1 ? (
+        <div className="monthbars" role="img" aria-label={`HQ money each month: ${months.map((m) => `${monthShort(m.day)} ${m.net >= 0 ? "made" : "lost"} ${pounds(Math.abs(m.net))}`).join(", ")}`}>
+          {months.map((m) => (
+            <div key={m.id} className="monthbars__col">
+              <span className={`monthbars__bar ${m.net < 0 ? "monthbars__bar--neg" : ""}`} style={{ height: `${Math.max(4, (Math.abs(m.net) / max) * 100)}%` }} />
+              <span className="monthbars__m">{monthShort(m.day)}</span>
+            </div>
+          ))}
+        </div>
+      ) : <p className="small muted">After a couple of board meetings, each month's money shows here as a bar.</p>}
+    </div>
+  );
+}
+
 function Stat({ k, v, sub }: { k: React.ReactNode; v: React.ReactNode; sub?: React.ReactNode }) {
   return <div className="kpi"><div className="kpi__k">{k}</div><div className="kpi__v">{v}</div>{sub && <div className="xs muted">{sub}</div>}</div>;
 }
@@ -221,6 +314,8 @@ function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: string; onPi
             aria-pressed={sel}
             aria-label={`${c.name}, ${c.country}: ${total} site${total === 1 ? "" : "s"}${c.entered ? "" : ", not entered"}`}
           >
+            {/* Round 7: a 48-unit invisible hit area (≥ 44 px on screen at 1280 and 1024) round every pin. */}
+            <circle className="pin-hit" r={Math.max(26, r + 4)} />
             {sel && <circle r={r + 6} fill="none" stroke="var(--ink)" strokeWidth={2} strokeDasharray="4 3" />}
             {total > 0 ? <Pie r={r} parts={[p!.company, p!.franchise, p!.licence]} /> : (
               <circle r={8} fill={c.entered ? "var(--cream-deep)" : "var(--paper)"} stroke="var(--ink)" strokeWidth={1.5} strokeDasharray={c.exited ? "2 2" : undefined} />
@@ -347,13 +442,19 @@ function SiteNum({ id, label, value }: { id: TermId; label?: string; value: Reac
   return <div className="sitenum"><div className="sitenum__v">{value}</div><Term id={id}>{label}</Term></div>;
 }
 
-function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: EmpireCommand) => void; onFocusSite: (id: string) => void }) {
-  const list = e.sites.filter((s) => s.status !== "closed").slice(0, 40);
+const SITES_SHOWN = 5;
+function SitesPanel({ e, send, onFocusSite, cityId }: { e: EmpireState; send: (c: EmpireCommand) => void; onFocusSite: (id: string) => void; cityId: string }) {
+  const [all, setAll] = useState(false);
+  // Round 7: the picked city's shops, the one you run first; five at a time (a year-4 brand has 70).
+  const inCity = e.sites.filter((s) => s.status !== "closed" && s.cityId === cityId).sort((a, b) => Number(b.focused) - Number(a.focused));
+  const list = all ? inCity : inCity.slice(0, SITES_SHOWN);
   const cityName = (id: string) => e.cities.find((c) => c.id === id)?.name ?? id;
   const applicant = e.applicants[0];
+  const elsewhere = e.sites.filter((s) => s.status !== "closed").length - inCity.length;
   return (
     <div className="card stack stack--sm">
-      <div className="card__title"><h3>Sites</h3><span className="xs faint">{e.sites.filter((s) => s.status !== "closed").length}</span></div>
+      <div className="card__title"><h3>Shops in {cityName(cityId)}</h3><span className="xs faint">{inCity.length}{elsewhere ? ` here · ${elsewhere} elsewhere` : ""}</span></div>
+      {inCity.length === 0 && <p className="small muted">No shops here yet. Pick a city with shops on the map, or open one above.</p>}
       <p className="xs muted">
         Each site is a dining room like yours: {boxTables(content, e.brand.formula.standardisation)} tables and a local crew of two chefs and two servers.
         Hands-on, you run the dining room{offPremiseNote(e)}.
@@ -388,6 +489,11 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
           </li>
         ))}
       </ul>
+      {inCity.length > SITES_SHOWN && (
+        <button className="btn btn--ghost btn--tap" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${inCity.length} shops in ${cityName(cityId)}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -508,9 +614,15 @@ export function bestHomeOutlook(e: EmpireState): FranchiseOutlook {
 
 /** Round 5 review: a franchisee's year one in this district, in a child's words (beside its Franchise button). */
 const OUTLOOK_WORDS: Record<FranchiseOutlook["verdict"], string> = { fair: "they'd do fine", thin: "they'd only just get by", loses: "they'd lose money" };
+const OUTLOOK_ICON: Record<FranchiseOutlook["verdict"], string> = { fair: "👍", thin: "😐", loses: "👎" };
 function DistrictOutlook({ e, cityId, districtId }: { e: EmpireState; cityId: string; districtId: DistrictId }) {
   const o = useMemo(() => franchiseOutlook(content, e, { cityId, districtId }), [e, cityId, districtId]);
-  return <span className={`xs opensite__outlook opensite__outlook--${o.verdict}`} aria-label={`Franchise outlook ${districtName(districtId)}`}>{OUTLOOK_WORDS[o.verdict]}</span>;
+  return (
+    <span className={`verdict verdict--${o.verdict}`}>
+      <span aria-hidden="true">{OUTLOOK_ICON[o.verdict]}</span>
+      <span className={`opensite__outlook opensite__outlook--${o.verdict}`} aria-label={`Franchise outlook ${districtName(districtId)}`}>{OUTLOOK_WORDS[o.verdict]}</span>
+    </span>
+  );
 }
 
 function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => void }) {

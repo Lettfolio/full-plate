@@ -178,7 +178,7 @@ export function App() {
 
   return (
     <div className="app">
-      <StatusBar game={game} meta={meta} onMenu={inService ? undefined : quitToTitle} />
+      <StatusBar game={game} meta={meta} onQuit={inService ? undefined : quitToTitle} onNewGame={inService ? undefined : () => { quitToTitle(); setShell({ view: "pick" }); }} />
       <main className={`screen ${inService ? "screen--fixed" : ""}`}>
         <Suspense fallback={<Loading />}>
         {game.phase === "planning" && career && !employerOut && <div className="page"><MyShift game={game} meta={meta} career={career} sendCareer={sendCareer} send={send} /></div>}

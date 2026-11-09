@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { ToastMsg } from "../state/gameReducer";
+import { playSfx } from "../lib/sfx";
 
 interface Props {
   toast: ToastMsg | null;
@@ -13,6 +14,7 @@ const ICON: Record<ToastMsg["tone"], string> = { bad: "⚠️", good: "🎉", in
 export function Toast({ toast, onDismiss }: Props) {
   useEffect(() => {
     if (!toast) return;
+    if (toast.tone === "good") playSfx("good");
     const t = window.setTimeout(onDismiss, SHOW_MS);
     return () => window.clearTimeout(t);
   }, [toast, onDismiss]);
@@ -20,10 +22,10 @@ export function Toast({ toast, onDismiss }: Props) {
     <div className="toast-region" role="status" aria-live="polite">
       {toast && (
         <div key={toast.id} className={`toast toast--${toast.tone}`}>
-          {/* Goal toasts carry their own 🎉 in the text. */}
-          {!(toast.tone === "good" && toast.text.startsWith("🎉")) && <span aria-hidden="true">{ICON[toast.tone]}</span>}
-          <span className="spacer">{toast.text}</span>
-          <button className="iconbtn" aria-label="Dismiss" onClick={onDismiss}>✕</button>
+          <span className="toast__icon" aria-hidden="true">{toast.tone === "good" && toast.text.startsWith("🎉") ? "🎉" : ICON[toast.tone]}</span>
+          {/* Goal toasts carry their own 🎉 in the text: it moves into the round badge. */}
+          <span className="spacer">{toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text}</span>
+          <button className="iconbtn iconbtn--tap" aria-label="Dismiss" onClick={onDismiss}>✕</button>
         </div>
       )}
     </div>

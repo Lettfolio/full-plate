@@ -11,6 +11,7 @@ import { Bar } from "../../components/Bar";
 import { dateLabel, WEEKDAY_NAMES } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
 import { Term } from "../../components/Term";
+import { guideYear, nightStrip } from "../../lib/starsStrip";
 
 interface Props {
   game: GameState;
@@ -48,6 +49,10 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
         .sort((a, b) => a.mean - b.mean)[0]
     : undefined;
 
+  // Round 7: the hero — the countdown to guide day on a year strip, and the last 60 nights as a strip of cells.
+  const year = guideYear(game.day, v.nextGuideDay, lastGuide?.day, K.SEASON_DAYS);
+  const strip = nightStrip(stars.consistencyWindow, stars.consistencyDays, K.OFF_NIGHT_DROP, K.CONSISTENCY_WINDOW_DAYS);
+  const out = v.excludedUntil !== undefined && v.excludedUntil > game.day;
   return (
     <div className="starstab">
       {arc && (
@@ -61,12 +66,72 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
         </div>
       )}
 
-      <div className="tracks" aria-label="Prestige tracks">
-        <div className="card track track--michelin">
-          <div className="track__k">{names.michelin}</div>
-          <div className="track__stars" aria-label={`${shownStars} stars`}>{[0, 1, 2].map((i) => <span key={i} className={i < shownStars ? "on" : ""}>★</span>)}</div>
-          <div className="xs muted">{v.excludedUntil && v.excludedUntil > game.day ? "Out of the guide for now" : `Guide day in ${v.daysToGuide} days`}{v.threeStarStreak ? ` · streak ${v.threeStarStreak}/5` : ""}</div>
+      <section className="starshero" aria-label="Guide day">
+        <div className={`card starshero__count ${year.inSeason ? "starshero__count--season" : ""}`}>
+          <div className="starshero__top">
+            <div>
+              <div className="starshero__k">{names.michelin}</div>
+              <div className="starshero__stars" aria-label={`${shownStars} star${shownStars === 1 ? "" : "s"} now`}>{[0, 1, 2].map((i) => <span key={i} className={i < shownStars ? "on" : ""}>★</span>)}</div>
+            </div>
+            <div className="starshero__days">
+              {out ? <><b className="starshero__num">—</b><span>out of the guide until {dateLabel(v.excludedUntil!)}</span></>
+                : <><b className="starshero__num">{v.daysToGuide}</b><span>day{v.daysToGuide === 1 ? "" : "s"} to guide day</span></>}
+            </div>
+          </div>
+          {!out && (
+            <div className="yearstrip" aria-hidden="true">
+              <div className="yearstrip__season" style={{ left: `${year.seasonPct}%` }}><span>🕵️ inspectors about</span></div>
+              <div className="yearstrip__today" style={{ left: `${year.todayPct}%` }}><span>today</span></div>
+              <div className="yearstrip__end">✉️</div>
+            </div>
+          )}
+          <p className="starshero__line">
+            {out ? "The guide isn't looking at you for now. Use the time to rest the kitchen."
+              : year.inSeason ? <><b>Inspection season.</b> An inspector could be eating here tonight, and nobody will know. Make every night a good one.</>
+              : <>Inspectors start visiting in about <b>{Math.max(0, v.daysToGuide - K.SEASON_DAYS)} days</b>. Get the kitchen steady before then.</>}
+            {v.threeStarStreak ? <> Three-star streak: <b>{v.threeStarStreak}/5</b>.</> : null}
+          </p>
         </div>
+        <div className="card stack stack--sm starshero__hints" aria-labelledby="guide-looks-h">
+          <div className="card__title"><h3 id="guide-looks-h">What's holding you back</h3><span className="xs faint">from your last week</span></div>
+          {hints.length === 0 ? (
+            <p className="small">Nothing on your own record stands out as weak. Keep every night like this.</p>
+          ) : (
+            <ol className="starhints">
+              {hints.slice(0, 2).map((h) => (
+                <li key={h.criterion}><span className="pill pill--puzzle">{h.label}</span><span className="small">{h.text}</span></li>
+              ))}
+            </ol>
+          )}
+          {hints.length > 2 && (
+            <details className="xs">
+              <summary>Also worth a look ({hints.length - 2})</summary>
+              <ul className="starhints">{hints.slice(2).map((h) => <li key={h.criterion}><b>{h.label}:</b> {h.text}</li>)}</ul>
+            </details>
+          )}
+          {lastWeakest && <p className="xs muted">Last guide day, the inspectors marked your {CRITERION_LABEL[lastWeakest.k].toLowerCase()} lowest.</p>}
+          <p className="xs faint">The inspectors' own marks stay secret until guide day. These come from your kitchen's record.</p>
+        </div>
+      </section>
+
+      <section className="card nights" aria-labelledby="nights-h">
+        <div className="card__title"><h3 id="nights-h">Your last {strip.cells.length || K.CONSISTENCY_WINDOW_DAYS} nights</h3><span className="nights__score">Steadiness <b>{Math.round(v.steadiness)}</b></span></div>
+        {strip.cells.length === 0 ? <p className="small muted">Open for a few nights and each one appears here as a square.</p> : (
+          <>
+            <ol className="nights__strip" aria-label={`${strip.steady} steady, ${strip.wobbly} wobbly, ${strip.off} bad nights`}>
+              {strip.cells.map((c, i) => <li key={i} className={`nights__cell nights__cell--${c.tone}`} title={`${c.day !== undefined ? `${dateLabel(c.day)}: ` : ""}${c.tone === "off" ? "a bad night" : c.tone === "wobbly" ? "a wobbly night" : "a steady night"}`} />)}
+            </ol>
+            <div className="nights__key small">
+              <span><i className="nights__cell nights__cell--steady" /> {strip.steady} steady</span>
+              <span><i className="nights__cell nights__cell--wobbly" /> {strip.wobbly} wobbly</span>
+              <span><i className="nights__cell nights__cell--off" /> {strip.off} bad</span>
+              <span className="muted spacer">Oldest on the left, last night on the right. Bad nights pull steadiness down.</span>
+            </div>
+          </>
+        )}
+      </section>
+
+      <div className="tracks tracks--others" aria-label="Prestige tracks">
         <div className="card track"><div className="track__k">{names.fiftyBest}</div><div className="track__v">{v.fiftyBest.hallOfFame ? "Hall of fame" : v.fiftyBest.rank ? `#${v.fiftyBest.rank}` : "—"}</div><div className="xs muted">{v.fiftyBest.bestRank ? `best #${v.fiftyBest.bestRank}` : "not listed yet"}</div></div>
         <div className="card track"><div className="track__k">{names.gaultMillau}</div><div className="track__v">{v.gaultMillau ? `${v.gaultMillau.toFixed(1)}/20` : "—"}</div><div className="xs muted">never 20</div></div>
         <div className="card track"><div className="track__k">{names.goodFood}</div><div className="track__v">{v.goodFood ? `${v.goodFood}/10` : "—"}</div><div className="xs muted">{v.goodFood ? "listed" : "not listed"}</div></div>
@@ -75,26 +140,6 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
 
       <div className="starstab__grid">
         <div className="stack">
-          <div className="card stack stack--sm" aria-labelledby="guide-looks-h">
-            <div className="card__title"><h3 id="guide-looks-h">What's holding you back</h3><span className="xs faint">from your last week</span></div>
-            {hints.length === 0 ? (
-              <p className="small">Nothing on your own record stands out as weak. Keep every night like this.</p>
-            ) : (
-              <ol className="starhints">
-                {hints.slice(0, 2).map((h) => (
-                  <li key={h.criterion}><span className="pill pill--puzzle">{h.label}</span><span className="small">{h.text}</span></li>
-                ))}
-              </ol>
-            )}
-            {hints.length > 2 && (
-              <details className="xs">
-                <summary>Also worth a look ({hints.length - 2})</summary>
-                <ul className="starhints">{hints.slice(2).map((h) => <li key={h.criterion}><b>{h.label}:</b> {h.text}</li>)}</ul>
-              </details>
-            )}
-            {lastWeakest && <p className="xs muted">Last guide day, the inspectors marked your {CRITERION_LABEL[lastWeakest.k].toLowerCase()} lowest.</p>}
-            <p className="xs faint">The inspectors' own marks stay secret until guide day. These come from your kitchen's record.</p>
-          </div>
           <div className="card stack stack--sm">
             <div className="card__title"><h3>The kitchen</h3>{v.inspectionSeason && <span className="pill pill--puzzle">inspection season</span>}</div>
             <Bar label="Head chef stress" value={v.headChef.stress} tone={v.headChef.stress >= 75 ? "accent" : v.headChef.stress >= 50 ? "amber" : "basil"} showValue />
