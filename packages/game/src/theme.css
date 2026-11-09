@@ -1798,3 +1798,26 @@ h3 { line-height: var(--lh-heading); }
 .forecast__icon { display: inline-grid; place-items: center; color: var(--basil-deep); }
 .forecast--short .forecast__icon { color: var(--amber-deep); }
 .forecast--opening .forecast__icon { color: var(--sky-deep); }
+
+/* R9: saves — the header's save mark, Save & quit's result line, the title's save note. Slot picker styles live in
+   screens/slots.css (lazy chunk). */
+.status__end > .savemark { gap: 6px; width: auto; padding: 0 14px 0 12px; white-space: nowrap; }
+.status__end > .savemark--account { color: var(--hud-up); }
+.status__end > .savemark--saving { color: var(--on-ink-soft); }
+.status__end > .savemark--device { color: var(--on-ink); }
+.status__end > .savemark--memory { color: var(--hud-down); border-color: var(--hud-down); }
+@media (max-width: 1180px) {
+  .savemark__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .status__end > .savemark { width: var(--tap); padding: 0; }
+}
+.savemark__sheet .modal__body { display: flex; flex-direction: column; gap: var(--space-3); }
+.savequit { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; }
+.savequit--account { color: var(--success); }
+.savequit--device { color: var(--ink); }
+.savequit--memory, .savequit--none { color: var(--danger); }
+.title__savenote { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: var(--fs-xs); color: var(--ink-soft); max-width: 360px; align-self: center; text-align: left; }
+.title__savenote .icon { flex: none; }
+.title__games { justify-content: center; gap: 8px; }
+.title__count { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 999px; background: var(--surface-inset); font-weight: 800; font-variant-numeric: tabular-nums; }
+.title__note { max-width: 360px; align-self: center; }
+.continue:disabled { opacity: 0.85; cursor: progress; }

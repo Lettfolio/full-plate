@@ -64,6 +64,12 @@ export const ICONS = {
   target: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" />{DOT(12, 12, 1.8)}</>,
   chart: <><path d="M4 4v16h16" /><rect x="7.5" y="11" width="3" height="6" rx="0.8" /><rect x="12.5" y="7" width="3" height="10" rx="0.8" /><rect x="17.2" y="13" width="2.6" height="4" rx="0.8" /></>,
   calendar: <><rect x="4" y="5" width="16" height="15.5" rx="2" /><path d="M4 9.5h16M8.5 3v4M15.5 3v4" /></>,
+  // Round 9: saves (the slot picker's pencil / trash / upload are drawn in SlotPicker.tsx, outside the main chunk).
+  cloud: <path d="M7 18.5h10.2a4.3 4.3 0 0 0 .6-8.55A5.8 5.8 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z" />,
+  cloudOff: <><path d="M9.2 18.5h8a4.3 4.3 0 0 0 2.6-.88M20.9 14.2a4.3 4.3 0 0 0-3.1-4.25A5.8 5.8 0 0 0 9.7 5.3M6.3 8.2A4.7 4.7 0 0 0 7 18.5h2" /><path d="M3.5 3.5l17 17" /></>,
+  save: <><path d="M5 4h11.5L20 7.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" /><path d="M8 4v5h7V4M7.5 20v-6h9v6" /></>,
+  folder: <path d="M3.5 7V18a1.5 1.5 0 0 0 1.5 1.5h14A1.5 1.5 0 0 0 20.5 18V9.5A1.5 1.5 0 0 0 19 8h-7.2L9.6 5.5H5A1.5 1.5 0 0 0 3.5 7z" />,
+  download: <><path d="M12 4v11.5M7.5 11L12 15.5l4.5-4.5" /><path d="M4.5 15v4.5h15V15" /></>,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;

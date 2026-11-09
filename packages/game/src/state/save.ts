@@ -59,7 +59,12 @@ export function encodeSave(game: GameState, meta: PathMeta): string {
 
 /** Decodes an envelope, or a bare round 1–2 GameState (meta = a plain owner game). Throws when unreadable. */
 export function decodeSave(raw: string): Loaded {
-  const parsed = JSON.parse(raw) as Partial<Envelope> & { version?: number };
+  const parsed = JSON.parse(raw) as Partial<Envelope> & { version?: number; magic?: string; encoding?: string; data?: unknown };
+  // Round 9: a save file (saveStore.ts) with an uncompressed body reads here too; a gzip one needs decodeSaveFile (async).
+  if (parsed.magic === "full-plate-save-file") {
+    if (parsed.encoding === "json" && typeof parsed.data === "string") return decodeSave(parsed.data);
+    throw new Error("Compressed save file: read it with decodeSaveFile");
+  }
   if (parsed.kind !== "full-plate") return { game: deserialize(raw), meta: initialMeta("owner") };
   if (typeof parsed.v !== "number" || parsed.v > ENVELOPE_VERSION) throw new Error(`Unknown save version ${String(parsed.v)}`);
   const meta: PathMeta = {

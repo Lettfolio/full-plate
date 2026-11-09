@@ -1,11 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useReducer, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { Command, Difficulty } from "@full-plate/sim-core";
 import type { CareerCommand } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import type { HandsOnResult, HandsOnRole, ShiftSummary } from "@full-plate/handson";
 import { appReducer, initialAppState } from "./state/gameReducer";
-import { CAREER_SAVE_KEY, loadGame, loadSave, SAVE_KEY, useAutosave } from "./state/save";
+import { getSaveStore, type SlotSummary } from "./state/saveStore";
+import { saveNote, useSaves, useSlotAutosave } from "./state/useSaves";
+import { SaveIndicator } from "./components/SaveIndicator";
 import { content, HOOKS } from "./sim";
 import { TitleScreen } from "./screens/TitleScreen";
 import { NewGame } from "./screens/NewGame";
@@ -28,6 +30,9 @@ const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((
 const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
 const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
 const BoardMeeting = lazy(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
+// Round 9: "Your games" (the slot picker) and the two-copies question.
+const SlotPicker = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.SlotPicker })));
+const ConflictDialog = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.ConflictDialog })));
 // Round 7 (A): lazy chunks show a page-shaped skeleton, not a bare line.
 const Loading = () => <Skeleton />;
 import { Toast } from "./components/Toast";
@@ -52,12 +57,27 @@ export function randomSeed(): number {
 export function App() {
   const [app, dispatch] = useReducer(appReducer, initialAppState);
   const [shell, setShell] = useState<Shell>({ view: "title" });
-  const [saved, setSaved] = useState(() => loadGame());
-  const [careerSaved, setCareerSaved] = useState(() => loadSave(CAREER_SAVE_KEY));
   const game = app.game;
   const meta = app.meta;
 
-  useAutosave(game, undefined, meta);
+  // Round 9: save slots (state/saveStore.ts). The account is reached after the title has painted: its first call may
+  // ask the player for consent, and nothing waits on it.
+  const store = getSaveStore();
+  const { slots, status } = useSaves(store);
+  const [slotId, setSlotId] = useState<string | null>(null);
+  const [newSlot, setNewSlot] = useState<string | null>(null);
+  const [picker, setPicker] = useState<"browse" | "new" | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [titleNote, setTitleNote] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<{ local: SlotSummary; cloud: SlotSummary; resolve: (w: "local" | "cloud") => void } | null>(null);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const raf = requestAnimationFrame(() => { t = setTimeout(() => void store.connect(), 0); });
+    return () => { cancelAnimationFrame(raf); if (t) clearTimeout(t); };
+  }, [store]);
+  useSlotAutosave(store, slotId, game, meta);
+  const slotRef = useRef(slotId);
+  slotRef.current = slotId;
 
   // On event days the evening P&L is shown first; "Next day" then opens the morning post.
   const [eventOpen, setEventOpen] = useState(false);
@@ -76,21 +96,50 @@ export function App() {
   const [planTab, setPlanTab] = useState<PlanningTab>("menu");
   const [lastShift, setLastShift] = useState<ShiftSummary | null>(null);
 
+  /** The slot a new game goes in: the one picked, else this game's (retry), else a free one. */
+  const claimSlot = () => {
+    const id = newSlot ?? slotRef.current ?? store.freeSlotId() ?? slots.at(-1)?.slotId ?? "s1";
+    store.beginNew(id);
+    setSlotId(id); setNewSlot(null);
+  };
   const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
+    claimSlot();
     setPlanTab("menu");
     dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty } });
     setShell({ view: "game" });
   };
   const startCareer = (o: CareerStartOptions) => {
+    claimSlot();
     setPlanTab("menu");
     dispatch({ type: "newCareer", seed: randomSeed(), track: o.track, strategy: o.strategy, playerName: o.playerName, difficulty: o.difficulty, districtId: o.districtId });
     setShell({ view: "game" });
   };
   const quitToTitle = () => {
-    setSaved(loadGame());
-    setCareerSaved(loadSave(CAREER_SAVE_KEY));
+    if (slotId) void store.flush(slotId);
+    setSlotId(null);
     dispatch({ type: "quit" });
     setShell({ view: "title" });
+  };
+  const newGame = () => {
+    setTitleNote(null);
+    if (slots.length === 0) { setNewSlot(store.freeSlotId()); setShell({ view: "pick" }); return; }
+    setPicker("new");
+  };
+  const continueSlot = async (id: string) => {
+    setOpening(id); setTitleNote(null);
+    const r = await store.load(id, { choose: (local, cloud) => new Promise((resolve) => setConflict({ local, cloud, resolve })) }).catch(() => null);
+    setConflict(null); setOpening(null);
+    if (!r) { setTitleNote("Sorry, that game couldn't be opened. Try again, or load it from a save file."); return; }
+    setPicker(null);
+    setSlotId(id);
+    dispatch({ type: "load", game: r.loaded.game, meta: r.loaded.meta });
+    setShell({ view: "game" });
+    if (r.backupSlotId) dispatch({ type: "toast", text: `The other copy is kept in Your games as “Backup of ${r.summary.name}”.`, tone: "info" });
+  };
+  const saveFile = async () => {
+    if (!slotId) return "Nothing to save yet.";
+    const r = await store.saveToFile(slotId);
+    return r === "saved" ? "Saved to a file ✓" : r === "declined" ? "No file was saved." : "Sorry, the file couldn't be made.";
   };
 
   const career = meta.mode === "career" && meta.career && !meta.career.handover ? meta.career : undefined;
@@ -107,23 +156,31 @@ export function App() {
 
   if (shell.view === "title" || (shell.view === "game" && !game)) {
     return (
-      <TitleScreen
-        saved={saved}
-        career={careerSaved}
-        onNew={() => setShell({ view: "pick" })}
-        onContinue={() => {
-          const l = loadSave(SAVE_KEY);
-          if (!l) { setSaved(null); return; }
-          dispatch({ type: "load", game: l.game, meta: l.meta });
-          setShell({ view: "game" });
-        }}
-        onContinueCareer={() => {
-          const l = loadSave(CAREER_SAVE_KEY);
-          if (!l) { setCareerSaved(null); return; }
-          dispatch({ type: "load", game: l.game, meta: l.meta });
-          setShell({ view: "game" });
-        }}
-      />
+      <>
+        <TitleScreen
+          saved={null}
+          slots={slots}
+          busy={!!opening && !picker}
+          note={titleNote}
+          {...(slots.length || status.cloud !== "waiting" ? { saveNote: saveNote(status) } : {})}
+          onNew={newGame}
+          onYourGames={() => { setTitleNote(null); setPicker("browse"); }}
+          onContinue={() => { const s0 = slots[0]; if (s0) void continueSlot(s0.slotId); }}
+        />
+        <Suspense fallback={null}>
+          {picker && !conflict && (
+            <SlotPicker
+              mode={picker}
+              store={store}
+              busy={opening}
+              onClose={() => setPicker(null)}
+              onContinue={(id) => void continueSlot(id)}
+              onNewIn={(id) => { setPicker(null); setNewSlot(id ?? store.freeSlotId()); setShell({ view: "pick" }); }}
+            />
+          )}
+          {conflict && <ConflictDialog local={conflict.local} cloud={conflict.cloud} onPick={(w) => conflict.resolve(w)} />}
+        </Suspense>
+      </>
     );
   }
 
@@ -178,7 +235,15 @@ export function App() {
 
   return (
     <div className="app">
-      <StatusBar game={game} meta={meta} onQuit={inService ? undefined : quitToTitle} onNewGame={inService ? undefined : () => { quitToTitle(); setShell({ view: "pick" }); }} />
+      <StatusBar
+        game={game}
+        meta={meta}
+        onQuit={inService ? undefined : quitToTitle}
+        onNewGame={inService ? undefined : () => { quitToTitle(); setPicker("new"); }}
+        onSave={slotId ? async () => { await store.save(slotId, game, meta); return store.flush(slotId); } : undefined}
+        onSaveFile={slotId ? saveFile : undefined}
+        saveMark={slotId ? <SaveIndicator slotId={slotId} store={store} /> : undefined}
+      />
       <main className={`screen ${inService ? "screen--fixed" : ""}`}>
         <Suspense fallback={<Loading />}>
         {game.phase === "planning" && career && !employerOut && <div className="page"><MyShift game={game} meta={meta} career={career} sendCareer={sendCareer} send={send} /></div>}

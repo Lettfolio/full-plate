@@ -1,0 +1,49 @@
+/* Round 9: "Your games" (SlotPicker.tsx) and the two-copies question. Lazy chunk: R8 tokens only, text ≥ 13 px. */
+.slots .modal__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.slots__msg { margin: 0; }
+.slots__fresh { align-self: flex-start; gap: 8px; }
+.slots__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-4); }
+.slot {
+  background: var(--surface-raised); border: 2px solid var(--border-strong, var(--line)); border-radius: var(--radius-md);
+  padding: var(--space-4); display: flex; flex-direction: column; gap: 6px; box-shadow: var(--elev-1);
+}
+.slot--fresh { border-color: var(--success); box-shadow: 0 0 0 3px var(--success-wash, var(--basil-wash)); }
+.slot__head { display: flex; align-items: center; gap: 10px; }
+.slot__name { margin: 0; font-size: var(--fs-heading, var(--fs-h3)); line-height: var(--lh-heading, 1.2); overflow-wrap: anywhere; flex: 1; }
+.slot__path { flex: none; }
+.slot__path--owner { background: var(--basil-wash); color: var(--basil-deep); }
+.slot__path--career { background: var(--sky-wash); color: #1f5577; }
+.slot__path--empire { background: var(--tomato-wash); color: var(--tomato-deep); }
+.slot__path--stars { background: var(--plum-wash); color: #5d3a6c; }
+.slot__sub { font-size: var(--fs-sm); color: var(--ink-soft); }
+.slot__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-variant-numeric: tabular-nums; }
+.slot__day, .slot__meta .money { font-family: var(--font-display); font-weight: 600; font-size: 20px; }
+.slot__date { font-size: var(--fs-xs); color: var(--ink-soft); }
+.slot__when { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--ink-soft); }
+.slot__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.slot__actions .btn { gap: 6px; }
+.slot__actions .btn--ghost { padding-left: 10px; padding-right: 12px; }
+.slot__delete { color: var(--danger); }
+.slot__rename { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.slot__rename .input { flex: 1 1 160px; min-height: var(--control-h); font-size: var(--fs-base); }
+.slot--empty {
+  flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 120px;
+  background: transparent; border-style: dashed; box-shadow: none; color: var(--ink-soft); font-weight: 700;
+}
+.slots__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); border-top: 2px dashed var(--line); padding-top: var(--space-4); }
+.slots__foot .btn { gap: 6px; }
+.slots__foot p { margin: 0; flex: 1 1 240px; }
+
+.conflict .modal__body { display: flex; flex-direction: column; gap: var(--space-3); }
+.conflict__opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); }
+.conflict__opt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; cursor: pointer;
+  background: var(--surface-raised); color: var(--ink); border: 2px solid var(--ink); border-radius: var(--radius-md);
+  padding: var(--space-4); min-height: 96px; font: inherit; box-shadow: 0 3px 0 var(--ink);
+}
+.conflict__opt b { font-family: var(--font-display); font-weight: 600; font-size: 20px; }
+.conflict__opt--newer { border-color: var(--success); box-shadow: 0 3px 0 var(--success); }
+.conflict__opt:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.conflict__where { display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.conflict__new { background: var(--basil-wash); color: var(--basil-deep); margin-left: 4px; }
+@media (prefers-reduced-motion: no-preference) { .conflict__opt { transition: transform var(--dur-fast) var(--ease); } .conflict__opt:active { transform: translateY(2px); } }

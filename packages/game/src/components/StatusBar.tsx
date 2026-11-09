@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { avgFranchiseeMood, openSites } from "@full-plate/sim-empire";
 import { starsView } from "@full-plate/sim-stars";
@@ -6,7 +7,7 @@ import { content } from "../sim";
 import { dateLabel } from "../lib/calendar";
 import { Bar } from "./Bar";
 import { MoneyText } from "./MoneyText";
-import { SettingsMenu } from "./Settings";
+import { SettingsMenu, type SavedWhere } from "./Settings";
 import { pathBadges, type PathMeta } from "../state/paths";
 import { Icon } from "./Icon";
 
@@ -17,6 +18,10 @@ interface Props {
   onQuit?: (() => void) | undefined;
   /** Start a new game after a confirmation (absent during service). */
   onNewGame?: (() => void) | undefined;
+  /** Round 9: Save & quit saves first; the header shows where the save is (SaveIndicator). */
+  onSave?: (() => Promise<SavedWhere>) | undefined;
+  onSaveFile?: (() => Promise<string>) | undefined;
+  saveMark?: ReactNode;
 }
 
 /** Round 7: yesterday's profit as a small arrow under the cash (the trend a child can read at a glance). */
@@ -35,7 +40,7 @@ function CashTrend({ game }: { game: GameState }) {
 export const compactMeals = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}m` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n)));
 
 /** Always-visible header: who/when, cash, reputation, loan; round 3 adds path badges and the Empire/Stars/career strip. */
-export function StatusBar({ game, meta, onQuit, onNewGame }: Props) {
+export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, saveMark }: Props) {
   const district = content.districts.find((d) => d.id === game.districtId);
   const badges = meta ? pathBadges(meta) : [];
   const career = meta?.mode === "career" && meta.career && !meta.career.handover ? meta.career : undefined;
@@ -92,8 +97,9 @@ export function StatusBar({ game, meta, onQuit, onNewGame }: Props) {
           </>
         )}
         <div className="status__end">
+          {saveMark}
           <span className={`pill pill--${game.difficulty}`}><Icon name={game.difficulty === "cosy" ? "heart" : game.difficulty === "hard" ? "chilli" : "speed"} size={16} />{game.difficulty[0]!.toUpperCase() + game.difficulty.slice(1)}</span>
-          <SettingsMenu onQuit={onQuit} onNewGame={onNewGame} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
+          <SettingsMenu onQuit={onQuit} onNewGame={onNewGame} onSave={onSave} onSaveFile={onSaveFile} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
         </div>
       </div>
       {e && (

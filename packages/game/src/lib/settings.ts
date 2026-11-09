@@ -21,20 +21,26 @@ function read(): Settings {
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    const p = JSON.parse(raw) as Partial<Settings>;
-    return {
-      autoPause: typeof p.autoPause === "boolean" ? p.autoPause : DEFAULT_SETTINGS.autoPause,
-      defaultSpeed: p.defaultSpeed === 1 || p.defaultSpeed === 2 || p.defaultSpeed === 4 ? p.defaultSpeed : DEFAULT_SETTINGS.defaultSpeed,
-      sound: typeof p.sound === "boolean" ? p.sound : DEFAULT_SETTINGS.sound,
-      textSize: p.textSize === "large" ? "large" : "normal",
-    };
+    return normalize(JSON.parse(raw) as Partial<Settings>);
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 
+function normalize(p: Partial<Settings>): Settings {
+  return {
+      autoPause: typeof p.autoPause === "boolean" ? p.autoPause : DEFAULT_SETTINGS.autoPause,
+      defaultSpeed: p.defaultSpeed === 1 || p.defaultSpeed === 2 || p.defaultSpeed === 4 ? p.defaultSpeed : DEFAULT_SETTINGS.defaultSpeed,
+      sound: typeof p.sound === "boolean" ? p.sound : DEFAULT_SETTINGS.sound,
+      textSize: p.textSize === "large" ? "large" : "normal",
+    };
+}
+
 let current: Settings | null = null;
 const listeners = new Set<() => void>();
+/** Round 9: the save store mirrors settings to the player's account (lib/prefsSync.ts). */
+let changeHook: (() => void) | null = null;
+export function onSettingsChange(fn: (() => void) | null): void { changeHook = fn; }
 
 export function getSettings(): Settings {
   if (!current) {
@@ -47,6 +53,17 @@ export function getSettings(): Settings {
 export function setSettings(patch: Partial<Settings>): void {
   current = { ...getSettings(), ...patch };
   try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* storage blocked: keep in memory */ }
+  applyTextSize(current.textSize);
+  for (const l of listeners) l();
+  changeHook?.();
+}
+
+/** Round 9: settings from the player's account replace these (cached locally), without echoing back. */
+export function adoptSettings(p: Partial<Settings>): void {
+  const next = normalize({ ...getSettings(), ...p });
+  if (JSON.stringify(next) === JSON.stringify(getSettings())) return;
+  current = next;
+  try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* keep in memory */ }
   applyTextSize(current.textSize);
   for (const l of listeners) l();
 }

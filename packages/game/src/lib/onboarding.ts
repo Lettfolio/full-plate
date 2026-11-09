@@ -4,6 +4,7 @@
  * Pure step data plus a tiny localStorage flag; the overlay lives in screens/HandsOnShift.tsx.
  */
 import type { HandsOnRole } from "@full-plate/handson";
+import { accountHas, noteMarked, onboardKey } from "./onboardFlags";
 
 /** What a step points at: the rail (first slip) or a station id on the canvas. */
 export type OnboardTarget = { kind: "rail" } | { kind: "station"; stationId: string };
@@ -63,15 +64,19 @@ export function onboardingSteps({ role, station, touch }: OnboardOptions): Onboa
   ];
 }
 
-/** One flag per save (the game's seed) and role. */
-export const onboardKey = (seed: number, role: HandsOnRole): string => `full-plate:onboard:v1:${role}:${seed}`;
+/** One flag per save (the game's seed) and role. Round 9: the account mirror lives in onboardFlags.ts (main chunk). */
+export { onboardKey, adoptOnboardKeys, knownOnboardKeys, onOnboardMark } from "./onboardFlags";
 
 export function onboardSeen(storage: Pick<Storage, "getItem"> | undefined, seed: number, role: HandsOnRole): boolean {
-  try { return storage?.getItem(onboardKey(seed, role)) === "1"; } catch { return false; }
+  const k = onboardKey(seed, role);
+  if (accountHas(k)) return true;
+  try { return storage?.getItem(k) === "1"; } catch { return false; }
 }
 
 export function markOnboardSeen(storage: Pick<Storage, "setItem"> | undefined, seed: number, role: HandsOnRole): void {
-  try { storage?.setItem(onboardKey(seed, role), "1"); } catch { /* private mode: it shows again next time */ }
+  const k = onboardKey(seed, role);
+  try { storage?.setItem(k, "1"); } catch { /* private mode: it shows again next time */ }
+  noteMarked(k);
 }
 
 /** Where to put the step card relative to its target in a stage of height `stageH`: below it in the top half. */

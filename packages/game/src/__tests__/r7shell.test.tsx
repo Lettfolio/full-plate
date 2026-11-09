@@ -88,7 +88,7 @@ describe("settings sheet", () => {
     expect(onNewGame).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).toBeNull();
     openSheet();
-    fireEvent.click(screen.getByRole("button", { name: "Save and go to the title screen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save & quit" })); // R9: was "Save and go to the title screen"
     expect(onQuit).toHaveBeenCalledTimes(1);
   });
 
