@@ -2,7 +2,9 @@
 import { describe, expect, it } from "vitest";
 import * as K from "../src/constants";
 import {
+  applyEmpireCommand,
   associationBlocks,
+  developmentFacility,
   contractAttractiveness,
   expectedSiteDay,
   forceEvent,
@@ -441,12 +443,30 @@ describe("HQ", () => {
     expect(openSites(e).every((s) => !s.focused)).toBe(true);
   });
 
-  it("capital spending can draw on half the credit line; losses accrue overdraft interest", () => {
-    const e = empire({ cash: 0 });
+  it("capital spending draws on a development facility that grows with trading sites (capped at half the credit line)", () => {
+    const e = empire({ cash: K.SITE_BUILD_COST - K.FACILITY_PER_OPEN_SITE });
+    expect(developmentFacility(e)).toBe(K.FACILITY_PER_OPEN_SITE); // one trading site: the flagship
     const built = must(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "seaside", ownership: "company", land: "hqLease" });
-    expect(built.hq.cash).toBe(-K.SITE_BUILD_COST);
-    const broke = empire({ cash: -K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE + 1 });
+    expect(built.hq.cash).toBe(-K.FACILITY_PER_OPEN_SITE);
+    // A building site doesn't raise the facility; the next one is refused with the reason.
+    expect(rejected(built, { type: "OPEN_SITE", cityId: "harbourton", districtId: "business_park", ownership: "company", land: "hqLease" })).toMatch(/can spend/);
+    const many = { ...empire(), sites: Array.from({ length: 12 }, (_, i) => ({ ...empire().sites[0]!, id: `s${i + 1}`, focused: i === 0 })) };
+    expect(developmentFacility(many)).toBe(K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE);
+    const broke = { ...many, hq: { ...many.hq, cash: -K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE + 1 } };
     expect(rejected(broke, { type: "OPEN_SITE", cityId: "harbourton", districtId: "seaside", ownership: "company", land: "hqLease" })).toMatch(/can spend/);
+  });
+
+  it("the default fork (£500k, one site) can't overdraw HQ by entering a country and building (round 3 review)", () => {
+    let e = empire({ cash: 50_000_000 });
+    e = must(e, { type: "ENTER_CITY", cityId: "velmont" });
+    let opened = 0;
+    for (const d of ["high_street", "business_park", "student_quarter"]) {
+      const r = applyEmpireCommand(content, e, { type: "OPEN_SITE", cityId: "velmont", districtId: d, ownership: "company", land: "hqLease" });
+      if (!r.events.some((x) => x.kind === "rejected")) opened++;
+      e = r.empire;
+    }
+    expect(opened).toBeLessThanOrEqual(2);
+    expect(e.hq.cash).toBeGreaterThanOrEqual(-K.FACILITY_PER_OPEN_SITE);
   });
 
   it("fresh formula needs a commissary in the region", () => {

@@ -26,6 +26,7 @@ export {
   recognitionTarget,
   remodelCost,
   spendable,
+  developmentFacility,
   TECH_LABEL,
 } from "./engine";
 export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent } from "./engine";

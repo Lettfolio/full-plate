@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  associationBlocks, avgFranchiseeMood, buildCost, cityEntryCost, contractAttractiveness, contractTake, EMPIRE, franchiseCashNeeded,
+  associationBlocks, avgFranchiseeMood, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE, franchiseCashNeeded,
   openSites, propertyPrice, spendable, TECH_LABEL,
   type City, type EmpireCommand, type EmpireState, type SiteSummary, type Tech,
 } from "@full-plate/sim-empire";
@@ -52,6 +52,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
         <Stat k="Sites open" v={String(open.length)} sub={`${open.filter((s) => s.ownership === "company").length} company · ${open.filter((s) => s.ownership !== "company").length} franchised`} />
         <Stat k="Meals served" v={compactMeals(e.mealsServedTotal)} sub={`of ${compactMeals(EMPIRE.WIN_MEALS)}`} />
         <Stat k="HQ cash" v={<MoneyText pence={e.hq.cash} whole tone />} sub={<>net <MoneyText pence={e.hq.income30d} whole tone /> / month</>} />
+        <Stat k="HQ can spend" v={<MoneyText pence={Math.max(0, spendable(e))} whole />} sub={<>incl. <MoneyText pence={developmentFacility(e)} whole /> bank facility (grows with open sites)</>} />
         <Stat k="Franchisee mood" v={mood === undefined ? "—" : String(Math.round(mood))} sub={e.association.active ? "⚠ association formed" : `revolt below ${EMPIRE.ASSOCIATION_MOOD}`} />
         <Stat k="Plots owned" v={String(e.property.length)} sub={`${e.applicants.length} applicant${e.applicants.length === 1 ? "" : "s"} waiting`} />
       </div>
@@ -59,7 +60,13 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
       {e.association.active && (
         <p className="callout callout--warn" role="note"><b>The franchisee association has formed.</b> Fee rises on existing deals, forced remodels, discount campaigns and opening next to a franchisee are blocked until mood is back above {EMPIRE.ASSOCIATION_DISSOLVE_MOOD}.</p>
       )}
-      {e.hq.cash < 0 && <p className="callout callout--warn" role="note"><b>HQ is overdrawn.</b> You can spend down to <MoneyText pence={-spendable(e) + e.hq.cash} whole /> more before the bank stops lending.</p>}
+      {e.hq.cash < 0 && (
+        <p className="callout callout--warn" role="note">
+          <b>HQ is overdrawn by <MoneyText pence={-e.hq.cash} whole />.</b> The overdraft costs {Math.round(EMPIRE.OVERDRAFT_APR * 100)}% a year (about <MoneyText pence={Math.round((-e.hq.cash * EMPIRE.OVERDRAFT_APR) / 12)} whole /> a month).{" "}
+          {spendable(e) > 0 ? <>The bank will lend <MoneyText pence={spendable(e)} whole /> more for new building.</> : <>The bank won't lend more for building until sites open or cash comes in.</>}{" "}
+          HQ goes bust at −<MoneyText pence={EMPIRE.HQ_CREDIT_LINE * e.hq.priceLevel} whole />.
+        </p>
+      )}
 
       <div className="empire__layout">
         <div className="stack">
@@ -197,9 +204,24 @@ function Pie({ r, parts }: { r: number; parts: number[] }) {
   );
 }
 
-function Blockable({ e, cmd, send, children, className = "btn btn--sm", title }: { e: EmpireState; cmd: EmpireCommand; send: (c: EmpireCommand) => void; children: React.ReactNode; className?: string; title?: string }) {
-  const blocked = associationBlocks(e, cmd);
-  return <button className={className} disabled={!!blocked} title={blocked ?? title} onClick={() => send(cmd)}>{children}</button>;
+/** Why HQ can't pay `cost` right now (undefined when it can). */
+function cantAfford(e: EmpireState, cost: number | undefined): string | undefined {
+  if (!cost || cost <= 0 || spendable(e) >= cost) return undefined;
+  return `Needs ${pounds(cost)}; HQ can spend ${pounds(Math.max(0, spendable(e)))}`;
+}
+const AFFORD_HELP = "HQ can spend its cash plus a bank facility that grows as sites open. Move cash from the flagship, or wait for sites to trade.";
+const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+
+/** A button the franchisee association may block, or that HQ may not be able to pay for: disabled with the reason. */
+function Blockable({ e, cmd, send, children, className = "btn btn--sm", title, cost }: { e: EmpireState; cmd: EmpireCommand; send: (c: EmpireCommand) => void; children: React.ReactNode; className?: string; title?: string; cost?: number }) {
+  const assoc = associationBlocks(e, cmd);
+  const blocked = assoc ?? cantAfford(e, cost);
+  return (
+    <span className="blockable">
+      <button className={className} disabled={!!blocked} title={assoc ?? (blocked ? AFFORD_HELP : title)} onClick={() => send(cmd)}>{children}</button>
+      {blocked && <span className="xs muted blockable__why">{blocked}</span>}
+    </span>
+  );
 }
 
 function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: EmpireCommand) => void }) {
@@ -232,10 +254,13 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
       )}
       <div className="row row--wrap">
         {!city.entered && !city.exited && (
-          <button className="btn btn--primary btn--sm" onClick={() => send({ type: "ENTER_CITY", cityId: city.id })}>Enter {city.name} · <MoneyText pence={cityEntryCost(e, city)} whole /></button>
+          <Blockable e={e} send={send} className="btn btn--primary btn--sm" cost={cityEntryCost(e, city)} cmd={{ type: "ENTER_CITY", cityId: city.id }}>Enter {city.name} · <MoneyText pence={cityEntryCost(e, city)} whole /></Blockable>
+        )}
+        {!city.entered && !city.exited && spendable(e) >= cityEntryCost(e, city) && spendable(e) - cityEntryCost(e, city) < cost && (
+          <p className="xs callout callout--warn" role="note">Entering leaves HQ <MoneyText pence={spendable(e) - cityEntryCost(e, city)} whole /> to spend, and a site here costs <MoneyText pence={cost} whole />. You'd be in {city.name} with nothing to open until more money comes in.</p>
         )}
         {city.entered && city.dietaryRules.length > 0 && !city.localised && (
-          <button className="btn btn--sm" onClick={() => send({ type: "LOCALISE_MENU", cityId: city.id })}>Localise the menu · £150k</button>
+          <Blockable e={e} send={send} cost={Math.round(EMPIRE.LOCALISE_COST * Math.max(0.6, city.costIndex) * e.hq.priceLevel)} cmd={{ type: "LOCALISE_MENU", cityId: city.id }}>Localise the menu · <MoneyText pence={Math.round(EMPIRE.LOCALISE_COST * Math.max(0.6, city.costIndex) * e.hq.priceLevel)} whole /></Blockable>
         )}
       </div>
       {city.entered && (
@@ -245,7 +270,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
             {city.districts.map((d) => (
               <div key={d} className="opensite__row">
                 <span className="spacer small"><b>{districtName(d)}</b></span>
-                <Blockable e={e} send={send} cmd={{ type: "OPEN_SITE", cityId: city.id, districtId: d, ownership: "company", land: "hqLease" }} title="Company-owned: you build it and keep the profit">
+                <Blockable e={e} send={send} cost={cost} cmd={{ type: "OPEN_SITE", cityId: city.id, districtId: d, ownership: "company", land: "hqLease" }} title="Company-owned: you build it and keep the profit">
                   Company · <MoneyText pence={cost} whole />
                 </Blockable>
                 {applicant && (
@@ -290,7 +315,7 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
             {s.status === "open" && (
               <div className="row row--wrap" style={{ marginTop: 4 }}>
                 {s.focused ? <span className="pill pill--star">You run this one</span> : <button className="btn btn--sm btn--ghost" onClick={() => onFocusSite(s.id)} title="Run this restaurant yourself from tomorrow morning">Run it hands-on</button>}
-                {s.land !== "hqOwned" && <button className="btn btn--sm btn--ghost" onClick={() => send({ type: "BUY_PROPERTY", siteId: s.id })} title="40% deposit, 25-year mortgage">Buy the plot · <MoneyText pence={propertyPrice(s)} whole /></button>}
+                {s.land !== "hqOwned" && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cost={Math.round(propertyPrice(s) * EMPIRE.PROPERTY_DEPOSIT_SHARE)} cmd={{ type: "BUY_PROPERTY", siteId: s.id }} title="40% deposit, 25-year mortgage">Buy the plot · <MoneyText pence={propertyPrice(s)} whole /></Blockable>}
                 {s.ownership === "company" && !s.focused && applicant && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "SELL_FRANCHISE", siteId: s.id, applicantId: applicant.id }}>Sell franchise</Blockable>}
                 {s.ownership !== "company" && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "BUY_BACK", siteId: s.id }}>Buy back</Blockable>}
                 <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "REMODEL", siteId: s.id }}>Remodel</Blockable>
@@ -316,7 +341,7 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
         <p className="small muted">{f.locked ? "Locked: every site cooks the same menu the same way." : "Not locked yet: each site does its own thing."} {f.fresh ? "Fresh, never frozen." : ""}</p>
         <div className="row row--wrap">
           {!f.locked && <button className="btn btn--primary btn--sm" onClick={() => send({ type: "SET_FORMULA", locked: true })}>Lock the formula</button>}
-          {f.locked && next && !e.brand.research && <button className="btn btn--sm" onClick={() => send({ type: "RESEARCH", tech: next })}>Research {TECH_LABEL[next].toLowerCase()}</button>}
+          {f.locked && next && !e.brand.research && <Blockable e={e} send={send} cost={Math.round(EMPIRE.TECH[next].cost * e.hq.priceLevel)} cmd={{ type: "RESEARCH", tech: next }}>Research {TECH_LABEL[next].toLowerCase()} · <MoneyText pence={Math.round(EMPIRE.TECH[next].cost * e.hq.priceLevel)} whole /></Blockable>}
           {e.brand.research && <span className="small">Researching {TECH_LABEL[e.brand.research.tech].toLowerCase()} · {e.brand.research.daysLeft} days</span>}
         </div>
         <div className="xs muted">Tech: {[f.academy && "academy", f.driveThru && "drive-thru", f.appOrdering && "app"].filter(Boolean).join(", ") || "none yet"}</div>
@@ -345,9 +370,9 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
           <button className="btn btn--sm" onClick={() => setBudget(budget + 5_000_000)}>+</button>
         </div>
         <div className="row row--wrap">
-          <button className="btn btn--sm" onClick={() => send({ type: "LAUNCH_CAMPAIGN", kind: "brand", budget })}>Brand campaign</button>
-          <Blockable e={e} send={send} cmd={{ type: "LAUNCH_CAMPAIGN", kind: "discount", budget }} title="+12% demand, −10% spend, franchisees hate it">Discount campaign</Blockable>
-          <button className="btn btn--sm" onClick={() => send({ type: "LAUNCH_PRODUCT", name: "The Big One", budget, fit: "stretch" })} title="A gamble: 25% chance of a hit">Launch a new product</button>
+          <Blockable e={e} send={send} cost={budget} cmd={{ type: "LAUNCH_CAMPAIGN", kind: "brand", budget }}>Brand campaign</Blockable>
+          <Blockable e={e} send={send} cost={budget} cmd={{ type: "LAUNCH_CAMPAIGN", kind: "discount", budget }} title="+12% demand, −10% spend, franchisees hate it">Discount campaign</Blockable>
+          <Blockable e={e} send={send} cost={budget} cmd={{ type: "LAUNCH_PRODUCT", name: "The Big One", budget, fit: "stretch" }} title="A gamble: 25% chance of a hit">Launch a new product</Blockable>
           {e.pendingIdea && <button className="btn btn--green btn--sm" onClick={() => send({ type: "LAUNCH_PRODUCT", name: e.pendingIdea!.name, budget, fit: "franchiseeIdea" })}>Launch “{e.pendingIdea.name}”</button>}
         </div>
       </div>

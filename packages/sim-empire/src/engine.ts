@@ -210,7 +210,13 @@ export function franchiseCashNeeded(e: EmpireState, city: City): number {
 
 /** Cash HQ can spend now: its balance plus the share of the credit line banks lend for development. */
 export function spendable(e: EmpireState): number {
-  return e.hq.cash + K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE * e.hq.priceLevel;
+  return e.hq.cash + developmentFacility(e);
+}
+
+/** What the bank will lend HQ for capital spending today: FACILITY_PER_OPEN_SITE per trading site, capped. */
+export function developmentFacility(e: EmpireState): number {
+  const trading = e.sites.filter((s) => s.status === "open").length;
+  return Math.round(Math.min(K.HQ_CREDIT_LINE * K.DEVELOPMENT_FACILITY_SHARE, K.FACILITY_PER_OPEN_SITE * Math.max(1, trading)) * e.hq.priceLevel);
 }
 
 /** Cost of ENTER_CITY: a local office and permits, plus a country premium the first time (supply chain, legal). */

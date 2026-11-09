@@ -160,6 +160,12 @@ export const INSPECTION_CONSISTENCY_BONUS = 3;
 export const HQ_CREDIT_LINE = 200_000_000;
 /** Share of the credit line HQ may draw for capital spending (sites, plots, research); the rest absorbs losses. */
 export const DEVELOPMENT_FACILITY_SHARE = 0.5;
+/**
+ * Round 3 review: the bank lends for development against trading sites, £150k per open site (× price level), up to
+ * the cap above. At the fork (one site) HQ can spend the £500k investment + £150k; the full £1m facility needs ~7 open
+ * sites. Before this the whole £1m was available on day one, so "enter a country + three builds" took HQ to −£800k.
+ */
+export const FACILITY_PER_OPEN_SITE = 15_000_000;
 export const OVERDRAFT_APR = 0.08;
 export const CITY_ENTRY_COST = 12_000_000;
 export const COUNTRY_ENTRY_COST = 40_000_000;

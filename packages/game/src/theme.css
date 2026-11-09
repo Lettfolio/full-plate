@@ -689,7 +689,9 @@ button, input { font: inherit; color: inherit; }
 @keyframes wobble { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
 
 .empire { display: flex; flex-direction: column; gap: 14px; }
-.empire__stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.empire__stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.blockable { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; max-width: 260px; }
+.blockable__why { line-height: 1.25; }
 .empire__layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start; }
 .empire__map { padding: 10px; }
 .empire__map svg { width: 100%; height: auto; display: block; }
