@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { applyEmpireCommand, forkFromGameState, stepEmpireDay, type EmpireCommand, type EmpireState } from "../src";
+import { applyEmpireCommand, forkFromGameState, franchiseOutlook, openingFactor, probeUnitEconomics, stepEmpireDay, type EmpireCommand, type EmpireState } from "../src";
 import { content, empire, withApplicant } from "./helpers";
 import { newGame, strategies, STRATEGIES } from "@full-plate/sim-core";
 
@@ -54,5 +54,15 @@ describe("purity (sim-empire)", () => {
     send({ type: "REMODEL", siteId: "s1" });
     send({ type: "TRANSFER_FROM_FOCUSED", amount: 10_000 });
     expect(e.hq.day).toBeGreaterThan(100);
+  });
+
+  it("round 5: franchiseOutlook, probeUnitEconomics and openingFactor run on a deep-frozen empire", () => {
+    const e = deepFreeze(applyEmpireCommand(content, empire(), { type: "SET_FORMULA", locked: true }).empire);
+    const before = JSON.stringify(e);
+    for (const districtId of e.cities[0]!.districts) franchiseOutlook(content, e, { districtId });
+    probeUnitEconomics(content, e, { districtId: "seaside", supplyDeals: true });
+    probeUnitEconomics(content, e, { districtId: "high_street", ownership: "company", skipDays: 360 });
+    openingFactor(deepFreeze({ openedTrading: 10 }), 50);
+    expect(JSON.stringify(e)).toBe(before);
   });
 });
