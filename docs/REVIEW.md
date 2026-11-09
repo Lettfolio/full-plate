@@ -696,3 +696,79 @@ Next three:
 1. **"What the guide looks for" card** on the Stars tab. After the first guide day, show last year's per-criterion averages with a one-line fix each ("Technique 54: put two more ambitious dishes on"). Before it, show generic copy.
 2. **A standing order in inspection season.** Auto-restock to the forecast, or a red "inspection season: don't run out" nudge. One stock-out on a visit night shouldn't cost a year.
 3. **Make the test kitchen a moment.** A 20-day research ends with a tasting (a one-click hands-on plate, or a choice of three twists), so signatures feel earned rather than bought.
+
+# Round 4: integration review, balance and playtest (capacity model, Stars hints, commis station)
+
+Reviewer: lead. Date: 9 Nov 2026. Covers `d26ab5f` … `3ca1ba0` (three parallel streams: A Empire, B Stars, C Career). Fixes are `7853bc8` … `cf5c11f`, one commit per fix.
+
+**Status at the end of this pass:**
+- `pnpm -r typecheck` ✓ (7 packages). `pnpm -r test` ✓: sim-core 194, content 51, handson 58, sim-career 61, sim-empire 59, sim-stars 67, game 109 (**599**; +44 this round of which +12 this pass).
+- `pnpm --filter @full-plate/game build` ✓, largest chunk 159 kB.
+- The three streams landed together cleanly: typecheck, tests and build were green before any fix. No merge damage in App.tsx, pathEngine.ts, gameReducer.ts, paths.ts or sim-core constants/kitchen.
+
+Artefacts (scratchpad): `shots/r4/r4kid.cjs`, `r4idle.cjs`, `r4paths.cjs`; screenshots in `shots/r4/{kid,kid-after,idle,paths}/` with a `log.json` per run; headless probes in `r4rev/` (`stationCost.test.ts`, `stationLatency.test.ts`, `bistroHints.ts`).
+
+## R4.1 What landed
+- **A (Empire):** `sim-core/src/capacity.ts` (closed-form demand, seat × turn and crew capacity); sim-empire's aggregate site is the sim-core dining room plus a takeaway counter; `calibrate()` fits on fully staffed days; `newGameFromSite` for "Run it hands-on"; the Sites panel splits dining room and takeaway. Round 3's P1 (aggregate 1.2–2.5× the flagship) is fixed: the flagship's own aggregate now reads ~93 covers in the dining room against the sim's ~88–93.
+- **B (Stars):** a stock warning strip with one-tap "Order to cover tomorrow"; a red alert in inspection season; the `SHORT_MENU` rule (≥ 3 food dishes off most of the night → off night, −8 a dish; a 0-cover night that wasn't closed is a failed service); `starsHints` and the "What's holding you back" card; `hireCheck`.
+- **C (Career):** the commis station (the player owns sides/starters/desserts plus the easiest main, ~30% of plates; the AI never takes the rail; the sous chef covers after 30 s idle / 80 s); pacing that follows the player; first promotion at cooking 30 + 10 shifts; hands-on skill growth; the end-of-shift score card; `?autopilot=skill,pace`.
+
+## R4.2 Integration seams (code review)
+- **Station × stock / 86 rule.** Stock is consumed when a ticket fires (OrderSystem), so a player-claimed or rail ticket already holds its ingredients; a drop re-cooks without new stock. A station dish that runs out is 86'd like any other and simply stops producing tickets; the short-menu rule reads `eightySixed` and plated share, so it is unaffected by who cooks. No interaction bug.
+- **Sous-chef-covered plates** go to sim-core as `PLAYER_COOKED` at 0.6 × the dish ceiling and are booked to the player in `perChef` (deliberate and tested). They are *not* in the session's `plates`, so career skill growth (`HANDS_ON_GROWTH`) and stars only count the child's own plates. Fine.
+- **Station × capacity model.** `crewOnShift` / `capacityCovers` are only used by sim-empire and `newGameFromSite`; the career station never runs under the Empire. No seam.
+- **sim-core `stationRail` vs handson `stationTickets`** apply the same rule (claimed first, then the oldest unassigned, up to `cap`); the sim's 40-tick fallback is only a safety net.
+- **Save/reload mid-service** (`7853bc8`): a career commis mid-shift (bot at a child's pace, 45 ticks, plates already booked) round-trips `handsOn.station` through sim-core `serialize` and continues byte-identically for 3 days; an envelope reload ends the station exactly as `handsOnStop` does. The four round-3 mode tests still pass.
+- **Purity** (`74bb475`): a whole station shift (with an idle stretch so the sous chef covers), the capacity functions, `starsHints`, a short-menu Stars evening, `calibrate` and Empire `focusSite`/`newGameFromSite` all run on deep-frozen inputs with no writes. No `Math.random`/`Date` in the new sim code (grep; the per-package source-scan tests still pass).
+- **`hireCheck`** (`42d44a8`): property test over 8 seeds × 3 districts × 3 difficulties × 4 fee perks × every candidate × cash at the edge (0, needed−1, needed, needed+1, 3×, £10k): `canAfford` matches sim-core `HIRE` accept/reject every time, and the charged fee matches.
+
+## R4.3 Fixes in this pass
+| Commit | Fix |
+|---|---|
+| `da10021` | **P1: playing hands-on cost the employer money.** A party eats only when every plate is in. Station tickets waited 7–8 ticks on a child's rail against ~2 for an AI cook, tables turned slower and the queue walked out. 10 seeds, first shift: skipped 77 covers / 1.4 walked-out covers / +£131; half-speed child 58 / 12.6 / −£95; even a perfect bot 58 / 10.9 / −£79 (no-reservation control ≈ parity, so it is latency, not lost AI capacity — a reduced AI "cover cook" made no difference). The sous chef now plates any rail ticket whose party's patience is ≤ 40 (`COVER_PATIENCE`): child 62 / 7.2 / −£24, own plates 7.8 → 6.5. Partial; see R4.6. |
+| `c9290f3` | Empire: **"Lock your formula first — franchisees of an unstandardised brand lose money."** on the contract panel, above a city's franchise buttons and above Sell franchise, until the formula is locked. A sim-empire test pins the claim. |
+| `427d9d3` | Stars hint copy: "None of your 1 dish is your own" → "Your only dish isn't your own"; "cautious (they need about 24 skill on average)" → "easy ones (a cook needs only about 24 skill for them)". |
+| `14ab3f0` | My shift showed "Your cooking skill 23" beside "Cooking skill 22 / 30": one number, rounded down, on My shift, the checklist and the evening. |
+| `d6cd5a1` | The hands-on HUD said "Your shift · On the pass" for a commis: now "Commis station: Sides · Desserts". |
+| `a8c4553` | The inspection-season alert says closing is safe; it now has a **Close tonight instead** button right there. |
+| `cf5c11f` | Empire Sites: "crew 50" → "crew skill 50"; no doubled "first" in the warning. |
+
+## R4.4 Balance
+**(a) Owner year 1 (100 seeds, real pack) — unchanged by round 4:** typical/normal **83%** (90.3 covers/day, rating 4.23), typical/cosy **100%**, balanced/hard **45%**, typical/hard 0% — identical to R2.3/SIM-NOTES. (The headless defaults to the fixture pack; pass `--content ../content/src/index.ts`.)
+
+**(b) Empire (10 y × 5 seeds):** reproduces A's numbers exactly: franchise wins 5/5 at year 4.4–4.9 (0.49–0.55bn meals), company 4/5 at ~9.5, In-N-Out 0/5. **Verdict: the macro shape is acceptable design** — franchising is the real fast, asset-light route, company-owned still wins, the purist route is slow. **The early bleed is not acceptable for a child and is worse than reported:** it is not only unlocked formulas. From a real day-365 fork, a *locked* first franchise runs an operator margin of −3…−14% over its first year and mood sinks to 5–29 (unlocked −15…−32%, mood 0–3). The headless franchise style hides it because the tech tree and recognition arrive before the association threshold (5 franchisees < 35). I added the warning (honest copy: "even then a new franchisee only just gets by…") and left the model to A: changing the rent floor or crew size invalidates A's calibration tests and the headless table. EMPIRE-NOTES 8(c) has the numbers.
+
+**(c) Stars:** from-fork balanced year 1, seeds 1–8 (seed 2 bust in year 1): **★ on the first guide day 7/7**, scores 79.6–87.8 (round 3: 81.1–89.2; seeds 3 and 5 now sit 1.6 above the 78 line — the short-menu rule costs a point or two), ★★ by year 3 on 4/7. Bistro profile (seeds 1, 3, 6): no star (57.2–69.6); the hints name **Ingredients** (no partner), **Personality** (no signatures) and **Technique** (easy dishes, "Chunky chips is the simplest") — the "why" is there.
+
+## R4.5 Playtests (`vite preview` of the built dist, Chromium via Playwright; 0 page errors and 0 console errors on every screen)
+
+**A. Apprentice chef, cosy, `?autopilot=0.55,0.5`, 3 worked shifts** (`kid/`, after fixes `kid-after/`). Each shift 140–175 s; 5–8 own plates, 88–89% quality, ★★★ every shift; "+0.8 cooking skill tonight (playing helped!)"; Shifts 1/10 → 3/10; skill 22 → 24. The score card is the best screen in the game: big stars, "Great shift, Mia!", three ticked notes, a progress bar and chips. The rail (`d1-14-handson-45s.png`) reads clearly: "COMMIS STATION · Sides · Desserts", one card per table. Idle child (`idle/`, `kid/sous-nudge.png`, `sous-cover-*.png`): nudge at ~18 s ("Orla: Need a hand? Your ticket's on the rail…"), cover at 30 s, and the new "Table 3 can't wait any longer — I've sent their Brownie!".
+
+**B. Owner Planning, short larder** (`paths/01–03`). Out of season: a calm note, one-tap order ≈ £766, then "✓ Ordered — it arrives tomorrow morning" (the dishes stay listed: honest, tonight is still short). In inspection season: red alert, the stakes, the 3-dish rule, and now the Close button.
+
+**C. Stars tab** (`paths/04–05`): two plain hints + "Also worth a look (2)" + "marks stay secret". Good.
+
+**D. Empire** (`paths/10–14`): Sites reads "~93 covers today: 93 in the dining room (6 tables, crew skill 50)", after locking "141: 101 in the dining room (7 tables) + 40 takeaway"; the warning shows until the lock.
+
+| Sev | Finding | State |
+|---|---|---|
+| **P1** | Hands-on commis shifts cost the employer covers and money (browser after fix: 67–71 covers, 7–18 walkouts, −£152…+£22 vs a day off at 99 / 0). | Mitigated (`da10021`), **open** |
+| **P1** | A locked first franchise still loses money; mood heads for the association line. | Warned (`c9290f3`), **open** (A) |
+| P2 | Two different cooking-skill numbers on My shift. | Fixed |
+| P2 | HUD "On the pass" for a commis. | Fixed |
+| P2 | Inspection alert says "closing doesn't count" with no button. | Fixed |
+| P2 | Stars hints: "None of your 1 dish", "cautious (… skill on average)". | Fixed |
+| P3 | Empire side panel is 12 px text with "margin 7d", "consistency 50", "Buy the plot · £651,429" — a lot for a 10-year-old. | Open |
+| P3 | Rail ticket cards on the canvas are ~10 px ("TABLE 1 · Chips"). | Open |
+| P3 | "crew 50" jargon on Sites. | Fixed |
+| P3 | Covered plates are booked to the player in `perChef` (cosmetic; nothing reads it). | Open, by design |
+
+## R4.6 Is it fun yet?
+**Career: yes for the first week** — the station, the steady flow, the score card and visible growth answer all three round-3 asks. The sour note is that the restaurant does visibly worse on the days the child plays.
+**Stars: yes** — the hints close the "why no star?" gap and the inspection alert protects the year.
+**Empire: as a map game yes; as a business, the first franchise is a trap until a later round fixes its economics.**
+
+Top three next steps:
+1. **Station in sim-time.** Cover a rail ticket by its age in *ticks* (≈ prepTicks + a few) and slow the tempo while the child has work, or serve desserts as a second course so a late dessert never holds a table. Target: a half-speed child's shift within 5% of a skipped shift's covers.
+2. **Early franchise economics.** A royalty holiday or a cost-only rent floor for the first units (or a crew sized to covers) so a locked first franchise clears ~+5–8%; re-run the 10-year table.
+3. **Kid-size the Empire panel.** Bigger type, plain words ("profit this week", "how alike your sites are"), and one suggested next move.
