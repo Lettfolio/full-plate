@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import type { Command, CustomerId, GameState, Incident, TableId } from "@full-plate/sim-core";
-import { RestaurantView, type Highlight } from "../canvas/RestaurantView";
+// R8 review: the floor art (RestaurantView + floorPalette + handson sprites/layers/palette) is a lazy chunk so the
+// main chunk stays under budget. The frame loop (which drives the sim clock) starts at once; drawing starts when it lands.
+import type { RestaurantView, Highlight } from "../canvas/RestaurantView";
+const loadRestaurantView = () => import("../canvas/RestaurantView").then((m) => m.RestaurantView);
+// Warm it in idle time after start-up, so the first service never waits on the network.
+if (typeof window !== "undefined" && "requestIdleCallback" in window) window.requestIdleCallback(() => { void loadRestaurantView(); });
 import { canvasDpr, createPerfMeter, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
 import { content, MINUTES_PER_TICK, SERVICE_TICKS } from "../sim";
 import type { AppState } from "../state/gameReducer";
@@ -163,15 +168,17 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   useEffect(() => {
     const canvas = canvasRef.current!;
     const stage = stageRef.current!;
-    const view = new RestaurantView(canvas);
-    viewRef.current = view;
-    const ro = new ResizeObserver(() => {
-      const r = stage.getBoundingClientRect();
-      view.resize(r.width, r.height, canvasDpr());
-    });
+    let view: RestaurantView | null = null;
+    let disposed = false;
+    const fit = () => { const r = stage.getBoundingClientRect(); view?.resize(r.width, r.height, canvasDpr()); };
+    const ro = new ResizeObserver(fit);
     ro.observe(stage);
-    const r = stage.getBoundingClientRect();
-    view.resize(r.width, r.height, canvasDpr());
+    void loadRestaurantView().then((RV) => {
+      if (disposed) return;
+      view = new RV(canvas);
+      viewRef.current = view;
+      fit();
+    });
 
     // Round 8: `?perf=1` draws a frame-time counter in the corner (off by default)
     const perf = perfEnabled() ? createPerfMeter("floor") : undefined;
@@ -185,12 +192,12 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view.render(L.game, { content, speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() });
-      if (perf) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
+      view?.render(L.game, { content, speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() });
+      if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); viewRef.current = null; };
+    return () => { disposed = true; cancelAnimationFrame(raf); ro.disconnect(); viewRef.current = null; };
   }, []);
 
   // keyboard: space = pause/resume, 1/2/4 = speeds (not while a control has focus)
