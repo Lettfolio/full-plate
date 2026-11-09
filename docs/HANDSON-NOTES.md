@@ -61,7 +61,7 @@ type HandsOnResult =
   | { type: "DROPPED"; cost: Pence; item; ticketIds? }                        // ticketIds = plates to re-fire
   | { type: "TICKET_CLAIMED"; ticketId }                                       // round 3 review → PLAYER_CLAIMED
   | { type: "RAIL_RESIZED"; cap }                                              // round 4: re-send SET_HANDS_ON station
-// round 4: PLATE_COOKED may carry `covered: true` (the sous chef plated it; same command, 60% quality, no points)
+// round 5: the session no longer covers (no `covered` PLATE_COOKED); the sim's sous chef does, in sim ticks
 ```
 
 `quality` = the player's execution × the dish's `qualityCeiling`, so a perfect hands-on plate of a 72-ceiling soup is
@@ -282,8 +282,7 @@ Now an employee chef **owns a station**, the restaurant **paces itself** around 
   seeds, first shift: skip 77 covers / 1.4 walked-out covers / +£131; half-speed child 58 / 12.6 / −£95; even a
   perfect bot 58 / 10.9 / −£79). The sous chef now plates any rail ticket (or the one in hand) whose party's
   patience is down to 40 ("Table 4 can't wait any longer — I've sent their chips!"). After: child 62 / 7.2 / −£24,
-  plates 7.8 → 6.5 a shift. **Still open (REVIEW R4, P1):** covers stay ~15% below a skipped shift; the fix is
-  sim-time (cover in ticket-age ticks with a slower tempo while the child works, or desserts as a second course).
+  plates 7.8 → 6.5 a shift. **Fixed in round 5** (below): covers were ~15% below a skipped shift.
 
 ### Pacing (`pacing.ts`)
 - `shiftTempo(session, state).secondsPerTick` is how long the game waits between sim ticks (HandsOnShift and the
@@ -316,3 +315,65 @@ seeds 5 and 7, every worked shift:
 
 The rail is empty for 1–18 s a shift. `careerHandsOn.test.ts` pins ≥ 10 plates (full speed) and ≥ 5 (half speed) on
 every shift of a week, < 30 s dry, and a shift of 2–5 minutes.
+
+## Round 5: the station in sim time (REVIEW R4 P1)
+
+Playing must never be worse for the restaurant than a day off. The restaurant now protects itself in **sim ticks**
+(sim-core `systems/station.ts`, SIM-NOTES "Round 5"); the session only talks and paces.
+
+### What the sim does now
+- **Desserts, sides and starters are their own course.** A party whose other plates are in eats its mains; the
+  child's plate lands during the meal. The sim's sous chef sends one still on the rail just before the party finishes.
+- **Cover by ticket age in ticks.** A main on the rail is plated by the sim `coverTicks` after it fired (commis 8,
+  chef de partie 7, sous 6, head 5 — `StationLevel.coverTicks`, sent as SET_HANDS_ON `station.coverTicks`), or at
+  once when its table is down to 40 patience. Covered plates are the AI cook's, 12 quality down, booked to them.
+- **One main at a time on the rail** (`StationPlan.coursed` lists the station's own-course dishes; `stationTickets`
+  and sim-core `stationRailTickets` apply the same rule). The second burger goes straight to the AI.
+- **Station dilation.** A table the child kept waiting beyond an AI's time eats that much faster and doesn't rate the
+  wait; while it waits only on the child it loses patience at half speed.
+- **The commis's AI hands keep cooking** everything else, as on a day off (cook id `<staffId>~ai`).
+
+### What the session does now
+- **No session covers.** `idleCoverSecs` / `hardCoverSecs` are wall-clock **nudges only**: "Need a hand?" at 60%,
+  "Your ticket's still on the rail…" at `idleCoverSecs`. `COVER_PATIENCE` and `COVER_EXECUTION` are gone, and so is
+  `PLATE_COOKED.covered`.
+- **Covers are noticed, not made.** A ticket on the rail (or in hand) that vanishes uncooked while its party is still
+  in was sent by the sim: the session lets go of it, counts `score.covered` (`idleCovers` if the player had been idle
+  ≥ 60% of `idleCoverSecs`) and says "Sam: I've sent table 3's Brownie — grab your next ticket!". A vanished ticket
+  whose table walked out is nobody's fault and not counted. `HandsOnSession.railSeen` holds last frame's rail.
+- **The score card.** "Sent out by the sous chef: N" (teamwork). The "work on" note mentions covers only when the player
+  was away ("The sous chef covered two tickets while you were away").
+- **Never binned for someone else's plate.** The fridge never offers an AI-assigned ticket; a held ticket the sim
+  refused (PLAYER_CLAIMED of an AI's ticket now fails with a LOG line) or later gave to the AI is let go at no cost;
+  a plate whose ticket already went out costs nothing.
+
+### Pace to the pass (`pacing.ts`)
+The sim's rules make covers and walkouts independent of the child's speed; pacing decides how many plates are hers.
+- While the player holds a station ticket (or a verb is going), a tick takes `PACING.workSpt[level]` (commis 3 s,
+  then 2.7 / 2.4 / 2.2) instead of the rail tempo.
+- When the next tick would have the sim cover the ticket in hand (`coverDueTick`), that tick waits
+  `lastTickStretch` (× 3) — as long as the player is working (a verb going, or one within `workingSecs` 8 s). A child
+  who wandered off is covered as usual. Before this, 5–6 of a half-speed child's tickets a shift vanished mid-cook.
+
+### Verified (`packages/game/src/__tests__/careerParity.test.ts`, `handsOnHarness.parityRun`)
+The first career shift of seeds 1–10 played twice from the same morning — skipped and by the bot — through the real
+reducer at the browser's tempo, fixed 60 Hz steps (deterministic: the same seed twice is byte-identical).
+
+| covers / walked-out covers | day off | half speed (0.55, 0.5) | full speed (0.55) | skill 1 | idle |
+|---|---|---|---|---|---|
+| round 4 | 77.3 / 1.4 | 62.4 / 7.2 (6.5 own plates) | 61.2 / 9.9 (13.8) | 62.3 / 10.5 (14.0) | 64.3 / 8.1 |
+| round 5 | 77.3 / 1.4 | **80.9 / 1.3** (9.2 own plates, 208 s) | 78.8 / 0.0 (17.3, 189 s) | 75.5 / 0.0 (16.8) | 79.5 / 0.4 |
+
+Profit on the played day: half speed −£24 → +£173 (day off +£131). The test pins ≥ 95% of the day off's covers and
+≤ 2 extra walked-out covers for half speed, full speed and idle, and ≥ 7 own plates at half speed; `PARITY_SEEDS=30`
+widens it (30 seeds: half speed 101.5%, full speed 104.6%, idle 102.8%). Single seeds swing ±10 covers either way
+(the arrival stream is chaotic), so read means. A career week (`careerHandsOn.test.ts`): full-speed bot 14–22
+plates a shift, half speed 7–11, shifts 154–252 s, the rail dry < 25 s.
+
+### Still open
+- "Sent out by the sous chef" is 15–25 a shift: the station gets ~30 tickets and a child cooks 7–20. It is honest
+  (those plates did go out on her section) but a big number; the canvas rail could show the sous chef taking one.
+- The cover rules are mirrored in two places (sim-core `humanTickets`/`ticketsToCover`, handson
+  `stationTickets`/`coverDueTick`); a plan saved before round 5 has no `coursed`, so the view would show one ticket
+  fewer than the sim reserves until the next shift (an envelope reload ends the station anyway).
+
