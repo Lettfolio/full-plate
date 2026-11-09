@@ -7,7 +7,7 @@ pnpm --filter @full-plate/sim-empire typecheck   # src + demo
 pnpm --filter @full-plate/sim-empire test        # 77 tests, ~30s (includes model-vs-focused 90-day runs + 5,000-site perf)
 pnpm --filter @full-plate/sim-empire build       # tsc + static demo → packages/sim-empire/dist
 pnpm --filter @full-plate/sim-empire demo        # http://localhost:5301  (?style=franchise|company|innout&years=10&seed=2)
-pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--perf]
+pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--board skip|follow|both] [--perf]
 pnpm --filter @full-plate/sim-empire headless --unit [--district high_street]   # one new site's year one, line by line
 ```
 
@@ -19,6 +19,7 @@ Files:
 - `src/world.ts`: 12 invented cities, 5 regions and 4 suppliers.
 - `src/strategies.ts`: the scripted styles. They are browser-safe.
 - `src/unitEconomics.ts` (round 5): `probeUnitEconomics` — one new site's first year as a P&L (§3 "Unit economics"). `franchiseOutlook` (engine.ts) is its closed-form twin for the contract panel.
+- `src/board.ts` (round 6): the monthly board meeting — income by source, top mover, headline risk, the decision pool and its picker.
 - `src/headless.ts`: the CLI.
 - `src/save.ts`: versioned `serialize`/`deserialize`.
 - `demo/`: the map demo.
@@ -91,6 +92,11 @@ Invalid commands return the empire unchanged plus one `{kind:"rejected", text}` 
 | `LAUNCH_PRODUCT {name, budget, fit}` | Marketing | fit: `core` 55%, `stretch` 25%, `franchiseeIdea` 70% (when `pendingIdea` is set). |
 | `CLOSE_SITE`, `REMODEL`, `BUILD_COMMISSARY`, `SET_INSPECTIONS` | Site / region panels | |
 | `TRANSFER_FROM_FOCUSED {amount}`, `FOCUS_SITE {siteId?}` | Evening screen / map | Game-side glue. |
+| `BOARD_DECIDE {optionId}` (round 6) | Board meeting card | One of the pending meeting's option ids (applies its command) or `"skip"`. |
+| `REFURBISH {siteId}` (round 6) | Board meeting | HQ pays £120k × cost index × price level; the drag's age goes back `REFURB_DAYS` (720) from where it is, or from full maturity. Only a site with some drag. +5 consistency; a franchisee +4 mood. |
+| `FEE_HOLIDAY {franchiseeId, days}` (round 6) | Board meeting | No royalty for 30–180 days on their sites (ad fund and rent still due); mood +6 + 3 per month. |
+| `SET_SUPPLY_MARKUP {pct}` (round 6) | Board meeting | 0–5% on franchisees' food cost, paid to HQ; −3 mood per point of rise; the association blocks a rise. |
+| `REMODEL {siteId, hqPays}` (round 6) | Board meeting | HQ funds a franchisee's refit (and drive-thru lane): not forced, so the association doesn't block it; +4 mood. |
 
 `forceEvent(content, empire, {kind: "scandal"|"supplier_failure"|"forced_exit", ...})` fires a risk event on demand for story beats and tutorials.
 
@@ -293,6 +299,29 @@ The round-3/4 table (franchise 5/5 at 4.4–4.9, company 4/5 at ~9.5, In-N-Out 0
 Ten years × five seeds after the drag: **franchise 4/5 at y4.9–6.3**, **company 4/5 at y7.1–7.8**, **In-N-Out 3/5 at y8.9–9.8** (B: 4/5 4.9–6.3, 4/5 7.0–7.7, 3/5 8.9–9.9). `test/unitEconomics.test.ts` pins the ramp, the no-tech floor and both mature medians.
 
 **`franchiseOutlook` vs the probe on all 34 districts** (locked, supply deals): the outlook is never the optimistic side; 0.4–1.8 points under the probe where a franchise is viable, up to 3.8 under where it loses a third of its sales (unlocalised menus in Vasant, Qamar, Seren: −20…−32%). 5 of 68 verdicts differ from the probe's, all within a point of a line.
+
+### Round 6: the monthly board meeting (`src/board.ts`)
+
+On the evening of each month's last day (`(day + 1) % 30 === 0`, with the monthly snapshot) `stepEmpireDay` holds a meeting and stores it in `EmpireState.boardMeeting` (event kind `boardMeeting`):
+- **Income by source** (`BoardIncome`, integer pence, accumulated daily in `monthBook`): company shops (profit after occupancy and the ad fund; the focused site's till isn't HQ's), royalties, rent (landlord income net of head leases), joining fees, the food markup, and HQ's own costs (overheads, mortgages, overdraft interest — the remainder, so the lines add up exactly to the month's net). Capital (builds, plots, refurbs) is not income.
+- **Top mover:** the city district whose yearly sales rose most since the last meeting.
+- **One risk**, most urgent first: the association / owners' mood below 45, a shop below the collapse line, borrowing within 80% of the development facility (£150k a shop), tired shops (maturity ≥ 0.5), else none.
+- **Exactly one decision** of 2–3 options. The eligible pool: royalty ±1 pt for everyone (≥ 3 franchisees), localise a foreign city whose menu breaks its rules, buy a plot (Campus/Business Park first), refurbish a tired site, a fee holiday for a struggling franchisee (net < 4% or mood < 50), a drive-thru lane (HQ pays, or the owner is made to — a forced remodel), a food markup (≥ 5 franchisees with supply deals), and a brand campaign when fewer than two others apply. The picker is `boardHash(seed, month) % pool` (not last month's kind when there's another): no rng draws, so a meeting never changes what the dice do.
+- Each option is a real command (above) with a cost and a measurable effect (test/board.test.ts). `decision.advice` is what a sensible board would pick (the card's tip and the headless board-follower): spend capex only with a country entry (£520k × price level) or a tenth of the mortgages in hand; refurbish a company site only when the expected gain over the refurb's life covers its cost; raise royalty only for happy, well-paid owners (mood ≥ 70, median net ≥ 8%) and never past 6%; cut it when mood < 45 or the median nets < 3%.
+- **Skipping** is allowed (`BOARD_DECIDE skip`, or no answer by the next meeting). It does nothing, except: a franchisee whose fee-holiday plea is skipped or refused loses 4 mood; owners who hoped for a royalty cut lose 2. Minutes (`boardMinutes`, last 36) record each answer.
+- The game shows it as a lazy modal card on that evening (and the next morning if reloaded); Next day waits until it is answered or skipped. The Money panel lists the minutes one line a month.
+
+**R5 P3 fixed:** the founder's flagship now has `openedTrading` (`newEmpire`: `day − FLAGSHIP_AGE_DAYS`, a two-year-old room; the fork: day 0, the game's start), so it matures like every other site. Old saves are backfilled with 0 in `deserialize` (idempotent).
+
+**Ten years, five seeds** (`headless --years 10 --seeds 5 --board both`; R5 = the round-5 review's final run, `4273e96`):
+
+| Style | R5 | Round 6, skip (never answers) | Round 6, board-follower |
+|---|---|---|---|
+| franchise | 4/5, y4.9–6.3; HQ £0.44–0.63bn; mood 72–76 | **5/5, y5.0–5.6**; £0.39–0.60bn; mood 73–76 | **5/5, y5.3–6.2**; £0.55–0.69bn; mood 65–71 |
+| company | 4/5, y7.1–7.8; £0.56–0.78bn | **5/5, y7.2–8.1**; £0.48–0.70bn | **5/5, y7.2–8.1**; £0.47–0.69bn |
+| innout | 3/5, y8.9–9.8; £0.13–0.18bn | **3/5, y9.0**; £0.11–0.18bn | **5/5, y8.5–9.1**; £0.10–0.18bn |
+
+The shape holds: franchise wins ~year 5–6, company ~7–8, In-N-Out last. Seeds move a little because the flagship now matures (its margin and HQ's cash shift the scripted styles' timing; seeds diverge through the rng after that) — franchise skip seeds 1 and 3 lose 106 / 157 sites to forced exits that R5's seeds 2 and 5 had instead. Following the board is worth something but not a cheat: franchise HQ ends ~£100m richer (5 royalty raises to 6%, a 2% food markup started in 5 seeds and kept, plots bought) at the price of ~6 points of franchisee mood; In-N-Out wins in every seed (brand campaigns where it is least known: 44 of 117 campaign questions; refurbished sites); company is unchanged (its board mostly buys plots and lanes and leaves refurbs: the expected gain rarely covers £120k). What the follower decided over all seeds — franchise: royalty keep 128 / raise 5, food markup keep 105 / start 5 / at cost 19, plots buy 56 / rent 40, lanes wait 116 / HQ pays 5, fee holidays 17, refurbs 24 / leave 74; company: plots 91 / 112, lanes 80 / 45, refurbs 31 / 167; innout: campaigns 44 / 73, plots 70 / 97, lanes 61 / 47, refurbs 26 / 180. The R5 unit-economics numbers (year-one probe, outlook, maturity drag) are untouched: no option changes them unless taken.
 
 ## 5. Open questions
 1. ~~sim-core should export `Rng`~~ Done: `src/rng.ts` re-exports it from the package.

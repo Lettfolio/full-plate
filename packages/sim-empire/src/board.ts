@@ -149,8 +149,12 @@ function localise(content: ContentPack, e: EmpireState): Decision | undefined {
   );
 }
 
-/** A reserve a careful board keeps before buying land: a tenth of the mortgages already carried, plus one shop's facility. */
-const landReserve = (e: EmpireState) => 0.1 * e.property.reduce((a, p) => a + p.mortgageRemaining, 0) + K.FACILITY_PER_OPEN_SITE * e.hq.priceLevel;
+/**
+ * What a careful board keeps back before spending on capex (land, refurbs, lanes): the cost of entering a new country
+ * — growth comes first — or a tenth of the mortgages already carried plus one shop's facility, whichever is more.
+ */
+const capexReserve = (e: EmpireState) =>
+  Math.max((K.CITY_ENTRY_COST + K.COUNTRY_ENTRY_COST) * e.hq.priceLevel, 0.1 * e.property.reduce((a, p) => a + p.mortgageRemaining, 0) + K.FACILITY_PER_OPEN_SITE * e.hq.priceLevel);
 
 function buyPlot(_c: ContentPack, e: EmpireState): Decision | undefined {
   const campusFirst = (s: SiteSummary) => (s.districtId === "student_quarter" || s.districtId === "business_park" ? 1 : 0);
@@ -176,7 +180,7 @@ function buyPlot(_c: ContentPack, e: EmpireState): Decision | undefined {
       },
       { id: "rent", label: "Keep renting", detail: "No cost now. The rent goes up as prices rise." },
     ],
-    e.hq.cash >= deposit + landReserve(e) ? "buy" : "rent",
+    e.hq.cash >= deposit + capexReserve(e) ? "buy" : "rent",
   );
 }
 
@@ -188,8 +192,9 @@ function refurbish(content: ContentPack, e: EmpireState, day: number): Decision 
   if (spendable(e) < cost) return undefined;
   const fr = site.franchisee ? e.franchisees.find((f) => f.id === site.franchisee) : undefined;
   let advice = "leave";
-  if (site.ownership === "company") advice = refurbGain(content, e, site) >= cost ? "refurb" : "leave";
-  else if (fr && fr.mood < 55 && spendable(e) >= 3 * cost) advice = "refurb";
+  const affordable = e.hq.cash >= cost + capexReserve(e);
+  if (site.ownership === "company") advice = affordable && refurbGain(content, e, site) >= cost ? "refurb" : "leave";
+  else if (fr && fr.mood < 55 && affordable) advice = "refurb";
   const years = Math.max(1, Math.floor((day - (site.openedTrading ?? day)) / K.DAYS_PER_YEAR));
   return decision(
     "refurbish",
@@ -243,15 +248,15 @@ function driveThru(_c: ContentPack, e: EmpireState): Decision | undefined {
   const cost = remodelCost(site, city, e.hq.priceLevel);
   if (spendable(e) < cost) return undefined;
   const more = Math.round((K.DRIVE_THRU_COVERS - 1) * 100);
-  return decision(
-    "driveThru",
-    `${site.name} has no drive-thru lane yet. Build one?`,
-    [
-      { id: "lane", label: `Add a drive-thru`, detail: `${pounds(cost)} now. Cars can order without parking: about ${more}% more guests, but the bigger plot costs more rent.`, cmd: { type: "REMODEL", siteId: site.id, hqPays: true }, cost },
-      { id: "wait", label: "Not now", detail: "No cost. The shop stays as it is." },
-    ],
-    spendable(e) >= (site.ownership === "company" ? 2 : 3) * cost ? "lane" : "wait",
-  );
+  const affordable = e.hq.cash >= cost + capexReserve(e);
+  const fr = site.franchisee ? e.franchisees.find((f) => f.id === site.franchisee) : undefined;
+  const lane: BoardOption = { id: "lane", label: fr ? "HQ pays for a lane" : "Add a drive-thru", detail: `${pounds(cost)} from HQ now. Cars can order without parking: about ${more}% more guests, but the bigger plot costs more rent.${fr ? ` ${first(fr.name)} will be pleased.` : ""}`, cmd: { type: "REMODEL", siteId: site.id, hqPays: true }, cost };
+  const wait: BoardOption = { id: "wait", label: "Not now", detail: fr ? "No cost. The lane comes with the shop's next planned refit." : "No cost. The shop stays as it is." };
+  if (!fr) return decision("driveThru", `${site.name} has no drive-thru lane yet. Build one?`, [lane, wait], affordable ? "lane" : "wait");
+  // A franchise shop: HQ can pay, or order the owner to pay now (a forced remodel the association can block).
+  const make: BoardOption = { id: "make", label: `${first(fr.name)} pays now`, detail: `It costs ${first(fr.name)} ${pounds(cost)}. Being told to spend makes them cross: their mood drops a lot.`, cmd: { type: "REMODEL", siteId: site.id } };
+  const options = e.association.active ? [lane, wait] : [lane, make, wait];
+  return decision("driveThru", `${site.name} (${first(fr.name)}'s shop) has no drive-thru lane yet. Add one?`, options, affordable && fr.mood < 60 && e.hq.cash >= 10 * cost ? "lane" : "wait");
 }
 
 function supplyMarkup(_c: ContentPack, e: EmpireState): Decision | undefined {
