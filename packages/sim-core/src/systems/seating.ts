@@ -8,6 +8,7 @@ import type { Rng } from "../rng";
 import type { ContentPack, Customer, GameState, SimEvent, Table } from "../types";
 import { tallyOf } from "../util";
 import { actionsMod, type SystemResult } from "./system";
+import { fittingTablesClosed } from "../decor";
 
 /** Smallest free, clean table that seats the party. */
 export function findTable(tables: readonly Table[], partySize: number): Table | undefined {
@@ -25,10 +26,12 @@ export function seatingSystem(_content: ContentPack, state: GameState, _rng: Rng
   const queue = state.customers.filter((c) => c.stage === "queue");
   const events: SimEvent[] = [];
   let tables = state.tables;
+  // Round 10: on a fitting day the fitters have the last few tables (decor.ts fittingTablesClosed).
+  const closed = fittingTablesClosed(state);
   const seated = new Map<string, Customer>();
   for (const c of queue) {
     if (actions < SEAT_ACTION_COST) break;
-    const table = findTable(tables, c.partySize);
+    const table = findTable(closed ? tables.slice(0, tables.length - closed) : tables, c.partySize);
     if (!table) continue; // a smaller party behind may still fit
     tables = tables.map((t) => (t === table ? { ...t, occupiedBy: c.id } : t));
     const patience = Math.min(PATIENCE_START, c.patience + SEATED_PATIENCE_RESTORE);

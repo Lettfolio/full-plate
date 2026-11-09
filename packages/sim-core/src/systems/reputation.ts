@@ -16,6 +16,7 @@ import {
   WALKOUT_POPULARITY_HIT,
   WALKOUT_POPULARITY_HIT_CAP,
 } from "../constants";
+import { decorEffects } from "../decor";
 import type { Rng } from "../rng";
 import type { ContentPack, GameState, Reputation, Review, ServiceTally } from "../types";
 import { clamp, findDish, findSegment, round2, tallyOf } from "../util";
@@ -65,20 +66,25 @@ export function decayToward(x: number, rate: number, target = REPUTATION_NEUTRAL
   return x > target ? x - rate : x + rate;
 }
 
-export function nextPopularity(content: ContentPack, rep: Reputation, meanRating: number | undefined, walkoutParties: number): number {
+/**
+ * `lift` (round 10, decor popularity) moves where popularity settles: the pull is toward rating × 20 + lift and the
+ * decay toward 50 + lift, so a room worth +2 settles 2 points higher. 0 = the old formula exactly.
+ */
+export function nextPopularity(content: ContentPack, rep: Reputation, meanRating: number | undefined, walkoutParties: number, lift = 0): number {
   let p = rep.popularity;
-  if (meanRating !== undefined) p += (meanRating * RATING_TO_POPULARITY - p) * POPULARITY_PULL;
+  if (meanRating !== undefined) p += (meanRating * RATING_TO_POPULARITY + lift - p) * POPULARITY_PULL;
   p -= Math.min(WALKOUT_POPULARITY_HIT_CAP, walkoutParties * WALKOUT_POPULARITY_HIT);
-  return round2(clamp(decayToward(p, content.balance.reputationDecay), 0, 100));
+  return round2(clamp(decayToward(p, content.balance.reputationDecay, REPUTATION_NEUTRAL + lift), 0, 100));
 }
 
-export function nextPrestige(content: ContentPack, rep: Reputation, reviews: readonly Review[]): number {
+/** `lift` (round 10, decor prestige): prestige decays toward 50 + lift instead of 50 (it settles `lift` higher). */
+export function nextPrestige(content: ContentPack, rep: Reputation, reviews: readonly Review[], lift = 0): number {
   let p = rep.prestige;
   for (const r of reviews) {
     if (r.rating >= PRESTIGE_GOOD_MIN_RATING && (r.quality ?? 0) >= PRESTIGE_GOOD_MIN_QUALITY) p += PRESTIGE_GOOD_REVIEW;
     else if (r.rating <= PRESTIGE_BAD_MAX_RATING) p -= PRESTIGE_BAD_REVIEW;
   }
-  return round2(clamp(decayToward(p, content.balance.reputationDecay), 0, 100));
+  return round2(clamp(decayToward(p, content.balance.reputationDecay, REPUTATION_NEUTRAL + lift), 0, 100));
 }
 
 export function reputationSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
@@ -87,9 +93,10 @@ export function reputationSystem(content: ContentPack, state: GameState, rng: Rn
   const reviews = writeReviews(content, state, rng, tally, covers);
   const meanRating = tally.ratedCovers > 0 ? tally.ratingSum / tally.ratedCovers : undefined;
   // Incidents: critics' verdicts move prestige; turning big parties away costs a little popularity.
+  const decor = decorEffects(content, state);
   const reputation: Reputation = {
-    popularity: round2(clamp(nextPopularity(content, state.reputation, meanRating, tally.walkoutParties) + (tally.popularityBonus ?? 0), 0, 100)),
-    prestige: round2(clamp(nextPrestige(content, state.reputation, reviews) + (tally.prestigeBonus ?? 0), 0, 100)),
+    popularity: round2(clamp(nextPopularity(content, state.reputation, meanRating, tally.walkoutParties, decor.popularity) + (tally.popularityBonus ?? 0), 0, 100)),
+    prestige: round2(clamp(nextPrestige(content, state.reputation, reviews, decor.prestige) + (tally.prestigeBonus ?? 0), 0, 100)),
   };
   return {
     state: {

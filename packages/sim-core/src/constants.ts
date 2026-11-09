@@ -454,3 +454,19 @@ export const SET_MENU_SEGMENTS: readonly string[] = ["foodies", "business"];
 export const SET_MENU_BUDGET_MULT: Readonly<Record<string, number>> = { foodies: 1.6 };
 /** At most this many dishes in a set menu. */
 export const SET_MENU_MAX_DISHES = 12;
+
+// ── round 10: decorating (decor.ts) ──
+/** The decor slots in the order the UI and the canvas list them. */
+export const DECOR_SLOTS = ["floor", "walls", "lighting", "seating", "tables", "signage", "plants", "music", "window"] as const;
+/** The whole room's effects are capped here, however lavish (prestige/popularity points, satisfaction points, eating ticks, % extra courses). */
+export const DECOR_CAPS = { prestige: 8, popularity: 6, comfort: 4, stay: 3, spend: 12 } as const;
+/** An item looks worn (refresh offered) from this share of its lifeDays, and tired at 100%. */
+export const DECOR_WORN_SHARE = 0.75;
+/** A tired item gives half its good effects and drags prestige by this much… */
+export const DECOR_TIRED_DRAG = 1;
+/** …up to this much in all. */
+export const DECOR_TIRED_DRAG_CAP = 3;
+/** A style is the room's when at least this many bought items share its tag (and no other tag has as many). */
+export const DECOR_STYLE_MIN = 3;
+/** The fitters never close more tables than leave this many open. */
+export const DECOR_MIN_OPEN_TABLES = 3;

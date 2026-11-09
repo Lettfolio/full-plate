@@ -9,6 +9,7 @@ import type {
   AdviceTextPack,
   BalanceDef,
   ContentPack,
+  DecorPack,
   DishDef,
   DistrictDef,
   EventDef,
@@ -39,6 +40,7 @@ import careerTextJson from "../data/careerText.json";
 import incidentTextJson from "../data/incidentText.json";
 import goalTextJson from "../data/goalText.json";
 import adviceTextJson from "../data/adviceText.json";
+import decorJson from "../data/decor.json";
 import type {
   CareerText, CountriesData, CriticText, DietaryRule, DishTag, DishTags, Extras, FormulaDef, GoalTextData, IncidentTextData,
   TastingMenuDef, WineDef, WorldData,
@@ -354,6 +356,8 @@ export function validateContent(pack: unknown): string[] {
 
   // [round 6] evening tips (optional on ContentPack, always shipped here)
   if (pack.adviceText !== undefined) validateAdvice(p, pack.adviceText);
+  // [round 10] decorating catalogue (optional on ContentPack, always shipped here)
+  if (pack.decor !== undefined) validateDecor(p, pack.decor, Array.isArray(pack.segments) ? pack.segments.map((s) => (s as { id?: string }).id ?? "") : []);
 
   return p;
 }
@@ -423,6 +427,72 @@ function validateAdvice(p: Problems, at: unknown): void {
   }
 }
 
+/** [round 10] Decor slots and tags (mirror sim-core DECOR_SLOTS / DecorTag). */
+export const DECOR_SLOT_IDS = ["floor", "walls", "lighting", "seating", "tables", "signage", "plants", "music", "window"];
+export const DECOR_TAGS = ["cosy", "smart", "fun", "posh"];
+const DECOR_EFFECT_RANGES: Record<string, [number, number]> = { prestige: [0, 2], popularity: [0, 2], comfort: [0, 3], stay: [0, 2], spend: [0, 5], upkeep: [0, 1000] };
+const DECOR_ITEM_KEYS = ["id", "slot", "name", "description", "price", "tags", "starter", "effects", "fitTables", "lifeDays", "refreshCost", "nightLine"];
+
+function validateDecor(p: Problems, d: unknown, segmentIds: string[]): void {
+  if (!isObj(d)) { p.push("decor: expected an object"); return; }
+  str(p, "decor.plainName", d.plainName);
+  str(p, "decor.mixedName", d.mixedName);
+  const styles = d.styles;
+  if (!isObj(styles)) p.push("decor.styles: expected an object keyed by tag");
+  else for (const tag of DECOR_TAGS) {
+    const st = styles[tag];
+    if (!isObj(st)) { p.push(`decor.styles.${tag}: missing`); continue; }
+    str(p, `decor.styles.${tag}.name`, st.name);
+    if (!isObj(st.segments)) p.push(`decor.styles.${tag}.segments: expected an object`);
+    else for (const [seg, v] of Object.entries(st.segments)) {
+      if (!segmentIds.includes(seg)) p.push(`decor.styles.${tag}.segments: unknown segment "${seg}"`);
+      num(p, `decor.styles.${tag}.segments.${seg}`, v, -0.25, 0.25);
+    }
+    if (st.critic !== undefined) num(p, `decor.styles.${tag}.critic`, st.critic, 0, 5, true);
+  }
+  if (!Array.isArray(d.items)) { p.push("decor.items: expected an array"); return; }
+  const ids = new Set<string>();
+  d.items.forEach((it: unknown, i) => {
+    const w = `decor.items[${i}]`;
+    if (!isObj(it)) { p.push(`${w}: expected an object`); return; }
+    const at = isStr(it.id) ? `decor.${it.id}` : w;
+    if (!str(p, `${w}.id`, it.id)) return;
+    if (ids.has(it.id)) p.push(`${at}: duplicate id`);
+    ids.add(it.id);
+    for (const k of Object.keys(it)) if (!DECOR_ITEM_KEYS.includes(k)) p.push(`${at}: unknown key "${k}"`);
+    if (!DECOR_SLOT_IDS.includes(it.slot as string)) p.push(`${at}.slot: unknown slot ${JSON.stringify(it.slot)}`);
+    str(p, `${at}.name`, it.name);
+    if (str(p, `${at}.description`, it.description) && (it.description as string).length > 120) p.push(`${at}.description: keep it under 120 characters`);
+    num(p, `${at}.price`, it.price, 0, 1_000_000, true);
+    num(p, `${at}.fitTables`, it.fitTables, 0, 3, true);
+    num(p, `${at}.lifeDays`, it.lifeDays, 0, 1000, true);
+    num(p, `${at}.refreshCost`, it.refreshCost, 0, 100_000, true);
+    if (!Array.isArray(it.tags) || it.tags.some((t) => !DECOR_TAGS.includes(t as string))) p.push(`${at}.tags: expected tags from ${DECOR_TAGS.join(", ")}`);
+    if (!isObj(it.effects)) p.push(`${at}.effects: expected an object`);
+    else for (const [k, v] of Object.entries(it.effects)) {
+      const r = DECOR_EFFECT_RANGES[k];
+      if (!r) p.push(`${at}.effects: unknown effect "${k}"`);
+      else num(p, `${at}.effects.${k}`, v, r[0], r[1], true);
+    }
+    if (it.nightLine !== undefined) str(p, `${at}.nightLine`, it.nightLine);
+    if (it.starter) {
+      if (it.price !== 0 || it.lifeDays !== 0 || it.fitTables !== 0 || (isObj(it.effects) && Object.keys(it.effects).length) || (Array.isArray(it.tags) && it.tags.length))
+        p.push(`${at}: a starter item is free, plain, never tires and has no effects`);
+    } else {
+      if (!isNum(it.price) || it.price <= 0) p.push(`${at}.price: a bought item costs something`);
+      if (!isNum(it.lifeDays) || it.lifeDays <= 0) p.push(`${at}.lifeDays: a bought item wears out`);
+      if (!Array.isArray(it.tags) || it.tags.length === 0) p.push(`${at}.tags: a bought item has at least one tag`);
+      if (isNum(it.refreshCost) && isNum(it.price) && it.refreshCost >= it.price) p.push(`${at}.refreshCost: should be cheaper than buying it`);
+      if (it.nightLine === undefined) p.push(`${at}.nightLine: missing`);
+    }
+  });
+  for (const slot of DECOR_SLOT_IDS) {
+    const inSlot = (d.items as Record<string, unknown>[]).filter((x) => isObj(x) && x.slot === slot);
+    if (inSlot.filter((x) => x.starter).length !== 1) p.push(`decor: slot ${slot} needs exactly one starter item`);
+    if (inSlot.length < 4 || inSlot.length > 7) p.push(`decor: slot ${slot} has ${inSlot.length} items (4–7 wanted)`);
+  }
+}
+
 /** Dish ids kept out of the starter library and the default pack (Round 3 path dishes). */
 export const LIBRARY_HIDDEN_DISH_IDS: readonly string[] = (libraryHiddenJson as { dishIds: string[] }).dishIds;
 
@@ -439,7 +509,14 @@ function assembleFull(): ContentPack {
     balance: balanceJson as BalanceDef,
     reviewTemplates: reviewTemplatesJson as Record<string, string[]>,
     adviceText: adviceTextOf(adviceTextJson),
+    decor: decorOf(decorJson),
   };
+}
+
+/** [round 10] The decorating catalogue, without the `_note`. */
+function decorOf(json: unknown): DecorPack {
+  const { _note: _n, ...rest } = json as Record<string, unknown>;
+  return rest as unknown as DecorPack;
 }
 
 /** [round 6] The evening tips' rules and words (sim-core advice.ts), without the `_note`. */

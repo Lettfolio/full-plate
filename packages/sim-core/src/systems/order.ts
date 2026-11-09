@@ -27,6 +27,7 @@ import type {
 import { clamp, findSegment, logEvent, monthOf, tallyOf } from "../util";
 import { offeredDishes, planArrivals, setOfferFor } from "./arrival";
 import type { SystemResult } from "./system";
+import { decorEffects } from "../decor";
 
 type Offered = ReturnType<typeof offeredDishes>[number];
 
@@ -53,7 +54,8 @@ function byCourse(offered: readonly Offered[]): Map<string, Offered[]> {
 }
 
 /** Picks the dishes one guest wants (before stock is checked). */
-export function chooseForGuest(rng: Rng, offered: readonly Offered[], seg: SegmentDef): Offered[] {
+/** `boost` (round 10, decor spend): each extra course's order chance × (1 + boost/100), capped at 1. */
+export function chooseForGuest(rng: Rng, offered: readonly Offered[], seg: SegmentDef, boost = 0): Offered[] {
   const pools = byCourse(offered);
   const mains = pools.get("main") ?? [];
   const firstPool = mains.length ? mains : offered;
@@ -62,7 +64,8 @@ export function chooseForGuest(rng: Rng, offered: readonly Offered[], seg: Segme
   if (!mains.length) return picks;
   for (const course of Object.keys(COURSE_ORDER_CHANCE)) {
     const pool = pools.get(course);
-    if (!pool || !rng.chance(COURSE_ORDER_CHANCE[course] ?? 0)) continue;
+    const p = COURSE_ORDER_CHANCE[course] ?? 0;
+    if (!pool || !rng.chance(boost ? Math.min(1, p * (1 + boost / 100)) : p)) continue;
     const pick = rng.weighted(pool, pool.map((o) => dishWeight(o, seg)));
     if (pick) picks.push(pick);
   }
@@ -159,7 +162,7 @@ function takeOrder(content: ContentPack, k: Kitchen, c: Customer, seg: SegmentDe
   let patience = c.patience;
   for (let g = 0; g < c.partySize; g++) {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const picks = chooseForGuest(rng, k.offered, seg);
+      const picks = chooseForGuest(rng, k.offered, seg, decorEffects(content, k.state).spend);
       const missing = picks.find((p) => !canPlate(k.stock, p.dish));
       if (missing) {
         pullDish(content, k, missing.dish);

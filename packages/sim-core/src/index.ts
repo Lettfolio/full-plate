@@ -156,3 +156,12 @@ export {
   CAPACITY, capacityCovers, crewOnShift, expectedDemand, marketDemand, menuPriceIndex, serviceCapacity, softCap, uncapped,
   type CapacitySpec, type DemandEstimate, type DemandSpec,
 } from "./capacity";
+/**
+ * [round 10] Decorating (decor.ts): what each slot holds and how worn it is, the room's capped effects and style, the
+ * catalogue per slot, and the tables the fitters close tonight.
+ */
+export {
+  closedTableIds, decorCatalogue, decorEffects, decorStyle, decorStyleName, findDecorItem, fittingTablesClosed, installed as installedDecor,
+  NO_DECOR_EFFECTS, starterItem as starterDecor, wearOf as decorWear, wearShare as decorWearShare, type DecorEffects, type DecorWear,
+} from "./decor";
+export { DECOR_CAPS, DECOR_SLOTS, DECOR_WORN_SHARE } from "./constants";

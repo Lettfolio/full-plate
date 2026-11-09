@@ -29,6 +29,7 @@ import { clamp, findDish, findSegment, plateCost, round2, tallyOf } from "../uti
 import { frontCharm, type SystemResult } from "./system";
 import { vipVerdict } from "./incidents";
 import { dilationOf } from "./station";
+import { decorEffects } from "../decor";
 
 export interface SatisfactionInputs {
   quality: number;   // mean plate quality 0-100
@@ -139,6 +140,9 @@ export function settleParty(
   const events: SimEvent[] = [];
   const spend = c.comped ? 0 : c.spend;
   const quality = c.order.length ? (c.qualitySum ?? 0) / c.order.length : 0;
+  // Round 10: a comfier room adds a few points for everyone; a critic takes to a smart or posh one.
+  const decor = decorEffects(content, state);
+  const decorBonus = decor.comfort + (c.vip ? decor.critic : 0);
   const satisfaction = satisfactionOf(seg, {
     quality,
     // Round 5 station dilation: the ticks the party waited on the hands-on human beyond an AI's time don't count.
@@ -146,7 +150,7 @@ export function settleParty(
     spendPerHead: c.spend / c.partySize,
     charm,
     comped: !!c.comped,
-    bonus: c.satisfactionBonus ?? 0,
+    bonus: (c.satisfactionBonus ?? 0) + decorBonus,
     ...(c.setMenu ? { budgetMult: SET_MENU_BUDGET_MULT[seg.id] ?? 1 } : {}),
   });
   let rating = ratingOf(satisfaction);

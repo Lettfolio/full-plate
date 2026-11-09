@@ -20,6 +20,7 @@ import type { Rng } from "../rng";
 import type { ContentPack, GameState, Loan, SimEvent, Staff } from "../types";
 import { districtOf, logEvent, worksToday } from "../util";
 import type { SystemResult } from "./system";
+import { decorEffects } from "../decor";
 
 export const shiftCost = (s: Pick<Staff, "wage">): number => Math.round(s.wage * SHIFT_HOURS * (1 + EMPLOYER_ONCOST));
 
@@ -105,7 +106,8 @@ export function checkSolvency(content: ContentPack, state: GameState): SystemRes
 export function financeSystem(content: ContentPack, state: GameState, _rng: Rng): SystemResult {
   const rent = dailyRent(content, state);
   const labourCost = wagesToday(state);
-  const overheads = overheadsToday(state);
+  // Round 10: decor upkeep (laundry, fresh flowers, cakes in the window, piano tuning) is a bill like the others.
+  const overheads = overheadsToday(state) + decorEffects(content, state).upkeep;
   const vat = vatToday(state);
   const { loan, payment } = payLoan(state.loan, content.balance.loanApr);
   const paid: GameState = {

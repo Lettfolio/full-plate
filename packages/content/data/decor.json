@@ -1,0 +1,826 @@
+{
+ "_note": "Round 10 decorating catalogue (sim-core decor.ts). Prices/upkeep/refresh in pence. effects are small integers summed over the room and capped (DECOR_CAPS). styles: entry-logit nudges per segment when 3+ bought items share a tag.",
+ "plainName": "Plain and simple",
+ "mixedName": "A bit of everything",
+ "styles": {
+  "cosy": {
+   "name": "Cosy café",
+   "segments": {
+    "students": 0.1,
+    "families": 0.15,
+    "tourists": 0.1,
+    "foodies": 0.05
+   }
+  },
+  "fun": {
+   "name": "Fun diner",
+   "segments": {
+    "students": 0.2,
+    "families": 0.15,
+    "tourists": 0.05,
+    "business": -0.05
+   }
+  },
+  "smart": {
+   "name": "Smart bistro",
+   "segments": {
+    "business": 0.2,
+    "foodies": 0.1,
+    "students": -0.05
+   },
+   "critic": 2
+  },
+  "posh": {
+   "name": "Posh dining room",
+   "segments": {
+    "foodies": 0.2,
+    "business": 0.1,
+    "students": -0.15,
+    "families": -0.05
+   },
+   "critic": 4
+  }
+ },
+ "items": [
+  {
+   "id": "floor_oak",
+   "slot": "floor",
+   "name": "Oak planks",
+   "description": "The wooden floor that came with the place.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "floor_rugs",
+   "slot": "floor",
+   "name": "Big cosy rugs",
+   "description": "Soft rugs under every table. Lovely, but they need a hoover every night.",
+   "price": 45000,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "popularity": 1,
+    "comfort": 1,
+    "upkeep": 300
+   },
+   "fitTables": 1,
+   "lifeDays": 150,
+   "refreshCost": 8000,
+   "nightLine": "the rugs made the room feel snug"
+  },
+  {
+   "id": "floor_checker",
+   "slot": "floor",
+   "name": "Black-and-white tiles",
+   "description": "Shiny checkerboard tiles, like a proper diner.",
+   "price": 90000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1
+   },
+   "fitTables": 2,
+   "lifeDays": 300,
+   "refreshCost": 9000,
+   "nightLine": "the checkerboard tiles got people smiling"
+  },
+  {
+   "id": "floor_terrazzo",
+   "slot": "floor",
+   "name": "Terrazzo",
+   "description": "Smooth stone with little coloured chips in it. Very smart.",
+   "price": 220000,
+   "tags": [
+    "smart"
+   ],
+   "effects": {
+    "prestige": 1
+   },
+   "fitTables": 3,
+   "lifeDays": 420,
+   "refreshCost": 15000,
+   "nightLine": "the terrazzo floor made it look smart"
+  },
+  {
+   "id": "floor_parquet",
+   "slot": "floor",
+   "name": "Herringbone parquet",
+   "description": "Polished wood laid in zigzags, like a grand old hotel.",
+   "price": 380000,
+   "tags": [
+    "posh",
+    "smart"
+   ],
+   "effects": {
+    "prestige": 1,
+    "comfort": 1
+   },
+   "fitTables": 3,
+   "lifeDays": 360,
+   "refreshCost": 25000,
+   "nightLine": "the parquet floor looked very grand"
+  },
+  {
+   "id": "walls_cream",
+   "slot": "walls",
+   "name": "Plain cream paint",
+   "description": "Clean walls. Nobody will remember them.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "walls_sunny",
+   "slot": "walls",
+   "name": "Sunny yellow paint",
+   "description": "A bright, happy colour that cheers people up.",
+   "price": 30000,
+   "tags": [
+    "fun",
+    "cosy"
+   ],
+   "effects": {
+    "popularity": 1
+   },
+   "fitTables": 1,
+   "lifeDays": 240,
+   "refreshCost": 6000,
+   "nightLine": "the sunny walls cheered everyone up"
+  },
+  {
+   "id": "walls_stripes",
+   "slot": "walls",
+   "name": "Striped wallpaper",
+   "description": "Soft stripes that make the room feel homely.",
+   "price": 80000,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "popularity": 1,
+    "comfort": 1
+   },
+   "fitTables": 2,
+   "lifeDays": 300,
+   "refreshCost": 12000,
+   "nightLine": "the wallpaper made it feel homely"
+  },
+  {
+   "id": "walls_panels",
+   "slot": "walls",
+   "name": "Dark wood panels",
+   "description": "Rich wooden panels, like an old library.",
+   "price": 180000,
+   "tags": [
+    "smart",
+    "cosy"
+   ],
+   "effects": {
+    "prestige": 1,
+    "comfort": 1
+   },
+   "fitTables": 2,
+   "lifeDays": 480,
+   "refreshCost": 15000,
+   "nightLine": "the wood panels made it feel smart and warm"
+  },
+  {
+   "id": "walls_damask",
+   "slot": "walls",
+   "name": "Silk damask",
+   "description": "Silky wallpaper with a swirly pattern. Very posh.",
+   "price": 320000,
+   "tags": [
+    "posh"
+   ],
+   "effects": {
+    "prestige": 2
+   },
+   "fitTables": 2,
+   "lifeDays": 300,
+   "refreshCost": 30000,
+   "nightLine": "the silk walls impressed the fancy guests"
+  },
+  {
+   "id": "light_bulbs",
+   "slot": "lighting",
+   "name": "Bare bulbs",
+   "description": "Plain bulbs. They do the job.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "light_fairy",
+   "slot": "lighting",
+   "name": "Fairy lights",
+   "description": "Twinkly lights strung across the ceiling.",
+   "price": 12000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1,
+    "spend": 3,
+    "upkeep": 50
+   },
+   "fitTables": 0,
+   "lifeDays": 120,
+   "refreshCost": 3000,
+   "nightLine": "the fairy lights put people in a party mood"
+  },
+  {
+   "id": "light_lanterns",
+   "slot": "lighting",
+   "name": "Paper lanterns",
+   "description": "Round glowing lanterns over every table.",
+   "price": 16000,
+   "tags": [
+    "cosy",
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1,
+    "stay": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 150,
+   "refreshCost": 4000,
+   "nightLine": "guests stayed a bit longer under the lanterns"
+  },
+  {
+   "id": "light_brass",
+   "slot": "lighting",
+   "name": "Brass pendants",
+   "description": "Smart brass lamps with a warm glow.",
+   "price": 95000,
+   "tags": [
+    "smart"
+   ],
+   "effects": {
+    "prestige": 1,
+    "stay": 1,
+    "spend": 4
+   },
+   "fitTables": 1,
+   "lifeDays": 360,
+   "refreshCost": 8000,
+   "nightLine": "guests stayed a bit longer and ordered more"
+  },
+  {
+   "id": "light_chandelier",
+   "slot": "lighting",
+   "name": "Crystal chandeliers",
+   "description": "Sparkling chandeliers. Everyone looks up when they come in.",
+   "price": 420000,
+   "tags": [
+    "posh"
+   ],
+   "effects": {
+    "prestige": 2,
+    "stay": 1,
+    "spend": 5,
+    "upkeep": 150
+   },
+   "fitTables": 1,
+   "lifeDays": 360,
+   "refreshCost": 25000,
+   "nightLine": "the chandeliers made it feel like a special night out"
+  },
+  {
+   "id": "seat_wood",
+   "slot": "seating",
+   "name": "Wooden chairs",
+   "description": "Hard wooden chairs. Fine for a quick meal.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "seat_cushions",
+   "slot": "seating",
+   "name": "Squashy cushions",
+   "description": "Soft cushions on every chair.",
+   "price": 28000,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "comfort": 1,
+    "stay": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 120,
+   "refreshCost": 7000,
+   "nightLine": "the cushions made everyone comfier"
+  },
+  {
+   "id": "seat_rainbow",
+   "slot": "seating",
+   "name": "Rainbow chairs",
+   "description": "Chairs painted every colour you can think of.",
+   "price": 70000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1,
+    "comfort": 1
+   },
+   "fitTables": 1,
+   "lifeDays": 240,
+   "refreshCost": 9000,
+   "nightLine": "the rainbow chairs got people talking"
+  },
+  {
+   "id": "seat_banquettes",
+   "slot": "seating",
+   "name": "Leather banquettes",
+   "description": "Long padded leather benches along the walls.",
+   "price": 260000,
+   "tags": [
+    "smart"
+   ],
+   "effects": {
+    "prestige": 1,
+    "comfort": 2,
+    "stay": 1
+   },
+   "fitTables": 3,
+   "lifeDays": 420,
+   "refreshCost": 20000,
+   "nightLine": "the banquettes kept guests happy and comfy"
+  },
+  {
+   "id": "seat_velvet",
+   "slot": "seating",
+   "name": "Velvet armchairs",
+   "description": "Deep velvet armchairs you sink right into.",
+   "price": 460000,
+   "tags": [
+    "posh",
+    "cosy"
+   ],
+   "effects": {
+    "prestige": 1,
+    "comfort": 3,
+    "stay": 2
+   },
+   "fitTables": 2,
+   "lifeDays": 300,
+   "refreshCost": 35000,
+   "nightLine": "guests sank into the velvet and stayed for pudding"
+  },
+  {
+   "id": "table_pine",
+   "slot": "tables",
+   "name": "Pine tables",
+   "description": "Simple pine tables.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "table_gingham",
+   "slot": "tables",
+   "name": "Gingham cloths",
+   "description": "Red-and-white checked tablecloths. They need washing every day.",
+   "price": 15000,
+   "tags": [
+    "cosy",
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1,
+    "upkeep": 200
+   },
+   "fitTables": 0,
+   "lifeDays": 90,
+   "refreshCost": 4000,
+   "nightLine": "the gingham cloths looked cheerful"
+  },
+  {
+   "id": "table_painted",
+   "slot": "tables",
+   "name": "Painted tables",
+   "description": "Tables painted with flowers and stars.",
+   "price": 40000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1
+   },
+   "fitTables": 1,
+   "lifeDays": 200,
+   "refreshCost": 6000,
+   "nightLine": "the painted tables made people smile"
+  },
+  {
+   "id": "table_linen",
+   "slot": "tables",
+   "name": "White linen",
+   "description": "Crisp white tablecloths, washed and ironed every day.",
+   "price": 45000,
+   "tags": [
+    "smart"
+   ],
+   "effects": {
+    "prestige": 1,
+    "upkeep": 600
+   },
+   "fitTables": 0,
+   "lifeDays": 120,
+   "refreshCost": 8000,
+   "nightLine": "the white linen made it feel smart"
+  },
+  {
+   "id": "table_marble",
+   "slot": "tables",
+   "name": "Marble tops",
+   "description": "Cool, shiny marble. Heavy to carry in!",
+   "price": 300000,
+   "tags": [
+    "posh",
+    "smart"
+   ],
+   "effects": {
+    "prestige": 1,
+    "comfort": 1
+   },
+   "fitTables": 2,
+   "lifeDays": 600,
+   "refreshCost": 18000,
+   "nightLine": "the marble tables looked very posh"
+  },
+  {
+   "id": "sign_board",
+   "slot": "signage",
+   "name": "Plain name board",
+   "description": "Your name in plain letters over the door.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "sign_chalk",
+   "slot": "signage",
+   "name": "Chalkboard sign",
+   "description": "A chalkboard out front with doodles and today's specials.",
+   "price": 9000,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "popularity": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 90,
+   "refreshCost": 1500,
+   "nightLine": "people stopped to read the chalkboard"
+  },
+  {
+   "id": "sign_painted",
+   "slot": "signage",
+   "name": "Hand-painted sign",
+   "description": "A signwriter paints your name in curly gold-and-green letters.",
+   "price": 50000,
+   "tags": [
+    "cosy",
+    "smart"
+   ],
+   "effects": {
+    "popularity": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 360,
+   "refreshCost": 8000,
+   "nightLine": "the painted sign drew people in"
+  },
+  {
+   "id": "sign_neon",
+   "slot": "signage",
+   "name": "Neon sign",
+   "description": "Your name in glowing pink neon. You can see it from the end of the street!",
+   "price": 130000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 2,
+    "upkeep": 100
+   },
+   "fitTables": 0,
+   "lifeDays": 360,
+   "refreshCost": 10000,
+   "nightLine": "the neon sign pulled people in off the street"
+  },
+  {
+   "id": "sign_gold",
+   "slot": "signage",
+   "name": "Gold-leaf lettering",
+   "description": "Real gold letters on a black board. Very grand.",
+   "price": 210000,
+   "tags": [
+    "posh"
+   ],
+   "effects": {
+    "prestige": 1,
+    "popularity": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 480,
+   "refreshCost": 20000,
+   "nightLine": "the gold lettering looked very grand"
+  },
+  {
+   "id": "plant_pots",
+   "slot": "plants",
+   "name": "Two potted plants",
+   "description": "A couple of plants in the corners.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "plant_herbs",
+   "slot": "plants",
+   "name": "Herb pots",
+   "description": "Little pots of basil and mint on the tables. They need watering!",
+   "price": 7000,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "comfort": 1,
+    "upkeep": 50
+   },
+   "fitTables": 0,
+   "lifeDays": 60,
+   "refreshCost": 2500,
+   "nightLine": "the herb pots smelled lovely"
+  },
+  {
+   "id": "plant_baskets",
+   "slot": "plants",
+   "name": "Hanging baskets",
+   "description": "Baskets of flowers hanging all round the room.",
+   "price": 26000,
+   "tags": [
+    "cosy",
+    "fun"
+   ],
+   "effects": {
+    "popularity": 1,
+    "upkeep": 150
+   },
+   "fitTables": 0,
+   "lifeDays": 120,
+   "refreshCost": 5000,
+   "nightLine": "the hanging baskets brightened the room"
+  },
+  {
+   "id": "plant_palms",
+   "slot": "plants",
+   "name": "Big palms",
+   "description": "Tall leafy palms, like a posh hotel lobby.",
+   "price": 65000,
+   "tags": [
+    "smart",
+    "fun"
+   ],
+   "effects": {
+    "prestige": 1,
+    "upkeep": 100
+   },
+   "fitTables": 0,
+   "lifeDays": 240,
+   "refreshCost": 9000,
+   "nightLine": "the palms made it feel smart"
+  },
+  {
+   "id": "plant_flowerwall",
+   "slot": "plants",
+   "name": "Flower wall",
+   "description": "A whole wall covered in fresh flowers.",
+   "price": 160000,
+   "tags": [
+    "posh"
+   ],
+   "effects": {
+    "popularity": 1,
+    "comfort": 1,
+    "upkeep": 400
+   },
+   "fitTables": 1,
+   "lifeDays": 120,
+   "refreshCost": 25000,
+   "nightLine": "everyone took photos of the flower wall"
+  },
+  {
+   "id": "music_none",
+   "slot": "music",
+   "name": "Quiet room",
+   "description": "No music, just the clatter of the kitchen.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "music_radio",
+   "slot": "music",
+   "name": "Kitchen radio",
+   "description": "A little radio playing cheerful songs.",
+   "price": 4500,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "comfort": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 180,
+   "refreshCost": 1500,
+   "nightLine": "the radio kept the mood happy"
+  },
+  {
+   "id": "music_speakers",
+   "slot": "music",
+   "name": "Jazz speakers",
+   "description": "Smart speakers playing soft jazz.",
+   "price": 60000,
+   "tags": [
+    "smart"
+   ],
+   "effects": {
+    "comfort": 1,
+    "stay": 1,
+    "spend": 3
+   },
+   "fitTables": 0,
+   "lifeDays": 300,
+   "refreshCost": 6000,
+   "nightLine": "the jazz kept guests chatting a bit longer"
+  },
+  {
+   "id": "music_jukebox",
+   "slot": "music",
+   "name": "Jukebox",
+   "description": "Put a coin in and pick a song!",
+   "price": 150000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 2,
+    "spend": 4,
+    "upkeep": 100
+   },
+   "fitTables": 0,
+   "lifeDays": 360,
+   "refreshCost": 12000,
+   "nightLine": "the jukebox got everyone singing"
+  },
+  {
+   "id": "music_piano",
+   "slot": "music",
+   "name": "Grand piano",
+   "description": "A shiny grand piano. It needs tuning now and then.",
+   "price": 320000,
+   "tags": [
+    "posh"
+   ],
+   "effects": {
+    "prestige": 1,
+    "comfort": 1,
+    "stay": 1,
+    "spend": 5,
+    "upkeep": 300
+   },
+   "fitTables": 1,
+   "lifeDays": 480,
+   "refreshCost": 15000,
+   "nightLine": "the piano made it a night to remember"
+  },
+  {
+   "id": "window_planters",
+   "slot": "window",
+   "name": "Window planters",
+   "description": "Little planters under the front windows.",
+   "price": 0,
+   "tags": [],
+   "starter": true,
+   "effects": {},
+   "fitTables": 0,
+   "lifeDays": 0,
+   "refreshCost": 0
+  },
+  {
+   "id": "window_cakes",
+   "slot": "window",
+   "name": "Cake display",
+   "description": "A stand of fresh cakes in the window. Yum!",
+   "price": 12000,
+   "tags": [
+    "cosy"
+   ],
+   "effects": {
+    "popularity": 1,
+    "spend": 4,
+    "upkeep": 300
+   },
+   "fitTables": 0,
+   "lifeDays": 120,
+   "refreshCost": 2000,
+   "nightLine": "the cakes in the window sold lots of puddings"
+  },
+  {
+   "id": "window_menu",
+   "slot": "window",
+   "name": "Lit menu case",
+   "description": "Today's menu in a glowing case by the door.",
+   "price": 30000,
+   "tags": [
+    "smart"
+   ],
+   "effects": {
+    "popularity": 1
+   },
+   "fitTables": 0,
+   "lifeDays": 300,
+   "refreshCost": 4000,
+   "nightLine": "people read the lit menu and came in"
+  },
+  {
+   "id": "window_train",
+   "slot": "window",
+   "name": "Toy train",
+   "description": "A little train going round and round in the window.",
+   "price": 38000,
+   "tags": [
+    "fun"
+   ],
+   "effects": {
+    "popularity": 2
+   },
+   "fitTables": 0,
+   "lifeDays": 180,
+   "refreshCost": 6000,
+   "nightLine": "children pressed their noses to the toy train"
+  },
+  {
+   "id": "window_flowers",
+   "slot": "window",
+   "name": "Seasonal flowers",
+   "description": "A big arrangement of flowers, changed with the seasons.",
+   "price": 55000,
+   "tags": [
+    "posh",
+    "cosy"
+   ],
+   "effects": {
+    "prestige": 1,
+    "upkeep": 200
+   },
+   "fitTables": 0,
+   "lifeDays": 90,
+   "refreshCost": 9000,
+   "nightLine": "the window flowers looked beautiful"
+  }
+ ]
+}

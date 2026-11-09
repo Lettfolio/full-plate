@@ -160,6 +160,81 @@ export interface ContentPack {
    * text present replace the built-in ones key by key.
    */
   adviceText?: AdviceTextPack;
+  /**
+   * [round 10] Optional decorating catalogue (content/data/decor.json; sim-core decor.ts). Without it the restaurant
+   * keeps its starter kit and BUY_DECOR / REFRESH_DECOR are rejected.
+   */
+  decor?: DecorPack;
+}
+
+// ───────────────────────── round 10: decorating ─────────────────────────
+/** [round 10] The parts of the dining room the player can change, one item each. */
+export type DecorSlot = "floor" | "walls" | "lighting" | "seating" | "tables" | "signage" | "plants" | "music" | "window";
+export type DecorTag = "cosy" | "smart" | "fun" | "posh";
+
+/**
+ * [round 10] Small, legible effects (all integers; absent = 0). The sum over the room is capped (DECOR_CAPS):
+ * prestige / popularity shift where those scores settle; comfort adds satisfaction points to every party; stay adds
+ * eating ticks; spend raises the chance of each extra course by that %; upkeep is pence per day (in overheads).
+ */
+export interface DecorEffectsDef { prestige?: number; popularity?: number; comfort?: number; stay?: number; spend?: number; upkeep?: Pence }
+
+export interface DecorItemDef {
+  id: string;
+  slot: DecorSlot;
+  name: string;
+  /** One short, child-friendly sentence. */
+  description: string;
+  price: Pence;
+  tags: DecorTag[];
+  /** The kit the restaurant opens with (one per slot, price 0, no effects, never tires). */
+  starter?: boolean;
+  effects: DecorEffectsDef;
+  /** Tables closed on the fitting day (0 = fitted before opening). */
+  fitTables: number;
+  /** Days until it looks tired (0 = never). Worn from DECOR_WORN_SHARE of this. */
+  lifeDays: number;
+  /** Cost of a refresh (touch-up, re-cover, polish), which makes it like new. */
+  refreshCost: Pence;
+  /** The evening line on its first night, after "Your new {name}: ". */
+  nightLine?: string;
+}
+
+/** [round 10] What a dominant style is called and how each kind of guest (and critics) take to it. */
+export interface DecorStyleDef {
+  name: string;
+  /** Entry-logit nudge per segment id (small: ±0.25). */
+  segments: Record<SegmentId, number>;
+  /** Satisfaction points for a critic / influencer (VIP) party. */
+  critic?: number;
+}
+
+export interface DecorPack {
+  items: DecorItemDef[];
+  styles: Record<DecorTag, DecorStyleDef>;
+  /** Names for a room with no dominant style: no bought items yet, or a mix. */
+  plainName: string;
+  mixedName: string;
+}
+
+/** [round 10] GameState.decor. Absent = the starter kit everywhere (old saves). */
+export interface DecorState {
+  /** Bought items by slot; `since` = the day it was fitted or last refreshed. A slot not listed holds its starter item. */
+  slots: Partial<Record<DecorSlot, { itemId: string; since: number }>>;
+  /** Bought, fitted tomorrow morning (one per slot). `paid` is refunded if it is replaced before then. */
+  pending?: { slot: DecorSlot; itemId: string; paid: Pence; tables: number }[];
+  /** This morning's fitting: tables closed tonight and the slots fitted. Dropped the next morning. */
+  fitting?: { day: number; tables: number; slots: DecorSlot[] };
+}
+
+/** [round 10] DayResult.decor: what decorating did to the night (drives the evening line). */
+export interface DayDecor {
+  /** Items fitted this morning (their first night). */
+  fitted: { slot: DecorSlot; itemId: string }[];
+  /** Tables closed for the fitters tonight. */
+  tablesClosed: number;
+  /** Slots whose item started looking tired today. */
+  tired: DecorSlot[];
 }
 
 /** [round 6] The evening tips (advice.ts), in no particular order; AdviceRules.priority orders them. */
@@ -417,6 +492,8 @@ export interface DayResult {
   perChef?: Record<StaffId, { plates: number; qualityMean: number }>;
   /** [round 3] Mean ingredient freshness/season bonus of the plates cooked today (quality points; 0 when none). */
   freshnessMean?: number;
+  /** [round 10] Decorating tonight (fittings, tired items). Absent when nothing changed. */
+  decor?: DayDecor;
   /** [round 2] incidents that happened today and how they went. */
   incidents?: IncidentSummary[];
   /** [round 2] roles the owner covered today; drives the "hire someone" lesson in the evening copy. */
@@ -568,6 +645,9 @@ export interface GameState {
   // ── round 6 ──
   /** [round 6] Evening tips shown so far (advice.ts recordAdvice at END_DAY): drives the cooldown and the learners. */
   adviceLog?: AdviceLog;
+  // ── round 10 ──
+  /** [round 10] Decorating (decor.ts). Absent until the first purchase: the starter kit. */
+  decor?: DecorState;
 }
 
 /** [round 3] A footfall multiplier entry (GameState.footfallMods). */
@@ -749,7 +829,12 @@ export type Command =
   | { type: "SET_SET_MENU"; dishIds: DishId[]; price: Pence; active: boolean } // planning
   | { type: "SET_OWNER_PROFILE"; skill: number; speed: number; charm: number } // planning/evening/event
   /** [round 3 review] Hire a known person (a former colleague, a poached chef): planning; fee + cash buffer as HIRE. */
-  | { type: "HIRE_STAFF"; staff: Staff };
+  | { type: "HIRE_STAFF"; staff: Staff }
+  // round 10 — decorating (planning or evening)
+  /** Buy a decor item for its slot: paid now, fitted tomorrow morning (that night some tables are closed). */
+  | { type: "BUY_DECOR"; slot: DecorSlot; itemId: string }
+  /** Freshen up a slot's worn or tired item (its refresh cost): like new again, no fitting day. */
+  | { type: "REFRESH_DECOR"; slot: DecorSlot };
 
 // ───────────────────────── events (sim → UI) ─────────────────────────
 export type SimEvent =

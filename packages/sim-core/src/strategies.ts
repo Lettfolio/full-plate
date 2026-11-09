@@ -5,19 +5,20 @@
  *   runStrategyDay(content, state, STRATEGIES.typical)  // one planning → service → evening → next planning day
  *   playOne(content, seed, days, strat, difficulty)     // a whole run from newGame
  */
-import { DAYS_PER_MONTH } from "./constants";
+import { DAYS_PER_MONTH, DECOR_SLOTS } from "./constants";
 import { dispatch as applyCommand } from "./commands";
 import { tickService as tick } from "./engine";
 import { newGame } from "./newGame";
 import { candidates } from "./staff";
 import { allAdvice, rotaAdvice } from "./advice";
 import { stockQty } from "./stock";
+import { findDecorItem, installed as installedDecor, wearOf as decorWear } from "./decor";
 import type { AdviceKind, Candidate, Command, ContentPack, Difficulty, GameState, StaffRole } from "./types";
 
 // ── strategies ──
 export type StrategyName =
   | "balanced" | "cheap" | "premium" | "nohire" | "typical" | "learner"
-  | "learner-rota" | "learner-overstock" | "learner-dog" | "learner-idleChef" | "learner-underpriced";
+  | "learner-rota" | "learner-overstock" | "learner-dog" | "learner-idleChef" | "learner-underpriced" | "decorator";
 
 export interface Strategy {
   name: StrategyName;
@@ -48,6 +49,12 @@ export interface Strategy {
    * shown LEARNER_NOTICE_SHOWS evenings (GameState.adviceLog).
    */
   readsTips?: readonly AdviceKind[];
+  /**
+   * [round 10] Decor items to buy in order (one per DECORATOR_GAP_DAYS, only with `decorCash` left after paying), and
+   * worn items are refreshed when the cash allows. Ids missing from the content pack are skipped.
+   */
+  decor?: readonly string[];
+  decorCash?: number;
 }
 
 const TYPICAL: Strategy = { name: "typical", priceMult: 1, menuSize: 8, coverCash: 150_000, secondHireCash: 800_000, tableCash: 1_200_000, stockDays: 2.0, hireBy: "value", typical: true };
@@ -67,6 +74,11 @@ export const STRATEGIES: Record<StrategyName, Strategy> = {
   "learner-dog": { ...TYPICAL, name: "learner-dog", readsTips: ["dog"] },
   "learner-idleChef": { ...TYPICAL, name: "learner-idleChef", readsTips: ["idleChef"] },
   "learner-underpriced": { ...TYPICAL, name: "learner-underpriced", readsTips: ["underpriced"] },
+  // Round 10: the typical owner who decorates over year 1 — a cosy kit, one piece a fortnight, refreshed when worn.
+  decorator: {
+    ...TYPICAL, name: "decorator", decorCash: 800_000,
+    decor: ["light_lanterns", "seat_cushions", "sign_chalk", "table_gingham", "music_radio", "walls_stripes", "window_cakes", "plant_baskets", "floor_rugs"],
+  },
   nohire: { name: "nohire", priceMult: 1, menuSize: 6, coverCash: Infinity, secondHireCash: Infinity, tableCash: 2_000_000, stockDays: 1.3, hireBy: "value", noHire: true },
 };
 
@@ -228,6 +240,28 @@ export function restock(content: ContentPack, s: GameState, strat: Strategy, ste
   return cur;
 }
 
+/** [round 10] Days between the decorator's purchases. */
+export const DECORATOR_GAP_DAYS = 14;
+
+/** [round 10] Evening: refresh one worn item, or buy the plan's next piece (strategies with `decor`). */
+export function decorate(content: ContentPack, s: GameState, strat: Strategy, step: Step): GameState {
+  if (!strat.decor || !content.decor || (s.phase !== "evening" && s.phase !== "planning")) return s;
+  const spare = s.cash - (strat.decorCash ?? 0);
+  for (const slot of DECOR_SLOTS) {
+    const it = installedDecor(content, s, slot);
+    if (it?.bought && decorWear(it.item, it.since, s.day) !== "fresh" && it.item.refreshCost <= spare) return step(s, { type: "REFRESH_DECOR", slot });
+  }
+  if (s.decor?.pending?.length) return s;
+  const last = Math.max(-Infinity, ...Object.values(s.decor?.slots ?? {}).map((x) => x?.since ?? -Infinity));
+  if (s.day - last < DECORATOR_GAP_DAYS) return s;
+  for (const id of strat.decor) {
+    const item = findDecorItem(content, id);
+    if (!item || installedDecor(content, s, item.slot)?.item.id === id) continue;
+    return item.price <= spare ? step(s, { type: "BUY_DECOR", slot: item.slot, itemId: id }) : s;
+  }
+  return s;
+}
+
 export function buyTables(content: ContentPack, s: GameState, strat: Strategy, step: Step): GameState {
   if (isBusy(s) && s.cash > strat.tableCash && s.tables.length < content.balance.maxTables) return step(s, { type: "BUY_TABLE" });
   return s;
@@ -305,6 +339,7 @@ export function runStrategyDay(content: ContentPack, state: GameState, strat: St
   }
   if (s.phase === "planning" || s.phase === "service") s = playService(content, s, true, !!strat.typical);
   if (s.phase === "evening" || s.phase === "event") s = restock(content, s, strat, step);
+  if (s.phase === "evening") s = decorate(content, s, strat, step);
   if (s.phase === "evening") s = step(s, { type: "END_DAY" });
   else if (s.phase === "event") s = resolveEvent(content, s, step);
   return s;
@@ -318,6 +353,8 @@ export interface RunResult {
   covers: number[];
   ratings: number[];
   finalPopularity: number;
+  /** [round 10] Prestige at the end of the run. */
+  finalPrestige?: number;
   /** Final state (dropped when results cross a worker boundary). */
   final?: GameState;
 }
@@ -337,6 +374,7 @@ export function playOne(content: ContentPack, seed: number, days: number, strat:
     s = buyTables(content, s, strat, step);
     s = playService(content, s, true, !!strat.typical);
     if (s.phase === "evening" || s.phase === "event") s = restock(content, s, strat, step);
+    if (s.phase === "evening") s = decorate(content, s, strat, step);
     const h = s.history.at(-1);
     if (h) {
       covers.push(h.covers);
@@ -346,5 +384,5 @@ export function playOne(content: ContentPack, seed: number, days: number, strat:
     if (s.phase === "evening") s = step(s, { type: "END_DAY" });
     else if (s.phase === "event") s = resolveEvent(content, s, step);
   }
-  return { seed, survived: s.phase !== "gameover", daysPlayed: s.day, monthEndCash, covers, ratings, finalPopularity: s.reputation.popularity, final: s };
+  return { seed, survived: s.phase !== "gameover", daysPlayed: s.day, monthEndCash, covers, ratings, finalPopularity: s.reputation.popularity, finalPrestige: s.reputation.prestige, final: s };
 }
