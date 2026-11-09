@@ -8,7 +8,8 @@ import type { Command, GameState } from "@full-plate/sim-core";
 import { inSeason } from "@full-plate/sim-stars";
 import { appReducer, initialAppState, type AppState } from "../state/gameReducer";
 import { FORK_DAY, initialMeta } from "../state/paths";
-import { applyCommand, content, runDay, SERVICE_TICKS, suggestedOrder } from "../sim";
+import { applyCommand, candidates, content, hireCheck, runDay, SERVICE_TICKS, suggestedOrder } from "../sim";
+import { StaffTab } from "../screens/planning/StaffTab";
 import { suggestedStarterMenu } from "../lib/starterMenu";
 import { Planning } from "../screens/Planning";
 import { tonightRisk } from "../screens/planning/stockNeeds";
@@ -117,5 +118,36 @@ describe("P2: the Stars tab says what holds you back", () => {
     expect(card.textContent).toMatch(/stay secret until guide day/);
     // Words only: no inspector scores, thresholds or predicted stars on the card.
     expect(card.textContent).not.toMatch(/score|threshold|predict/i);
+  });
+});
+
+describe("P2: one hire-cost rule (sim.ts hireCheck over sim-core exports)", () => {
+  const rejected = (g: GameState, i: number) =>
+    applyCommand(content, g, { type: "HIRE", candidateIndex: i }).events.some((e) => e.type === "LOG" && e.entry.kind === "bad");
+
+  it("agrees with sim-core's HIRE at the edge, with and without the career's cheaper fee", () => {
+    const g0 = playedOwner().game!;
+    const c = candidates(content, g0)[0]!;
+    for (const g of [g0, { ...g0, recruitmentFee: 2_000 }]) {
+      const { needed, fee } = hireCheck(g, c);
+      expect(fee).toBe(g.recruitmentFee ?? 15_000);
+      expect(hireCheck({ ...g, cash: needed }, c).canAfford).toBe(true);
+      expect(rejected({ ...g, cash: needed }, 0)).toBe(false);
+      expect(hireCheck({ ...g, cash: needed - 1 }, c).canAfford).toBe(false);
+      expect(rejected({ ...g, cash: needed - 1 }, 0)).toBe(true);
+    }
+  });
+
+  it("the Staff tab's Hire button follows it", () => {
+    const g0 = playedOwner().game!;
+    const c = candidates(content, g0)[0]!;
+    const { needed } = hireCheck(g0, c);
+    render(<StaffTab game={{ ...g0, cash: needed - 1 }} send={noop} />);
+    const btn = screen.getByText(c.name).closest(".candidate")!.querySelector("button")!;
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toBe(`Needs £${Math.ceil(needed / 100)} in the bank`);
+    cleanup();
+    render(<StaffTab game={{ ...g0, cash: needed }} send={noop} />);
+    expect(screen.getByText(c.name).closest(".candidate")!.querySelector("button")!.disabled).toBe(false);
   });
 });

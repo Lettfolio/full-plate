@@ -100,3 +100,16 @@ export const HOOKS = {
 
 /** The fee HIRE charges in this game (GameState.recruitmentFee, else RECRUITMENT_FEE). */
 export const recruitmentFeeOf: (s: GameState) => number = (sim as unknown as { recruitmentFeeOf?: (s: GameState) => number }).recruitmentFeeOf ?? (() => sim.RECRUITMENT_FEE);
+
+/**
+ * Round 3 review P2: the one hire-affordability rule the UI uses, read only from sim-core exports (no copied
+ * constants). It is sim-core's HIRE / HIRE_STAFF cash rule: the game's recruitment fee (`recruitmentFeeOf`, which
+ * honours the career manager's cheaper-hiring perk) plus HIRE_CASH_BUFFER_SHIFTS shifts of the person's wages
+ * (`shiftCost`). sim-core has no `canHire` export yet; when it gains one, call it here and nowhere else.
+ */
+export function hireCheck(state: GameState, person: { wage: number }): { fee: number; perShift: number; needed: number; canAfford: boolean } {
+  const fee = recruitmentFeeOf(state);
+  const perShift = sim.shiftCost(person);
+  const needed = fee + sim.HIRE_CASH_BUFFER_SHIFTS * perShift;
+  return { fee, perShift, needed, canAfford: state.cash >= needed };
+}

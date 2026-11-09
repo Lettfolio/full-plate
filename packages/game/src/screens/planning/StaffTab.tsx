@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Candidate, Command, GameState, Staff, StaffRole } from "@full-plate/sim-core";
-import { candidates, content, HIRE_CASH_BUFFER_SHIFTS, recruitmentFeeOf, shiftCost, TRAINING_FEE, TRAINING_SKILL_GAIN } from "../../sim";
+import { candidates, content, hireCheck, recruitmentFeeOf, shiftCost, TRAINING_FEE, TRAINING_SKILL_GAIN } from "../../sim";
 import { Bar } from "../../components/Bar";
 import { MoneyText } from "../../components/MoneyText";
 import { traitName } from "../../lib/content";
@@ -108,11 +108,9 @@ function PersonCard({ s, game, today, send }: { s: Staff; game: GameState; today
   );
 }
 
-function CandidateCard({ c, cash, fee, onHire, wanted = false }: { c: Candidate; cash: number; fee: number; onHire: () => void; wanted?: boolean }) {
-  // Same rule as sim-core's HIRE: cash ≥ fee + a few shifts' wages. The fee is the game's (a manager's perk lowers it).
-  const perShift = shiftCost(c);
-  const needed = fee + HIRE_CASH_BUFFER_SHIFTS * perShift;
-  const canAfford = cash >= needed;
+function CandidateCard({ c, game, onHire, wanted = false }: { c: Candidate; game: GameState; onHire: () => void; wanted?: boolean }) {
+  // sim-core's HIRE rule via sim.ts `hireCheck` (fee in effect + a few shifts' wages); nothing is duplicated here.
+  const { fee, perShift, needed, canAfford } = hireCheck(game, c);
   return (
     <div className={`candidate ${wanted ? "candidate--wanted" : ""}`}>
       {wanted && <div className="candidate__wanted">🎯 The {ROLE_LABEL[c.role].toLowerCase()} your goal asks for</div>}
@@ -175,7 +173,7 @@ export function StaffTab({ game, send, wantRole, known = [] }: Props) {
         <h3>Looking for work</h3>
         <p className="small muted">New faces every morning. Wages are per hour; a shift is {SHIFT_HOURS} hours. Hiring costs a <MoneyText pence={fee} whole /> agency fee.</p>
         {shown.length === 0 && <div className="empty small">No one else today. Check again tomorrow.</div>}
-        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} fee={fee} cash={game.cash} wanted={c.role === wantRole} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
+        {shown.map(({ c, i }) => <CandidateCard key={`${i}-${c.name}`} c={c} game={game} wanted={c.role === wantRole} onHire={() => send({ type: "HIRE", candidateIndex: i })} />)}
         {friends.length > 0 && (
           <>
             <h3 style={{ marginTop: 10 }}>Old colleagues</h3>
@@ -184,8 +182,7 @@ export function StaffTab({ game, send, wantRole, known = [] }: Props) {
               <CandidateCard
                 key={k.staff.id}
                 c={{ ...k.staff, potentialHint: `worked with you at ${k.employer} · bond ${Math.round(k.bond)}` } as Candidate}
-                fee={fee}
-                cash={game.cash}
+                game={game}
                 onHire={() => send({ type: "HIRE_STAFF", staff: k.staff })}
               />
             ))}
