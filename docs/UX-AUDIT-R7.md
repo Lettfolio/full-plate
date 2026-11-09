@@ -80,3 +80,18 @@ the other modals. No findings.
 
 Counts: **P1 2 · P2 9 (one handed to B) · P3 8.** Header items (Save & quit 34 px, Settings 32 px) are C's StatusBar and
 are not counted here.
+
+### Status after the fixes (round 7, A)
+
+| # | State |
+|---|---|
+| A1 | Fixed: tap to walk, press to use, USE/Drop buttons; a touch-only playthrough grabs, chops and cooks (`touchplay.cjs`). |
+| A2 | Fixed: three-step onboarding, once per save and role, Skip, replay from **?**. |
+| A3 | Fixed: one-row bar at 1024 px; 32 px tiles (were 23). |
+| A4, A5 | Fixed: Yours outline/tab; mood faces, thicker ring, slip wait bars. |
+| A6 | Fixed: hit targets padded to ≥ 44 px. |
+| A7, A8 | Fixed: score card spans the evening, "Next shift, try this" hero with a sentence from the night's numbers; USE wording on touch. |
+| A9, A10 | Fixed: reasons as text; 44 px controls (header Settings is C's). |
+| A11 | Handed to B (Service.tsx). |
+| A12–A16, A18, A19 | Fixed. |
+| A17 | Open (start picker layout; not sticky). |

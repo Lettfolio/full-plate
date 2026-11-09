@@ -434,3 +434,38 @@ Type audit: 25 screens, 0 text runs below 13 px.
 - The "Covered by the sous chef" toast still rises from the pass and can overlap his bubble when he is there. (Round 6 review: not seen in 301 frames of three
   played shifts; his bubble shows only during the take, under the slip, while the toast rises at the pass.)
 - Round 6 review: when he stands at the pass his name tag sits on the floor's "PASS" label ("Alfie" over "PASS"). P3.
+
+## Round 7: touch, the lead-in, and reading the room (UX round, agent A)
+
+Render-only and cosmetic session fields again: no sim rule, timing, result or pacing changed; the parity, rail-agree and
+determinism tests are unchanged and pass.
+
+### The sous chef sets off when the slip falls due (REVIEW R6 next step 2)
+- `SessionOptions.sousLead` (the game turns it on for a career station). The session stamps each rail slip's
+  `railSeen[].dueSince` with the session time it first fell due — `coverDueTick ≤ tick + 1`, the cover-age rule the sim
+  uses, so it is sent at the next tick. No wall clock or tick timer is needed: the sim tick already in the state says it.
+- Render (`sousPending`) walks him from his post to that slip from `dueSince` (or from when he is free) and he **waits
+  under it**, facing the rail. The cover's trip is booked with `leadFrom` = the same start, so it carries on from the
+  rail: `walkTimes` = { start, takeAt = max(cover, start + toRail), end }. A cover before he arrives: he finishes the
+  walk, then takes it. She plates it first: `standDown` walks him back from the rail. Covers in one tick share the
+  earliest stamp. Patience-based covers have no stamp and walk the round-6 way. Finished trips are kept while a due
+  slip waits (its lead-in starts when he was free).
+- The bubble ("I've got table 3's Chips!") starts at the cover, not on the lead-in (nothing to say yet).
+- Verified in `game/src/__tests__/round7.careerUx.test.tsx` over three half-speed bot shifts through the reducer:
+  **0 frames where he jumps more than 0.6 tiles** (with and without the lead), 8–10 of 13–17 trips set off early.
+
+### Other canvas changes
+- `avoidPlayer`: the sous chef, the helper and the floor colleagues are drawn at least 0.8 tiles from her.
+- "PASS" sits at the counter's left end (his tag sat on it); a toast born on a head rises 3 tiles to the side.
+- `yourStations(session)`: the appliances her station's dishes cook on get a dashed tomato outline and a **Yours** tab.
+- Tables: `moodOf(patience)` face (happy > 60, flat > 30, cross), 5 px ring over a faint track. Slips: a wait bar
+  (`slipTimeLeft(ageTicks)`, the head colours' 14/30-tick bands).
+- `HandsOnView.keyLabel` ("USE" on touch) replaces E in prompts, widget titles and hint lines (`withKey`).
+
+### Touch (`touch.ts`)
+`stationRect`, `railSlotRect`, `railTagRect` (CSS px from `viewMetrics`), `padToMin` (44 px), `hitTest(session, view,
+x, y)` → a station (padded targets, nearest centre wins) or the rail, `railTarget` (the fridge for a chef). The game's
+`lib/touchControl.ts` turns taps into `HandsOnInput` through `InputSource.setTouch` (tap to walk via `steerToward`,
+press to use). `input.ts` ignores keys aimed at buttons and fields (`onControl`).
+
+`ShiftSummary.nextStarAt`: the points the next star needs (absent at three), for the score card.
