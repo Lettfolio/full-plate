@@ -191,3 +191,52 @@ Why the button says "tomorrow": `ORDER_STOCK` is delivered the next morning, so 
 
 Tests: `src/__tests__/starsReview.test.tsx` (real sim + reducer): `tonightRisk` vs `suggestedOrder`; the plain and the inspection-season warning; no warning when covered; an empty larder in inspection season played through the reducer ends with a named `SHORT_MENU` and one more window entry; the Stars tab hint card; `hireCheck` against sim-core's HIRE at the cash edge (with and without the career fee) and the Hire button's disabled state.
 
+
+## Round 5 (readability for a 10-year-old at 1280×800)
+
+### Type scale
+
+| Token / rule | Size | Use |
+| --- | --- | --- |
+| `--fs-base` | 16 px | body copy, Empire side panel |
+| `--fs-sm` | 15 px | secondary copy, small buttons, callouts |
+| `--fs-xs` | 14 px | **the minimum for any sentence**: hints, subtitles, table cells |
+| `--fs-label` | 15 px | panel labels (KPI and track labels, big-number labels) |
+| `--fs-micro` | 13 px | tiny chrome only: tab badges, initials, clock ends, caps counters, `.term__real` |
+| canvas | ≥ 13 CSS px | `RestaurantView` (`CANVAS_MIN_PX`) and handson `render.ts` (`MIN_TEXT_PX`) floor every label; both draw in CSS pixels at the container size |
+
+**Nothing on screen is below 13 px.** Two guards:
+
+- `src/__tests__/typeScale.test.ts` (vitest): tokens, every CSS `font-size`, inline TSX `fontSize`, and the canvas label sizes in both renderers.
+- `scripts/type-audit.mjs` (Playwright): walks 25 screens (title, start picker, lease, the four planning tabs, help, settings, service, evening, fork, game over, win, the Empire tab and its three panels, Stars, my shift, watch, hands-on, score card, career evening) at 1280×800 and fails on any rendered text below 13 px: DOM text by `getComputedStyle`, SVG text times its on-screen scale, canvas text through a `fillText` probe. Screenshots at deviceScaleFactor 2.
+
+  ```
+  pnpm --filter @full-plate/game build
+  node packages/game/scripts/type-audit.mjs     # starts `vite preview` on :4173 if nothing is there
+  ```
+
+  Env: `FP_AUDIT_SHOTS` (screenshot dir, default `scripts/.audit-shots`), `FP_AUDIT_MIN` (13), `FP_AUDIT_ONLY` (comma list of screen names), `FP_AUDIT_URL`, `FP_AUDIT_SKIP_GEN=1`. The saves it loads are built first by `scripts/audit-saves.gen.ts` (real sim, run through `scripts/vitest.audit.config.ts`; not part of `pnpm test`). Exit 1 when anything is too small or the page throws.
+
+### The Term convention
+
+Trade words stay (the brief wants real economics) but never stand alone. `lib/glossary.ts` holds each one as `{ term, plain, explain }`; `components/Term.tsx` shows it:
+
+- `<Term id="royalty" />`: the plain label ("Money the brand gets from each shop") with the real word in small text beneath (`.term__real`), and `term: explanation` as the tooltip. Use it for labels: KPI keys, fact lists, contract rows, card titles.
+- `<Term id="covers" inline>guests</Term>`: a dotted-underline `<abbr>` (focusable) whose tooltip is the term and the one-liner. Use it inside sentences.
+- `children` replace the plain label; the real word is kept either way.
+
+Add a word to the glossary before using it in UI copy. Covered so far: covers, footfall, prestige, popularity, margin, 86, takings, tronc, the four menu-matrix quadrants, food guides, stagiaires, consistency, and the Empire words (royalty, ad fund, franchise fee, rent on your land, take, franchise, company-owned, licence, standardisation, recognition, saturation, cost index, HQ cash, the development facility, overdraft, the association, franchisee mood, margin 7 days, crew skill, property, remodel). RevPASH, GP%, amortisation are not on any screen.
+
+### Empire side panel
+
+Three tabs instead of four: **🏪 My shops** (the picked city: facts, country rules, open a site; then every site), **🍔 The brand** (formula, presets, recognition, campaigns, suppliers) and **💷 Money** (HQ money and what it can spend as two big numbers, the move-from-the-flagship control, which used to sit under the map, and the franchise contract). Each site shows three big numbers (profit this week, sales a year, how alike) with the real term beneath, instead of one 12 px line. Every control from round 4 is still there (`empireFocus.test.tsx` checks them). Map labels are 13.5–14.5 px on screen.
+
+### Other layout fixes for the bigger type
+
+- Planning › Menu with the goals sidebar: each dish row is two lines (name and facts, then price, margin and buttons); it was five columns that broke the name a word a line.
+- Hands-on bar may wrap the key hints onto a second line; the clock track keeps 12:00 and 22:00 apart. The hands-on header is 80 px (was 64) so 13–14 px ticket slips fit.
+- Result (audit, `FP_AUDIT_MIN=13`): 1331 text runs below 13 px before (12.5 px `--fs-xs` everywhere, 10–11 px canvas labels, 10.5 px SVG), 0 after, on every screen.
+
+### Contrast
+
+WCAG AA (4.5:1) is checked in `src/__tests__/contrast.test.ts` against the live tokens. Changes: `--ink-faint` `#72675c → #6a5f54` (was 4.4–4.5:1 on cream-deep and the tomato/plum washes); new `--sky-deep` (porter avatar, white 5.1:1; was 3.5:1) and `--amber-deep` (score-card "work on" badge, white 5.4:1; was 2.2:1); canvas faint labels use `#6a5f54` / ink-soft (were `#8f857a`, 3.3:1 on the kitchen tiles); menu-matrix axis labels use ink-soft. Tomato `#c4412b` and basil `#3c7a37` already pass (4.6 / 4.8:1 on cream; white on them 5.1 / 5.2:1).
