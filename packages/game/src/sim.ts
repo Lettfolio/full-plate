@@ -9,7 +9,7 @@
  */
 import * as sim from "@full-plate/sim-core";
 import { content as libraryPack, extras, fullContent, inLibrary as contentInLibrary, tagsOf as contentTagsOf } from "@full-plate/content";
-import type { Command, ContentPack } from "@full-plate/sim-core";
+import type { Command, ContentPack, GameState } from "@full-plate/sim-core";
 
 export type * from "@full-plate/sim-core";
 
@@ -70,7 +70,7 @@ export type HookCommand =
   | { type: "PLAYER_CLEARED"; tableId: string }
   | { type: "PLAYER_TOOK_PAYMENT"; customerId: string }
   | { type: "PLAYER_DROPPED"; ticketIds: string[]; cost: number }
-  | { type: "SET_HANDS_ON"; role: "chef" | "server" | "bar" | null }
+  | { type: "SET_HANDS_ON"; role: "chef" | "server" | "bar" | null; staffId?: string }
   | { type: "CLOSE_TODAY" }
   | { type: "SET_SET_MENU"; dishIds: string[]; price: number; active: boolean }
   | { type: "SET_OWNER_PROFILE"; skill: number; speed: number; charm: number };
@@ -94,6 +94,9 @@ export const HOOKS = {
   closeToday: simSupports("CLOSE_TODAY"),
   setMenu: simSupports("SET_SET_MENU"),
   ownerProfile: simSupports("SET_OWNER_PROFILE"),
-  /** GameState.recruitmentFee is honoured by HIRE (newGame writes the field when it is supported). */
-  recruitmentFee: "recruitmentFee" in PROBE_STATE,
+  /** GameState.recruitmentFee is honoured by HIRE (sim-core exports recruitmentFeeOf). */
+  recruitmentFee: typeof (sim as Record<string, unknown>).recruitmentFeeOf === "function",
 };
+
+/** The fee HIRE charges in this game (GameState.recruitmentFee, else RECRUITMENT_FEE). */
+export const recruitmentFeeOf: (s: GameState) => number = (sim as unknown as { recruitmentFeeOf?: (s: GameState) => number }).recruitmentFeeOf ?? (() => sim.RECRUITMENT_FEE);

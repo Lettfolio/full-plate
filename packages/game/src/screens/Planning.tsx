@@ -147,7 +147,12 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           ))}
         </div>
         {closedForRefit ? (
-          <button className="btn btn--primary btn--xl" disabled={game.phase !== "planning"} onClick={() => send(HOOKS.closeToday ? asCommand({ type: "CLOSE_TODAY" }) : { type: "START_SERVICE" })}>
+          <button className="btn btn--primary btn--xl" disabled={game.phase !== "planning"} onClick={() => {
+            if (!HOOKS.closeToday) { send({ type: "START_SERVICE" }); return; }
+            // CLOSE_TODAY pays rostered staff 50%: give today off first (the rest of the week's rota is kept).
+            for (const st of game.staff) if (st.rota[today]) send({ type: "SET_ROTA", staffId: st.id, rota: st.rota.map((on, i) => (i === today ? false : on)) });
+            send(asCommand({ type: "CLOSE_TODAY" }));
+          }}>
             Closed for the refit — next day →
           </button>
         ) : confirmAlone ? (

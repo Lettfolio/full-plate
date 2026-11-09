@@ -257,7 +257,9 @@ function reduce(s: AppState, a: AppAction): AppState {
     case "handsOnStart": {
       if (!s.game || s.game.phase !== "service") return s;
       let game = s.game;
-      if (HOOKS.handsOn) game = applyCommand(pack, game, asCommand({ type: "SET_HANDS_ON", role: a.meta.role })).state;
+      // Career: pass the player's staff id so their plates are credited to them (perChef, the weekly review).
+      const staffId = s.meta.mode === "career" && !s.meta.career?.handover ? s.meta.career?.playerStaffId : undefined;
+      if (HOOKS.handsOn) game = applyCommand(pack, game, asCommand({ type: "SET_HANDS_ON", role: a.meta.role, ...(staffId ? { staffId } : {}) })).state;
       return { ...s, game, meta: { ...s.meta, handsOn: a.meta } };
     }
     case "handsOnStop": {

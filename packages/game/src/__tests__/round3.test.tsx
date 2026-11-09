@@ -181,3 +181,27 @@ describe("save envelope", () => {
     expect(() => decodeSave(JSON.stringify({ kind: "full-plate", v: ENVELOPE_VERSION + 1, game: "{}", meta: {} }))).toThrow();
   });
 });
+
+describe("hands-on → sim-core", () => {
+  it("SET_HANDS_ON at start/stop and PLAYER_COOKED results reach the live sim", () => {
+    let s = yearTwoOwner();
+    s = appReducer(s, { type: "command", cmd: { type: "START_SERVICE" } });
+    s = appReducer(s, { type: "handsOnStart", meta: { role: "chef", jumpIn: true } });
+    expect(s.game!.handsOn?.role).toBe("chef");
+    let t = s.game!.tickets.find((x) => !x.chefId && !x.atPass);
+    for (let i = 0; i < 60 && !t; i++) { s = appReducer(s, { type: "ticks", n: 1 }); t = s.game!.tickets.find((x) => !x.chefId && !x.atPass); }
+    expect(t).toBeTruthy();
+    const plates = s.game!.service!.plates;
+    s = appReducer(s, { type: "handsOnResults", results: [{ type: "PLATE_COOKED", ticketId: t!.id, quality: 77, execution: 0.9, station: "stove", speedBonus: 1 }] });
+    expect(s.game!.service!.plates).toBe(plates + 1);
+    s = appReducer(s, { type: "handsOnStop" });
+    expect(s.game!.handsOn).toBeUndefined();
+  });
+
+  it("a career shift passes the player's staff id to SET_HANDS_ON", () => {
+    let s = appReducer(initialAppState, { type: "newCareer", seed: 4, track: "chef", strategy: "balanced", playerName: "Robin", difficulty: "normal", districtId: "high_street" });
+    s = appReducer(s, { type: "command", cmd: { type: "START_SERVICE" } });
+    s = appReducer(s, { type: "handsOnStart", meta: { role: "chef", jumpIn: false } });
+    expect(s.game!.handsOn).toMatchObject({ role: "chef", staffId: PLAYER_ID });
+  });
+});

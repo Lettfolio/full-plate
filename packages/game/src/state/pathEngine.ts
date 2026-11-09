@@ -18,7 +18,7 @@ import {
   applyStarsCommand, applyStarsEffects, closedDay, isClosed, newStarsState, prepareService, stepStarsDay, withSignatures,
   type StarsCommand, type StarsEvent,
 } from "@full-plate/sim-stars";
-import { applyCommand, asCommand, careerContent, content, extras, HOOKS, newGame, serialize, deserialize } from "../sim";
+import { applyCommand, asCommand, careerContent, content, extras, HOOKS, newGame, recruitmentFeeOf, serialize, deserialize } from "../sim";
 import { fill } from "@full-plate/content";
 import { FORK_SNOOZE_DAYS, type PathMeta, type WinMeta, initialMeta } from "./paths";
 
@@ -86,9 +86,9 @@ export function applyOwnerProfile(game: GameState, career: NonNullable<PathMeta[
     const r = applyCommand(content, g, asCommand({ type: "SET_OWNER_PROFILE", skill: Math.round(career.stats.skill), speed: Math.round(career.stats.speed), charm: Math.round(career.stats.charm) }));
     g = r.state;
   }
+  // Cheaper hiring: a per-game fee replaces the applyWithPerks rebate wrapper (the rebate applies to every hire, not just 3).
   if (HOOKS.recruitmentFee && career.ownerPerks && career.ownerPerks.hireRebatesLeft > 0) {
-    const base = (g as GameState & { recruitmentFee?: number }).recruitmentFee;
-    if (base !== undefined) g = { ...g, recruitmentFee: Math.max(0, base - career.ownerPerks.hireRebateEach) } as GameState;
+    g = { ...g, recruitmentFee: Math.max(0, recruitmentFeeOf(g) - career.ownerPerks.hireRebateEach) };
   }
   return g;
 }
@@ -205,6 +205,9 @@ export function starsCommand(game: GameState, meta: PathMeta, cmd: StarsCommand)
 /** Morning: a refit closes the restaurant. CLOSE_TODAY when sim-core has it, else the ×0-footfall fallback. */
 export function starsMorning(game: GameState, meta: PathMeta): GameState {
   if (!meta.stars || game.phase !== "planning") return game;
+  // With CLOSE_TODAY the Planning screen closes the doors itself (and un-rosters staff first); the ×0-footfall
+  // fallback is only for the ending (the restaurant is shut for good) or a sim without the hook.
+  if (HOOKS.closeToday && !meta.stars.ending) return game;
   return prepareService(game, meta.stars);
 }
 
