@@ -209,6 +209,12 @@ try {
   await tab(/Empire/);
   await page.locator(".empire aside [role=tab]").filter({ hasText: "Money" }).click(); await page.waitForTimeout(300);
   await audit("46-empire-board-minutes");
+  // Round 8: the year-4 world map zoomed in (labels stay CSS-sized), then a city's district map.
+  await page.getByRole("button", { name: "Zoom in" }).click(); await page.getByRole("button", { name: "Zoom in" }).click(); await page.waitForTimeout(200);
+  await audit("47-empire-map-zoomed");
+  await page.getByRole("button", { name: "Reset map" }).click();
+  await page.getByRole("button", { name: /^Harbourton,/ }).click(); await page.waitForTimeout(300);
+  await audit("48-empire-city-map");
 
   // Stars
   await boot({ owner: "stars" }); await cont();

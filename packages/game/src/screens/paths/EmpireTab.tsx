@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
   associationBlocks, avgFranchiseeMood, boxTables, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE,
@@ -14,6 +14,7 @@ import { compactMeals } from "../../components/StatusBar";
 import { Term } from "../../components/Term";
 import { GLOSSARY, type TermId } from "../../lib/glossary";
 import type { PathMeta } from "../../state/paths";
+import { CityMap, OWN_COLOUR, WorldMap } from "./WorldMap";
 
 interface Props {
   game: GameState;
@@ -23,16 +24,6 @@ interface Props {
   onFocusSite: (siteId: string) => void;
 }
 
-/** Hand-drawn blobs for the five regions (0-1000 × 0-400), from the sim-empire demo. */
-const LANDMASSES: { regionId: string; d: string }[] = [
-  { regionId: "isles", d: "M410 44 q36 -20 74 -2 q34 22 26 62 q10 40 -16 70 q-34 22 -74 6 q-30 -26 -22 -66 q-12 -40 12 -70z" },
-  { regionId: "mainland", d: "M520 120 q40 -22 90 -6 q36 14 34 44 q-6 30 -44 40 q-40 12 -70 -4 q-28 -20 -22 -48 q2 -16 12 -26z" },
-  { regionId: "westland", d: "M100 130 q60 -40 140 -10 q40 20 30 70 q-10 50 -70 60 q-60 10 -100 -20 q-30 -30 -20 -70 q6 -20 20 -30z" },
-  { regionId: "sunrise", d: "M720 200 q40 -60 120 -50 q70 10 80 60 q6 40 -40 80 q-50 40 -120 20 q-50 -16 -48 -60 q0 -30 8 -50z" },
-  { regionId: "crescent", d: "M592 248 q30 -16 70 -2 q40 14 44 44 q2 30 -36 42 q-40 10 -66 -10 q-24 -20 -20 -46 q2 -18 8 -28z" },
-];
-const REGION_LABEL: Record<string, [number, number]> = { isles: [350, 120], mainland: [560, 225], westland: [180, 290], sunrise: [820, 345], crescent: [640, 350] };
-const OWN_COLOUR = ["var(--tomato)", "var(--amber)", "var(--plum)"];
 const districtName = (id: string) => content.districts.find((d) => d.id === id)?.name ?? id.replace("_", " ");
 
 /** Round 5: three cards a child can find things in (My shops = city + sites, The brand, Money = HQ, flagship till, contract). */
@@ -44,7 +35,26 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
   const [picked, setPicked] = useState<string>(e.hq.homeCityId);
   const [panel, setPanel] = useState<Panel>("shops");
   const [move, setMove] = useState(0);
+  // Round 8: the map card shows the world, or the picked city's district map.
+  const [mapView, setMapView] = useState<"world" | "city">("world");
+  const sideRef = useRef<HTMLElement>(null);
   const city = e.cities.find((c) => c.id === picked);
+  const pickCity = (id: string) => { setPicked(id); setPanel("shops"); setMapView("city"); };
+  /** "Open here" on the city map: the side panel's open-site row for that district (or the Enter button), focused. */
+  const openHere = (districtId: string | null) => {
+    setPanel("shops");
+    requestAnimationFrame(() => {
+      const root = sideRef.current;
+      const target = districtId === null
+        ? root?.querySelector<HTMLButtonElement>("[data-enter-city] button")
+        : root?.querySelector<HTMLButtonElement>(`[data-opensite="${districtId}"] button:not(:disabled)`) ?? root?.querySelector<HTMLButtonElement>(`[data-opensite="${districtId}"] button`);
+      const row = target?.closest<HTMLElement>("[data-opensite], [data-enter-city]");
+      row?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      row?.classList.add("opensite__row--flash");
+      window.setTimeout(() => row?.classList.remove("opensite__row--flash"), 1600);
+      target?.focus({ preventScroll: true });
+    });
+  };
   const open = openSites(e);
   const franchised = e.sites.some((s) => s.ownership !== "company" && s.status === "open");
   const mood = franchised ? avgFranchiseeMood(e) : undefined;
@@ -77,14 +87,9 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
       <div className="empire__layout">
         <div className="stack">
           <div className="card empire__map">
-            <WorldMap e={e} picked={picked} onPick={(id) => { setPicked(id); setPanel("shops"); }} />
-            <div className="empire__legend xs">
-              <span><i style={{ background: OWN_COLOUR[0] }} /><Term id="company" inline>Your own</Term></span>
-              <span><i style={{ background: OWN_COLOUR[1] }} /><Term id="franchise" inline>Franchise</Term></span>
-              <span><i style={{ background: OWN_COLOUR[2] }} /><Term id="licence" inline>Licence</Term></span>
-              <span><i style={{ background: "var(--paper)", border: "1.5px solid var(--ink)" }} />Not entered</span>
-              <span className="muted">Bar under a region = <Term id="recognition" inline>how many people know you</Term> (green at {EMPIRE.WIN_RECOGNITION})</span>
-            </div>
+            {mapView === "city" && city
+              ? <CityMap e={e} city={city} onBack={() => setMapView("world")} onOpenHere={openHere} />
+              : <WorldMap e={e} picked={picked} onPick={pickCity} />}
           </div>
           <div className="card">
             <div className="card__title"><h3>News from the chain</h3></div>
@@ -95,7 +100,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           </div>
         </div>
 
-        <aside className="stack empire__side">
+        <aside className="stack empire__side" ref={sideRef}>
           <div className="tabs tabs--sm empire__tabs" role="tablist" aria-label="Empire panels">
             {(["shops", "brand", "money"] as Panel[]).map((p) => (
               <button key={p} role="tab" aria-selected={panel === p} className={`tab ${panel === p ? "tab--active" : ""}`} onClick={() => setPanel(p)}>
@@ -105,7 +110,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           </div>
           {panel === "shops" && (
             <>
-              <ShopsHero e={e} picked={picked} onPick={setPicked} />
+              <ShopsHero e={e} picked={picked} onPick={pickCity} />
               {city && <CityPanel e={e} city={city} send={send} />}
               <SitesPanel e={e} send={send} onFocusSite={onFocusSite} cityId={picked} />
             </>
@@ -266,88 +271,6 @@ function Stat({ k, v, sub }: { k: React.ReactNode; v: React.ReactNode; sub?: Rea
   return <div className="kpi"><div className="kpi__k">{k}</div><div className="kpi__v">{v}</div>{sub && <div className="xs muted">{sub}</div>}</div>;
 }
 
-function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: string; onPick: (id: string) => void }) {
-  const pins = useMemo(() => {
-    const byCity = new Map<string, { company: number; franchise: number; licence: number; building: number }>();
-    for (const s of e.sites) {
-      if (s.status === "closed") continue;
-      const c = byCity.get(s.cityId) ?? { company: 0, franchise: 0, licence: 0, building: 0 };
-      if (s.status === "building") c.building++;
-      else c[s.ownership]++;
-      byCity.set(s.cityId, c);
-    }
-    return byCity;
-  }, [e]);
-  const scandal = new Set(e.effects.filter((f) => f.kind === "scandal" && f.regionId).map((f) => f.regionId!));
-  return (
-    <svg viewBox="40 20 920 380" role="group" aria-label="World map of cities and sites">
-      <rect x="40" y="20" width="920" height="380" fill="var(--sky-wash)" rx="16" />
-      {LANDMASSES.map((l) => {
-        const rec = e.brand.recognition[l.regionId] ?? 0;
-        return <path key={l.regionId} d={l.d} fill={`color-mix(in srgb, var(--basil-wash) ${100 - rec}%, #b9d9a8)`} stroke={scandal.has(l.regionId) ? "var(--tomato)" : "var(--line-strong)"} strokeWidth={scandal.has(l.regionId) ? 4 : 2} />;
-      })}
-      {e.regions.map((r) => {
-        const rec = e.brand.recognition[r.id] ?? 0;
-        const [lx, ly] = REGION_LABEL[r.id] ?? [r.x, r.y];
-        return (
-          <g key={r.id} transform={`translate(${lx} ${ly})`} aria-label={`${r.name}: recognition ${Math.round(rec)}`}>
-            <text textAnchor="middle" fontSize="17" fontWeight="800" fill="var(--ink-soft)" fontFamily="var(--font-display)">{r.name}</text>
-            <rect x={-40} y={6} width={80} height={7} rx={3.5} fill="var(--cream-deep)" />
-            <rect x={-40} y={6} width={0.8 * rec} height={7} rx={3.5} fill={rec >= EMPIRE.WIN_RECOGNITION ? "var(--basil)" : "var(--amber)"} />
-          </g>
-        );
-      })}
-      {e.cities.map((c) => {
-        const p = pins.get(c.id);
-        const total = p ? p.company + p.franchise + p.licence : 0;
-        const r = 8 + Math.min(16, Math.sqrt(total) * 2);
-        const sel = c.id === picked;
-        return (
-          <g
-            key={c.id}
-            transform={`translate(${c.x} ${c.y})`}
-            onClick={() => onPick(c.id)}
-            onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); onPick(c.id); } }}
-            style={{ cursor: "pointer" }}
-            role="button"
-            tabIndex={0}
-            aria-pressed={sel}
-            aria-label={`${c.name}, ${c.country}: ${total} site${total === 1 ? "" : "s"}${c.entered ? "" : ", not entered"}`}
-          >
-            {/* Round 7: a 48-unit invisible hit area (≥ 44 px on screen at 1280 and 1024) round every pin. */}
-            <circle className="pin-hit" r={Math.max(26, r + 4)} />
-            {sel && <circle r={r + 6} fill="none" stroke="var(--ink)" strokeWidth={2} strokeDasharray="4 3" />}
-            {total > 0 ? <Pie r={r} parts={[p!.company, p!.franchise, p!.licence]} /> : (
-              <circle r={8} fill={c.entered ? "var(--cream-deep)" : "var(--paper)"} stroke="var(--ink)" strokeWidth={1.5} strokeDasharray={c.exited ? "2 2" : undefined} />
-            )}
-            {p?.building ? <circle cx={r - 2} cy={-r + 2} r={4.5} fill="var(--amber)" stroke="var(--ink)" strokeWidth={1} /> : null}
-            <text y={r + 18} textAnchor="middle" fontSize="16" fontWeight="800" paintOrder="stroke" stroke="var(--paper)" strokeWidth={3} fill="var(--ink)" fontFamily="var(--font-body)">{c.name}{total ? ` · ${total}` : ""}</text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-function Pie({ r, parts }: { r: number; parts: number[] }) {
-  const total = parts.reduce((a, b) => a + b, 0);
-  const nonZero = parts.filter((x) => x > 0).length;
-  if (nonZero === 1) return <circle r={r} fill={OWN_COLOUR[parts.findIndex((x) => x > 0)]} stroke="var(--ink)" strokeWidth={1.5} />;
-  let a0 = -Math.PI / 2;
-  return (
-    <g>
-      {parts.map((n, i) => {
-        if (!n) return null;
-        const a1 = a0 + (n / total) * Math.PI * 2;
-        const d = `M0 0 L${r * Math.cos(a0)} ${r * Math.sin(a0)} A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${r * Math.cos(a1)} ${r * Math.sin(a1)} Z`;
-        a0 = a1;
-        return <path key={i} d={d} fill={OWN_COLOUR[i]} />;
-      })}
-      <circle r={r} fill="none" stroke="var(--ink)" strokeWidth={1.5} />
-    </g>
-  );
-}
-
 /** Why HQ can't pay `cost` right now (undefined when it can). */
 function cantAfford(e: EmpireState, cost: number | undefined): string | undefined {
   if (!cost || cost <= 0 || spendable(e) >= cost) return undefined;
@@ -396,7 +319,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
           <ul className="small">{rules.map((r, i) => <li key={i}>{r}</li>)}</ul>
         </div>
       )}
-      <div className="row row--wrap">
+      <div className="row row--wrap" data-enter-city={city.entered || city.exited ? undefined : city.id}>
         {!city.entered && !city.exited && (
           <Blockable e={e} send={send} className="btn btn--primary btn--sm" cost={cityEntryCost(e, city)} cmd={{ type: "ENTER_CITY", cityId: city.id }}>Enter {city.name} · <MoneyText pence={cityEntryCost(e, city)} whole /></Blockable>
         )}
@@ -413,7 +336,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
           {applicant && <UnlockedFormulaWarning e={e} />}
           <div className="opensite">
             {city.districts.map((d) => (
-              <div key={d} className="opensite__row">
+              <div key={d} className="opensite__row" data-opensite={d}>
                 <span className="spacer small"><b>{districtName(d)}</b></span>
                 <Blockable e={e} send={send} cost={cost} cmd={{ type: "OPEN_SITE", cityId: city.id, districtId: d, ownership: "company", land: "hqLease" }} title="Company-owned: you build it and keep the profit">
                   Company · <MoneyText pence={cost} whole />

@@ -12,6 +12,7 @@ import { dateLabel, WEEKDAY_NAMES } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
 import { Term } from "../../components/Term";
 import { guideYear, nightStrip } from "../../lib/starsStrip";
+import { StarsMap } from "./StarsMap";
 
 interface Props {
   game: GameState;
@@ -137,6 +138,8 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
         <div className="card track"><div className="track__k">{names.goodFood}</div><div className="track__v">{v.goodFood ? `${v.goodFood}/10` : "—"}</div><div className="xs muted">{v.goodFood ? "listed" : "not listed"}</div></div>
         <div className="card track"><div className="track__k">Local critic</div><div className="track__v">{v.critic.lastReview ? "★".repeat(v.critic.lastReview.rating) : "—"}</div><div className="xs muted">{v.critic.lastReview ? `${v.critic.lastReview.critic}, ${dateLabel(v.critic.lastReview.day)}` : "hasn't been yet"}</div></div>
       </div>
+
+      <StarsMap v={v} restaurantName={game.restaurantName} districtId={game.districtId} shownStars={shownStars} day={game.day} />
 
       <div className="starstab__grid">
         <div className="stack">

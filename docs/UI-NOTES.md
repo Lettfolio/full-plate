@@ -420,3 +420,76 @@ At ≤ 1180 px with Bigger text the planning tabs drop their icons and narrow, a
   ingredient; Staff stacks the team above the job hunt (person cards ≥ 340 px). No large-text-only layout rules remain.
 - **Start picker**: the start button lives in an `.actiondock` with the choices summed up; the lease shows a picked
   difficulty as a reminder with Change.
+
+## Round 8 — A (maps)
+
+The owner asked for "better maps". The world stays invented (same 5 regions, 12 cities, ids and countries); what
+changed is how it is drawn and used. Shots: scratchpad `shots/r8/a/{before,final,final-large,probe}/` (scripts
+`r8a/shots.mjs`, `r8a/probe-maps.mjs`, `r8a/drag.mjs`).
+
+### Files
+
+| File | What |
+| --- | --- |
+| `screens/paths/worldGeo.ts` | Geography and maths only: coastlines (a dozen hand-placed points per landmass, three rounds of seeded midpoint displacement, Catmull-Rom curves), forest/desert patches, scattered trees and dunes, peaks, hills, rivers, region label spots and halo ellipses, `LABEL_SIDE`, `cityPos`, and the pan/zoom functions (`clampView`, `zoomAt`, `centreOn`, `toScreenPct`, `routePath`). `hash32` (FNV-1a) for stable placement. No `Math.random` anywhere. |
+| `screens/paths/WorldMap.tsx` | `WorldMap` (Empire), `CityMap`, `cityMix`, `supplyRoutes`, `rentLevel`, `ShopIcon`. |
+| `screens/paths/mapParts.tsx` | `MapLegend`/`LegendItem`, `CityBoard` (the tiled district map), `footfallWord`, `districtRent`. No sim-empire import, so the Stars chunk stays lean. |
+| `screens/paths/StarsMap.tsx` | The Stars path's map (`starsPlaces`, `homeCity`). |
+| `screens/paths/map.css` | Every map style. Map-only colours are variables on `.worldmap, .citymap, .starsmap, .legend` (`--map-sea`, `--map-land`, `--map-coast`, `--map-route`, `--map-halo`, `--map-halo-won`, …). Own/franchise/licence reuse `--tomato/--amber/--plum`; "won" is basil; focus rings `--sky-deep`; tap size `var(--tap, 44px)`. Nothing was added to theme.css. |
+
+### How the world map is built
+
+- **Two layers.** An SVG scene (sea gradient, a faint graticule, recognition halos, two pale depth bands drawn as wide
+  round-joined strokes of each coast, land, forest/desert patches clipped to their landmass, terrain symbols, rivers,
+  scandal outlines, supply routes, a compass) under an HTML layer of region labels and city pins. Pins are real
+  `<button>`s, 44×44, centred on the city, with the name beside them in CSS px. Zooming never shrinks a label (the
+  type audit has nothing to find), and the pins are in the tab order in content order.
+- **Pins.** A paper disc with a donut of own / franchise / licence and the shop count; a striped badge while any are
+  being built; a gold crown on the HQ city; 🍳 on a commissary hub; a small dot for an entered city with no shops, a
+  hollow grey dot for one not entered, dashed for forced out. The picked city has a blue ring (`aria-pressed`).
+  Accessible name: "Harbourton, Albrenn: 24 shops (1 your own, 23 franchise), 3 being built, your HQ".
+- **Tooltip** on hover or focus (`role="tooltip"`, linked by `aria-describedby`): shops by kind, rent level
+  (£/££/£££ from `costIndex`), the region's recognition, entry cost if not entered.
+- **Halo** (replaces the bar under each region): a radial glow round the region, amber, green once recognition ≥ 60,
+  opacity 0.15 + 0.6 × recognition/100 (nothing below 3). The label under each region name says "known 67 ✓".
+- **Routes**: a dashed, gently curved line from the hub to every city with shops (open or building). The hub is HQ's
+  city; in a region that has a commissary (and isn't HQ's) it is that region's busiest city (green route).
+- **Pan/zoom**: wheel (zoom about the cursor; at 1× zooming out — or at 4× zooming in — the wheel scrolls the page
+  instead), drag, two-finger pinch, and +/−/reset buttons (44 px, top left). Clamped to 1–4× and to the map's edges,
+  so it can't be lost. `touch-action: pan-y` at 1× (a finger can still scroll the page), `none` when zoomed. A drag
+  that starts on a pin pans and does not pick. A pin pushed off the frame is transparent and unclickable but stays
+  focusable; focusing it re-centres the map. A minimap (bottom right) shows the view while zoomed.
+- **Map key**: a 44 px "Map key" toggle (`aria-expanded`) over a row of swatches. Open by default when the map is at
+  least 720 px wide, folded when narrower.
+
+### City map
+
+Tapping a pin (or a city row in "My shops") swaps the world for that city: ← World map, the name, country and region,
+chips (shops, rent, known), then `CityBoard`: inland districts side by side, the seafront full-width along the bottom
+with the sea under it. Each tile: name, "👣 Very busy / Busy / Steady" (content footfall ≥ 100 / ≥ 80 / less), rent
+(content `monthlyRent` × city `costIndex`: < £2,400 cheap, < £3,300 middling, else pricey), a shop icon per shop (up
+to 12, "+N"; awning in the owner colour, dashed while building, a star on the one you run) and **+ Open here** (free
+district) / **+ Open another**. That button switches the side panel to My shops, scrolls to the district's
+open-site row (`data-opensite`), flashes it and focuses its first enabled button: the existing flow does the rest.
+A city not entered shows "Not entered yet · Enter {city}…", which goes to the Enter button (`data-enter-city`).
+
+### Stars map
+
+`StarsMap` sits under the prestige tracks: the home city's `CityBoard` with every restaurant as a pin (flagship with
+its stars, satellites "no stars", the rival with its stars), a locator of the Isles, last guide's revealed visit
+count, and the latest two rumours headed "Overheard (might not be true)". In inspection season the flagship's
+district gets a plum edge and "🕵️ Inspectors are about". Nothing hidden is read (STARS-NOTES "What the UI may show").
+
+### Numbers
+
+- Chunks: EmpireTab 33.4 → 47.2 kB, StarsTab 18.9 → 23.9 kB, plus a shared `mapParts` chunk of 10.0 kB JS (both
+  paths) and 15.5 kB CSS. Empire in total +23.8 kB, Stars +15.0 kB. Main chunk unchanged.
+- Tests: `round8.maps.test.tsx` (14): every city on land in its own region; view clamps; every city a focusable
+  button with a name; tooltip; zoom buttons clamp and disable; routes only to cities with shops (and from a
+  commissary); the key toggles; picking a city shows its districts and Back returns; Open here focuses the side
+  panel's row; a city not entered offers Enter; the Stars map pins every restaurant; placement is stable; a hidden
+  visit never shows; map styles stay out of theme.css. Game 291 tests, all packages green.
+- Type audit: two new screens (`47-empire-map-zoomed`, `48-empire-city-map`): 31 screens, 0 runs below 13 px, normal
+  and Bigger. Probe (`r8a/probe-maps.mjs`, the R7 probe's metrics) on the world map, zoomed, tooltip, city map, a
+  city not entered and the Stars map at 1280/1024 × normal/Bigger: 0 targets < 44 px, 0 text < 13 px, 0 contrast
+  failures, 0 sideways scroll. "Covered" hits left are the Map key sitting under the action dock until scrolled.
