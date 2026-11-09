@@ -12,6 +12,8 @@ export {
   expectedSiteDay,
   forceEvent,
   recalibrateFromSite,
+  newGameFromSite,
+  siteBrandPull,
   updateSaturation,
   // derived helpers for the UI
   avgFranchiseeMood,
@@ -29,10 +31,16 @@ export {
   developmentFacility,
   TECH_LABEL,
 } from "./engine";
-export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent } from "./engine";
+export type { NewEmpireOptions, ForkOptions, StepOptions, ForcedEvent, SiteGameOptions } from "./engine";
 export {
   aggregateSiteDay,
+  boxTables,
+  brandMenu,
+  brandPull,
   calibrate,
+  crewLabourPerDay,
+  offPremise,
+  siteDemandAndCapacity,
   defaultCalibration,
   demandFactor,
   menuBreaksRules,

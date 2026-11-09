@@ -8,18 +8,24 @@
  *   random events (scandal, supplier outage, forced exit, ideas, applicants) → association → HQ overheads,
  *   mortgages, inflation, solvency → meals, win check, monthly snapshot.
  */
-import type { ContentPack, GameState } from "@full-plate/sim-core";
+import { applyCommand, forecastNeeds, newGame, setFootfallMod, type ContentPack, type GameState, type Staff, type Stock } from "@full-plate/sim-core";
 import * as K from "./constants";
 import {
   aggregateSiteDay,
   calibrate,
   clamp,
   defaultCalibration,
-  demandFactor,
+  brandMenu,
+  brandPull,
+  crewWage,
   districtDef,
+  offPremise,
   menuBreaksRules,
   saturationPenalty,
   siteDayFromResult,
+  sitePopularity,
+  sitePrestige,
+  siteTables,
   standardisation,
   type SiteDayContext,
 } from "./model";
@@ -113,6 +119,9 @@ export function newEmpire(content: ContentPack, opts: NewEmpireOptions): EmpireS
     unreported: 0,
     failingDays: 0,
     mealsServed: 0,
+    // A two-year-old founder-run room (forkFromGameState replaces these with the real restaurant's).
+    popularity: calibration.popularity ?? K.DEFAULT_POPULARITY,
+    prestige: K.FLAGSHIP_PRESTIGE,
   };
   return {
     version: 1,
@@ -165,7 +174,7 @@ export interface ForkOptions {
  * The flagship starts focused; the game keeps stepping its GameState and passes each DayResult in.
  */
 export function forkFromGameState(content: ContentPack, state: GameState, opts: ForkOptions): EmpireState {
-  const calibration = calibrate(content, state.history, { districtId: state.districtId, lastDays: opts.calibrationDays ?? 90 });
+  const calibration = calibrate(content, state.history, { districtId: state.districtId, lastDays: opts.calibrationDays ?? 90, state });
   const e = newEmpire(content, {
     seed: state.seed,
     brandName: opts.brandName,
@@ -176,7 +185,26 @@ export function forkFromGameState(content: ContentPack, state: GameState, opts: 
     calibration,
     ...(opts.homeCityId ? { homeCityId: opts.homeCityId } : {}),
   });
-  return { ...e, sites: e.sites.map((s) => ({ ...s, focused: true })), focusedSiteId: "s1" };
+  // The flagship keeps its own dining room (it may have bought tables); other sites get the brand's box.
+  return { ...e, sites: e.sites.map((s) => ({ ...s, focused: true, ...ownRoom(content, state) })), focusedSiteId: "s1" };
+}
+
+/** What a hands-on GameState tells the model about its own site: tables, crew skill (shift-weighted) and popularity. */
+function ownRoom(content: ContentPack, state: GameState): Partial<SiteSummary> {
+  let shifts = 0;
+  let skill = 0;
+  for (const x of state.staff) {
+    if (x.role !== "chef" && x.role !== "server") continue;
+    const n = x.rota.filter(Boolean).length;
+    shifts += n;
+    skill += x.skill * n;
+  }
+  return {
+    ...(state.tables.length !== content.balance.startingTables ? { tables: state.tables.length } : {}),
+    ...(shifts > 0 ? { staffQuality: Math.round(skill / shifts) } : {}),
+    popularity: Math.round(state.reputation.popularity * 10) / 10,
+    prestige: Math.round(state.reputation.prestige * 10) / 10,
+  };
 }
 
 // ───────────────────────── helpers ─────────────────────────
@@ -540,7 +568,9 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     const rid = city.regionId;
     let r: SiteDayResult;
     if (s.focused && focusedResult) {
-      r = siteDayFromResult(s.id, focusedResult);
+      // The hands-on dining room comes from sim-core; drive-thru and app orders (which sim-core has no physics for)
+      // ride on top of it at the same spend and food cost per cover, as they do on modelled sites.
+      r = withOffPremise(siteDayFromResult(s.id, focusedResult), offPremise(s, brand));
     } else {
       ctxBase.demandMult = fx.demand[rid];
       ctxBase.spendMult = fx.spend[rid];
@@ -1379,37 +1409,135 @@ export function expectedSiteDay(content: ContentPack, e: EmpireState, siteId: st
   });
 }
 
-/**
- * Re-fits the model to a focused site's DayResults and normalises it back to the reference state, so the
- * other sites keep their own factors and the focused site keeps its numbers when demoted.
- */
-export function recalibrateFromSite(content: ContentPack, e: EmpireState, siteId: string, history: readonly DayResult[]): EmpireState {
+/** Scales the covers, sales and food of a focused DayResult by the off-premise multiplier (1 = unchanged). */
+function withOffPremise(r: SiteDayResult, mult: number): SiteDayResult {
+  if (mult === 1) return r;
+  const covers = Math.round(r.covers * mult);
+  const revenue = Math.round(r.revenue * mult);
+  const vat = Math.round(r.vat * mult);
+  const foodCost = Math.round(r.foodCost * mult);
+  const labourCost = Math.round(r.labourCost * mult ** K.OFF_PREMISE_LABOUR_EXP);
+  return { ...r, covers, revenue, vat, foodCost, labourCost, contribution: revenue - vat - foodCost - labourCost - r.overheads };
+}
+
+/** Brand pull on one site today (the "brand" footfall mod newGameFromSite and the game's evening hook give the sim). */
+export function siteBrandPull(content: ContentPack, e: EmpireState, siteId: string): number {
   const s = e.sites.find((x) => x.id === siteId);
   if (!s) throw new Error(`No site ${siteId}`);
   const city = e.cities.find((c) => c.id === s.cityId)!;
-  const raw = calibrate(content, history, { districtId: s.districtId });
   const fx = effectMultipliers(e, e.hq.day);
-  const ctx: SiteDayContext = { day: e.hq.day, calibration: { ...raw, districtId: s.districtId }, demandMult: fx.demand[city.regionId], breaksRules: !city.localised && menuBreaksRules(content, e.brand.formula.menuDishIds, city.dietaryRules) };
-  // Express the fit in the empire's reference district/city so other sites' location factors stay right.
-  const refCal = { ...raw, districtId: e.calibration.districtId ?? s.districtId };
-  const loc = demandFactor(content, s, e.brand, city, { ...ctx, calibration: refCal });
+  return brandPull(content, s, e.brand, city, {
+    day: e.hq.day,
+    demandMult: fx.demand[city.regionId],
+    breaksRules: !city.localised && menuBreaksRules(content, e.brand.formula.menuDishIds, city.dietaryRules),
+  });
+}
+
+/**
+ * Re-fits the model to a focused site's DayResults. With the site's GameState, the fit sees its menu, tables, rota,
+ * popularity and the brand pull it traded under, so demandScale stays a property of the sim rather than of the site;
+ * costs are normalised back to the reference (cost index, price level, price index), so other sites keep their own
+ * factors and the focused site keeps its numbers when demoted.
+ */
+export function recalibrateFromSite(content: ContentPack, e: EmpireState, siteId: string, history: readonly DayResult[], state?: GameState): EmpireState {
+  const s = e.sites.find((x) => x.id === siteId);
+  if (!s) throw new Error(`No site ${siteId}`);
+  const city = e.cities.find((c) => c.id === s.cityId)!;
+  const pull = state ? state.footfallMods.filter((m) => m.source === "brand").reduce((a, m) => a * m.mult, 1) : siteBrandPull(content, e, siteId);
+  const raw = calibrate(content, history, {
+    districtId: s.districtId,
+    pull,
+    ...(state ? { state } : { menu: brandMenu(content, e.brand.formula) }),
+  });
   const f = e.brand.formula;
   const pl = e.hq.priceLevel;
   const spendNorm = clamp(f.priceIndex, ...K.PRICE_INDEX_RANGE) * city.costIndex * pl * (f.appOrdering ? K.APP_SPEND : 1);
   const foodNorm = city.costIndex ** 0.6 * pl * (f.fresh ? K.FRESH_FOOD_COST : 1) * supplierFoodMult(e);
-  const speedee = 1 - K.LABOUR_EFFICIENCY_PER_10_STD * Math.max(0, (f.standardisation - K.REF_STANDARDISATION) / 10);
+  const appSpend = f.appOrdering ? K.APP_SPEND : 1;
+  const foodRef = city.costIndex ** 0.6 * pl * (f.fresh ? K.FRESH_FOOD_COST : 1) * supplierFoodMult(e);
   const cal: CalibrationParams = {
-    ...refCal,
-    baseCovers: raw.baseCovers / loc,
-    coversMean: raw.coversMean,
+    ...raw,
+    ...(raw.spendScale !== undefined ? { spendScale: raw.spendScale / (city.costIndex * pl * appSpend) } : {}),
+    ...(raw.foodScale !== undefined ? { foodScale: raw.foodScale / foodRef } : {}),
     spendPerCover: Math.round(raw.spendPerCover / spendNorm),
     foodPerCover: Math.round(raw.foodPerCover / foodNorm),
-    // Labour scales as (covers / coversMean)^exp: express both in reference units so the site reproduces its own labour.
-    labourPerDay: Math.round(raw.labourPerDay / (city.costIndex * pl * speedee * loc ** K.LABOUR_SCALE_EXP)),
+    labourPerDay: Math.round(raw.labourPerDay / (city.costIndex * pl)),
     overheadsFixed: Math.round(raw.overheadsFixed / (city.costIndex * pl)),
   };
-  cal.coversMean = raw.coversMean / loc;
-  return { ...e, calibration: cal };
+  const sites = state ? e.sites.map((x) => (x.id === siteId ? { ...x, tables: state.tables.length, ...ownRoom(content, state) } : x)) : e.sites;
+  return { ...e, sites, calibration: cal };
+}
+
+export interface SiteGameOptions {
+  difficulty?: GameState["difficulty"];
+  /** Opening till (pence). Default £20k: a running branch, not a start-up. */
+  cash?: number;
+}
+
+/**
+ * A fresh sim-core GameState for an Empire site, matching what the model assumes for it (P2, round 3): the site's
+ * district and name, the brand menu at the formula's price index, the brand's box of tables (or the site's own), a
+ * locally hired standard crew of the site's staff quality (two chefs and two servers on rotas A and B), the
+ * popularity the model trades at, no loan, and the brand pull as a "brand" footfall mod. Deterministic in `rng`.
+ */
+export function newGameFromSite(content: ContentPack, e: EmpireState, site: SiteSummary, rng: Rng, opts: SiteGameOptions = {}): GameState {
+  const day = e.hq.day;
+  let g = newGame(content, { type: "NEW_GAME", seed: rng.int(1, 0x7fff_ffff), districtId: site.districtId, restaurantName: site.name, difficulty: opts.difficulty ?? "normal" });
+  const tablesN = siteTables(content, site, e.brand);
+  const seats = content.balance.seatsPerTable;
+  g = {
+    ...g,
+    day,
+    cash: opts.cash ?? 2_000_000,
+    loan: { principal: 0, remaining: 0, dailyPayment: 0, daysRemaining: 0 },
+    goals: [],
+    tables: Array.from({ length: tablesN }, (_, i) => ({ id: `T${i + 1}`, seats, dirtyTicks: 0 })),
+    reputation: { popularity: Math.round(sitePopularity(site) * 10) / 10, prestige: Math.round(sitePrestige(site) * 10) / 10 },
+    log: [{ day, tick: 0, text: `You're running ${site.name} hands-on: the brand menu, ${tablesN} tables and a local crew.`, kind: "info" }],
+  };
+  for (const item of brandMenu(content, e.brand.formula)) g = applyCommand(content, g, { type: "ADD_MENU_ITEM", dishId: item.dishId, price: item.price }).state;
+  g = { ...g, staff: localCrew(content, site, rng, day) };
+  const pull = siteBrandPull(content, e, site.id);
+  if (Math.abs(pull - 1) > 0.005) g = setFootfallMod(g, "brand", { mult: Math.round(pull * 1000) / 1000, daysRemaining: K.BRAND_PULL_DAYS });
+  // A running branch has a stocked larder: the forecast's needs plus a day's buffer, delivered yesterday.
+  const stock: Stock[] = forecastNeeds(content, g).map(({ ingredientId, need }) => {
+    const qty = Math.ceil(need * K.BRANCH_STOCK_DAYS);
+    return { ingredientId, qty, oldestDay: day - 1, batches: [{ qty, day: day - 1 }] };
+  });
+  return { ...g, stock };
+}
+
+/** Two chefs and two servers hired locally around the site's staff quality, on the standard rotas. */
+function localCrew(content: ContentPack, site: SiteSummary, rng: Rng, day: number): Staff[] {
+  const q = clamp(site.staffQuality, 0, 100);
+  const out: Staff[] = [];
+  const roles: { role: "chef" | "server"; rota: readonly boolean[] }[] = [
+    { role: "chef", rota: K.CREW_ROTA_A },
+    { role: "chef", rota: K.CREW_ROTA_B },
+    { role: "server", rota: K.CREW_ROTA_A },
+    { role: "server", rota: K.CREW_ROTA_B },
+  ];
+  roles.forEach(({ role, rota }, i) => {
+    const pool = content.staffArchetypes.filter((a) => a.role === role);
+    const names = pool.flatMap((a) => a.nameSamples);
+    const skill = Math.round(clamp(q + rng.gaussian(0, 4), 5, 95));
+    out.push({
+      id: `${site.id}-${role}${i % 2 === 0 ? "a" : "b"}`,
+      name: names.length ? rng.pick(names) : role === "chef" ? "Sam" : "Alex",
+      role,
+      skill,
+      speed: Math.round(clamp(60 + rng.gaussian(0, 6), 30, 90)),
+      charm: Math.round(clamp((role === "server" ? 62 : 40) + rng.gaussian(0, 6), 10, 95)),
+      wage: crewWage(skill, role),
+      mood: 70,
+      fatigue: 0,
+      traits: [],
+      hiredDay: day,
+      potential: Math.min(100, skill + 10),
+      rota: rota.slice(),
+    });
+  });
+  return out;
 }
 
 export { calibrate };

@@ -83,6 +83,12 @@ export interface SiteSummary {
   mealsServed: number;
   /** True while this site is the focused sim-core restaurant; its numbers come from DayResults, not the model. */
   focused?: boolean;
+  /** [round 3] Tables in the dining room when it differs from the brand's standard box (the flagship's own room). */
+  tables?: number;
+  /** [round 3] Popularity (0–100) the site last traded at hands-on; without it the model uses its staff quality's. */
+  popularity?: number;
+  /** [round 3] Prestige (0–100) the site last traded at hands-on; without it the model uses its staff quality's. */
+  prestige?: number;
 }
 
 export interface Franchisee {
@@ -278,8 +284,23 @@ export interface MonthlySnapshot {
 
 /** Fitted parameters of the closed-form site model (see calibrate()). */
 export interface CalibrationParams {
-  /** Deseasonalised covers per day at the reference state in the calibration district. */
+  /** Mean fitted covers/day of the reference site over the calibration window (for the UI and notes). */
   baseCovers: number;
+  /**
+   * [round 3] Fitted demand ÷ sim-core's closed-form demand (`marketDemand`). The model's demand is
+   * demandScale × marketDemand(district, brand menu, popularity, day) × brand pull, served through the site's seat
+   * and crew capacity (`capacityCovers`, `softCap`). ≈1 when the closed form matches the focused sim. Absent in
+   * pre-round-3 saves (read as 1).
+   */
+  demandScale?: number;
+  /**
+   * [round 3] Actual menu spend ÷ sim-core's expected basket (marketDemand.spendPerCover), and food + waste ÷ the
+   * expected ingredient cost. A site's spend per cover is spendScale × its own district's basket on the brand menu.
+   */
+  spendScale?: number;
+  foodScale?: number;
+  /** [round 3] Popularity (0–100) of the focused restaurant the fit was made on (informational). */
+  popularity?: number;
   /** Mean covers/day over the history (labour scales with covers relative to this). */
   coversMean: number;
   spendPerCover: Pence;
@@ -291,8 +312,9 @@ export interface CalibrationParams {
   cardFeePct: number;
   vatPct: number;
   /**
-   * Covers multiplier per weekday (0 = Monday, sim-core's weekdayOf), mean 1 over the week. Captures the
-   * weekend uplift, capacity clipping and the focused restaurant's rota (days the owner covers are slower).
+   * Covers multiplier per weekday (0 = Monday, sim-core's weekdayOf), mean 1 over the week, of the reference site
+   * with the standard crew (informational since round 3: the model derives it from footfall and crew capacity, so
+   * the owner's rota no longer leaks into every site).
    */
   weekdayProfile: number[];
   /** Weekend ÷ weekday covers ratio implied by weekdayProfile (for the UI and notes). */

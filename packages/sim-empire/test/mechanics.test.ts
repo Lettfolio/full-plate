@@ -7,6 +7,7 @@ import {
   developmentFacility,
   contractAttractiveness,
   expectedSiteDay,
+  siteDemandAndCapacity,
   forceEvent,
   menuBreaksRules,
   openSites,
@@ -78,7 +79,9 @@ describe("contract builder and franchisee mood", () => {
   });
 
   it("raising the royalty on everyone hits mood at once and keeps it lower", () => {
-    let e = withApplicant(empire());
+    // Round 3: on the honest model an unlocked dining room barely covers a franchisee's royalty, rent and loan, so the
+    // franchise runs the locked formula (its takeaway counter) to leave mood room for the shock.
+    let e = withApplicant(must(empire(), { type: "SET_FORMULA", locked: true }));
     e = openAndBuild(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "student_quarter", ownership: "franchise", land: "thirdParty", applicantId: "a_test" }).e;
     e = days(e, 120);
     const calm = days(e, 120);
@@ -271,9 +274,17 @@ describe("country entry puzzle", () => {
     e = must(e, { type: "OPEN_SITE", cityId: "vasant", districtId: "high_street", ownership: "company", land: "hqLease" });
     const id = e.sites.at(-1)!.id;
     e = days(e, 91);
-    const before = expectedSiteDay(content, e, id).covers;
+    // Round 3: demand loses the dietary penalty; covers rise less because the dining room caps them.
+    const room = (x: EmpireState) => {
+      const s = x.sites.find((y) => y.id === id)!;
+      return siteDemandAndCapacity(content, s, x.brand, x.cities.find((c) => c.id === s.cityId)!, { day: x.hq.day, calibration: x.calibration, breaksRules: !x.cities.find((c) => c.id === s.cityId)!.localised });
+    };
+    const before = room(e);
+    const coversBefore = expectedSiteDay(content, e, id).covers;
     e = must(e, { type: "LOCALISE_MENU", cityId: "vasant" });
-    expect(expectedSiteDay(content, e, id).covers).toBeGreaterThan(before / K.DIETARY_PENALTY - 2);
+    const after = room(e);
+    expect(after.demand / before.demand).toBeGreaterThan(1 / K.DIETARY_PENALTY - 0.1);
+    expect(expectedSiteDay(content, e, id).covers).toBeGreaterThan(coversBefore * 1.15);
   });
 
   it("local champions take a share that shrinks as recognition grows", () => {
@@ -336,7 +347,14 @@ describe("scandals", () => {
     expect(fx.endDay - fx.startDay).toBeGreaterThanOrEqual(4 * 90);
     expect(fx.endDay - fx.startDay).toBeLessThanOrEqual(12 * 90);
     const hit = expectedSiteDay(content, e, "s1").covers;
-    expect(hit / before).toBeLessThan(0.87);
+    // Round 3: demand drops by the scandal's depth; a busy room loses fewer covers (its queue absorbs part of it).
+    const demand = (x: EmpireState) => {
+      const s = x.sites[0]!;
+      const fxNow = x.effects.filter((f) => f.kind === "scandal").reduce((m, f) => m * (1 + f.demand), 1);
+      return siteDemandAndCapacity(content, s, x.brand, x.cities.find((c) => c.id === s.cityId)!, { day: x.hq.day, calibration: x.calibration, demandMult: fxNow }).demand;
+    };
+    expect(demand(e) / demand({ ...e, effects: [] })).toBeCloseTo(1 + fx.demand, 2);
+    expect(hit / before).toBeLessThan(0.95);
     expect(hit / before).toBeGreaterThan(0.73);
     const half = days(e, Math.round((fx.endDay - fx.startDay) / 2));
     const mid = expectedSiteDay(content, { ...half, hq: { ...half.hq, day: e.hq.day } }, "s1").covers;
@@ -360,7 +378,8 @@ describe("scandals", () => {
 
 describe("win condition", () => {
   it("tracks meals served and regions with recognition ≥ 60", () => {
-    let e = empire();
+    // Locked formula: the flagship's takeaway counter keeps it in profit (a region needs a site making money).
+    let e = must(empire(), { type: "SET_FORMULA", locked: true });
     e = days(e, 1);
     expect(e.win.achieved).toBe(false);
     expect(e.win.mealsTarget).toBe(1_000_000_000);

@@ -94,10 +94,49 @@ export const STAFF_SLOPE = 0.3;
  * is +24%, the full tech tree (+50) +60%, before the drive-thru and app multipliers.
  */
 export const STD_THROUGHPUT = 0.012;
-/** Covers ∝ priceIndex^−elasticity (quick service demand is price-elastic). */
+/**
+ * [round 3] Speedee's other half: a standardised formula runs a takeaway counter beside the dining room. Each point
+ * of standardisation above the reference adds this share of the dining room's covers as takeaway (locked formula
+ * +40%, the full tech tree +100%), before the drive-thru and app multipliers. Seats only grow by STD_THROUGHPUT.
+ */
+export const TAKEAWAY_PER_STD = 0.02;
+/**
+ * [round 3] The capacity model (EMPIRE-NOTES §3). A site is a sim-core dining room: the standard box has
+ * content.balance.startingTables tables × STD throughput, capped at maxTables, and a standard crew of two chefs
+ * and two servers on rotas A (Wed–Sun) and B (Mon, Tue, Fri–Sun): one pair Monday–Thursday, two at the weekend.
+ */
+export const CREW_ROTA_A: readonly boolean[] = [false, false, true, true, true, true, true];
+export const CREW_ROTA_B: readonly boolean[] = [true, true, false, false, true, true, true];
+/** Hourly wage (pence): NLW, plus 9p per chef skill point above 30 and 2p per server skill point above 20 (content archetypes). */
+export const CREW_WAGE_BASE = 1_271;
+export const CREW_WAGE_PER_SKILL = 9;
+export const SERVER_WAGE_PER_SKILL = 2;
+/** Labour for off-premise covers (takeaway counter, drive-thru, app) scales as off^this: a counter is lean. */
+export const OFF_PREMISE_LABOUR_EXP = 0.5;
+/** Popularity a modelled site trades at when the calibration has none (a well-run sim-core restaurant). */
+export const DEFAULT_POPULARITY = 85;
+/** Popularity of a standard crew at staff quality 50, and per point away from 50 (sim-core ratings follow the crew). */
+export const POPULARITY_REF = 79;
+export const POPULARITY_PER_SKILL = 0.6;
+/** Prestige of the founder's flagship when newEmpire has no GameState to read it from (two years of good reviews). */
+export const FLAGSHIP_PRESTIGE = 80;
+/** Prestige of a standard crew at staff quality 50, and per point away from 50 (clamped 0–100). */
+export const PRESTIGE_REF = 45;
+export const PRESTIGE_PER_SKILL = 3;
+/** Share of the fitted demandScale's deviation from 1 that calibrate keeps (shrinkage toward sim-core's closed form). */
+export const DEMAND_SCALE_KEEP = 0.5;
+/** A promoted branch opens with this many services' worth of forecast stock on the shelves. */
+export const BRANCH_STOCK_DAYS = 1.5;
+/** Days the "brand" footfall mod lasts in a promoted site's GameState (the game refreshes it every evening). */
+export const BRAND_PULL_DAYS = 3_650;
+/** Covers ∝ priceIndex^−elasticity (legacy; demand now follows sim-core's own price response on the brand menu). */
 export const PRICE_ELASTICITY = 1.2;
 export const PRICE_INDEX_RANGE: [number, number] = [0.5, 1.6];
-/** Drive-thru is ~70% of US McDonald's sales; in the sim it adds 30% covers at sites built or remodelled with one. */
+/**
+ * Drive-thru is ~70% of US McDonald's sales; here it adds 30% covers at sites built or remodelled with one. Round 3:
+ * drive-thru and app orders are off-premise, so they sit on top of the dining room's seat cap (and on top of a
+ * focused site's DayResult), not inside it.
+ */
 export const DRIVE_THRU_COVERS = 1.3;
 export const APP_COVERS = 1.1;
 export const APP_SPEND = 1.05;
@@ -261,7 +300,7 @@ export const DEFAULT_CALIBRATION = {
   baseCovers: 72,
   coversMean: 80,
   spendPerCover: 1_500,
-  foodPerCover: 450,
+  foodPerCover: 410,
   labourPerDay: 36_000,
   overheadsFixed: 8_000,
   cardFeePct: 0.015,
