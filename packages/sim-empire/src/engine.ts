@@ -266,6 +266,22 @@ export function contractAttractiveness(c: FranchiseContract): number {
   return clamp(1 - (contractTake(c) - K.BENCHMARK_TAKE) * 8 - ((c.fee - K.DEFAULT_FRANCHISE_FEE) / K.DEFAULT_FRANCHISE_FEE) * 0.3, 0.05, 2);
 }
 
+/**
+ * Where a franchisee's mood is heading (round 5): their own net margin against a fair 6%, and the contract's take
+ * against the benchmark (both ways). EMPIRE-NOTES §3 "Franchisee mood".
+ */
+export function moodTarget(netMargin: number, c: Pick<SiteContract, "royaltyPct" | "adFundPct" | "rentPctOfSales">): number {
+  return clamp(K.MOOD_BASE + (netMargin - K.MOOD_MARGIN_REF) * K.MOOD_MARGIN_WEIGHT - (contractTake(c) - K.BENCHMARK_TAKE) * K.MOOD_TAKE_WEIGHT, 0, 100);
+}
+
+/** Median net margin of the franchisees who trade (the association reads it). 0 sites → undefined. */
+export function medianFranchiseeMargin(e: Pick<EmpireState, "franchisees">): number | undefined {
+  const m = e.franchisees.filter((f) => f.sites.length > 0).map((f) => f.margin30d).sort((a, b) => a - b);
+  if (!m.length) return undefined;
+  const mid = m.length >> 1;
+  return m.length % 2 ? m[mid]! : (m[mid - 1]! + m[mid]!) / 2;
+}
+
 export function openSites(e: EmpireState): SiteSummary[] {
   return e.sites.filter((s) => s.status === "open");
 }
@@ -629,18 +645,9 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     if (!fr.sites.length) continue;
     const o = opNet.get(fr.id) ?? { net: 0, sales: 0 };
     fr.cash = Math.round(fr.cash + o.net);
-    if (o.sales > 0) fr.margin30d += (o.net / o.sales - fr.margin30d) / 30;
+    if (o.sales > 0) fr.margin30d += (o.net / o.sales - fr.margin30d) / K.MOOD_MARGIN_EMA_DAYS;
     const c = fr.sites.map((id) => x.site.get(id)?.contract).find(Boolean) ?? siteContract(e.contract, day, "franchise");
-    const target = clamp(
-      K.MOOD_BASE +
-        (fr.margin30d - K.MOOD_MARGIN_REF) * K.MOOD_MARGIN_WEIGHT -
-        Math.max(0, c.royaltyPct - K.DEFAULT_ROYALTY_PCT) * K.MOOD_ROYALTY_WEIGHT -
-        Math.max(0, c.adFundPct - K.DEFAULT_AD_FUND_PCT) * K.MOOD_AD_WEIGHT -
-        Math.max(0, c.rentPctOfSales - K.DEFAULT_RENT_PCT) * K.MOOD_RENT_WEIGHT,
-      0,
-      100,
-    );
-    fr.mood = clamp(fr.mood + (target - fr.mood) * K.MOOD_DRIFT_PER_DAY, 0, 100);
+    fr.mood = clamp(fr.mood + (moodTarget(fr.margin30d, c) - fr.mood) * K.MOOD_DRIFT_PER_DAY, 0, 100);
   }
   for (const fr of e.franchisees.slice()) {
     if (fr.sites.length && fr.cash < K.FRANCHISEE_BANKRUPT_CASH) franchiseeBankrupt(x, fr);
@@ -678,10 +685,12 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   // ── association ──
   const active = e.franchisees.filter((fr) => fr.sites.length > 0);
   const moodNow = avgFranchiseeMood(e);
-  if (!e.association.active && active.length >= K.ASSOCIATION_MIN_FRANCHISEES && moodNow < K.ASSOCIATION_MOOD) {
+  // Round 5: owners organise only when the median franchisee is genuinely losing money, not over a grumpy patch.
+  const median = medianFranchiseeMargin(e) ?? 0;
+  if (!e.association.active && active.length >= K.ASSOCIATION_MIN_FRANCHISEES && moodNow < K.ASSOCIATION_MOOD && median < K.ASSOCIATION_LOSS_MARGIN) {
     e.association = { active: true, formedDay: day };
-    emit(x, "association", `Franchisees form an association (mood ${moodNow.toFixed(0)}). Royalty rises, forced remodels and discount campaigns are blocked until mood recovers above ${K.ASSOCIATION_DISSOLVE_MOOD}.`, "bad");
-  } else if (e.association.active && (moodNow >= K.ASSOCIATION_DISSOLVE_MOOD || active.length < K.ASSOCIATION_MIN_FRANCHISEES)) {
+    emit(x, "association", `Franchisees form an association (mood ${moodNow.toFixed(0)}; the typical owner is losing money). Royalty rises, forced remodels and discount campaigns are blocked until they make money again.`, "bad");
+  } else if (e.association.active && (moodNow >= K.ASSOCIATION_DISSOLVE_MOOD || median >= K.ASSOCIATION_DISSOLVE_MARGIN || active.length < K.ASSOCIATION_MIN_FRANCHISEES)) {
     e.association = { active: false };
     emit(x, "association", "The franchisee association stands down: owners are happy enough again.", "good");
   }

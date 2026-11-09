@@ -246,12 +246,17 @@ export const WIN_RECOGNITION = 60;
 export const WIN_MEALS = 1_000_000_000;
 
 // ── franchisees ──
-export const MOOD_BASE = 55;
-export const MOOD_MARGIN_WEIGHT = 200;       // per unit of operator margin above MOOD_MARGIN_REF
-export const MOOD_MARGIN_REF = 0.08;
-export const MOOD_ROYALTY_WEIGHT = 300;      // per unit of royalty above default
-export const MOOD_AD_WEIGHT = 200;
-export const MOOD_RENT_WEIGHT = 150;
+/**
+ * [round 5] Mood drifts toward MOOD_BASE + MOOD_MARGIN_WEIGHT × (net margin − MOOD_MARGIN_REF) − MOOD_TAKE_WEIGHT ×
+ * (contract take − BENCHMARK_TAKE). The margin is the operator's own net (after royalty, ad fund, rent and the build
+ * loan) over MOOD_MARGIN_EMA_DAYS, so one wet month doesn't start a revolt; a fair franchise nets 6–10%. The take term is
+ * symmetric: a cheaper contract than the benchmark buys goodwill, a dearer one costs it, whatever the margin.
+ */
+export const MOOD_BASE = 60;
+export const MOOD_MARGIN_WEIGHT = 250;       // per unit of operator net margin above MOOD_MARGIN_REF (1pp = 2.5 mood)
+export const MOOD_MARGIN_REF = 0.06;
+export const MOOD_TAKE_WEIGHT = 300;         // per unit of take (royalty + ad fund + rent share) above BENCHMARK_TAKE
+export const MOOD_MARGIN_EMA_DAYS = 90;
 export const MOOD_DRIFT_PER_DAY = 0.03;
 export const MOOD_ROYALTY_RISE_SHOCK = 5;    // per percentage point of royalty rise
 export const MOOD_FORCED_REMODEL = 12;
@@ -262,6 +267,12 @@ export const MOOD_CAUGHT_SKIMMING = 10;
 export const ASSOCIATION_MOOD = 35;
 export const ASSOCIATION_DISSOLVE_MOOD = 50;
 export const ASSOCIATION_MIN_FRANCHISEES = 5;
+/**
+ * [round 5] Owners only organise when the median franchisee is genuinely losing money (net margin below this), and the
+ * association stands down once the median is back above ASSOCIATION_DISSOLVE_MARGIN (or mood recovers).
+ */
+export const ASSOCIATION_LOSS_MARGIN = 0;
+export const ASSOCIATION_DISSOLVE_MARGIN = 0.02;
 /** Franchisees go bust below this cash. */
 export const FRANCHISEE_BANKRUPT_CASH = -15_000_000;
 /** HQ takes over a bankrupt franchisee's site (rather than closing it) if it has this much cash per site. */

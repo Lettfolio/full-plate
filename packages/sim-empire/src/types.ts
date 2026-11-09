@@ -105,7 +105,7 @@ export interface Franchisee {
   cash: Pence;
   sites: SiteId[];
   joinedDay: number;
-  /** EMA of the operator's net profit ÷ sales across their sites (drives mood). */
+  /** EMA (MOOD_MARGIN_EMA_DAYS; the name predates round 5) of the operator's net profit ÷ sales across their sites (drives mood). */
   margin30d: number;
   /** Day they last took on a site (multi-unit operators wait MULTI_UNIT_COOLDOWN_DAYS between sites). */
   lastExpansionDay?: number;

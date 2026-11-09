@@ -9,8 +9,11 @@ import {
   expectedSiteDay,
   siteDemandAndCapacity,
   forceEvent,
+  medianFranchiseeMargin,
   menuBreaksRules,
+  moodTarget,
   openSites,
+  probeUnitEconomics,
   propertyPrice,
   saturationPenalty,
   standardisation,
@@ -93,6 +96,23 @@ describe("contract builder and franchisee mood", () => {
     const newOnly = must(e, { type: "SET_CONTRACT", contract: { royaltyPct: 0.08 }, applyTo: "new" });
     expect(newOnly.sites.find((s) => s.ownership === "franchise")!.contract!.royaltyPct).toBe(K.DEFAULT_ROYALTY_PCT);
     expect(newOnly.franchisees[0]!.mood).toBe(e.franchisees[0]!.mood);
+  });
+
+  it("round 5: mood follows the franchisee's own net margin and the contract's fairness, both ways", () => {
+    const fair = { royaltyPct: K.DEFAULT_ROYALTY_PCT, adFundPct: K.DEFAULT_AD_FUND_PCT, rentPctOfSales: K.DEFAULT_RENT_PCT };
+    expect(moodTarget(K.MOOD_MARGIN_REF, fair)).toBeCloseTo(K.MOOD_BASE, 6);
+    // A franchise that nets 8% is content; one losing 5% heads for the association line.
+    expect(moodTarget(0.08, fair)).toBeGreaterThan(K.MULTI_UNIT_MOOD);
+    expect(moodTarget(-0.05, fair)).toBeLessThan(K.ASSOCIATION_MOOD);
+    // Same margin, dearer contract: less happy; cheaper: happier.
+    expect(moodTarget(0.06, { ...fair, royaltyPct: 0.08 })).toBeLessThan(moodTarget(0.06, fair) - 8);
+    expect(moodTarget(0.06, { ...fair, royaltyPct: 0.03 })).toBeGreaterThan(moodTarget(0.06, fair) + 5);
+  });
+
+  it("round 5: a fair first franchise keeps its owner content through year one (round 4: mood 5–29)", () => {
+    const u = probeUnitEconomics(content, must(empire(), { type: "SET_FORMULA", locked: true }), { districtId: "high_street", supplyDeals: true });
+    expect(u.mood!).toBeGreaterThan(45);
+    expect(u.mood!).toBeLessThan(75);
   });
 
   it("HQ earns royalty and ad fund on franchise sales", () => {
@@ -254,6 +274,24 @@ describe("franchisee association", () => {
     // Lowering fees is still allowed, and so are company remodels.
     expect(rejected(e, { type: "SET_CONTRACT", contract: { royaltyPct: 0.04 }, applyTo: "all" })).toBeUndefined();
     expect(rejected(e, { type: "REMODEL", siteId: "s1" })).toBeUndefined();
+  });
+
+  it("round 5: does not form while the median franchisee still makes money, however grumpy", () => {
+    let e = unhappy();
+    e = { ...e, franchisees: e.franchisees.map((f) => ({ ...f, mood: 20, margin30d: 0.03 })) };
+    expect(medianFranchiseeMargin(e)).toBeGreaterThan(0);
+    e = days(e, 1);
+    expect(e.association.active).toBe(false);
+    // Only one owner in six losing money: still no association.
+    e = { ...e, franchisees: e.franchisees.map((f, i) => ({ ...f, mood: 20, margin30d: i === 0 ? -0.2 : 0.02 })) };
+    expect(days(e, 1).association.active).toBe(false);
+  });
+
+  it("round 5: stands down once the typical owner makes money again, even before mood recovers", () => {
+    let e = days(unhappy(), 1);
+    expect(e.association.active).toBe(true);
+    e = { ...e, franchisees: e.franchisees.map((f) => ({ ...f, mood: 30, margin30d: K.ASSOCIATION_DISSOLVE_MARGIN + 0.02 })) };
+    expect(days(e, 1).association.active).toBe(false);
   });
 
   it("stands down once mood recovers", () => {
@@ -497,17 +535,14 @@ describe("HQ", () => {
 });
 
 describe("round 4 review: the 'lock your formula first' warning is true", () => {
-  it("an unlocked franchise loses its operator more money than the same site on the locked formula", () => {
-    const run = (locked: boolean) => {
-      let e = withApplicant(locked ? must(empire(), { type: "SET_FORMULA", locked: true }) : empire());
-      e = openAndBuild(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "high_street", ownership: "franchise", land: "thirdParty", applicantId: "a_test" }).e;
-      return days(e, 120).franchisees[0]!;
-    };
-    const unlocked = run(false);
-    const locked = run(true);
-    expect(unlocked.margin30d).toBeLessThan(-0.15);
-    // REVIEW R4: the locked unit still runs below zero in its first months (P1 balance, open question 8c).
-    expect(locked.margin30d).toBeGreaterThan(unlocked.margin30d + 0.1);
-    expect(locked.mood).toBeGreaterThan(unlocked.mood);
+  it("an unlocked franchise loses its operator money; the same site on the locked formula makes some (round 5)", () => {
+    const year = (locked: boolean) => probeUnitEconomics(content, locked ? must(empire(), { type: "SET_FORMULA", locked: true }) : empire(), { districtId: "high_street" });
+    const unlocked = year(false);
+    const locked = year(true);
+    expect(unlocked.netPct).toBeLessThan(-0.05);
+    // Round 4 the locked unit ran -3…-14% too (open question 8c); round 5 it clears a little even before supply deals.
+    expect(locked.netPct).toBeGreaterThan(0);
+    expect(locked.netPct).toBeGreaterThan(unlocked.netPct + 0.05);
+    expect(locked.mood!).toBeGreaterThan(unlocked.mood!);
   });
 });

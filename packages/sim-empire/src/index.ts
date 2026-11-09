@@ -17,6 +17,8 @@ export {
   updateSaturation,
   // derived helpers for the UI
   avgFranchiseeMood,
+  moodTarget,
+  medianFranchiseeMargin,
   buildCost,
   cityEntryCost,
   contractAttractiveness,
