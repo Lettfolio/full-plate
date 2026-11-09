@@ -16,7 +16,7 @@ import { weekdayIndex } from "../lib/calendar";
 const C = {
   ink: "#2b2622",
   inkSoft: "#5c534a",
-  inkFaint: "#8f857a",
+  inkFaint: "#6a5f54", // round 5: was #8f857a (3.3:1 on the floor tiles); now ≥ 4.5:1 as text
   paper: "#fffdf8",
   cream: "#fbf4e6",
   floorA: "#f1dfbd",

@@ -140,7 +140,7 @@ function drawFloors(ctx: CanvasRenderingContext2D, m: ViewMetrics, P: PFn) {
   ctx.fillRect(o.x, o.y + 4.7 * T, 8 * T, T * 0.3);
   ctx.fillStyle = C.barTop; roundRect(ctx, o.x + 2.2 * T, o.y + 1.2 * T, 3.4 * T, 1.4 * T, 6); ctx.fill();
   ctx.fillStyle = "#3a5c78"; roundRect(ctx, o.x + 3.2 * T, o.y + 1.35 * T, 1.3 * T, 0.8 * T, 3); ctx.fill();
-  label(ctx, "OFFICE", o.x + 4 * T, o.y + 3.7 * T, { align: "center", size: 13, weight: 900, colour: C.inkFaint, spacing: 2 });
+  label(ctx, "OFFICE", o.x + 4 * T, o.y + 3.7 * T, { align: "center", size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
 }
 
 function drawProps(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMetrics, P: PFn) {
@@ -248,7 +248,7 @@ function drawStation(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Ga
         if (tn) tag(ctx, `T${tn}`, x + T * 0.2, p.y + h * 0.5 - T * 0.42, C.ink);
         x += Math.min(3, g.tickets.length) * T * 0.5 + T * 0.45;
       }
-      label(ctx, "PASS", p.x + w - 6, p.y - 3, { align: "right", size: 13, weight: 900, colour: C.inkFaint, spacing: 2 });
+      label(ctx, "PASS", p.x + w - 6, p.y - 3, { align: "right", size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
       break;
     }
     case "dishReturn": {
@@ -593,8 +593,8 @@ function drawActionWidget(ctx: CanvasRenderingContext2D, s: HandsOnSession, a: A
     const nx = bx + needle * bw;
     ctx.fillStyle = C.ink; ctx.beginPath(); ctx.moveTo(nx, by + bh + 2); ctx.lineTo(nx - 6, by + bh + 10); ctx.lineTo(nx + 6, by + bh + 10); ctx.closePath(); ctx.fill();
     ctx.fillRect(nx - 1.5, by - 5, 3, bh + 8);
-    label(ctx, "raw", bx, y + H - 4, { size: 13, weight: 800, colour: C.inkFaint });
-    label(ctx, "burnt", bx + bw, y + H - 4, { align: "right", size: 13, weight: 800, colour: C.inkFaint });
+    label(ctx, "raw", bx, y + H - 4, { size: 13, weight: 800, colour: C.inkSoft });
+    label(ctx, "burnt", bx + bw, y + H - 4, { align: "right", size: 13, weight: 800, colour: C.inkSoft });
   } else if (a.verb === "pour") {
     const level = Math.min(1, a.t / a.dur);
     const line = a.line ?? 0.78;
@@ -687,7 +687,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     dot(ctx, x + slipW / 2, 8, 2.5, C.tomato);
   });
   if (list.length > max) label(ctx, `+${list.length - max} more`, railX + railW, 68, { align: "right", size: 13, weight: 900, colour: C.tomatoDeep });
-  if (!list.length) label(ctx, station ? "Your station is clear — next ticket coming…" : "No tickets on the rail", railX + tagW + 4, 40, { size: 14, weight: 800, colour: C.inkFaint });
+  if (!list.length) label(ctx, station ? "Your station is clear — next ticket coming…" : "No tickets on the rail", railX + tagW + 4, 40, { size: 14, weight: 800, colour: C.inkSoft });
 
   // HUD
   const hx = m.w - hudW - 6;
@@ -751,7 +751,7 @@ function drawScoreScreen(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: Vi
   ctx.fillStyle = "#fbefd2"; roundRect(ctx, x + 28, ty, W - 56, 58, 10); ctx.fill();
   label(ctx, "COACH'S TIP", x + 42, ty + 17, { size: 13, weight: 900, colour: C.amberDeep, spacing: 1.5 });
   wrap(ctx, sum.tip, x + 42, ty + 35, W - 84, 16, { size: 13, weight: 700, colour: C.ink });
-  label(ctx, cont, x + W / 2, y + H - 16, { align: "center", size: 13, weight: 800, colour: C.inkFaint });
+  label(ctx, cont, x + W / 2, y + H - 16, { align: "center", size: 13, weight: 800, colour: C.inkSoft });
 }
 
 // ───────────────────────── small helpers ─────────────────────────

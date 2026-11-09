@@ -19,7 +19,7 @@
 .shiftcard__note { display: flex; gap: 10px; align-items: center; font-size: 19px; font-weight: 900; padding: 8px 12px; border-radius: var(--r); background: var(--basil-wash); }
 .shiftcard__note--work { background: var(--amber-wash); }
 .shiftcard__badge { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: var(--paper); background: var(--basil); font-size: 16px; }
-.shiftcard__note--work .shiftcard__badge { background: var(--amber); }
+.shiftcard__note--work .shiftcard__badge { background: var(--amber-deep); }
 .shiftcard__week { text-align: left; background: var(--paper); border-radius: var(--r); padding: 10px 12px; border: 1px solid var(--line); }
 .shiftcard__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .shiftcard__chip { font-size: var(--fs-sm); font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--cream-deep); }

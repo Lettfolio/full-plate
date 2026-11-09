@@ -13,7 +13,7 @@
   --paper: #fffdf8;
   --ink: #2b2622;
   --ink-soft: #5c534a;
-  --ink-faint: #72675c; /* ≥4.5:1 on cream and paper (WCAG AA for small text) */
+  --ink-faint: #6a5f54; /* round 5: was #72675c (4.4–4.5:1 on cream-deep, tomato/plum washes); now ≥5:1 on every wash */
   --line: #e6d8bd;
   --line-strong: #d4c19c;
 
@@ -31,6 +31,8 @@
   --plum-wash: #efe3f3;
   --sky: #4f8fb8;
   --sky-wash: #dfeef7;
+  --sky-deep: #3a7398; /* round 5: white text on it 5.1:1 (white on --sky was 3.5:1) */
+  --amber-deep: #9a5c0c; /* round 5: white text on it 5.4:1 (white on --amber was 2.2:1) */
 
   --star: #f2b33d;
   --star-empty: #efe3c8;
@@ -314,7 +316,7 @@ button, input { font: inherit; color: inherit; }
 .avatar--chef { background: var(--tomato); }
 .avatar--server { background: var(--basil); }
 .avatar--bar { background: var(--plum); }
-.avatar--porter { background: var(--sky); }
+.avatar--porter { background: var(--sky-deep); }
 .avatar--manager { background: var(--ink-soft); }
 .person__name { font-weight: 800; font-size: 17px; }
 .person__role { font-size: var(--fs-xs); color: var(--ink-soft); font-weight: 700; text-transform: capitalize; }
