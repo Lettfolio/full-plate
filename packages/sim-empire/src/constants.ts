@@ -129,6 +129,8 @@ export const DEMAND_SCALE_KEEP = 0.5;
 export const BRANCH_STOCK_DAYS = 1.5;
 /** Days the "brand" footfall mod lasts in a promoted site's GameState (the game refreshes it every evening). */
 export const BRAND_PULL_DAYS = 3_650;
+/** GameState.footfallMods source tag of the brand pull mod. */
+export const BRAND_PULL_SOURCE = "brand";
 /** Covers ∝ priceIndex^−elasticity (legacy; demand now follows sim-core's own price response on the brand menu). */
 export const PRICE_ELASTICITY = 1.2;
 export const PRICE_INDEX_RANGE: [number, number] = [0.5, 1.6];

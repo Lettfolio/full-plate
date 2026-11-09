@@ -52,4 +52,5 @@ export type { CalibrateOptions, SiteDayContext } from "./model";
 export { serialize, deserialize, MIGRATIONS } from "./save";
 export { DEFAULT_REGIONS, DEFAULT_SUPPLIERS, defaultCities } from "./world";
 export * as EMPIRE from "./constants";
+export { BRAND_PULL_SOURCE } from "./constants";
 export * from "./types";

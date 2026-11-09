@@ -1443,7 +1443,7 @@ export function recalibrateFromSite(content: ContentPack, e: EmpireState, siteId
   const s = e.sites.find((x) => x.id === siteId);
   if (!s) throw new Error(`No site ${siteId}`);
   const city = e.cities.find((c) => c.id === s.cityId)!;
-  const pull = state ? state.footfallMods.filter((m) => m.source === "brand").reduce((a, m) => a * m.mult, 1) : siteBrandPull(content, e, siteId);
+  const pull = state ? state.footfallMods.filter((m) => m.source === K.BRAND_PULL_SOURCE).reduce((a, m) => a * m.mult, 1) : siteBrandPull(content, e, siteId);
   const raw = calibrate(content, history, {
     districtId: s.districtId,
     pull,
@@ -1498,7 +1498,7 @@ export function newGameFromSite(content: ContentPack, e: EmpireState, site: Site
   for (const item of brandMenu(content, e.brand.formula)) g = applyCommand(content, g, { type: "ADD_MENU_ITEM", dishId: item.dishId, price: item.price }).state;
   g = { ...g, staff: localCrew(content, site, rng, day) };
   const pull = siteBrandPull(content, e, site.id);
-  if (Math.abs(pull - 1) > 0.005) g = setFootfallMod(g, "brand", { mult: Math.round(pull * 1000) / 1000, daysRemaining: K.BRAND_PULL_DAYS });
+  if (Math.abs(pull - 1) > 0.005) g = setFootfallMod(g, K.BRAND_PULL_SOURCE, { mult: Math.round(pull * 1000) / 1000, daysRemaining: K.BRAND_PULL_DAYS });
   // A running branch has a stocked larder: the forecast's needs plus a day's buffer, delivered yesterday.
   const stock: Stock[] = forecastNeeds(content, g).map(({ ingredientId, need }) => {
     const qty = Math.ceil(need * K.BRANCH_STOCK_DAYS);

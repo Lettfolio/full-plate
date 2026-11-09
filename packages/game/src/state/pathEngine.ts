@@ -8,17 +8,20 @@
  * - Stars (STARS-NOTES): prepareService in the morning; cook with withSignatures; stepStarsDay + applyStarsEffects in
  *   the evening; FIRE on HEAD_CHEF_LEFT.
  */
-import type { Command, ContentPack, DayResult, GameState, SimEvent } from "@full-plate/sim-core";
+import { Rng, seedState, type Command, type ContentPack, type DayResult, type GameState, type SimEvent } from "@full-plate/sim-core";
 import {
   applyCareerCommand, applyWithPerks, beginCareerDay, finishCareerDay, handoverToOwner, newCareer, ownerIncidentResponses,
   stepCareerDay, type CareerCommand, type CareerEvent, type CareerTrack, type OwnerStrategy,
 } from "@full-plate/sim-career";
-import { applyEmpireCommand, forkFromGameState, recalibrateFromSite, stepEmpireDay, type EmpireCommand, type EmpireEvent } from "@full-plate/sim-empire";
+import {
+  applyEmpireCommand, forkFromGameState, newGameFromSite, recalibrateFromSite, siteBrandPull, stepEmpireDay, BRAND_PULL_SOURCE, EMPIRE,
+  type EmpireCommand, type EmpireEvent,
+} from "@full-plate/sim-empire";
 import {
   applyStarsCommand, applyStarsEffects, closedDay, isClosed, newStarsState, prepareService, stepStarsDay, withSignatures,
   type StarsCommand, type StarsEvent,
 } from "@full-plate/sim-stars";
-import { applyCommand, asCommand, careerContent, content, extras, HOOKS, newGame, recruitmentFeeOf, serialize, deserialize } from "../sim";
+import { applyCommand, asCommand, careerContent, content, extras, HOOKS, recruitmentFeeOf, serialize, deserialize } from "../sim";
 import { fill } from "@full-plate/content";
 import { FORK_SNOOZE_DAYS, type PathMeta, type WinMeta, initialMeta } from "./paths";
 
@@ -140,8 +143,10 @@ export function empireCommand(game: GameState, meta: PathMeta, cmd: EmpireComman
 const trimEvents = (evs: EmpireEvent[]) => evs.filter((e) => e.kind !== "rent_review").slice(-EMPIRE_EVENTS_MAX);
 
 /**
- * FOCUS_SITE switching. The current flagship is parked (serialised), the model is recalibrated on its history, and
- * the new site gets a GameState: a parked one if it has been run before, else a fresh newGame seeded from the formula.
+ * FOCUS_SITE switching. The current restaurant is parked (serialised) and the model is recalibrated on its history
+ * and GameState; the new site gets a parked GameState if it has been run before, else sim-empire's newGameFromSite:
+ * its district, the brand menu, the brand's box of tables, a locally hired crew of its staff quality and the brand
+ * pull as a footfall mod (round 3: it used to copy the flagship's staff).
  */
 export function focusSite(game: GameState, meta: PathMeta, siteId: string): { game: GameState; meta: PathMeta } | { error: string } {
   const e = meta.empire;
@@ -152,7 +157,7 @@ export function focusSite(game: GameState, meta: PathMeta, siteId: string): { ga
   const site = e.sites.find((s) => s.id === siteId);
   if (!site || site.status !== "open") return { error: "Only an open site can be run hands-on." };
   let empire = e;
-  if (cur && game.history.length >= 14) empire = recalibrateFromSite(content, empire, cur, game.history);
+  if (cur && game.history.filter((d) => d.covers > 0).length >= 14) empire = recalibrateFromSite(content, empire, cur, game.history, game);
   empire = applyEmpireCommand(content, empire, { type: "FOCUS_SITE", siteId }).empire;
   const parked = { ...(meta.parked ?? {}), ...(cur ? { [cur]: serialize(game) } : {}) };
   let next: GameState;
@@ -161,23 +166,21 @@ export function focusSite(game: GameState, meta: PathMeta, siteId: string): { ga
     next = { ...deserialize(saved), day: game.day };
     delete parked[siteId];
   } else {
-    next = siteGame(game, site.name, site.districtId, empire.brand.formula.menuDishIds, empire.brand.formula.priceIndex);
+    const promoted = empire.sites.find((s) => s.id === siteId)!;
+    next = newGameFromSite(content, { ...empire, hq: { ...empire.hq, day: game.day } }, promoted, new Rng(seedState((game.seed ^ hashName(site.name)) >>> 0)), { difficulty: game.difficulty });
   }
   return { game: next, meta: { ...meta, empire, parked } };
 }
 
-/** A promoted site's first GameState: the formula menu at the brand's price index, the flagship's team size, no loan. */
-function siteGame(from: GameState, name: string, districtId: string, dishIds: readonly string[], priceIndex: number): GameState {
-  const pack: ContentPack = { ...content, balance: { ...content.balance, loanPrincipal: 0, startingCash: content.balance.fitOutCost + 2_000_000 } };
-  let g = newGame(pack, { type: "NEW_GAME", seed: (from.seed ^ hashName(name)) >>> 0, districtId, restaurantName: name, difficulty: from.difficulty });
-  g = { ...g, day: from.day, cash: 2_000_000, goals: [] };
-  for (const id of dishIds) {
-    const d = content.dishes.find((x) => x.id === id);
-    if (d) g = applyCommand(content, g, { type: "ADD_MENU_ITEM", dishId: id, price: Math.round(d.suggestedPrice * priceIndex) }).state;
-  }
-  // Same team as the flagship had, at today's candidates (the brand's academy-trained crew).
-  const staff = from.staff.map((s, i) => ({ ...s, id: `${name.slice(0, 3)}-${i}`, mood: 70, fatigue: 0, hiredDay: from.day }));
-  return { ...g, staff };
+/** Evening: keep a promoted site's "brand" footfall mod in step with the empire (recognition, saturation, effects). */
+export function refreshBrandPull(game: GameState, empire: PathMeta["empire"]): GameState {
+  const id = empire?.focusedSiteId;
+  if (!empire || !id) return game;
+  const pull = Math.round(siteBrandPull(content, empire, id) * 1000) / 1000;
+  const has = game.footfallMods.find((m) => m.source === BRAND_PULL_SOURCE);
+  if (has && has.mult === pull) return game;
+  const others = game.footfallMods.filter((m) => m.source !== BRAND_PULL_SOURCE);
+  return { ...game, footfallMods: Math.abs(pull - 1) > 0.005 ? [...others, { mult: pull, daysRemaining: EMPIRE.BRAND_PULL_DAYS, source: BRAND_PULL_SOURCE }] : others };
 }
 
 function hashName(s: string): number {
@@ -260,6 +263,7 @@ export function eveningHooks(game: GameState, meta: PathMeta): { game: GameState
   if (m.empire && m.empire.status === "running") {
     const r = stepEmpireDay(content, m.empire, result);
     m = { ...m, empire: r.empire, empireEvents: trimEvents([...m.empireEvents, ...r.events]) };
+    g = refreshBrandPull(g, r.empire);
     if (r.empire.win.achieved && !m.win) {
       const meals = r.empire.win.reason === "meals";
       m = {
