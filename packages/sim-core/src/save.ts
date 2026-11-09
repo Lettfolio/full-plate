@@ -9,6 +9,10 @@ type Migration = (raw: Record<string, unknown>) => Record<string, unknown>;
  * MIGRATIONS[SAVE_VERSION] normalises the current shape (identity for version 1).
  */
 export const MIGRATIONS: Record<number, Migration> = {
+  // Version 1 normaliser. Every field added since (round 2: incidents, goals, ownerFatigue…; round 3: handsOn,
+  // setMenu, ownerProfile, recruitmentFee, KitchenTicket.atPass/platedAtTick, Customer.setMenu, footfallMods[].source,
+  // DayResult.closed/perDish/perChef/freshnessMean, ServiceTally.chefs/freshnessSum, dish revenue/foodCost) is optional
+  // and read with a fallback, so older saves load unchanged and the version stays 1.
   1: (raw) => raw,
 };
 

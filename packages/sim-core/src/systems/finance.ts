@@ -6,6 +6,7 @@
 import {
   CARD_FEE_RATE,
   CASH_LOW_WARNING,
+  CLOSED_DAY_WAGE_SHARE,
   DAYS_PER_MONTH,
   DIFFICULTY,
   EMPLOYER_ONCOST,
@@ -40,7 +41,8 @@ export function vatToday(state: GameState): number {
 export function wagesToday(state: GameState): number {
   let total = 0;
   for (const s of state.staff) if (worksToday(s, state.day)) total += shiftCost(s);
-  return total;
+  // Round 3: on a CLOSE_TODAY day rostered staff get CLOSED_DAY_WAGE_SHARE of a shift (they were told late).
+  return state.todays.closed ? Math.round(total * CLOSED_DAY_WAGE_SHARE) : total;
 }
 
 /** Monthly wage bill implied by the current rota. */

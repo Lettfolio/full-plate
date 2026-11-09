@@ -143,6 +143,44 @@ export interface ContentPack {
    * Placeholders: {dish}, {restaurant}, {segment}. sim-core has built-in fallbacks.
    */
   reviewTemplates?: Record<string, string[]>;
+  /**
+   * [round 3, sim-core] Optional incident text in the shape of sim-core's `incidents/text.ts` (the content package
+   * exports it as `incidentText`). Kinds, options and lines that are present replace the built-in text; anything
+   * missing falls back to it.
+   */
+  incidentText?: IncidentTextPack;
+  /**
+   * [round 3, sim-core] Optional goal ladder and lines in the shape of sim-core's `goals/text.ts` (content exports
+   * `goalText`). A non-empty GOAL_LADDER replaces the built-in ladder (entries with an unknown kind are skipped);
+   * GOAL_LINES keys present replace the built-in lines.
+   */
+  goalText?: GoalTextPack;
+}
+
+/** [round 3] Data shape of incident text (see ContentPack.incidentText). */
+export interface IncidentTextPack {
+  INCIDENT_TEXT?: Record<string, {
+    title: string;
+    body: string;
+    options: Record<string, { label: string; description: string; outcome: string }>;
+    ignored: string;
+  }>;
+  INCIDENT_LINES?: Record<string, string>;
+}
+
+/** [round 3] Data shape of goal text (see ContentPack.goalText). */
+export interface GoalTextPack {
+  GOAL_LADDER?: {
+    id: string;
+    kind: string;
+    tier: number;
+    title: string;
+    hint: string;
+    target: number | "tablesPlus2";
+    role?: StaffRole;
+    reward?: { cash?: Pence; popularity?: number };
+  }[];
+  GOAL_LINES?: Record<string, string>;
 }
 
 export interface BalanceDef {
@@ -246,6 +284,8 @@ export interface Customer {
   satisfactionBonus?: number;
   /** [round 2, sim-core] A critic/influencer (VIP incident); their rating moves prestige ±5. Usually a party of 1-2. */
   vip?: boolean;
+  /** [round 3, sim-core] The party ordered the set menu (GameState.setMenu): one sale of setMenu.price per head. */
+  setMenu?: boolean;
 }
 
 export interface Table {
@@ -268,6 +308,13 @@ export interface KitchenTicket {
   freshness?: number;
   /** [round 2, sim-core] A remake for a sent-back plate: when plated, replaces this quality in the party's average. */
   remakeOf?: number;
+  /**
+   * [round 3, sim-core] Hands-on pass hold: the plate is cooked (quality set, ticksRemaining 0) and waiting under the
+   * heat lamps for someone to carry it (PLAYER_SERVED, or an AI server after HANDS_ON.passHoldTicks).
+   */
+  atPass?: boolean;
+  /** [round 3, sim-core] Service tick the plate was plated (set while it is held at the pass). */
+  platedAtTick?: number;
 }
 
 export interface Review {
@@ -280,7 +327,29 @@ export interface Review {
   quality?: number;
 }
 
+/** [round 3] Per-dish line of a DayResult. */
+export interface DayDishLine {
+  /** Plates paid for. */
+  sold: number;
+  /** Plates cooked (remakes not counted twice). */
+  plated: number;
+  /** Mean plated quality 0-100 (0 when none plated). */
+  qualityMean: number;
+  /** Takings for this dish (set-menu sales are split across its dishes by suggested price). */
+  revenue: Pence;
+  /** Stock cost (price paid) of the plates fired. */
+  foodCost: Pence;
+}
+
 export interface DayResult {
+  /** [round 3] The restaurant was shut today (CLOSE_TODAY): no service, rent/loan/overheads paid, rostered wages at 50%. */
+  closed?: boolean;
+  /** [round 3] Per-dish sales and quality for dishes ordered today. */
+  perDish?: Record<DishId, DayDishLine>;
+  /** [round 3] Plates and mean quality per cook: staff ids, plus "owner" (owner covering) and "player" (hands-on). */
+  perChef?: Record<StaffId, { plates: number; qualityMean: number }>;
+  /** [round 3] Mean ingredient freshness/season bonus of the plates cooked today (quality points; 0 when none). */
+  freshnessMean?: number;
   /** [round 2] incidents that happened today and how they went. */
   incidents?: IncidentSummary[];
   /** [round 2] roles the owner covered today; drives the "hire someone" lesson in the evening copy. */
@@ -364,8 +433,11 @@ export interface GameState {
   todays: Partial<DayResult> & { reviews: Review[] };
   history: DayResult[];
   activeEvent?: ActiveEvent;
-  /** Footfall multipliers from events: [mult, daysRemaining]. */
-  footfallMods: { mult: number; daysRemaining: number }[];
+  /**
+   * Footfall multipliers from events: [mult, daysRemaining]. [round 3] `source` tags who owns an entry (e.g. "stars",
+   * "career:regulars") so a layer can replace its own mod without touching others (see setFootfallMod).
+   */
+  footfallMods: FootfallMod[];
   log: LogEntry[];                               // last ~200 entries for the UI ticker
   stats: { totalCovers: number; totalRevenue: Pence; daysOpen: number };
   // ── sim-core additions (optional so older saves stay valid) ──
@@ -394,7 +466,34 @@ export interface GameState {
   shortDelivery?: { ingredientId: IngredientId; missing: number };
   /** [round 2, sim-core] Incidents the player has resolved by choosing an option (lifetime; drives goals). */
   incidentsHandled?: number;
+  // ── round 3 additions (all optional; save version stays 1) ──
+  /**
+   * A human is playing a role in the hands-on view (SET_HANDS_ON). The sim backs off that role with a slow fallback
+   * (see docs/SIM-NOTES.md "Round 3 hooks"). `since` = the service tick it was set (0 when set in planning). Cleared when
+   * service closes (and at END_DAY).
+   */
+  handsOn?: {
+    role: StaffRole;
+    since: number;
+    /**
+     * Career mode: the Staff member the human plays. Used to attribute the human's plates (DayResult.perChef); their
+     * Staff record still runs as AI for the fallback work (tickets beyond the human's reserve).
+     */
+    staffId?: StaffId;
+  };
+  /** A fixed-price set/tasting menu (SET_SET_MENU). While active, foodie and business parties order it. */
+  setMenu?: SetMenu;
+  /** The owner's own skills when covering (career handover); replaces OWNER.skill/speed/charm. SET_OWNER_PROFILE. */
+  ownerProfile?: { skill: number; speed: number; charm: number };
+  /** Per-game recruitment fee (career perk); replaces RECRUITMENT_FEE in HIRE when present. */
+  recruitmentFee?: Pence;
 }
+
+/** [round 3] A footfall multiplier entry (GameState.footfallMods). */
+export interface FootfallMod { mult: number; daysRemaining: number; source?: string }
+
+/** [round 3] A fixed-price set menu: every guest who takes it gets every dish, for `price` per head. */
+export interface SetMenu { dishIds: DishId[]; price: Pence; active: boolean }
 
 // ───────────────────────── round 2: incidents & goals ─────────────────────────
 /**
@@ -483,8 +582,11 @@ export interface ServiceTally {
   ratedCovers: number;
   qualitySum: number;         // Σ plate quality
   plates: number;
-  /** Per dish: plates sold (paid for), plates cooked, Σ plate quality, Σ margin. */
-  dishes: Record<DishId, { sold: number; plated: number; qualitySum: number; margin: Pence }>;
+  /**
+   * Per dish: plates sold (paid for), plates cooked, Σ plate quality, Σ margin; [round 3, optional] takings and
+   * stock cost of plates fired (for DayResult.perDish).
+   */
+  dishes: Record<DishId, { sold: number; plated: number; qualitySum: number; margin: Pence; revenue?: Pence; foodCost?: number }>;
   /** Potential parties expected today (arrival system), for the UI and stats. */
   potentialParties: number;
   /** Per-segment arrival inputs fixed at START_SERVICE (recomputed on EIGHTY_SIX). */
@@ -521,6 +623,11 @@ export interface ServiceTally {
   /** Incidents started this service, last start tick, and the id counter. */
   incidentsStarted?: number;
   lastIncidentTick?: number;
+  // ── round 3 (optional) ──
+  /** Per cook: plates and Σ quality (for DayResult.perChef). Keys: staff id, "owner", "player". */
+  chefs?: Record<string, { plates: number; qualitySum: number }>;
+  /** Σ freshness of plated (non-remake) plates (for DayResult.freshnessMean; divide by `plates`). */
+  freshnessSum?: number;
 }
 
 export interface LogEntry { day: number; tick: number; text: string; kind: "info" | "good" | "bad" | "money" }
@@ -544,7 +651,18 @@ export type Command =
   // round 2
   | { type: "RESPOND_INCIDENT"; incidentId: string; optionId: string }
   | { type: "TRAIN"; staffId: StaffId }                  // planning: pay for a training day (skill up, not on rota that day)
-  | { type: "GIVE_BREAK"; staffId: StaffId };            // service: short break (fatigue down, briefly short-handed)
+  | { type: "GIVE_BREAK"; staffId: StaffId }             // service: short break (fatigue down, briefly short-handed)
+  // round 3 — hands-on results (service only; see docs/SIM-NOTES.md "Round 3 hooks")
+  | { type: "PLAYER_COOKED"; ticketId: string; quality: number }
+  | { type: "PLAYER_SERVED"; customerId: CustomerId; ticketId: string; speedBonus: number }
+  | { type: "PLAYER_CLEARED"; tableId: TableId }
+  | { type: "PLAYER_TOOK_PAYMENT"; customerId: CustomerId }
+  | { type: "PLAYER_DROPPED"; ticketIds: string[]; cost: Pence }
+  | { type: "SET_HANDS_ON"; role: StaffRole | null; staffId?: StaffId } // planning or service; null = human left
+  // round 3 — paths and career
+  | { type: "CLOSE_TODAY" }                              // planning → evening with a closed DayResult
+  | { type: "SET_SET_MENU"; dishIds: DishId[]; price: Pence; active: boolean } // planning
+  | { type: "SET_OWNER_PROFILE"; skill: number; speed: number; charm: number }; // planning/evening/event
 
 // ───────────────────────── events (sim → UI) ─────────────────────────
 export type SimEvent =

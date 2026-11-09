@@ -4,7 +4,8 @@
  */
 import { SHORT_DELIVERY_CHANCE, SHORT_DELIVERY_SHARE } from "./constants";
 import { buyOpeningStock } from "./forecast";
-import { INCIDENT_LINES, fill } from "./incidents/text";
+import { incidentLinesOf } from "./contentText";
+import { fill } from "./incidents/text";
 import { hashSeed, Rng } from "./rng";
 import { addStock, canPlate } from "./stock";
 import { arrivalSystem, planArrivals } from "./systems/arrival";
@@ -13,9 +14,9 @@ import { eventDeckSystem } from "./systems/eventDeck";
 import { checkSolvency, financeSystem } from "./systems/finance";
 import { goalSystem } from "./systems/goals";
 import { closeIncidents, floorSystem, incidentSystem } from "./systems/incidents";
-import { kitchenSystem } from "./systems/kitchen";
+import { deliverPlate, kitchenSystem } from "./systems/kitchen";
 import { orderSystem } from "./systems/order";
-import { paymentSystem } from "./systems/payment";
+import { payParties, paymentSystem } from "./systems/payment";
 import { reputationSystem } from "./systems/reputation";
 import { seatingSystem } from "./systems/seating";
 import { serviceSystem } from "./systems/service";
@@ -101,12 +102,15 @@ export function canonicalState(s: GameState): GameState {
     eightySixed: s.eightySixed, hiredCandidates: s.hiredCandidates, distressDays: s.distressDays, service: s.service,
     eventHistory: s.eventHistory, gameOverReason: s.gameOverReason, incidents: s.incidents, goals: s.goals,
     ownerCovering: s.ownerCovering, ownerFatigue: s.ownerFatigue, shortDelivery: s.shortDelivery, incidentsHandled: s.incidentsHandled,
+    handsOn: s.handsOn, setMenu: s.setMenu, ownerProfile: s.ownerProfile, recruitmentFee: s.recruitmentFee,
   };
   return out;
 }
 
 /** The first service of a new game buys its opening stock (newGame starts with an empty larder). */
-export const isFirstService = (state: GameState): boolean => state.day === 0 && state.stats.daysOpen === 0 && state.history.length === 0;
+/** (Round 3: days shut with CLOSE_TODAY before the first service don't count, so the opening stock is still bought.) */
+export const isFirstService = (state: GameState): boolean =>
+  state.stats.daysOpen === 0 && state.history.every((h) => h.closed === true) && (state.day === 0 || state.history.length > 0);
 
 export function openService(content: ContentPack, state: GameState): StepResult {
   const opening = isFirstService(state) ? buyOpeningStock(content, state) : { state, events: [] };
@@ -142,11 +146,16 @@ const ALL_ACTIONS = 1e6;
 
 /** At close: eating and paying parties settle their bill; anyone still waiting for food walks out; the queue is turned away. */
 export function settleAtClose(content: ContentPack, state: GameState, rng: Rng): SystemResult {
-  const ready = state.customers.map((c): Customer =>
+  // Round 3: plates still held at the pass (hands-on) go out first.
+  const held = state.tickets.filter((t) => t.atPass);
+  const served = held.length
+    ? state.customers.map((c) => held.filter((t) => t.customerId === c.id).reduce((acc, t) => deliverPlate(acc, t.quality, state.tick, t.remakeOf), c))
+    : state.customers;
+  const ready = served.map((c): Customer =>
     c.stage === "eating" || (c.stage === "ordered" && c.servedTick !== undefined) ? { ...c, stage: "paying" } : c,
   );
   const tally = tallyOf(state);
-  const paid = paymentSystem(content, { ...state, customers: ready, service: { ...tally, actionsLeft: ALL_ACTIONS } }, rng);
+  const paid = payParties(content, { ...state, customers: ready, service: { ...tally, actionsLeft: ALL_ACTIONS } }, rng, true);
   let walkoutCovers = 0;
   let walkoutParties = 0;
   for (const c of paid.state.customers) {
@@ -174,10 +183,11 @@ export function settleAtClose(content: ContentPack, state: GameState, rng: Rng):
 
 /** Closes service, runs the evening systems and emits SERVICE_ENDED. */
 export function closeService(content: ContentPack, state: GameState, rng: Rng): SystemResult {
-  const quiet = closeIncidents(state);
+  const quiet = closeIncidents(state, content);
   const settled = settleAtClose(content, quiet.state, rng);
   const evening = runSystems(content, settled.state, EVENING_SYSTEMS, rng);
-  let s = evening.state;
+  // Round 3: the hands-on human leaves the floor at close.
+  let { handsOn: _h, ...s } = evening.state;
   if (s.phase !== "gameover") s = { ...s, phase: s.activeEvent ? "event" : "evening" };
   const result = s.history.at(-1) ?? buildDayResult(s);
   return { state: s, events: [...quiet.events, ...settled.events, ...evening.events, { type: "SERVICE_ENDED", result }] };
@@ -193,6 +203,39 @@ export function tickService(content: ContentPack, state: GameState): StepResult 
     const closed = closeService(content, next, rng);
     return { state: closed.state, events: [...r.events, ...closed.events] };
   });
+}
+
+/**
+ * CLOSE_TODAY (round 3): the restaurant stays shut. No service runs; the evening systems run on an empty tally with
+ * `todays.closed`, so rent, the loan and fixed overheads are paid, rostered wages at CLOSED_DAY_WAGE_SHARE, stock
+ * still ages, popularity/prestige drift, and the DayResult has `closed: true` and zero covers.
+ */
+export function closeForDay(content: ContentPack, state: GameState): StepResult {
+  return withRng(state, (rng) => {
+    const base = canonicalState({
+      ...state,
+      tick: 0,
+      customers: [],
+      tickets: [],
+      incidents: [],
+      ownerCovering: [],
+      handsOn: undefined,
+      todays: { reviews: [], closed: true },
+      service: emptyTally(),
+    });
+    const evening = runSystems(content, base, EVENING_SYSTEMS, rng);
+    let s = evening.state;
+    if (s.phase !== "gameover") s = { ...s, phase: s.activeEvent ? "event" : "evening" };
+    const result = s.history.at(-1) ?? buildDayResult(s);
+    const events: SimEvent[] = [logEvent(s, `${s.restaurantName} stayed closed today.`, "info"), ...evening.events, { type: "SERVICE_ENDED", result }];
+    return { state: s, events };
+  });
+}
+
+/** Replaces the footfall mod tagged `source` (or adds it); `mod: null` removes it. Other entries are untouched. */
+export function setFootfallMod(state: GameState, source: string, mod: { mult: number; daysRemaining: number } | null): GameState {
+  const others = state.footfallMods.filter((m) => m.source !== source);
+  return { ...state, footfallMods: mod && mod.daysRemaining > 0 ? [...others, { ...mod, source }] : others };
 }
 
 // ── day advance ──
@@ -229,7 +272,7 @@ export function advanceDay(state: GameState, content?: ContentPack): StepResult 
   const footfallMods = state.footfallMods
     .map((m) => ({ ...m, daysRemaining: m.daysRemaining - 1 }))
     .filter((m) => m.daysRemaining > 0);
-  const { activeEvent: _a, service: _s, shortDelivery: _sd, ownerCovering: _oc, ...rest } = state;
+  const { activeEvent: _a, service: _s, shortDelivery: _sd, ownerCovering: _oc, handsOn: _h, ...rest } = state;
   const shortOrder = short ? state.orders[short.index] : undefined;
   const next: GameState = {
     ...rest,
@@ -251,7 +294,7 @@ export function advanceDay(state: GameState, content?: ContentPack): StepResult 
   if (state.orders.length) events.push(logEvent(next, `${state.orders.length} deliver${state.orders.length === 1 ? "y" : "ies"} arrived.`, "info"));
   if (short && shortOrder) {
     const name = (content && findIngredient(content, shortOrder.ingredientId)?.name) ?? shortOrder.ingredientId;
-    events.push(logEvent(next, fill(INCIDENT_LINES.shortDeliveryLog, { ingredient: name, missing: short.missing }), "bad"));
+    events.push(logEvent(next, fill(incidentLinesOf(content).shortDeliveryLog, { ingredient: name, missing: short.missing }), "bad"));
   }
   return { state: foldLog(next, events), events };
 }

@@ -384,3 +384,35 @@ export const HISTORY_MAX = 400;
 export const MENU_WINDOW_DAYS = 7;
 /** Kasavana–Smith 70% rule: popular if sold ≥ this × mean sold. */
 export const MENU_POPULARITY_RULE = 0.7;
+
+// ── round 3: hands-on, closed days, set menus ──
+/**
+ * Hands-on fallback rules (SET_HANDS_ON; docs/SIM-NOTES.md "Round 3 hooks").
+ * - passHoldTicks: with a human server (all plates) or bar (drinks) on, plates wait at the pass; an AI colleague carries
+ *   one only once it has waited this many ticks.
+ * - reserveTickets / reserveFallbackTicks: with a human chef (food) or bar (drinks) on, the oldest `reserveTickets`
+ *   unassigned tickets of that kind are left on the rail for the human; AI cooks take only tickets beyond those, or a
+ *   reserved ticket once it has waited `reserveFallbackTicks` since it was fired.
+ * - payHoldTicks: with a human server or bar on, AI front of house takes a party's payment only once it has been
+ *   waiting to pay this many ticks (the human's PLAYER_TOOK_PAYMENT is immediate). Waiting to pay costs no satisfaction.
+ * - speedBonusSatisfaction: PLAYER_SERVED speedBonus 1 on every plate of a party adds this much satisfaction in total.
+ * - maxDropCost: PLAYER_DROPPED cost cap (pence) — a drop is a soft failure.
+ */
+export const HANDS_ON = {
+  passHoldTicks: 4,
+  payHoldTicks: 4,
+  reserveTickets: 3,
+  reserveFallbackTicks: 4,
+  speedBonusSatisfaction: 8,
+  maxDropCost: 5_000,
+} as const;
+/** Key used for the human in DayResult.perChef and KitchenTicket.chefId when SET_HANDS_ON gave no staffId. */
+export const PLAYER_COOK_ID = "player";
+/** CLOSE_TODAY: rostered staff are paid this share of a shift (notice pay for a shut day). */
+export const CLOSED_DAY_WAGE_SHARE = 0.5;
+/** Segments that order the set menu when GameState.setMenu is active. */
+export const SET_MENU_SEGMENTS: readonly string[] = ["foodies", "business"];
+/** Budget multiplier for the set-menu value/price-gap comparison (a tasting-menu budget); 1 when absent. */
+export const SET_MENU_BUDGET_MULT: Readonly<Record<string, number>> = { foodies: 1.6 };
+/** At most this many dishes in a set menu. */
+export const SET_MENU_MAX_DISHES = 12;

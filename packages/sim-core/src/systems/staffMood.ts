@@ -40,6 +40,8 @@ export interface DayContext {
   tipsPerFoh: number;
   workingCount: number;
   managerOn: boolean;
+  /** [round 3] CLOSE_TODAY: nobody worked; everyone gets a rest day. */
+  closed?: boolean;
 }
 
 const isFoh = (s: Staff) => s.role === "server" || s.role === "bar";
@@ -54,6 +56,7 @@ export function dayContext(state: GameState): DayContext {
     tipsPerFoh: foh ? tally.serverTips / foh : 0,
     workingCount: working.length,
     managerOn: working.some((s) => s.role === "manager"),
+    ...(state.todays.closed ? { closed: true } : {}),
   };
 }
 
@@ -90,7 +93,7 @@ export function updateStaffMember(content: ContentPack, s: Staff, day: number, c
   }
   const { breakUntilTick: _b, ...rest } = s;
   s = rest;
-  const worked = worksToday(s, day);
+  const worked = worksToday(s, day) && !ctx.closed;
   const fatigue = nextFatigue(worked, s.fatigue, ctx.workingCount ? ctx.covers / ctx.workingCount : 0);
   const mood = round2(clamp(s.mood + moodChange(content, s, worked, ctx, fatigue), 0, 100));
   const skill = worked ? round2(Math.min(s.potential, s.skill + SKILL_GROWTH_PER_SHIFT)) : s.skill;
@@ -99,7 +102,7 @@ export function updateStaffMember(content: ContentPack, s: Staff, day: number, c
 
 /** Owner fatigue after today: up for each role covered (and busier days), down on a day the team ran it. */
 export function nextOwnerFatigue(state: GameState): number {
-  const covered = rosterGaps(state).length;
+  const covered = state.todays.closed ? 0 : rosterGaps(state).length;
   const f = state.ownerFatigue ?? 0;
   const next = covered
     ? f + covered * OWNER_FATIGUE_PER_ROLE + ((state.todays.covers ?? 0) / 10) * OWNER_FATIGUE_PER_10_COVERS

@@ -11,7 +11,9 @@ import {
   TIP_CHARM_BASE,
   TIP_CHARM_SLOPE,
   COMP_SATISFACTION_BONUS,
+  HANDS_ON,
   PAY_ACTION_COST,
+  SET_MENU_BUDGET_MULT,
   PLATE_WASTE_MAX_FRACTION,
   PLATE_WASTE_SATISFACTION,
   RATING_THRESHOLDS,
@@ -35,14 +37,16 @@ export interface SatisfactionInputs {
   comped: boolean;
   /** Incident adjustments (apology, freebie, spill). */
   bonus?: number;
+  /** [round 3] Budget multiplier for the value score (set menu: SET_MENU_BUDGET_MULT, a tasting-menu budget). */
+  budgetMult?: number;
 }
 
 export function speedScore(waitTicks: number): number {
   return clamp(100 - Math.max(0, waitTicks - WAIT_GRACE_TICKS) * WAIT_PENALTY_PER_TICK, 0, 100);
 }
 
-export function valueScore(seg: SegmentDef, spendPerHead: number): number {
-  const budget = Math.max(1, seg.averageBudget);
+export function valueScore(seg: SegmentDef, spendPerHead: number, budgetMult = 1): number {
+  const budget = Math.max(1, seg.averageBudget * budgetMult);
   return clamp(VALUE_MID + (VALUE_SLOPE * (budget - spendPerHead)) / budget, 0, 100);
 }
 
@@ -54,7 +58,7 @@ export function satisfactionOf(seg: SegmentDef, x: SatisfactionInputs): number {
   // so value is weighted by priceSensitivity instead (see docs/SIM-NOTES.md).
   const wv = seg.priceSensitivity;
   const total = wq + ws + wv || 1;
-  const value = x.comped ? 100 : valueScore(seg, x.spendPerHead);
+  const value = x.comped ? 100 : valueScore(seg, x.spendPerHead, x.budgetMult ?? 1);
   const base = (wq * x.quality + ws * speedScore(x.waitTicks) + wv * value) / total;
   const charm = (CHARM_SATISFACTION_MAX * clamp(x.charm, 0, 100)) / 100;
   return round2(clamp(base + charm + (x.comped ? COMP_SATISFACTION_BONUS : 0) + (x.bonus ?? 0), 0, 100));
@@ -85,17 +89,29 @@ export function plateWasteOf(foodCost: number, satisfaction: number): number {
   return Math.round(foodCost * frac);
 }
 
-/** Books each plate's sale and margin into the tally. */
+/**
+ * Price of each plate in a party's order: the menu price, or (set menu) the set price per head split across the set's
+ * dishes in proportion to their suggested prices. Comped parties pay nothing.
+ */
+export function platePrices(content: ContentPack, state: GameState, c: Customer): number[] {
+  if (c.comped) return c.order.map(() => 0);
+  if (!c.setMenu) return c.order.map((id) => state.menu.find((m) => m.dishId === id)?.price ?? 0);
+  const weights = c.order.map((id) => Math.max(1, findDish(content, id)?.suggestedPrice ?? 1));
+  const total = weights.reduce((a, b) => a + b, 0) || 1;
+  return weights.map((w) => (c.spend * w) / total); // sums to the party's bill
+}
+
+/** Books each plate's sale, takings and margin into the tally. */
 function recordDishes(content: ContentPack, state: GameState, tally: ServiceTally, c: Customer): ServiceTally {
   const dishes = { ...tally.dishes };
-  for (const id of c.order) {
-    const item = state.menu.find((m) => m.dishId === id);
+  const prices = platePrices(content, state, c);
+  c.order.forEach((id, i) => {
     const dish = findDish(content, id);
-    const price = c.comped ? 0 : item?.price ?? 0;
+    const price = prices[i] ?? 0;
     const cost = dish ? plateCost(content, dish) : 0;
     const d = dishes[id] ?? { sold: 0, plated: 0, qualitySum: 0, margin: 0 };
-    dishes[id] = { ...d, sold: d.sold + 1, margin: d.margin + Math.round(price - cost) };
-  }
+    dishes[id] = { ...d, sold: d.sold + 1, margin: d.margin + Math.round(price - cost), revenue: (d.revenue ?? 0) + price };
+  });
   return { ...tally, dishes };
 }
 
@@ -108,71 +124,101 @@ function signatureDish(order: readonly string[]): string | undefined {
   return best;
 }
 
-export function paymentSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
+/** One party settles: satisfaction, rating, tip, VIP verdict, tally. The caller has already spent any FOH action. */
+export function settleParty(
+  content: ContentPack,
+  state: GameState,
+  rng: Rng,
+  c: Customer,
+  tally: ServiceTally,
+  charm: number,
+): { customer: Customer; tally: ServiceTally; events: SimEvent[] } | undefined {
+  const seg = findSegment(content, c.segment);
+  if (!seg) return undefined;
+  const events: SimEvent[] = [];
+  const spend = c.comped ? 0 : c.spend;
+  const quality = c.order.length ? (c.qualitySum ?? 0) / c.order.length : 0;
+  const satisfaction = satisfactionOf(seg, {
+    quality,
+    waitTicks: (c.servedTick ?? state.tick) - c.arrivedTick,
+    spendPerHead: c.spend / c.partySize,
+    charm,
+    comped: !!c.comped,
+    bonus: c.satisfactionBonus ?? 0,
+    ...(c.setMenu ? { budgetMult: SET_MENU_BUDGET_MULT[seg.id] ?? 1 } : {}),
+  });
+  let rating = ratingOf(satisfaction);
+  if (rating === 3 && rng.chance(charmUpgradeChance(charm))) rating = 4;
+  const tip = tipOf(seg, c.spend, rating, charm);
+  let prestigeBonus = tally.prestigeBonus ?? 0;
+  if (c.vip) {
+    const delta = (rating - 3) * INCIDENT.vipPrestigePerStar;
+    prestigeBonus += delta;
+    events.push(...vipVerdict(content, state, rating, delta));
+  }
+  events.push({ type: "CUSTOMER_PAID", customerId: c.id, spend, tip, rating });
+  let t = recordDishes(content, state, tally, c);
+  t = {
+    ...t,
+    prestigeBonus,
+    ratingSum: t.ratingSum + rating * c.partySize,
+    satisfactionSum: t.satisfactionSum + satisfaction * c.partySize,
+    ratedCovers: t.ratedCovers + c.partySize,
+    plateWaste: t.plateWaste + plateWasteOf(c.foodCost ?? 0, satisfaction),
+    serverTips: t.serverTips + tip,
+    paid: [...t.paid, { segment: c.segment, partySize: c.partySize, rating, quality: round2(quality), dishId: signatureDish(c.order) }],
+  };
+  return { customer: { ...c, stage: "left", leftTick: state.tick, satisfaction, rating, spend, tip }, tally: t, events };
+}
+
+/** Adds settled parties' takings to cash and today's totals. */
+export function bookTakings(state: GameState, paid: ReadonlyMap<string, Customer>, tally: ServiceTally): GameState {
+  let revenue = 0;
+  let tips = 0;
+  let covers = 0;
+  for (const c of paid.values()) {
+    revenue += c.spend;
+    tips += c.tip;
+    covers += c.partySize;
+  }
+  const t = state.todays;
+  return {
+    ...state,
+    cash: state.cash + revenue,
+    customers: state.customers.map((c) => paid.get(c.id) ?? c),
+    todays: { ...t, revenue: (t.revenue ?? 0) + revenue, tips: (t.tips ?? 0) + tips, covers: (t.covers ?? 0) + covers },
+    service: tally,
+  };
+}
+
+/**
+ * Pays every party that can pay this tick. With a human server or bar on (hands-on), AI front of house leaves a party
+ * to the human until it has waited HANDS_ON.payHoldTicks to pay; `atClose` (closing time) settles everyone.
+ */
+export function payParties(content: ContentPack, state: GameState, rng: Rng, atClose: boolean): SystemResult {
   let tally = tallyOf(state);
   let actions = tally.actionsLeft;
   const paying = state.customers.filter((c) => c.stage === "paying");
   if (paying.length === 0) return { state, events: [] };
+  const role = state.handsOn?.role;
+  const hold = !atClose && (role === "server" || role === "bar");
   const charm = tally.frontCharm ?? frontCharm(content, state);
-  let prestigeBonus = tally.prestigeBonus ?? 0;
   const events: SimEvent[] = [];
   const paid = new Map<string, Customer>();
-  let revenue = 0;
-  let tips = 0;
-  let covers = 0;
   for (const c of paying) {
     if (actions < PAY_ACTION_COST) break;
-    const seg = findSegment(content, c.segment);
-    if (!seg) continue;
+    if (hold && state.tick - (c.stageTick ?? state.tick) < HANDS_ON.payHoldTicks) continue;
+    const r = settleParty(content, state, rng, c, tally, charm);
+    if (!r) continue;
     actions -= PAY_ACTION_COST;
-    const spend = c.comped ? 0 : c.spend;
-    const quality = c.order.length ? (c.qualitySum ?? 0) / c.order.length : 0;
-    const satisfaction = satisfactionOf(seg, {
-      quality,
-      waitTicks: (c.servedTick ?? state.tick) - c.arrivedTick,
-      spendPerHead: c.spend / c.partySize,
-      charm,
-      comped: !!c.comped,
-      bonus: c.satisfactionBonus ?? 0,
-    });
-    let rating = ratingOf(satisfaction);
-    if (rating === 3 && rng.chance(charmUpgradeChance(charm))) rating = 4;
-    const tip = tipOf(seg, c.spend, rating, charm);
-    if (c.vip) {
-      const delta = (rating - 3) * INCIDENT.vipPrestigePerStar;
-      prestigeBonus += delta;
-      events.push(...vipVerdict(state, rating, delta));
-    }
-    paid.set(c.id, { ...c, stage: "left", leftTick: state.tick, satisfaction, rating, spend, tip });
-    events.push({ type: "CUSTOMER_PAID", customerId: c.id, spend, tip, rating });
-    revenue += spend;
-    tips += tip;
-    covers += c.partySize;
-    tally = recordDishes(content, state, tally, c);
-    tally = {
-      ...tally,
-      ratingSum: tally.ratingSum + rating * c.partySize,
-      satisfactionSum: tally.satisfactionSum + satisfaction * c.partySize,
-      ratedCovers: tally.ratedCovers + c.partySize,
-      plateWaste: tally.plateWaste + plateWasteOf(c.foodCost ?? 0, satisfaction),
-      serverTips: tally.serverTips + tip,
-      paid: [...tally.paid, { segment: c.segment, partySize: c.partySize, rating, quality: round2(quality), dishId: signatureDish(c.order) }],
-    };
+    paid.set(c.id, r.customer);
+    tally = r.tally;
+    events.push(...r.events);
   }
-  const t = state.todays;
-  return {
-    state: {
-      ...state,
-      cash: state.cash + revenue,
-      customers: state.customers.map((c) => paid.get(c.id) ?? c),
-      todays: {
-        ...t,
-        revenue: (t.revenue ?? 0) + revenue,
-        tips: (t.tips ?? 0) + tips,
-        covers: (t.covers ?? 0) + covers,
-      },
-      service: { ...tally, actionsLeft: actions, prestigeBonus },
-    },
-    events,
-  };
+  if (paid.size === 0 && actions === tally.actionsLeft) return { state, events };
+  return { state: bookTakings(state, paid, { ...tally, actionsLeft: actions }), events };
+}
+
+export function paymentSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
+  return payParties(content, state, rng, false);
 }

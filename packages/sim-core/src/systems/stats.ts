@@ -9,7 +9,7 @@
  */
 import { HISTORY_MAX, MENU_WINDOW_DAYS } from "../constants";
 import type { Rng } from "../rng";
-import type { ContentPack, DayResult, DishId, GameState, IncidentSummary, MenuItem, ServiceTally } from "../types";
+import type { ContentPack, DayDishLine, DayResult, DishId, GameState, IncidentSummary, MenuItem, ServiceTally } from "../types";
 import { round2, tallyOf } from "../util";
 import { rosterGaps, type SystemResult } from "./system";
 
@@ -44,6 +44,32 @@ export function rollMenu(menu: readonly MenuItem[], dishes: Record<DishId, DishT
       margin7d: recent.reduce((a, r) => a + r.margin, 0),
     };
   });
+}
+
+/** DayResult.perDish from the tally (sorted ids, so live and reloaded tallies give identical objects). */
+export function perDishOf(dishes: Record<DishId, DishTally>): Record<DishId, DayDishLine> {
+  const out: Record<DishId, DayDishLine> = {};
+  for (const id of Object.keys(dishes).sort()) {
+    const d = dishes[id]!;
+    out[id] = {
+      sold: d.sold,
+      plated: d.plated,
+      qualityMean: d.plated ? round2(d.qualitySum / d.plated) : 0,
+      revenue: Math.round(d.revenue ?? 0),
+      foodCost: Math.round(d.foodCost ?? 0),
+    };
+  }
+  return out;
+}
+
+/** DayResult.perChef from the tally. */
+export function perChefOf(chefs: ServiceTally["chefs"]): Record<string, { plates: number; qualityMean: number }> {
+  const out: Record<string, { plates: number; qualityMean: number }> = {};
+  for (const id of Object.keys(chefs ?? {}).sort()) {
+    const c = chefs![id]!;
+    if (c.plates > 0) out[id] = { plates: c.plates, qualityMean: round2(c.qualitySum / c.plates) };
+  }
+  return out;
 }
 
 export function buildDayResult(state: GameState): DayResult {
@@ -87,7 +113,12 @@ export function buildDayResult(state: GameState): DayResult {
     reviews: t.reviews,
     staffMoodDelta: t.staffMoodDelta ?? {},
     incidents,
-    ownerCovered: rosterGaps(state),
+    ownerCovered: t.closed ? [] : rosterGaps(state),
+    // round 3
+    perDish: perDishOf(tally.dishes),
+    perChef: perChefOf(tally.chefs),
+    freshnessMean: tally.plates ? round2((tally.freshnessSum ?? 0) / tally.plates) : 0,
+    ...(t.closed ? { closed: true } : {}),
   };
 }
 
@@ -99,11 +130,12 @@ export function statsSystem(_content: ContentPack, state: GameState, _rng: Rng):
       ...state,
       todays: { ...result },
       history: history.length > HISTORY_MAX ? history.slice(-HISTORY_MAX) : history,
-      menu: rollMenu(state.menu, tallyOf(state).dishes),
+      // A closed day (CLOSE_TODAY) doesn't roll the 7-day menu window or count as a day open.
+      menu: result.closed ? state.menu : rollMenu(state.menu, tallyOf(state).dishes),
       stats: {
         totalCovers: state.stats.totalCovers + result.covers,
         totalRevenue: state.stats.totalRevenue + result.revenue,
-        daysOpen: state.stats.daysOpen + 1,
+        daysOpen: state.stats.daysOpen + (result.closed ? 0 : 1),
       },
     },
     events: [],

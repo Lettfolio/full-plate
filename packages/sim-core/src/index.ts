@@ -80,11 +80,33 @@ export function deserialize(json: string): GameState {
 
 export * from "./types";
 
+// ── round 3 ──
+/** Seeded RNG (xoshiro128**) and seed mixing — the same generator the sim uses. */
+export { Rng, hashSeed, seedState, type RngState } from "./rng";
+/**
+ * Scripted owner strategies (browser-safe; the headless CLI lives in headless.ts):
+ * `strategies.runStrategyDay(content, state, strategies.STRATEGIES.typical)` plays one day.
+ */
+export * as strategies from "./strategies";
+export { runStrategyDay, STRATEGIES, type Strategy, type StrategyName } from "./strategies";
+/** Replace (or remove, with null) the footfall mod tagged `source`, leaving other mods alone. */
+export { setFootfallMod } from "./engine";
+/** Recruitment fee in effect for this game (GameState.recruitmentFee or RECRUITMENT_FEE). */
+export { recruitmentFeeOf } from "./commands";
+/** Incident/goal text in effect for a content pack (ContentPack.incidentText/goalText merged over the built-in text). */
+export { goalLadderOf, goalLinesOf, incidentLinesOf, incidentTextOf } from "./contentText";
+
 /**
  * Calendar and price constants the UI needs to show before the player acts.
  * (Re-exported from constants.ts; values stay owned by sim-core.)
  */
 export {
+  CLOSED_DAY_WAGE_SHARE,
+  HANDS_ON,
+  PLAYER_COOK_ID,
+  SET_MENU_BUDGET_MULT,
+  SET_MENU_MAX_DISHES,
+  SET_MENU_SEGMENTS,
   COURSE_ORDER_CHANCE,
   DAYS_PER_MONTH,
   EMPLOYER_ONCOST,

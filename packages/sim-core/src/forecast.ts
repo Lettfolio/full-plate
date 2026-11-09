@@ -20,15 +20,19 @@ import {
   OPENING_STOCK_BUDGET,
   OPENING_STOCK_COVER_MULT,
   ORDER_ROUND_TO,
+  SET_MENU_SEGMENTS,
   WAIT_GRACE_TICKS,
 } from "./constants";
 import { addStock, purchaseCost, stockQty } from "./stock";
 import { planArrivals } from "./systems/arrival";
 import type { ContentPack, DishCourse, DishId, GameState, IngredientId, SimEvent } from "./types";
-import { findDish, findIngredient, findSegment, logEvent, monthOf, sigmoid } from "./util";
+import { districtOf, findDish, findIngredient, findSegment, logEvent, monthOf, sigmoid } from "./util";
 
 /** Rough number of times a table turns over in a service (seat → eat → pay → clear). */
 const TABLE_TURNS = LAST_SEATING_TICK / (EAT_TICKS_BASE + WAIT_GRACE_TICKS + 6);
+
+/** History without CLOSE_TODAY days. */
+const openDays = (state: GameState) => (state.history.some((d) => d.closed) ? state.history.filter((d) => !d.closed) : state.history);
 
 /** Model estimate of covers for a service with the current menu, before any history exists. */
 export function modelCovers(content: ContentPack, state: GameState): number {
@@ -47,14 +51,28 @@ export function modelCovers(content: ContentPack, state: GameState): number {
 
 /** Guests to plan for at the next service. */
 export function expectedCovers(content: ContentPack, state: GameState): number {
-  const recent = state.history.slice(-FORECAST_WINDOW_DAYS);
+  // Round 3: the evening of a CLOSE_TODAY day forecasts nothing (refits run day after day); closed days are not demand.
+  if (state.todays.closed) return 0;
+  const recent = openDays(state).slice(-FORECAST_WINDOW_DAYS);
   if (!recent.length) return Math.max(FORECAST_MIN_COVERS, Math.round(modelCovers(content, state)));
   const demand = Math.max(...recent.map((d) => d.covers + d.walkouts));
   return Math.max(FORECAST_MIN_COVERS, Math.round(demand * FORECAST_HISTORY_MULT));
 }
 
-/** Plates of each active dish per guest (not filtered by today's 86 list: tomorrow's order must cover sell-outs). */
+/**
+ * Plates of each active dish per guest (not filtered by today's 86 list: tomorrow's order must cover sell-outs).
+ * Round 3: with a set menu on, each set dish adds the district's share of set-menu guests (foodies + business).
+ */
 export function platesPerGuest(content: ContentPack, state: GameState): Map<DishId, number> {
+  const out = alaCartePerGuest(content, state);
+  if (!state.setMenu?.active) return out;
+  const mix = districtOf(content, state).segmentMix;
+  const share = SET_MENU_SEGMENTS.reduce((a, id) => a + (mix[id] ?? 0), 0);
+  for (const id of state.setMenu.dishIds) if (findDish(content, id)) out.set(id, (out.get(id) ?? 0) + share);
+  return out;
+}
+
+function alaCartePerGuest(content: ContentPack, state: GameState): Map<DishId, number> {
   const active = state.menu.filter((m) => m.active && findDish(content, m.dishId));
   const byCourse = new Map<DishCourse, DishId[]>();
   for (const m of active) {
@@ -73,7 +91,7 @@ export function platesPerGuest(content: ContentPack, state: GameState): Map<Dish
   }
   for (const m of active) {
     const days = m.recent?.length ?? 0;
-    const guests = state.history.slice(-days).reduce((a, d) => a + d.covers, 0);
+    const guests = openDays(state).slice(-days).reduce((a, d) => a + d.covers, 0);
     if (days > 0 && guests > 0) out.set(m.dishId, Math.max(out.get(m.dishId) ?? 0, m.sold7d / guests));
   }
   return out;

@@ -62,17 +62,19 @@ export interface OwnerStats {
 }
 
 /**
- * The owner as cover: a mediocre generalist (OWNER), worn down by ownerFatigue, and in two places at once
+ * The owner as cover: a mediocre generalist (OWNER, or GameState.ownerProfile when set), worn down by ownerFatigue, and in two places at once
  * when covering both kitchen and floor (kitchen throughput and FOH actions × OWNER_BOTH_SPEED_MULT).
  */
 export function ownerStats(state: GameState): OwnerStats {
   const tired = 1 - (OWNER_FATIGUE_EFFECT * clamp(state.ownerFatigue ?? 0, 0, 100)) / 100;
   const both = coveringRoles(state).length >= 2;
   const split = both ? OWNER_BOTH_SPEED_MULT : 1;
+  // Round 3: a career handover gives the owner their own skills (GameState.ownerProfile).
+  const base = state.ownerProfile ?? OWNER;
   return {
-    skill: OWNER.skill * tired,
-    speed: OWNER.speed * tired,
-    charm: OWNER.charm * tired,
+    skill: base.skill * tired,
+    speed: base.speed * tired,
+    charm: base.charm * tired,
     actions: OWNER.serverActions * tired * split,
     focus: split,
     both,

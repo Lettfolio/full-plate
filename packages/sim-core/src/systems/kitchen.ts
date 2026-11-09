@@ -6,6 +6,8 @@
  */
 import {
   BAR_PARALLEL_TICKETS,
+  HANDS_ON,
+  PLAYER_COOK_ID,
   CHEF_PARALLEL_TICKETS,
   FATIGUE_QUALITY_PENALTY,
   MISTAKE_BASE_CHANCE,
@@ -46,14 +48,18 @@ export const OWNER_ID = "owner";
  * Cooks depend only on the staff array (breaks, training and mid-service mood changes replace it), content, day and
  * owner fatigue, so they are memoised on the staff array's identity. Safe because state is immutable.
  */
-const cookCache = new WeakMap<readonly Staff[], { content: ContentPack; day: number; ownerFatigue: number; cooks: Cook[] }>();
+const cookCache = new WeakMap<
+  readonly Staff[],
+  { content: ContentPack; day: number; ownerFatigue: number; profile: GameState["ownerProfile"]; cooks: Cook[] }
+>();
 
 export function cooksOnShift(content: ContentPack, state: GameState): Cook[] {
   const hit = cookCache.get(state.staff);
   const ownerFatigue = state.ownerFatigue ?? 0;
-  if (hit && hit.day === state.day && hit.content === content && hit.ownerFatigue === ownerFatigue) return hit.cooks;
+  const profile = state.ownerProfile;
+  if (hit && hit.day === state.day && hit.content === content && hit.ownerFatigue === ownerFatigue && hit.profile === profile) return hit.cooks;
   const cooks = buildCooks(content, state);
-  cookCache.set(state.staff, { content, day: state.day, ownerFatigue, cooks });
+  cookCache.set(state.staff, { content, day: state.day, ownerFatigue, profile, cooks });
   return cooks;
 }
 
@@ -116,14 +122,21 @@ const canCook = (cook: Cook, dish: DishDef | undefined): boolean =>
  * Assigns unstarted tickets to cooks with free capacity (bar staff first for drinks). A ticket whose cook has left the
  * floor (break, or the owner handing back to a returning chef) is re-homed and keeps its remaining time.
  */
-export function assignTickets(content: ContentPack, tickets: readonly KitchenTicket[], cooks: readonly Cook[]): KitchenTicket[] {
+export function assignTickets(
+  content: ContentPack,
+  tickets: readonly KitchenTicket[],
+  cooks: readonly Cook[],
+  reserved?: ReadonlySet<string>,
+): KitchenTicket[] {
   const present = new Set(cooks.map((k) => k.id));
   const load = new Map<string, number>();
-  for (const t of tickets) if (t.chefId && present.has(t.chefId)) load.set(t.chefId, (load.get(t.chefId) ?? 0) + 1);
+  for (const t of tickets) if (t.chefId && !t.atPass && present.has(t.chefId)) load.set(t.chefId, (load.get(t.chefId) ?? 0) + 1);
   const ordered = [...cooks].sort((a, b) => Number(b.drinksOnly) - Number(a.drinksOnly));
   return mapIfChanged(tickets, (t) => {
+    if (t.atPass || t.chefId === PLAYER_COOK_ID) return t;
     const orphan = t.chefId !== undefined && !present.has(t.chefId);
     if (t.chefId && !orphan) return t;
+    if (!orphan && reserved?.has(t.id)) return t; // left on the rail for the hands-on human
     const dish = findDish(content, t.dishId);
     const cook = ordered.find((k) => canCook(k, dish) && (load.get(k.id) ?? 0) < k.capacity);
     if (!cook || !dish) return orphan ? { ...t, chefId: undefined } : t;
@@ -136,7 +149,7 @@ export function assignTickets(content: ContentPack, tickets: readonly KitchenTic
 }
 
 /** Adds a plated dish to its customer (a remake swaps the old plate's quality for the new one). */
-function deliverPlate(c: Customer, quality: number, tick: number, remakeOf: number | undefined): Customer {
+export function deliverPlate(c: Customer, quality: number, tick: number, remakeOf: number | undefined): Customer {
   if (remakeOf !== undefined) return { ...c, qualitySum: (c.qualitySum ?? 0) - remakeOf + quality };
   const platesReady = (c.platesReady ?? 0) + 1;
   const done = platesReady >= c.order.length;
@@ -157,20 +170,115 @@ function kitchenSteps(state: GameState, tally: ServiceTally): { steps: number; c
   return { steps, carry: round2(total - steps) };
 }
 
+// ── round 3: hands-on (SET_HANDS_ON) ──
+const isDrink = (content: ContentPack, t: KitchenTicket): boolean => findDish(content, t.dishId)?.course === "drink";
+
+/** True when a plate of this ticket should wait at the pass for the hands-on human to carry (server: all; bar: drinks). */
+export function holdsAtPass(content: ContentPack, state: GameState, t: KitchenTicket): boolean {
+  const role = state.handsOn?.role;
+  return role === "server" || (role === "bar" && isDrink(content, t));
+}
+
+/** True when the hands-on human cooks this kind of ticket (chef: food; bar: drinks). */
+function humanCooks(content: ContentPack, state: GameState, t: KitchenTicket): boolean {
+  const role = state.handsOn?.role;
+  return role === "chef" ? !isDrink(content, t) : role === "bar" ? isDrink(content, t) : false;
+}
+
+/**
+ * Tickets the AI cooks leave for the human: the oldest HANDS_ON.reserveTickets unassigned tickets of the human's kind,
+ * except any that has waited HANDS_ON.reserveFallbackTicks since it was fired (or since hands-on began).
+ */
+export function reservedForHuman(content: ContentPack, state: GameState): ReadonlySet<string> | undefined {
+  const h = state.handsOn;
+  if (!h || (h.role !== "chef" && h.role !== "bar")) return undefined;
+  const out = new Set<string>();
+  let n = 0;
+  for (const t of state.tickets) {
+    if (n >= HANDS_ON.reserveTickets) break;
+    if (t.chefId || t.atPass || t.ticksRemaining <= 0 || !humanCooks(content, state, t)) continue;
+    n++; // counts toward the human's 3 whether or not it has timed out
+    if (state.tick - Math.max(t.createdTick, h.since) < HANDS_ON.reserveFallbackTicks) out.add(t.id);
+  }
+  return out;
+}
+
+/** Books one plated plate into the tally (dish plated/quality, per-cook, freshness). Remakes swap quality only. */
+export function tallyPlate(tally: ServiceTally, dishes: ServiceTally["dishes"], t: KitchenTicket, cookId: string, quality: number): ServiceTally {
+  const d = dishes[t.dishId] ?? { sold: 0, plated: 0, qualitySum: 0, margin: 0 };
+  const chefs = { ...(tally.chefs ?? {}) };
+  const ch = chefs[cookId] ?? { plates: 0, qualitySum: 0 };
+  if (t.remakeOf === undefined) {
+    dishes[t.dishId] = { ...d, plated: d.plated + 1, qualitySum: d.qualitySum + quality };
+    chefs[cookId] = { plates: ch.plates + 1, qualitySum: ch.qualitySum + quality };
+    return {
+      ...tally,
+      dishes,
+      chefs,
+      plates: tally.plates + 1,
+      qualitySum: tally.qualitySum + quality,
+      freshnessSum: (tally.freshnessSum ?? 0) + (t.freshness ?? 0),
+    };
+  }
+  dishes[t.dishId] = { ...d, qualitySum: d.qualitySum - t.remakeOf + quality };
+  chefs[cookId] = { plates: ch.plates, qualitySum: ch.qualitySum - t.remakeOf + quality };
+  return { ...tally, dishes, chefs, qualitySum: tally.qualitySum + quality - t.remakeOf };
+}
+
+/** Takes a held plate back off the books (PLAYER_DROPPED of a plated ticket): the inverse of tallyPlate. */
+export function untallyPlate(tally: ServiceTally, t: KitchenTicket): ServiceTally {
+  if (t.remakeOf !== undefined) return tally; // a dropped remake is simply cooked again; the old plate stays booked
+  const dishes = { ...tally.dishes };
+  const d = dishes[t.dishId];
+  if (d) dishes[t.dishId] = { ...d, plated: Math.max(0, d.plated - 1), qualitySum: d.qualitySum - t.quality };
+  const chefs = { ...(tally.chefs ?? {}) };
+  const ch = t.chefId ? chefs[t.chefId] : undefined;
+  if (t.chefId && ch) chefs[t.chefId] = { plates: Math.max(0, ch.plates - 1), qualitySum: ch.qualitySum - t.quality };
+  return {
+    ...tally,
+    dishes,
+    chefs,
+    plates: Math.max(0, tally.plates - 1),
+    qualitySum: tally.qualitySum - t.quality,
+    freshnessSum: (tally.freshnessSum ?? 0) - (t.freshness ?? 0),
+  };
+}
+
+/** A plated ticket held under the heat lamps. */
+export const toPass = (t: KitchenTicket, cookId: string, quality: number, tick: number): KitchenTicket => ({
+  ...t,
+  chefId: cookId,
+  quality,
+  ticksRemaining: 0,
+  atPass: true,
+  platedAtTick: tick,
+});
+
 export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng): SystemResult {
   if (state.tickets.length === 0) return { state, events: [] };
   const cooks = cooksOnShift(content, state);
   const byId = new Map(cooks.map((k) => [k.id, k]));
-  const assigned = assignTickets(content, state.tickets, cooks);
-  const tally = tallyOf(state);
+  const handsOn = state.handsOn;
+  const assigned = assignTickets(content, state.tickets, cooks, handsOn ? reservedForHuman(content, state) : undefined);
+  let tally = tallyOf(state);
   const { steps, carry } = kitchenSteps(state, tally);
   const events: SimEvent[] = [];
   const delivered = new Map<string, { q: number; remakeOf: number | undefined }[]>();
   const remaining: KitchenTicket[] = [];
   let dishes: ServiceTally["dishes"] | undefined;
-  let plates = tally.plates;
-  let qualitySum = tally.qualitySum;
+  const deliver = (t: KitchenTicket, q: number) =>
+    delivered.set(t.customerId, [...(delivered.get(t.customerId) ?? []), { q, remakeOf: t.remakeOf }]);
   for (const t of assigned) {
+    if (t.atPass) {
+      // Held plates: the human carries them (PLAYER_SERVED); an AI colleague takes one once it has waited long enough,
+      // or straight away when hands-on no longer holds this kind of plate.
+      if (holdsAtPass(content, state, t) && state.tick - (t.platedAtTick ?? state.tick) < HANDS_ON.passHoldTicks) remaining.push(t);
+      else {
+        deliver(t, t.quality);
+        dishes ??= { ...tally.dishes };
+      }
+      continue;
+    }
     const cook = t.chefId ? byId.get(t.chefId) : undefined;
     const dish = findDish(content, t.dishId);
     if (!cook || !dish || steps === 0) {
@@ -183,27 +291,22 @@ export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng):
     }
     const { quality } = plateQuality(rng, dish, cook, t.freshness ?? 0);
     events.push({ type: "DISH_PLATED", ticketId: t.id, quality });
-    delivered.set(t.customerId, [...(delivered.get(t.customerId) ?? []), { q: quality, remakeOf: t.remakeOf }]);
     dishes ??= { ...tally.dishes };
-    const d = dishes[dish.id] ?? { sold: 0, plated: 0, qualitySum: 0, margin: 0 };
-    if (t.remakeOf === undefined) {
-      dishes[dish.id] = { ...d, plated: d.plated + 1, qualitySum: d.qualitySum + quality };
-      plates++;
-      qualitySum += quality;
-    } else {
-      dishes[dish.id] = { ...d, qualitySum: d.qualitySum - t.remakeOf + quality };
-      qualitySum += quality - t.remakeOf;
-    }
+    tally = tallyPlate(tally, dishes, t, cook.id, quality);
+    if (handsOn && holdsAtPass(content, state, t)) remaining.push(toPass(t, cook.id, quality, state.tick));
+    else deliver(t, quality);
   }
   if (!dishes) {
     // Nothing plated: only touch the tally if the slow-kitchen carry moved.
     const service = carry === (tally.kitchenCarry ?? 0) ? state.service : { ...tally, kitchenCarry: carry };
     return { state: { ...state, tickets: remaining, service }, events };
   }
-  const service = { ...tally, plates, qualitySum, dishes, kitchenCarry: carry };
-  const customers = state.customers.map((c) => {
-    const qs = delivered.get(c.id);
-    return qs ? qs.reduce((acc, p) => deliverPlate(acc, p.q, state.tick, p.remakeOf), c) : c;
-  });
+  const service = { ...tally, kitchenCarry: carry };
+  const customers = delivered.size
+    ? state.customers.map((c) => {
+        const qs = delivered.get(c.id);
+        return qs ? qs.reduce((acc, p) => deliverPlate(acc, p.q, state.tick, p.remakeOf), c) : c;
+      })
+    : state.customers;
   return { state: { ...state, tickets: remaining, customers, service }, events };
 }

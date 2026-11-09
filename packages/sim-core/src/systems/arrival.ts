@@ -15,6 +15,8 @@ import {
   PRESTIGE_APPEAL_WEIGHT,
   PRICE_GAP_WEIGHT,
   QUEUE_PENALTY_PER_PARTY,
+  SET_MENU_BUDGET_MULT,
+  SET_MENU_SEGMENTS,
 } from "../constants";
 import type { Rng } from "../rng";
 import type { ContentPack, Customer, DishDef, GameState, MenuItem, SegmentDef, ServiceTally, SimEvent } from "../types";
@@ -74,15 +76,39 @@ export function menuMarkup(offered: readonly Offered[]): number {
 /** Logit used when nothing is on the menu (finite so it survives JSON). */
 export const NO_MENU_LOGIT = -50;
 
-/** Appeal − price gap + prestige pull, before queue penalty. */
-export function entryLogit(segment: SegmentDef, offered: readonly Offered[], prestige: number): number {
-  if (offered.length === 0) return NO_MENU_LOGIT;
+/** [round 3] What a set-menu segment sees: the set's dishes and its price per head (GameState.setMenu). */
+export interface SetOffer { dishes: readonly DishDef[]; price: number }
+
+/** The active set menu as a SetOffer for this segment, or undefined (inactive, not a set segment, unknown dish). */
+export function setOfferFor(content: ContentPack, state: GameState, segId: string): SetOffer | undefined {
+  const sm = state.setMenu;
+  if (!sm?.active || sm.dishIds.length === 0 || !SET_MENU_SEGMENTS.includes(segId)) return undefined;
+  const dishes: DishDef[] = [];
+  for (const id of sm.dishIds) {
+    const d = findDish(content, id);
+    if (!d) return undefined;
+    dishes.push(d);
+  }
+  return { dishes, price: sm.price };
+}
+
+/**
+ * Appeal − price gap + prestige pull, before queue penalty. With a set menu (round 3) a set segment weighs the set:
+ * appeal over the à-la-carte dishes plus the set's (capped as usual), spend = the set price against a budget of
+ * averageBudget × SET_MENU_BUDGET_MULT, and markup = set price over the set dishes' summed suggested prices.
+ */
+export function entryLogit(segment: SegmentDef, offered: readonly Offered[], prestige: number, set?: SetOffer): number {
+  if (offered.length === 0 && !set) return NO_MENU_LOGIT;
   let appeal = 0;
   for (const o of offered) appeal += o.dish.baseAppeal[segment.id] ?? 0;
+  if (set) for (const d of set.dishes) if (!offered.some((o) => o.dish.id === d.id)) appeal += d.baseAppeal[segment.id] ?? 0;
   appeal = Math.min(APPEAL_CAP, appeal);
-  const budget = Math.max(1, segment.averageBudget);
-  const gapRatio = clamp((expectedSpendPerHead(offered) - budget) / budget, -0.5, 2);
-  const priceGap = segment.priceSensitivity * (gapRatio * PRICE_GAP_WEIGHT + menuMarkup(offered) * MARKUP_WEIGHT);
+  const budget = Math.max(1, segment.averageBudget * (set ? SET_MENU_BUDGET_MULT[segment.id] ?? 1 : 1));
+  const spend = set ? set.price : expectedSpendPerHead(offered);
+  const suggested = set ? set.dishes.reduce((a, d) => a + d.suggestedPrice, 0) : 0;
+  const markup = set ? (suggested > 0 ? Math.max(0, set.price / suggested - 1) : 0) : menuMarkup(offered);
+  const gapRatio = clamp((spend - budget) / budget, -0.5, 2);
+  const priceGap = segment.priceSensitivity * (gapRatio * PRICE_GAP_WEIGHT + markup * MARKUP_WEIGHT);
   const prestigeTerm = PRESTIGE_APPEAL_WEIGHT * segment.qualityWeight * ((prestige - 50) / 50);
   return ENTRY_BIAS + APPEAL_WEIGHT * appeal - priceGap + prestigeTerm;
 }
@@ -96,7 +122,8 @@ export function planArrivals(content: ContentPack, state: GameState): ServiceTal
   for (const [segId, share] of Object.entries(district.segmentMix)) {
     const seg = findSegment(content, segId);
     if (!seg || share <= 0) continue;
-    plan.push({ segment: segId, potentialParties: parties * share, entryLogit: entryLogit(seg, offered, state.reputation.prestige) });
+    const set = setOfferFor(content, state, segId);
+    plan.push({ segment: segId, potentialParties: parties * share, entryLogit: entryLogit(seg, offered, state.reputation.prestige, set) });
   }
   return plan;
 }
