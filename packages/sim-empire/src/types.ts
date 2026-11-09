@@ -418,4 +418,22 @@ export type EmpireCommand =
 export interface EmpireStepResult {
   empire: EmpireState;
   events: EmpireEvent[];
+  /** Only with StepOptions.trace: the traced sites' day. */
+  trace?: SiteTrace[];
+}
+
+/** One traced site-day (StepOptions.trace): the model's P&L and the money flows that follow from it (pence). */
+export interface SiteTrace {
+  day: number;
+  siteId: SiteId;
+  result: SiteDayResult;
+  netSales: Pence;
+  royalty: Pence;
+  adFund: Pence;
+  /** What the operator (or a company site) pays for the plot today. */
+  rent: Pence;
+  loan: Pence;
+  /** Operator net today (0 on company sites). */
+  operator: Pence;
+  hq: Pence;
 }

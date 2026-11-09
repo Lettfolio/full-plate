@@ -20,6 +20,7 @@ import {
   crewWage,
   districtDef,
   offPremise,
+  offPremiseLabour,
   menuBreaksRules,
   saturationPenalty,
   siteDayFromResult,
@@ -50,6 +51,7 @@ import type {
   SiteContract,
   SiteDayResult,
   SiteSummary,
+  SiteTrace,
   Tech,
 } from "./types";
 import { DEFAULT_REGIONS, DEFAULT_SUPPLIERS, DISTRICT_SHORT, FIRST_NAMES, LAST_NAMES, defaultCities } from "./world";
@@ -208,6 +210,9 @@ function ownRoom(content: ContentPack, state: GameState): Partial<SiteSummary> {
 }
 
 // ───────────────────────── helpers ─────────────────────────
+/** Rent multiplier on the district rent for a plot: the founder's unit size without a lane, the bigger corner plot with one. */
+export const plotRentMult = (driveThru: boolean): number => (driveThru ? K.QSR_RENT_MULT : K.UNIT_RENT_MULT);
+
 export function marketRent(content: ContentPack, city: City, districtId: DistrictId, priceLevel: number, mult = K.QSR_RENT_MULT): number {
   return Math.round(districtDef(content, districtId).monthlyRent * mult * city.costIndex * priceLevel);
 }
@@ -461,6 +466,10 @@ interface SiteFlows {
   operator: number;
   netSales: number;
   ad: number;
+  /** The parts (pence, today): royalty and ad fund on reported sales, the operator's occupancy, the build-loan instalment. */
+  royalty: number;
+  rent: number;
+  loan: number;
 }
 
 /**
@@ -476,8 +485,8 @@ function siteFlows(x: Ctx, s: SiteSummary, r: SiteDayResult): SiteFlows {
     const ad = net * K.DEFAULT_AD_FUND_PCT;
     const occupancy = s.land === "hqOwned" ? 0 : marketDaily;
     s.margin7d = s.margin7d * (6 / 7) + (r.contribution - occupancy);
-    if (s.focused) return { hq: 0, operator: 0, netSales: net, ad: 0 };
-    return { hq: r.contribution - occupancy - ad, operator: 0, netSales: net, ad };
+    if (s.focused) return { hq: 0, operator: 0, netSales: net, ad: 0, royalty: 0, rent: occupancy, loan: 0 };
+    return { hq: r.contribution - occupancy - ad, operator: 0, netSales: net, ad, royalty: 0, rent: occupancy, loan: 0 };
   }
   const c = s.contract!;
   const fr = s.franchisee ? x.fr.get(s.franchisee) : undefined;
@@ -507,12 +516,14 @@ function siteFlows(x: Ctx, s: SiteSummary, r: SiteDayResult): SiteFlows {
     const p = x.prop.get(s.id);
     if (p) p.rentIncome = p.rentIncome * (29 / 30) + hqRent;
   }
-  return { hq: royalty + hqRent - hqLeaseCost, operator, netSales: net, ad };
+  return { hq: royalty + hqRent - hqLeaseCost, operator, netSales: net, ad, royalty, rent: opRent, loan };
 }
 
 export interface StepOptions {
   /** Skip random events (tests that isolate one mechanic). */
   noEvents?: boolean;
+  /** Sites whose day (model result and money flows) to return in `trace` (the unit-economics probe). */
+  trace?: readonly string[];
 }
 
 /**
@@ -554,6 +565,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   const sitesByRegion: Record<string, number> = {};
   const profitableByRegion: Record<string, boolean> = {};
   const opNet = new Map<string, { net: number; sales: number }>();
+  const trace: SiteTrace[] = [];
   const ctxBase: SiteDayContext = { day, calibration: e.calibration, priceLevel: e.hq.priceLevel, foodMult };
   for (const s of e.sites) {
     if (s.status === "building") {
@@ -570,7 +582,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     if (s.focused && focusedResult) {
       // The hands-on dining room comes from sim-core; drive-thru and app orders (which sim-core has no physics for)
       // ride on top of it at the same spend and food cost per cover, as they do on modelled sites.
-      r = withOffPremise(siteDayFromResult(s.id, focusedResult), offPremise(s, brand));
+      r = withOffPremise(siteDayFromResult(s.id, focusedResult), offPremise(s, brand), offPremiseLabour(s, brand));
     } else {
       ctxBase.demandMult = fx.demand[rid];
       ctxBase.spendMult = fx.spend[rid];
@@ -578,6 +590,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
       r = aggregateSiteDay(content, s, brand, city, x.rng, ctxBase);
     }
     const flow = siteFlows(x, s, r);
+    if (opts.trace?.includes(s.id)) trace.push({ day, siteId: s.id, result: r, netSales: flow.netSales, royalty: flow.royalty, adFund: flow.ad, rent: flow.rent, loan: flow.loan, operator: flow.operator, hq: flow.hq });
     hqNet += flow.hq;
     adByRegion[rid] = (adByRegion[rid] ?? 0) + flow.ad;
     sitesByRegion[rid] = (sitesByRegion[rid] ?? 0) + 1;
@@ -652,7 +665,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
     if (s.contract && day - s.lastRemodel >= s.contract.remodelEveryDays) doRemodel(x, s, false);
     if (s.ownership !== "company" && day - (s.lastInspected ?? s.opened) >= e.inspectionEveryDays) inspect(x, s);
     if (day - s.rentReviewedDay >= K.RENT_REVIEW_DAYS) {
-      const nr = Math.max(s.rent, marketRent(content, city, s.districtId, e.hq.priceLevel));
+      const nr = Math.max(s.rent, marketRent(content, city, s.districtId, e.hq.priceLevel, plotRentMult(s.driveThru)));
       if (nr > s.rent) emit(x, "rent_review", `Rent review at ${s.name}: ${pounds(s.rent)} → ${pounds(nr)} a month.`, "info", { siteId: s.id });
       s.rent = nr;
       s.rentReviewedDay = day;
@@ -702,7 +715,8 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   updateWin(x, profitableByRegion, sitesByRegion);
   e.hq.day = day + 1;
   if ((day + 1) % 30 === 0) snapshot(e, day);
-  return finish(x);
+  const out = finish(x);
+  return opts.trace ? { ...out, trace } : out;
 }
 
 /** Steps `days` days with no focused results (convenience for tests, headless and the demo). */
@@ -823,7 +837,11 @@ function doRemodel(x: Ctx, s: SiteSummary, forced: boolean): void {
   s.lastRemodel = e.hq.day;
   s.brandConsistency = clamp(s.brandConsistency + K.REMODEL_CONSISTENCY_BONUS, 0, 100);
   const addDrive = e.brand.formula.driveThru && !s.driveThru;
-  if (addDrive) s.driveThru = true;
+  if (addDrive) {
+    s.driveThru = true;
+    // The lane needs the bigger corner plot: the rent moves to the drive-thru plot's (round 5).
+    s.rent = Math.max(s.rent, marketRent(x.content, city, s.districtId, e.hq.priceLevel, plotRentMult(true)));
+  }
   emit(x, "remodel", `${s.name} remodelled for ${pounds(cost)}${fr ? ` (paid by ${fr.name}${forced ? ", forced" : ""})` : ""}${addDrive ? ", now with a drive-thru" : ""}.`, forced ? "bad" : "money", { siteId: s.id });
 }
 
@@ -1078,7 +1096,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       revenue7d: 0,
       margin7d: 0,
       revenueYear: e.calibration.source.revenue * K.DAYS_PER_YEAR,
-      rent: marketRent(x.content, city, cmd.districtId, e.hq.priceLevel),
+      rent: marketRent(x.content, city, cmd.districtId, e.hq.priceLevel, plotRentMult(driveThru)),
       rentReviewedDay: e.hq.day,
       driveThru,
       lastRemodel: e.hq.day,
@@ -1410,13 +1428,13 @@ export function expectedSiteDay(content: ContentPack, e: EmpireState, siteId: st
 }
 
 /** Scales the covers, sales and food of a focused DayResult by the off-premise multiplier (1 = unchanged). */
-function withOffPremise(r: SiteDayResult, mult: number): SiteDayResult {
+function withOffPremise(r: SiteDayResult, mult: number, labourMult: number): SiteDayResult {
   if (mult === 1) return r;
   const covers = Math.round(r.covers * mult);
   const revenue = Math.round(r.revenue * mult);
   const vat = Math.round(r.vat * mult);
   const foodCost = Math.round(r.foodCost * mult);
-  const labourCost = Math.round(r.labourCost * mult ** K.OFF_PREMISE_LABOUR_EXP);
+  const labourCost = Math.round(r.labourCost * labourMult);
   return { ...r, covers, revenue, vat, foodCost, labourCost, contribution: revenue - vat - foodCost - labourCost - r.overheads };
 }
 

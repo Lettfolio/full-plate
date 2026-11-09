@@ -23,6 +23,7 @@ export {
   contractTake,
   franchiseCashNeeded,
   marketRent,
+  plotRentMult,
   openSites,
   propertyPrice,
   recognitionTarget,
@@ -40,6 +41,7 @@ export {
   calibrate,
   crewLabourPerDay,
   offPremise,
+  offPremiseLabour,
   siteDemandAndCapacity,
   defaultCalibration,
   demandFactor,
@@ -49,6 +51,8 @@ export {
   standardisation,
 } from "./model";
 export type { CalibrateOptions, SiteDayContext } from "./model";
+export { probeUnitEconomics, openProbeSite, formatUnitEconomics } from "./unitEconomics";
+export type { UnitEconomics, UnitProbeOptions } from "./unitEconomics";
 export { serialize, deserialize, MIGRATIONS } from "./save";
 export { DEFAULT_REGIONS, DEFAULT_SUPPLIERS, defaultCities } from "./world";
 export * as EMPIRE from "./constants";

@@ -8,7 +8,7 @@
  *   covers   = softCap(demand, capacity) × offPremise (drive-thru 1.3, app 1.1) × noise
  *   revenue  = covers × spendPerCover × priceIndex × costIndex × priceLevel × app
  *   food     = covers × foodPerCover × costIndex^0.6 × priceLevel × fresh × (1 − supplier discount)
- *   labour   = standard crew shifts × wage(staffQuality) × costIndex × priceLevel × offPremise^0.85 × speedee
+ *   labour   = standard crew shifts × wage(staffQuality) × costIndex × priceLevel × offPremiseLabour × speedee
  *   overheads = overheadsFixed × costIndex × priceLevel × (covers / coversMean)^0.85 + cardFee × revenue
  *
  * marketDemand, capacityCovers and softCap are sim-core's own closed forms (sim-core/src/capacity.ts), so a site
@@ -432,6 +432,16 @@ export function offPremise(site: Pick<SiteSummary, "driveThru">, brand: Brand): 
   return takeaway * (site.driveThru ? K.DRIVE_THRU_COVERS : 1) * (brand.formula.appOrdering ? K.APP_COVERS : 1);
 }
 
+/**
+ * [round 5] Labour multiplier for the off-premise covers on top of the dining room's crew: the takeaway counter's covers
+ * at COUNTER_LABOUR_SHARE of the room's labour per cover, drive-thru and app covers at the full rate.
+ */
+export function offPremiseLabour(site: Pick<SiteSummary, "driveThru">, brand: Brand): number {
+  const takeaway = 1 + K.TAKEAWAY_PER_STD * Math.max(0, brand.formula.standardisation - K.REF_STANDARDISATION);
+  const all = offPremise(site, brand);
+  return 1 + K.COUNTER_LABOUR_SHARE * (takeaway - 1) + (all - takeaway);
+}
+
 /** @deprecated round 3: demand is now marketDemand × brandPull through a capacity cap. Kept as brandPull. */
 export function demandFactor(content: ContentPack, site: SiteSummary, brand: Brand, city: City, ctx: SiteDayContext): number {
   return brandPull(content, site, brand, city, ctx);
@@ -475,7 +485,7 @@ export function aggregateSiteDay(content: ContentPack, site: SiteSummary, brand:
   const foodCost = Math.round(covers * plate * city.costIndex ** 0.6 * pl * (f.fresh ? K.FRESH_FOOD_COST : 1) * (ctx.foodMult ?? 1));
   const speedee = 1 - K.LABOUR_EFFICIENCY_PER_10_STD * Math.max(0, (f.standardisation - K.REF_STANDARDISATION) / 10);
   // The site's own crew (P2, round 3): the standard rota at its staff quality, plus hands for the off-premise lane.
-  const labourCost = Math.round(crewLabourPerDay(site.staffQuality) * city.costIndex * pl * off ** K.OFF_PREMISE_LABOUR_EXP * speedee);
+  const labourCost = Math.round(crewLabourPerDay(site.staffQuality) * city.costIndex * pl * offPremiseLabour(site, brand) * speedee);
   const scale = Math.max(0.3, covers / cal.coversMean);
   const overheads = Math.round(cal.overheadsFixed * city.costIndex * pl * scale ** K.OVERHEAD_SCALE_EXP + cal.cardFeePct * revenue);
   const vat = Math.round(cal.vatPct * revenue);

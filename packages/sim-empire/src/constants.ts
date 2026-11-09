@@ -22,7 +22,7 @@ export const AD_FUND_RANGE: [number, number] = [0, 0.08];
 /** Rent on HQ-owned land as a share of net sales (5–16%), or cost + 40%, whichever is higher (Sonneborn). */
 export const DEFAULT_RENT_PCT = 0.1;
 export const RENT_PCT_RANGE: [number, number] = [0.05, 0.16];
-export const RENT_COST_MARKUP = 0.4;
+export const RENT_COST_MARKUP = 0.2;
 export const DEFAULT_TERM_DAYS = 20 * DAYS_PER_YEAR;
 export const DEFAULT_REMODEL_EVERY_DAYS = 10 * DAYS_PER_YEAR;
 export const FEE_RANGE: [number, number] = [0, 15_000_000];
@@ -43,11 +43,16 @@ export const FRANCHISEE_EQUITY_SHARE = 0.3;
 export const OPERATOR_LOAN_APR = 0.07;
 export const OPERATOR_LOAN_YEARS = 10;
 /**
- * Market rent for a new QSR plot = district monthlyRent × this × city costIndex: a drive-thru box on a
+ * Market rent for a drive-thru plot = district monthlyRent × this × city costIndex: a drive-thru box on a
  * corner plot is bigger than the first restaurant's unit (whose rent stays the sim-core district rent).
- * Lands occupancy near the brief's ~5% of sales at a typical mature site.
  */
 export const QSR_RENT_MULT = 1.6;
+/**
+ * [round 5] Market rent for a unit without a lane: the same high-street unit as the first restaurant (district rent × 1).
+ * Round 4 charged every new site the drive-thru plot's rent, sized for a mature unit's sales: a year-1 franchise paid
+ * 18% of its sales in rent (cost + 40% on 12.9%). A unit that gains a lane at a remodel moves to the bigger plot's rent.
+ */
+export const UNIT_RENT_MULT = 1;
 /** Leases are reviewed to current prices every 5 years. */
 export const RENT_REVIEW_DAYS = 5 * DAYS_PER_YEAR;
 /** Purchase price = annual market rent / yield. */
@@ -109,10 +114,16 @@ export const CREW_ROTA_A: readonly boolean[] = [false, false, true, true, true, 
 export const CREW_ROTA_B: readonly boolean[] = [true, true, false, false, true, true, true];
 /** Hourly wage (pence): NLW, plus 9p per chef skill point above 30 and 2p per server skill point above 20 (content archetypes). */
 export const CREW_WAGE_BASE = 1_271;
-export const CREW_WAGE_PER_SKILL = 9;
+export const CREW_WAGE_PER_SKILL = 4;
 export const SERVER_WAGE_PER_SKILL = 2;
-/** Labour for off-premise covers (takeaway counter, drive-thru, app) scales as off^this: the same labour per cover as the room. */
-export const OFF_PREMISE_LABOUR_EXP = 1;
+/**
+ * [round 5] Labour per takeaway-counter cover as a share of the dining room's labour per cover. A counter has no
+ * table service: no server takes the order, nobody clears a table (UK QSR labour ~25% of sales on a smaller check, vs
+ * ~38% for sim-core's table-service room on the fast-food menu). Drive-thru and app covers cost the room's full labour per
+ * cover (a lane crew with headsets; packing and hand-off), which keeps mature units near the brief's ~25% labour.
+ */
+export const COUNTER_LABOUR_SHARE = 0.3;
+
 /** Popularity a modelled site trades at when the calibration has none (a well-run sim-core restaurant). */
 export const DEFAULT_POPULARITY = 85;
 /** Popularity of a standard crew at staff quality 50, and per point away from 50 (sim-core ratings follow the crew). */

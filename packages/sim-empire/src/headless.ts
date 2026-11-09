@@ -1,13 +1,16 @@
 /**
  * Headless Empire runner: scripted growth from one site over N years under three styles.
- *   pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--perf]
+ *   pnpm --filter @full-plate/sim-empire headless [--years 10] [--seeds 5] [--style all|franchise|company|innout] [--perf] [--unit]
+ * --unit prints the first-year unit economics of one new site (franchise and company, with and without supply deals).
  * Prints sites, meals served, HQ cash, franchisee mood, regions won and whether the win condition is reached.
  * The strategies themselves live in strategies.ts (pure, browser-safe).
  */
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import type { ContentPack } from "@full-plate/sim-core";
-import { benchmark, formatTable, runStyle, summariseRun, type EmpireStyle, type RunSummary } from "./strategies";
+import { applyEmpireCommand } from "./engine";
+import { benchmark, formatTable, runStyle, startingEmpire, summariseRun, type EmpireStyle, type RunSummary } from "./strategies";
+import { formatUnitEconomics, probeUnitEconomics } from "./unitEconomics";
 
 export * from "./strategies";
 
@@ -24,6 +27,14 @@ async function main(): Promise<void> {
       const r = benchmark(content, n, 60);
       console.log(`${r.sites} aggregate sites: ${r.msPerDay.toFixed(2)} ms/day`);
     }
+    return;
+  }
+  if (argv.includes("--unit")) {
+    // One new High Street site in the home city on a locked formula, HQ holding the lease (the franchise style's set-up).
+    const e = applyEmpireCommand(content, startingEmpire(content, Number(get("seed") ?? 1)), { type: "SET_FORMULA", locked: true }).empire;
+    for (const ownership of ["franchise", "company"] as const)
+      for (const supplyDeals of [false, true])
+        console.log(formatUnitEconomics(probeUnitEconomics(content, e, { districtId: get("district") ?? "high_street", ownership, supplyDeals }), `${ownership}, ${supplyDeals ? "with" : "without"} supply deals`) + "\n");
     return;
   }
   const years = Number(get("years") ?? 10);

@@ -33,6 +33,8 @@ export const FAST_FOOD_MENU = ["beef_burger", "chicken_burger", "halloumi_burger
 export interface EmpireRun {
   style: EmpireStyle;
   seed: number;
+  /** Day the run started on. */
+  startDay: number;
   final: EmpireState;
   events: EmpireEvent[];
   rejected: number;
@@ -249,6 +251,7 @@ export function playStyleWeek(content: ContentPack, e: EmpireState, style: Empir
 
 export function runStyle(content: ContentPack, style: EmpireStyle, seed: number, years: number, start?: EmpireState): EmpireRun {
   const run: Run = { e: start ?? startingEmpire(content, seed), events: [], rejected: 0 };
+  const startDay = run.e.hq.day;
   const days = years * K.DAYS_PER_YEAR;
   for (let d = 0; d < days && run.e.status === "running"; d++) {
     if (d % 7 === 0) STYLE_FN[style](content, run);
@@ -256,7 +259,7 @@ export function runStyle(content: ContentPack, style: EmpireStyle, seed: number,
     run.e = r.empire;
     for (const ev of r.events) run.events.push(ev);
   }
-  return { style, seed, final: run.e, events: run.events, rejected: run.rejected };
+  return { style, seed, startDay, final: run.e, events: run.events, rejected: run.rejected };
 }
 
 export interface RunSummary {
@@ -276,6 +279,8 @@ export interface RunSummary {
   propertyCount: number;
   scandals: number;
   win: boolean;
+  /** Years from the start to the win (undefined: not won). */
+  winYear?: number;
   bankrupt: boolean;
 }
 
@@ -300,6 +305,7 @@ export function summariseRun(r: EmpireRun): RunSummary {
     propertyCount: e.property.length,
     scandals: r.events.filter((ev) => ev.kind === "scandal").length,
     win: e.win.achieved,
+    ...(e.win.achievedDay !== undefined ? { winYear: Math.round(((e.win.achievedDay - r.startDay) / K.DAYS_PER_YEAR) * 10) / 10 } : {}),
     bankrupt: e.status === "bankrupt",
   };
 }
@@ -322,7 +328,7 @@ export function formatTable(rows: RunSummary[]): string {
       `${r.regionsWon}/5`.padStart(8),
       String(r.propertyCount).padStart(6),
       String(r.scandals).padStart(9),
-      (r.bankrupt ? "BUST" : r.win ? "yes" : "no").padStart(5),
+      (r.bankrupt ? "BUST" : r.win ? `y${r.winYear?.toFixed(1) ?? ""}` : "no").padStart(5),
     ].join(" "),
   );
   return [head, ...lines].join("\n");
