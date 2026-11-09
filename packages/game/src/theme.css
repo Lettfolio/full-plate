@@ -1380,3 +1380,9 @@ button, input { font: inherit; color: inherit; }
 .toast-region--stage .toast { max-width: min(560px, 60vw); }
 /* R7 review (C's P3): at 1024 px the district wraps as a whole line under the date, never mid-name */
 .status__district { white-space: nowrap; }
+/* R7 review: C's icon tabs left B's day strip no room beside the tabs at 1280 px (it wrapped onto two lines with four
+   tabs, and into a column with the Empire / Stars fifth tab). B's <=1180 px layout now applies at every width: the
+   day strip and heading on one row, the tabs and help below. It is shorter than the squeezed version too. */
+.planning__bar { flex-wrap: wrap; row-gap: 8px; }
+.planning__bar > .beathead { flex-basis: 100%; flex-direction: row; align-items: center; gap: 18px; }
+.planning__bar .dayrhythm { flex-wrap: nowrap; }
