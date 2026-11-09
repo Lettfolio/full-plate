@@ -50,6 +50,9 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
   const moverCity = mover ? e.cities.find((c) => c.id === mover.cityId)?.name ?? mover.cityId : "";
   const d = m.decision;
   const tip = d.options.find((o) => o.id === d.advice);
+  // Round 6 review: with no company shop but the one she runs, "Your own shops £0" read like a failing shop.
+  const own = e.sites.filter((s) => s.ownership === "company" && s.status !== "closed");
+  const onlyFlagship = own.length > 0 && own.every((s) => s.focused) && m.income.shops === 0;
   return (
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="board-title">
       <div className="modal modal--wide boardmeeting">
@@ -74,6 +77,11 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
                   </li>
                 ))}
               </ul>
+              {onlyFlagship && (
+                <p className="small muted boardmeeting__own" aria-label="About your own shops">
+                  £0 because your only own shop is the one you run: its money stays in its own till (the Evening shows it).
+                </p>
+              )}
             </section>
             <section className="stack stack--sm">
               {mover && (
