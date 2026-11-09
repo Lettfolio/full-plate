@@ -42,3 +42,5 @@ export function readFloorPalette(source: VarSource): FloorPalette {
   [p.awningA, p.awningB] = awningColours(source, p.tomato, p.paper);
   return p;
 }
+
+// Round 10: the decor items' art colours live in decorPalette.ts (they load with the decor art chunk, not this one).

@@ -1821,3 +1821,6 @@ h3 { line-height: var(--lh-heading); }
 .title__count { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 999px; background: var(--surface-inset); font-weight: 800; font-variant-numeric: tabular-nums; }
 .title__note { max-width: 360px; align-self: center; }
 .continue:disabled { opacity: 0.85; cursor: progress; }
+
+/* R10-A (decorating): the header's style badge ("Cosy café"). The Decorate tab's own styles are in screens/planning/decorate.css. */
+.pathbadge--style { background: var(--basil-wash); color: var(--basil-deep); }

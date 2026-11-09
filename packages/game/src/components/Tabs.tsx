@@ -15,7 +15,7 @@ export interface TabDef<T extends string> {
 /** Every tab has a picture as well as a word (a child scans pictures first). Round 8: drawn icons, not emoji. */
 export const TAB_ICONS: Record<string, IconName> = {
   menu: "menu", staff: "chefHat", stock: "stock", restaurant: "restaurant", empire: "empire", stars: "stars",
-  shops: "shop", brand: "trophy", money: "money",
+  shops: "shop", brand: "trophy", money: "money", decorate: "paint",
 };
 
 /** "🍔 Empire" → ["🍔", "Empire"]; plain labels pass through. */

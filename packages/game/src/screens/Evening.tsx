@@ -5,6 +5,7 @@ import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
 import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
 import { incidentLines, INCIDENT_ICON } from "../lib/incidents";
+import { decorLines } from "../lib/decor";
 import { coveringPhrase } from "../lib/staff";
 import type { PlanningTab } from "./Planning";
 import { MoneyText } from "../components/MoneyText";
@@ -239,6 +240,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const good = r.profit >= 0;
   const moods = Object.entries(r.staffMoodDelta);
   const happened = incidentLines(r, game);
+  const decorNight = decorLines(r, game); // round 10: new decor's first night, the fitters, tired items
   const covered = r.ownerCovered ?? [];
   const staffed = covered.length ? lastStaffedDay(game.history, r.day) : undefined;
   const moreTables = r.walkouts > WALKOUTS_FOR_TABLE_TIP && game.tables.length < content.balance.maxTables;
@@ -323,9 +325,18 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
             <Worst game={game} r={r} />
           </div>
 
-          {happened.length > 0 && (
-            <Panel title="What happened today" sub={`${happened.length} thing${happened.length === 1 ? "" : "s"}`}>
+          {happened.length + decorNight.length > 0 && (
+            <Panel title="What happened today" sub={`${happened.length + decorNight.length} thing${happened.length + decorNight.length === 1 ? "" : "s"}`}>
               <ul className="happened">
+                {decorNight.map((d, i) => (
+                  <li key={`decor${i}`} className={`happened__row ${d.bad ? "happened__row--bad" : ""}`}>
+                    <span aria-hidden="true">{d.icon}</span>
+                    <div>
+                      <div><b>{d.title}</b></div>
+                      <div className="small">{d.text}</div>
+                    </div>
+                  </li>
+                ))}
                 {happened.map((h, i) => (
                   <li key={i} className={`happened__row ${h.ignored ? "happened__row--bad" : ""}`}>
                     <span aria-hidden="true">{INCIDENT_ICON[h.kind] ?? "❗"}</span>

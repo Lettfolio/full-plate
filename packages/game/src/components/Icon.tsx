@@ -70,6 +70,15 @@ export const ICONS = {
   save: <><path d="M5 4h11.5L20 7.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" /><path d="M8 4v5h7V4M7.5 20v-6h9v6" /></>,
   folder: <path d="M3.5 7V18a1.5 1.5 0 0 0 1.5 1.5h14A1.5 1.5 0 0 0 20.5 18V9.5A1.5 1.5 0 0 0 19 8h-7.2L9.6 5.5H5A1.5 1.5 0 0 0 3.5 7z" />,
   download: <><path d="M12 4v11.5M7.5 11L12 15.5l4.5-4.5" /><path d="M4.5 15v4.5h15V15" /></>,
+  // Round 10 (A, decorating): the Decorate tab and its slots.
+  paint: <><rect x="4" y="3.5" width="13" height="5.5" rx="1.5" /><path d="M17 6.2h2.5v5H11.5v3" /><rect x="10" y="14.2" width="3" height="6.5" rx="1" /></>,
+  lamp: <><path d="M12 3v4.5M7 13.5a5 5 0 0 1 10 0z" /><path d="M10.5 16.5a1.5 1.5 0 0 0 3 0M5 19.5l1.3-1.3M19 19.5l-1.3-1.3M12 21v-1.2" /></>,
+  plant: <><path d="M7.5 15h9l-1.2 5.5H8.7z" /><path d="M12 15V8.5M12 11c-3.6.3-5.4-1.6-5.5-4.8 3.3-.1 5.3 1.6 5.5 4.8zM12 9.5c.3-3 2.2-4.7 5.4-4.6-.1 3.1-1.8 4.8-5.4 4.6z" /></>,
+  music: <><path d="M9 17.5V6l10-2v11" /><circle cx="6.8" cy="17.5" r="2.4" /><circle cx="16.8" cy="15" r="2.4" /></>,
+  chair: <><path d="M7 3.5h10v8H7z" /><path d="M5.5 11.5h13v3h-13zM7 14.5V21M17 14.5V21" /></>,
+  sign: <><path d="M12 3v2.5M8.5 5.5L12 3l3.5 2.5" /><rect x="3.5" y="5.5" width="17" height="8" rx="1.5" /><path d="M7 9.5h10M8 13.5L6.5 21M16 13.5l1.5 7.5" /></>,
+  window: <><rect x="4.5" y="3.5" width="15" height="15" rx="1.5" /><path d="M12 3.5v15M4.5 11h15M3 20.5h18" /></>,
+  floor: <><path d="M3.5 3.5h17v17h-17z" /><path d="M3.5 9.2h17M3.5 14.8h17M9.2 3.5v17M14.8 3.5v17" /><path d="M3.5 3.5h5.7v5.7H3.5zM14.8 3.5h5.7v5.7h-5.7zM9.2 9.2h5.6v5.6H9.2zM3.5 14.8h5.7v5.7H3.5zM14.8 14.8h5.7v5.7h-5.7z" {...S} /></>,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;
