@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Command, CustomerId, GameState, Incident, TableId } from "@full-plate/sim-core";
 import { RestaurantView, type Highlight } from "../canvas/RestaurantView";
+import { canvasDpr, createPerfMeter, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
 import { content, MINUTES_PER_TICK, SERVICE_TICKS } from "../sim";
 import type { AppState } from "../state/gameReducer";
 import { MoneyText } from "../components/MoneyText";
@@ -165,22 +166,26 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     viewRef.current = view;
     const ro = new ResizeObserver(() => {
       const r = stage.getBoundingClientRect();
-      view.resize(r.width, r.height);
+      view.resize(r.width, r.height, canvasDpr());
     });
     ro.observe(stage);
     const r = stage.getBoundingClientRect();
-    view.resize(r.width, r.height);
+    view.resize(r.width, r.height, canvasDpr());
 
+    // Round 8: `?perf=1` draws a frame-time counter in the corner (off by default)
+    const perf = perfEnabled() ? createPerfMeter("floor") : undefined;
     let raf = 0;
     let last = performance.now();
     let carry = 0;
     const frame = (now: number) => {
+      perf?.begin(performance.now());
       const L = live.current;
       const due = ticksDue(carry, now - last, modalOpen() ? 0 : L.speed); // a sheet over service holds the clock
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view.render(L.game, { content, speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now });
+      view.render(L.game, { content, speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() });
+      if (perf) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);

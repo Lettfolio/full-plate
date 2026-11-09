@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  botInput, createInputSource, createSession, hitTest, padToMin, railSlotRect, railTagRect, render, shiftTempo, stationRect, summarise,
+  botInput, createInputSource, createSession, hitTest, padToMin, railSlotRect, railTagRect, readPalette, render, shiftTempo, stationRect, summarise,
   updateSession, yourStations, type HandsOnResult, type HandsOnRole, type HandsOnSession, type InputSource, type Rect, type ShiftSummary,
-  type StationPlan,
+  type Palette, type StationPlan,
 } from "@full-plate/handson";
 import { content, HOOKS, SERVICE_TICKS } from "../sim";
 import { clockLabel } from "../lib/calendar";
 import { modalOpen } from "../lib/modal";
 import { cardPlacement, markOnboardSeen, onboardingSteps, onboardSeen, type OnboardStep } from "../lib/onboarding";
 import { createTouchControl, prefersTouch } from "../lib/touchControl";
+import { canvasDpr, createPerfMeter, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
 
 /**
  * Real seconds per sim tick while a hands-on session is live with no station (HANDSON-NOTES: a 120-tick service is 3
@@ -113,10 +114,14 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     let sheetWasOpen = false;
     let lastHud = 0;
     let alive = true;
+    // Round 8: theme colours read from the canvas once per resize; dpr capped at 2; `?perf=1` frame counter.
+    let palette: Palette = readPalette(canvas);
+    const perf = perfEnabled() ? createPerfMeter("handson") : undefined;
     const resize = () => {
       if (!wrapRef.current) return;
       const r = wrapRef.current.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = canvasDpr();
+      palette = readPalette(canvas);
       canvas.width = Math.round(r.width * dpr);
       canvas.height = Math.round(r.height * dpr);
       canvas.style.width = `${r.width}px`;
@@ -129,6 +134,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     const frame = (now: number) => {
       // A dispatch inside this frame (results, ticks) can end the service and unmount us before the frame finishes.
       if (!alive || !wrapRef.current) return;
+      perf?.begin(performance.now());
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
       const L = live.current;
@@ -161,7 +167,10 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
       }
       if (!alive || !wrapRef.current) return;
       const rect = wrapRef.current.getBoundingClientRect();
-      render(ctx, sessionRef.current!, L.game, { width: rect.width, height: rect.height, dpr: window.devicePixelRatio || 1, keyLabel: touchRef.current ? "USE" : "E" });
+      render(ctx, sessionRef.current!, L.game, {
+        width: rect.width, height: rect.height, dpr: canvasDpr(), keyLabel: touchRef.current ? "USE" : "E", palette, reducedMotion: prefersReducedMotion(),
+      });
+      if (perf) { perf.end(performance.now()); ctx.setTransform(canvasDpr(), 0, 0, canvasDpr(), 0, 0); perf.draw(ctx, 6, rect.height - 26); }
       if (now - lastHud > 500) { lastHud = now; force((x) => x + 1); }
       raf = requestAnimationFrame(frame);
     };

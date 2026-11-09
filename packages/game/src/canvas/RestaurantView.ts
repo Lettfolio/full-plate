@@ -7,48 +7,28 @@
  * tick. Nothing here feeds back into the simulation.
  *
  * Layout (top → bottom): kitchen strip with stoves and the pass (ticket rail), dining room with
- * round tables, front wall with a door, pavement with the queue.
+ * round tables (and a bar on the right when there's room), front wall with windows and a door, pavement with the queue.
+ *
+ * Round 8 (art pass): the same visual language as the hands-on kitchen — clean top-down with a 3/4 tilt, light from the
+ * top-left, one warm outline weight, the shared character sprite (`@full-plate/handson/sprites`). Static art (floors,
+ * walls, counters, tables and chairs, the shopfront) is painted once per resize into cached layers and blitted each
+ * frame; only people, tickets, plates, flames, rings and the evening light are drawn per frame. Colours come from
+ * `floorPalette.ts` (theme tokens read from the canvas on resize + art colours).
  */
-import type { ContentPack, Customer, CustomerId, GameState, SegmentId, Staff, Table, TableId } from "@full-plate/sim-core";
+import type { ContentPack, Customer, CustomerId, GameState, Staff, Table, TableId } from "@full-plate/sim-core";
+import { drawPerson, facingFrom, guestLook, hashKey, HAIRS, SKINS, type Facing, type Look } from "@full-plate/handson/sprites";
+import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { weekdayIndex } from "../lib/calendar";
+import { FLOOR_DEFAULTS, readFloorPalette, type FloorPalette } from "./floorPalette";
 
-// ───────────────────────── palette (mirrors theme.css) ─────────────────────────
-const C = {
-  ink: "#2b2622",
-  inkSoft: "#5c534a",
-  inkFaint: "#6a5f54", // round 5: was #8f857a (3.3:1 on the floor tiles); now ≥ 4.5:1 as text
-  paper: "#fffdf8",
-  cream: "#fbf4e6",
-  floorA: "#f1dfbd",
-  floorB: "#ecd7b0",
-  wall: "#8b6a4a",
-  wallTop: "#a8845f",
-  tileA: "#eef1ee",
-  tileB: "#e2e8e3",
-  steel: "#c9cfd1",
-  steelDark: "#9aa3a6",
-  pavement: "#d9d3c7",
-  pavementLine: "#c8c0b1",
-  kerb: "#b9b1a2",
-  road: "#8d8a84",
-  table: "#c99a63",
-  tableEdge: "#a2733f",
-  tomato: "#c4412b",
-  tomatoDeep: "#b93c29",
-  basil: "#3c7a37",
-  basilDeep: "#376a33",
-  amber: "#e9a23b",
-  amberDeep: "#b97a17",
-  red: "#d9472f",
-  plum: "#8a5a9e",
-  sky: "#4f8fb8",
-  gold: "#f2b33d",
-  straw: "#e8cf8a",
-};
+/** The live palette (replaced on resize from the canvas's CSS variables). */
+let C: FloorPalette = { ...FLOOR_DEFAULTS };
+/** 1, or 0 under reduced motion (no bob, sway, pulse or flicker). Set per frame. */
+let motion = 1;
 
 // ───────────────────────── geometry ─────────────────────────
 interface Pt { x: number; y: number }
-interface TableSlot { id: TableId; x: number; y: number; r: number; seats: Pt[] }
+interface TableSlot { id: TableId; x: number; y: number; r: number; seats: (Pt & { a: number })[] }
 
 export interface Layout {
   w: number;
@@ -65,6 +45,10 @@ export interface Layout {
   tables: Map<TableId, TableSlot>;
   person: number; // person radius
   tablesKey: string;
+  /** Round 8: walkways (y) between table rows — staff and guests walk along these. */
+  aisles: number[];
+  /** Round 8: a bar counter on the right of the dining room when the tables leave room for it. */
+  bar?: { x: number; y: number; w: number; h: number };
 }
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -96,6 +80,7 @@ export function computeLayout(w: number, h: number, tables: Table[]): Layout {
   const baseR = clamp(Math.min(cellW, cellH) * 0.21, 14, 40);
   const person = clamp(baseR * 0.36, 5, 10);
   const slots = new Map<TableId, TableSlot>();
+  let right = 0;
   tables.forEach((t, i) => {
     const row = Math.floor(i / cols);
     const col = i % cols;
@@ -107,64 +92,41 @@ export function computeLayout(w: number, h: number, tables: Table[]): Layout {
     const seatR = r + person * 1.25;
     const seats = Array.from({ length: t.seats }, (_, k) => {
       const a = -Math.PI / 2 + (k / t.seats) * Math.PI * 2 + (t.seats === 2 ? Math.PI / 2 : Math.PI / t.seats);
-      return { x: x + Math.cos(a) * seatR, y: y + Math.sin(a) * seatR };
+      return { x: x + Math.cos(a) * seatR, y: y + Math.sin(a) * seatR, a };
     });
     slots.set(t.id, { id: t.id, x, y, r, seats });
+    right = Math.max(right, x + r + person * 3.4);
   });
+  const aisles = [kitchenH + 16];
+  for (let k = 1; k < rows; k++) aisles.push(dining.y + cellH * k);
+  aisles.push(wallY - 26);
+  const barW = 30;
+  const barX = w - 16 - barW - 12;
+  const bar = barX - right >= 44 ? { x: barX, y: dining.y + 4, w: barW, h: Math.min(dining.h * 0.55, 170) } : undefined;
   return {
     w, h, kitchen, pass, stoves, dining, wallY, door, doorIn, doorOut,
     pavement: { y: wallY, h: paveH }, tables: slots, person,
     tablesKey: tables.map((t) => `${t.id}:${t.seats}`).join(","),
+    aisles, ...(bar ? { bar } : {}),
   };
 }
 
-// ───────────────────────── segment look ─────────────────────────
-type Hat = "beanie" | "none" | "parting" | "beret" | "sunhat";
-interface SegLook { body: string; hat: Hat; hatColour: string; extra?: "backpack" | "briefcase" | "camera" | "kids" }
-
-const KNOWN: Record<string, SegLook> = {
-  student: { body: C.sky, hat: "beanie", hatColour: C.tomato, extra: "backpack" },
-  famil: { body: C.amber, hat: "none", hatColour: C.tomato, extra: "kids" },
-  business: { body: "#4a4540", hat: "parting", hatColour: "#3a2a1e", extra: "briefcase" },
-  foodie: { body: C.plum, hat: "beret", hatColour: "#2b2622" },
-  tourist: { body: C.basil, hat: "sunhat", hatColour: C.straw, extra: "camera" },
-};
-const FALLBACK = [C.sky, C.amber, C.plum, C.basil, "#c46b8c", "#5a8f8a"];
-
-function segLook(seg: SegmentId): SegLook {
-  const k = seg.toLowerCase();
-  for (const [key, v] of Object.entries(KNOWN)) if (k.includes(key)) return v;
-  let hsh = 0;
-  for (const ch of k) hsh = (hsh * 31 + ch.charCodeAt(0)) | 0;
-  return { body: FALLBACK[Math.abs(hsh) % FALLBACK.length]!, hat: "none", hatColour: C.ink };
-}
-
-const SKIN = ["#f1c9a5", "#d9a77c", "#a8714a", "#7a4b2e", "#f5d6bd", "#c48a5f"];
-function skinFor(id: string) {
-  let h = 0;
-  for (const ch of id) h = (h * 33 + ch.charCodeAt(0)) | 0;
-  return SKIN[Math.abs(h) % SKIN.length]!;
-}
-
-/** Green (full) → amber → red (empty). */
-export function patienceColour(p: number): string {
-  const t = clamp(p / 100, 0, 1);
-  if (t > 0.5) return mix(C.amber, C.basil, (t - 0.5) * 2);
-  return mix(C.red, C.amber, t * 2);
-}
-function mix(a: string, b: string, t: number): string {
-  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
-  const r = Math.round(lerp((pa >> 16) & 255, (pb >> 16) & 255, t));
-  const g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t));
-  const bl = Math.round(lerp(pa & 255, pb & 255, t));
-  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
+/**
+ * Round 8: a walk that reads — along the nearest aisle, then straight to the spot — instead of a beeline through the
+ * tables. `from` and `to` in CSS px; returns the waypoints after `from`.
+ */
+export function aislePath(L: Layout, from: Pt, to: Pt): Pt[] {
+  if (Math.abs(from.y - to.y) < 6 || Math.abs(from.x - to.x) < 6) return [to];
+  let a = L.aisles[0]!;
+  for (const y of L.aisles) if (Math.abs(y - from.y) < Math.abs(a - from.y)) a = y;
+  return [{ x: from.x, y: a }, { x: to.x, y: a }, to];
 }
 
 // ───────────────────────── sprites ─────────────────────────
 interface Sprite {
   key: string;
   customerId: CustomerId;
-  segment: SegmentId;
+  segment: string;
   member: number;
   x: number; y: number;
   path: Pt[];
@@ -172,8 +134,9 @@ interface Sprite {
   leaving: boolean;
   walkedOut: boolean;
   phase: number;
+  facing: Facing;
 }
-interface StaffSprite { id: string; x: number; y: number; path: Pt[]; target: Pt | null; task?: string; until: number }
+interface StaffSprite { id: string; x: number; y: number; path: Pt[]; target: Pt | null; task?: string; until: number; facing: Facing; via?: Pt; moving: boolean }
 interface Floaty { x: number; y: number; text: string; colour: string; born: number; life: number }
 
 /** Things to ring with a pulsing halo (live incidents). `strong` ids pulse harder (hovered incident card). */
@@ -193,7 +156,29 @@ export interface RenderOptions {
   hoverTable?: TableId | null;
   /** performance.now() */
   now: number;
+  /** Round 8: prefers-reduced-motion — no bob, sway, pulse or flicker. */
+  reducedMotion?: boolean;
 }
+
+/** Green (full) → amber → red (empty). */
+export function patienceColour(p: number): string {
+  const t = clamp(p / 100, 0, 1);
+  if (t > 0.5) return mix(C.amber, C.basil, (t - 0.5) * 2);
+  return mix(C.red, C.amber, t * 2);
+}
+function mix(a: string, b: string, t: number): string {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = Math.round(lerp((pa >> 16) & 255, (pb >> 16) & 255, t));
+  const g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t));
+  const bl = Math.round(lerp(pa & 255, pb & 255, t));
+  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
+}
+function alpha(hex: string, a: number): string {
+  const p = parseInt(hex.slice(1), 16);
+  return `rgba(${(p >> 16) & 255},${(p >> 8) & 255},${p & 255},${a})`;
+}
+
+const SEATED = new Set<Customer["stage"]>(["seated", "ordered", "eating", "paying"]);
 
 export class RestaurantView {
   private ctx: CanvasRenderingContext2D;
@@ -208,6 +193,9 @@ export class RestaurantView {
   private servedAt = new Map<CustomerId, number>();
   private lastNow = 0;
   private firstFrame = true;
+  private layers = new LayerCache();
+  private paletteVersion = 0;
+  private name = "";
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -215,13 +203,16 @@ export class RestaurantView {
     this.ctx = ctx;
   }
 
-  resize(cssW: number, cssH: number, dpr = window.devicePixelRatio || 1) {
+  resize(cssW: number, cssH: number, dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) {
     this.w = Math.max(320, Math.floor(cssW));
     this.h = Math.max(320, Math.floor(cssH));
-    this.dpr = dpr;
-    this.canvas.width = Math.round(this.w * dpr);
-    this.canvas.height = Math.round(this.h * dpr);
+    this.dpr = Math.min(2, Math.max(1, dpr)); // round 8: capped at 2
+    this.canvas.width = Math.round(this.w * this.dpr);
+    this.canvas.height = Math.round(this.h * this.dpr);
     this.layout = null;
+    // Round 8: theme tokens, once per resize
+    C = readFloorPalette(this.canvas);
+    this.paletteVersion++;
   }
 
   /** Which seated party (if any) is under a point in CSS pixels. */
@@ -235,6 +226,9 @@ export class RestaurantView {
     return null;
   }
 
+  /** Round 8: how many times the static layers were painted (tests: rebuilt on resize, not per frame). */
+  get layerBuilds(): number { return this.layers.builds; }
+
   private ensureLayout(game: GameState): Layout {
     const key = game.tables.map((t) => `${t.id}:${t.seats}`).join(",");
     if (!this.layout || this.layout.tablesKey !== key || this.layout.w !== this.w || this.layout.h !== this.h) {
@@ -247,18 +241,23 @@ export class RestaurantView {
     const L = this.ensureLayout(game);
     const dt = this.firstFrame ? 0 : clamp((opts.now - this.lastNow) / 1000, 0, 0.1);
     this.lastNow = opts.now;
+    motion = opts.reducedMotion ? 0 : 1;
+    this.name = game.restaurantName;
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
 
     this.updateSprites(game, L, dt, opts);
 
+    const key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}`);
+    this.layers.draw(ctx, "floor", key, this.w, this.h, this.dpr, (c) => paintFloor(c, L));
+    this.drawTableGlows(game, L, opts);
+    this.layers.draw(ctx, "furniture", key, this.w, this.h, this.dpr, (c) => paintFurniture(c, L, this.name));
     this.drawKitchen(game, L, opts);
-    this.drawDining(L);
-    this.drawPavement(game, L);
     this.drawTables(game, L, opts);
     this.drawStaff(game, L, opts, dt);
     this.drawPeople(game, L, opts);
+    this.drawLighting(game, L, key);
     this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
@@ -320,15 +319,16 @@ export class RestaurantView {
         let s = this.sprites.get(key);
         if (!s) {
           const start = this.firstFrame || c.stage !== "queue" ? target : { x: spawn.x - m * L.person * 2.2, y: spawn.y };
-          s = { key, customerId: c.id, segment: c.segment, member: m, x: start.x, y: start.y, path: [], target: null, leaving: false, walkedOut: false, phase: (m * 1.7 + c.arrivedTick) % 6.28 };
+          s = { key, customerId: c.id, segment: c.segment, member: m, x: start.x, y: start.y, path: [], target: null, leaving: false, walkedOut: false, phase: (m * 1.7 + c.arrivedTick) % 6.28, facing: "right" };
           this.sprites.set(key, s);
         }
         if (!s.target || s.target.x !== target.x || s.target.y !== target.y) {
           s.target = target;
           const outside = s.y > L.wallY, goingOutside = target.y > L.wallY;
+          // Round 8: indoors, guests walk to their seat along an aisle rather than through the tables.
           s.path = outside !== goingOutside
-            ? outside ? [L.doorOut, L.doorIn, target] : [L.doorIn, L.doorOut, target]
-            : [target];
+            ? outside ? [L.doorOut, L.doorIn, ...aislePath(L, L.doorIn, target)] : [...aislePath(L, s, L.doorIn), L.doorOut, target]
+            : outside ? [target] : aislePath(L, s, target);
         }
       }
     }
@@ -340,7 +340,7 @@ export class RestaurantView {
         s.leaving = true;
         s.walkedOut = !!c?.walkedOut;
         const off = { x: this.w + L.person * 6, y: L.pavement.y + L.pavement.h * (0.5 + (s.member % 2) * 0.12) };
-        s.path = s.y < L.wallY ? [L.doorIn, L.doorOut, off] : [off];
+        s.path = s.y < L.wallY ? [...aislePath(L, s, L.doorIn), L.doorOut, off] : [off];
         if (!c) this.prevStage.delete(s.customerId);
       }
       // walk
@@ -348,10 +348,12 @@ export class RestaurantView {
       while (budget > 0 && s.path.length) {
         const p = s.path[0]!;
         const d = dist(s, p);
+        if (d > 0.5) s.facing = facingFrom(p.x - s.x, p.y - s.y, s.facing);
         if (d <= budget) { s.x = p.x; s.y = p.y; budget -= d; s.path.shift(); }
         else { s.x += ((p.x - s.x) / d) * budget; s.y += ((p.y - s.y) / d) * budget; budget = 0; }
       }
       if (this.firstFrame && s.path.length && !s.leaving) { const p = s.path.at(-1)!; s.x = p.x; s.y = p.y; s.path = []; }
+      if (!s.path.length && !s.leaving && s.y > L.wallY) s.facing = "right"; // queueing: facing the door
       if (s.leaving && !s.path.length) this.sprites.delete(s.key);
     }
     // bound memory for long sessions
@@ -372,55 +374,28 @@ export class RestaurantView {
 
   // ───────── drawing ─────────
 
+  /** Live kitchen: lit burners and pans, the ticket rail, plates under the heat lamps. */
   private drawKitchen(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
-    const k = L.kitchen;
-    // tiles
-    const tile = 18;
-    for (let y = 0; y < k.h; y += tile) for (let x = 0; x < k.w; x += tile) {
-      ctx.fillStyle = ((x / tile + y / tile) & 1) ? C.tileA : C.tileB;
-      ctx.fillRect(x, y, tile, tile);
-    }
-    // back counter + stoves
-    ctx.fillStyle = C.steel;
-    roundRect(ctx, 8, 6, k.w * 0.68, 40, 6); ctx.fill();
-    ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1.5; ctx.stroke();
     const working = new Set(game.tickets.filter((t) => t.ticksRemaining > 0 && t.chefId).map((t) => t.chefId));
     L.stoves.forEach((s, i) => {
-      ctx.fillStyle = "#3d3a37";
-      roundRect(ctx, s.x - 22, s.y - 14, 44, 28, 5); ctx.fill();
+      if (working.size <= i) return;
       for (const dx of [-10, 10]) {
-        const on = working.size > i;
-        ctx.beginPath(); ctx.arc(s.x + dx, s.y, 7, 0, Math.PI * 2);
-        ctx.strokeStyle = on ? (Math.sin(opts.now / 120 + i + dx) > 0 ? "#ff7a45" : C.tomato) : "#6b6662";
-        ctx.lineWidth = 2.5; ctx.stroke();
+        const flick = motion ? 0.75 + 0.25 * Math.sin(opts.now / 70 + i * 2 + dx) : 0.85;
+        ctx.fillStyle = radial(ctx, s.x + dx, s.y, 13, alpha(C.flame, 0.55 * flick), alpha(C.flame, 0));
+        ctx.fillRect(s.x + dx - 13, s.y - 13, 26, 26);
+        ctx.strokeStyle = C.flame; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(s.x + dx, s.y, 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = C.flameCore; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(s.x + dx, s.y, 7, 0, Math.PI * 2); ctx.stroke();
       }
+      // a pan on the left burner
+      ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(s.x - 8, s.y + 2, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#2f2c2a"; ctx.beginPath(); ctx.arc(s.x - 10, s.y, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(s.x - 3, s.y - 1.5, 9, 3);
+      ctx.fillStyle = [C.amber, C.tomato, "#7a4a2a", C.basil][i % 4]!; ctx.beginPath(); ctx.arc(s.x - 10, s.y, 5, 0, Math.PI * 2); ctx.fill();
     });
-    // fridge and sink on the right of the kitchen
-    ctx.fillStyle = C.paper; ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1.5;
-    roundRect(ctx, k.w * 0.74, 8, 40, 54, 5); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(k.w * 0.74 + 32, 20); ctx.lineTo(k.w * 0.74 + 32, 34); ctx.stroke();
-    ctx.fillStyle = C.steel; roundRect(ctx, k.w * 0.74 + 52, 10, 56, 34, 6); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#b9d4e0"; roundRect(ctx, k.w * 0.74 + 58, 15, 44, 24, 5); ctx.fill();
-    label(ctx, "KITCHEN", k.w - 12, 20, { align: "right", size: 13, colour: C.inkFaint, weight: 800, spacing: 2 });
-
-    // the pass
-    const p = L.pass;
-    ctx.fillStyle = C.steel;
-    roundRect(ctx, p.x, p.y, p.w, p.h, 6); ctx.fill();
-    ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = "rgba(255,180,80,0.25)"; // heat lamp glow
-    ctx.fillRect(p.x + 6, p.y + 3, p.w - 12, 4);
-    // ticket rail
-    ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(p.x + 4, p.y - 34); ctx.lineTo(p.x + p.w - 4, p.y - 34); ctx.stroke();
     this.drawTickets(game, L, opts);
-    // wall between kitchen and dining with a gap behind the pass
-    ctx.fillStyle = C.wall;
-    ctx.fillRect(0, k.h, p.x, 6);
-    ctx.fillRect(p.x + p.w, k.h, k.w - p.x - p.w, 6);
-    ctx.fillStyle = C.wallTop;
-    ctx.fillRect(p.x, k.h, p.w, 3);
   }
 
   private drawTickets(game: GameState, L: Layout, opts: RenderOptions) {
@@ -436,24 +411,26 @@ export class RestaurantView {
     const groups = [...byCustomer.entries()].sort((a, b) => (a[1][0]?.createdTick ?? 0) - (b[1][0]?.createdTick ?? 0));
     const cw = 40, ch = 34, gap = 6; // round 5: 13 px table numbers need a bigger card
     const max = Math.max(1, Math.floor((p.w - 12) / (cw + gap)));
+    // the rail itself: a steel bar with end brackets
+    ctx.fillStyle = C.steelDeep; ctx.fillRect(p.x + 4, p.y - 42, p.w - 8, 3);
+    ctx.fillStyle = C.steelTop; ctx.fillRect(p.x + 4, p.y - 42, p.w - 8, 1);
     groups.slice(0, max).forEach(([cid, tks], i) => {
       const x = p.x + 8 + i * (cw + gap);
       const y = p.y - 40;
       const age = game.tick - (tks[0]?.createdTick ?? game.tick);
       const head = age < 6 ? C.basil : age < 12 ? C.amber : C.red;
-      const sway = Math.sin(opts.now / 600 + i) * 1.2;
+      const sway = Math.sin(opts.now / 600 + i) * 1.2 * motion;
       ctx.save();
       ctx.translate(x + cw / 2, y);
       ctx.rotate((sway * Math.PI) / 180);
-      ctx.fillStyle = C.paper; ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 1;
-      ctx.shadowColor = "rgba(0,0,0,0.12)"; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1;
+      ctx.fillStyle = C.shadow; ctx.fillRect(-cw / 2 + 2, 2, cw, ch);
+      ctx.fillStyle = C.paper; ctx.strokeStyle = alpha(C.inkSoft, 0.6); ctx.lineWidth = 1;
       ctx.fillRect(-cw / 2, 0, cw, ch);
-      ctx.shadowColor = "transparent";
       ctx.strokeRect(-cw / 2, 0, cw, ch);
       ctx.fillStyle = head; ctx.fillRect(-cw / 2, 0, cw, 5);
       const c = game.customers.find((x) => x.id === cid);
       const tn = c?.tableId ? tableNo.get(c.tableId) : undefined;
-      label(ctx, tn ? `T${tn}` : "—", 0, 18, { align: "center", size: 13, weight: 800, colour: C.ink });
+      label(ctx, tn ? `T${tn}` : "—", 0, 19, { align: "center", size: 13, weight: 800, colour: C.ink });
       // one dot per dish; filled when plated
       const n = tks.length;
       const dotW = Math.min(6, (cw - 6) / n);
@@ -466,178 +443,150 @@ export class RestaurantView {
       ctx.restore();
       // pin
       ctx.fillStyle = C.tomato; ctx.beginPath(); ctx.arc(x + cw / 2, y, 2.5, 0, Math.PI * 2); ctx.fill();
-      // plated food waiting on the pass
+      // plated food waiting under the heat lamps
       const ready = tks.filter((t) => t.ticksRemaining <= 0).length;
-      for (let j = 0; j < Math.min(ready, 3); j++) {
-        const px = x + 8 + j * 9, py = p.y + p.h / 2 + 2;
-        ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1; ctx.stroke();
-        ctx.fillStyle = C.tomato; ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill();
-      }
+      for (let j = 0; j < Math.min(ready, 3); j++) plate(ctx, x + 9 + j * 11, p.y + p.h * 0.42, 6, [C.tomato, C.amber, "#7a4a2a"][(j + i) % 3]!);
     });
     if (groups.length > max) label(ctx, `+${groups.length - max}`, p.x + p.w - 6, p.y - 18, { align: "right", size: 14, weight: 800, colour: C.tomatoDeep });
     if (!groups.length) label(ctx, "no tickets", p.x + 10, p.y - 18, { size: 13, colour: C.inkFaint, weight: 700 });
   }
 
-  private drawDining(L: Layout) {
+  /** Under the furniture: each occupied table's mood halo, the selected table's floor glow and the hover ring. */
+  private drawTableGlows(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
-    const top = L.kitchen.h + 6;
-    const plank = 22;
-    for (let y = top, i = 0; y < L.wallY; y += plank, i++) {
-      ctx.fillStyle = i % 2 ? C.floorA : C.floorB;
-      ctx.fillRect(0, y, L.w, Math.min(plank, L.wallY - y));
-      ctx.fillStyle = "rgba(150,110,60,0.12)";
-      const off = (i * 97) % 160;
-      for (let x = off; x < L.w; x += 160) ctx.fillRect(x, y, 1.5, plank);
-    }
-    // rug by the door
-    ctx.fillStyle = "rgba(224,83,61,0.18)";
-    roundRect(ctx, L.door.x - 6, L.wallY - 46, L.door.w + 12, 40, 8); ctx.fill();
-    // plants in the corners
-    plant(ctx, 22, L.wallY - 22, 12);
-    plant(ctx, L.w - 22, top + 22, 12);
-  }
-
-  private drawPavement(game: GameState, L: Layout) {
-    const ctx = this.ctx;
-    const pv = L.pavement;
-    ctx.fillStyle = C.pavement;
-    ctx.fillRect(0, pv.y, L.w, pv.h);
-    ctx.strokeStyle = C.pavementLine; ctx.lineWidth = 1;
-    for (let x = 0; x < L.w; x += 36) { ctx.beginPath(); ctx.moveTo(x, pv.y + 8); ctx.lineTo(x, pv.y + pv.h - 14); ctx.stroke(); }
-    ctx.beginPath(); ctx.moveTo(0, pv.y + pv.h * 0.52); ctx.lineTo(L.w, pv.y + pv.h * 0.52); ctx.stroke();
-    ctx.fillStyle = C.kerb; ctx.fillRect(0, L.h - 14, L.w, 4);
-    ctx.fillStyle = C.road; ctx.fillRect(0, L.h - 10, L.w, 10);
-
-    // evening: dusk tint outside from 18:00, lamp glow
-    const dusk = clamp((game.tick - 72) / 36, 0, 1);
-    if (dusk > 0) {
-      ctx.fillStyle = `rgba(40,50,90,${0.22 * dusk})`;
-      ctx.fillRect(0, pv.y, L.w, pv.h);
-    }
-    for (const lx of [L.w * 0.18, L.w * 0.52]) {
-      if (dusk > 0) {
-        const g = ctx.createRadialGradient(lx, pv.y + pv.h * 0.4, 2, lx, pv.y + pv.h * 0.4, 60);
-        g.addColorStop(0, `rgba(255,214,140,${0.55 * dusk})`); g.addColorStop(1, "rgba(255,214,140,0)");
-        ctx.fillStyle = g; ctx.fillRect(lx - 60, pv.y, 120, pv.h);
+    const byId = new Map(game.customers.map((c) => [c.id, c]));
+    for (const t of game.tables) {
+      const s = L.tables.get(t.id);
+      if (!s) continue;
+      const c = t.occupiedBy ? byId.get(t.occupiedBy) : undefined;
+      if (c) {
+        const col = c.stage === "eating" ? C.basil : c.stage === "paying" ? C.gold : patienceColour(c.patience);
+        const R = s.r + L.person * 2.6;
+        ctx.fillStyle = radial(ctx, s.x, s.y, R, alpha(col, 0.3), alpha(col, 0.05));
+        ctx.beginPath(); ctx.arc(s.x, s.y, R, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = C.inkSoft; ctx.beginPath(); ctx.arc(lx, pv.y + pv.h - 20, 4, 0, Math.PI * 2); ctx.fill();
+      if (c && opts.selected === c.id) {
+        const R = s.r + L.person * 3.6;
+        ctx.fillStyle = radial(ctx, s.x, s.y, R, alpha(C.gold, 0.45), alpha(C.gold, 0));
+        ctx.beginPath(); ctx.arc(s.x, s.y, R, 0, Math.PI * 2); ctx.fill();
+      }
     }
-
-    // front wall with windows and the door
-    ctx.fillStyle = C.wall;
-    ctx.fillRect(0, L.wallY - 5, L.door.x, 10);
-    ctx.fillRect(L.door.x + L.door.w, L.wallY - 5, L.w - L.door.x - L.door.w, 10);
-    ctx.fillStyle = "#cfe6ef";
-    for (let x = 40; x < L.door.x - 60; x += 130) { ctx.fillRect(x, L.wallY - 2, 80, 4); }
-    // door + awning
-    ctx.fillStyle = "#6e4f33";
-    ctx.fillRect(L.door.x - 3, L.wallY - 7, 3, 14);
-    ctx.fillRect(L.door.x + L.door.w, L.wallY - 7, 3, 14);
-    const aw = L.door.w + 36, ax = L.door.x - 18, ay = L.wallY + 4;
-    for (let i = 0; i < 6; i++) {
-      ctx.fillStyle = i % 2 ? C.paper : C.tomato;
-      ctx.fillRect(ax + (i * aw) / 6, ay, aw / 6 + 0.5, 12);
-    }
-    ctx.beginPath();
-    for (let i = 0; i <= 6; i++) ctx.arc(ax + (i * aw) / 6 + aw / 12, ay + 12, aw / 12, 0, Math.PI);
-    ctx.fillStyle = C.tomato; ctx.fill();
-    // name board
-    const nm = game.restaurantName.toUpperCase();
-    ctx.font = `800 13px Nunito, system-ui, sans-serif`;
-    const tw = Math.min(ctx.measureText(nm).width + 18, L.w * 0.4);
-    ctx.fillStyle = C.ink;
-    roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, L.wallY + pv.h - 42, tw, 20, 5); ctx.fill();
-    label(ctx, nm, L.door.x + L.door.w / 2, L.wallY + pv.h - 27, { align: "center", size: 13, weight: 800, colour: C.cream, spacing: 1, maxW: tw - 10 });
-    label(ctx, "OPEN", L.door.x - 26, L.wallY - 14, { align: "right", size: 13, weight: 900, colour: C.basilDeep, spacing: 2 });
   }
 
+  /** Live tables: occupied tops (so far-side guests sit behind them), seated guests, place settings, rings. */
   private drawTables(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
     const byId = new Map(game.customers.map((c) => [c.id, c]));
-    game.tables.forEach((t, i) => {
+    game.tables.forEach((t) => {
       const s = L.tables.get(t.id);
       if (!s) return;
       const c = t.occupiedBy ? byId.get(t.occupiedBy) : undefined;
-      // chairs
-      for (const seat of s.seats) {
-        ctx.fillStyle = "#9b6d3e";
-        ctx.beginPath(); ctx.arc(seat.x, seat.y, L.person * 0.95, 0, Math.PI * 2); ctx.fill();
-      }
-      // patience halo for waiting parties
       const waiting = c && (c.stage === "seated" || c.stage === "ordered");
-      if (c) {
-        const col = c.stage === "eating" ? C.basil : c.stage === "paying" ? C.gold : patienceColour(c.patience);
-        ctx.fillStyle = col + "33";
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 2.6, 0, Math.PI * 2); ctx.fill();
-        if (waiting) {
-          ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = "round";
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r + L.person * 2.6 - 2, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * clamp(c.patience, 0, 100)) / 100);
-          ctx.stroke(); ctx.lineCap = "butt";
-        }
-      }
       if (opts.hoverTable === t.id && c) {
-        ctx.strokeStyle = C.inkSoft; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = alpha(C.paper, 0.9); ctx.lineWidth = 2.5; ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 3, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       }
-      if (c && opts.selected === c.id) {
-        ctx.strokeStyle = C.amber; ctx.lineWidth = 3; ctx.setLineDash([6, 4]);
-        ctx.lineDashOffset = -opts.now / 40;
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 3.2, 0, Math.PI * 2); ctx.stroke();
-        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      if (c && opts.selected === c.id) this.drawSelection(s, L, opts.now);
+      // guests seated on the far side sit behind the table top
+      const seated = c ? this.seatedSprites(c, s) : [];
+      for (const sp of seated) if (sp.y < s.y - 1) this.drawGuest(sp, L, c!);
+      if (c) tableTop(ctx, s.x, s.y, s.r);
+      if (waiting) {
+        ctx.strokeStyle = "rgba(43,38,34,0.14)"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 2.6 - 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = patienceColour(c.patience); ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r + L.person * 2.6 - 2, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * clamp(c.patience, 0, 100)) / 100);
+        ctx.stroke(); ctx.lineCap = "butt";
       }
-      // table top
-      ctx.fillStyle = "rgba(90,60,25,0.18)";
-      ctx.beginPath(); ctx.ellipse(s.x + 2, s.y + 4, s.r, s.r * 0.95, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = c ? mix(C.table, c.stage === "eating" ? C.basil : c.stage === "paying" ? C.gold : patienceColour(c.patience), 0.35) : C.table;
-      ctx.strokeStyle = C.tableEdge; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       // contents
       if (t.dirtyTicks > 0 && !c) {
         for (let k = 0; k < Math.min(3, t.seats); k++) {
           const a = k * 2.1;
-          ctx.fillStyle = "#e7e1d6"; ctx.beginPath(); ctx.arc(s.x + Math.cos(a) * s.r * 0.45, s.y + Math.sin(a) * s.r * 0.45, s.r * 0.22, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#b3a58f"; ctx.beginPath(); ctx.arc(s.x + Math.cos(a) * s.r * 0.45 + 1, s.y + Math.sin(a) * s.r * 0.45, 1.5, 0, Math.PI * 2); ctx.fill();
+          const px = s.x + Math.cos(a) * s.r * 0.45, py = s.y + Math.sin(a) * s.r * 0.45;
+          ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.beginPath(); ctx.arc(px + 1, py + 1.5, s.r * 0.22, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#ece6da"; ctx.beginPath(); ctx.arc(px, py, s.r * 0.22, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#a8875c"; ctx.beginPath(); ctx.arc(px + 1, py, 1.5, 0, Math.PI * 2); ctx.fill();
         }
-      } else if (c) {
+      } else if (!c) {
+        for (const seat of s.seats) setting(ctx, lerp(s.x, seat.x, 0.52), lerp(s.y, seat.y, 0.52), seat.a, Math.max(3, s.r * 0.16));
+      } else {
         const n = c.partySize;
-        s.seats.slice(0, n).forEach((seat) => {
-          const px = lerp(s.x, seat.x, 0.5), py = lerp(s.y, seat.y, 0.5);
-          if (c.stage === "seated") { // menus
-            ctx.fillStyle = C.paper; ctx.strokeStyle = C.tomatoDeep; ctx.lineWidth = 1;
-            ctx.fillRect(px - 3.5, py - 4.5, 7, 9); ctx.strokeRect(px - 3.5, py - 4.5, 7, 9);
-          } else if (c.stage === "eating" || c.stage === "ordered") {
-            ctx.fillStyle = C.paper; ctx.strokeStyle = "#d7cdbd"; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.arc(px, py, Math.max(3.5, s.r * 0.2), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-            if (c.stage === "eating") {
-              ctx.fillStyle = [C.tomato, C.basil, C.amber][(n + Math.round(px)) % 3]!;
-              ctx.beginPath(); ctx.arc(px, py, Math.max(1.8, s.r * 0.1), 0, Math.PI * 2); ctx.fill();
-            }
-          }
+        s.seats.slice(0, n).forEach((seat, k) => {
+          const px = lerp(s.x, seat.x, 0.52), py = lerp(s.y, seat.y, 0.52);
+          if (c.stage === "seated") menu(ctx, px, py, seat.a, s.r);
+          else if (c.stage === "eating" || c.stage === "ordered") plate(ctx, px, py, Math.max(3.5, s.r * 0.2), c.stage === "eating" ? [C.tomato, C.basil, C.amber, "#7a4a2a"][(n + k) % 4]! : undefined);
         });
         if (c.stage === "paying") {
-          ctx.fillStyle = C.gold; ctx.strokeStyle = C.amberDeep; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, s.r * 0.32), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-          label(ctx, "£", s.x, s.y + 4, { align: "center", size: Math.max(13, s.r * 0.4), weight: 900, colour: C.amberDeep });
+          const bob = Math.sin(opts.now / 250) * 1.2 * motion;
+          const R = Math.max(6, s.r * 0.32);
+          ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(s.x + 1.5, s.y + 2 + bob, R, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = C.gold; ctx.strokeStyle = C.goldEdge; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(s.x, s.y + bob, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          label(ctx, "£", s.x, s.y + 4 + bob, { align: "center", size: Math.max(13, s.r * 0.4), weight: 900, colour: C.amberDeep });
         }
       }
+      for (const sp of seated) if (sp.y >= s.y - 1) this.drawGuest(sp, L, c!);
+      if (waiting) moodFace(ctx, s.x, s.y + s.r * 0.7, Math.max(6, Math.min(9, s.r * 0.3)), c.patience);
     });
+  }
+
+  /** Round 8: the selected table — a gold ring with four corner brackets, turning slowly (still under reduced motion). */
+  private drawSelection(s: TableSlot, L: Layout, now: number) {
+    const ctx = this.ctx;
+    const R = s.r + L.person * 3.2;
+    const spin = motion ? now / 2400 : 0;
+    ctx.strokeStyle = alpha(C.gold, 0.9); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s.x, s.y, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = C.outline; ctx.lineWidth = 6; ctx.lineCap = "round";
+    for (let k = 0; k < 4; k++) { const a = spin + k * Math.PI / 2 + Math.PI / 4; ctx.beginPath(); ctx.arc(s.x, s.y, R + 2, a - 0.32, a + 0.32); ctx.stroke(); }
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 3.5;
+    for (let k = 0; k < 4; k++) { const a = spin + k * Math.PI / 2 + Math.PI / 4; ctx.beginPath(); ctx.arc(s.x, s.y, R + 2, a - 0.3, a + 0.3); ctx.stroke(); }
+    ctx.lineCap = "butt";
+  }
+
+  /** The party's sprites that are sitting down (arrived at their seat, not walking). */
+  private seatedSprites(c: Customer, s: TableSlot): Sprite[] {
+    if (!SEATED.has(c.stage)) return [];
+    const out: Sprite[] = [];
+    for (let m = 0; m < c.partySize; m++) {
+      const sp = this.sprites.get(`${c.id}:${m}`);
+      if (sp && !sp.leaving && !sp.path.length) {
+        const seat = s.seats[m % s.seats.length]!;
+        if (Math.abs(sp.x - seat.x) < 1 && Math.abs(sp.y - seat.y) < 1) { sp.facing = facingFrom(s.x - seat.x, s.y - seat.y, sp.facing); out.push(sp); }
+      }
+    }
+    return out;
+  }
+
+  private drawGuest(s: Sprite, L: Layout, c: Customer | undefined, walking = false, now = 0) {
+    const look = this.lookOf(s);
+    const seated = !walking && !!c && SEATED.has(c.stage) && !s.leaving;
+    drawPerson(this.ctx, s.x, s.y - (seated ? L.person * 0.25 : 0), L.person, look, {
+      facing: s.facing, seated, moving: walking && !!motion, phase: walking ? now / 90 + s.phase : 0, outline: C.outline, shadow: C.shadow,
+    });
+  }
+
+  private lookOf(s: Sprite): Look {
+    const kid = /famil/i.test(s.segment) && s.member >= 2;
+    return guestLook(s.segment, s.key, kid, C);
   }
 
   /**
    * Round 5 review: table numbers drawn after the guests and staff (they used to sit under the guest sprites, so a
-   * full room hid most of them), with a paper ring so they read on top of a hat.
+   * full room hid most of them), with a paper ring so they read on top of a hat. Round 8: on the rim at the top centre,
+   * between the seats.
    */
   private drawTableNumbers(game: GameState, L: Layout) {
     const ctx = this.ctx;
     game.tables.forEach((t, i) => {
       const s = L.tables.get(t.id);
       if (!s) return;
-      const tx = s.x + s.r * 0.72, ty = s.y - s.r * 0.72;
+      const tx = s.x, ty = s.y - s.r * 0.62;
+      ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(tx + 1, ty + 1.5, 12, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = C.paper;
       ctx.beginPath(); ctx.arc(tx, ty, 12, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = t.occupiedBy ? C.ink : "rgba(43,38,34,0.55)";
+      ctx.fillStyle = t.occupiedBy ? C.ink : alpha(C.ink, 0.55);
       ctx.beginPath(); ctx.arc(tx, ty, 10, 0, Math.PI * 2); ctx.fill();
       label(ctx, String(i + 1), tx, ty + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
     });
@@ -645,44 +594,45 @@ export class RestaurantView {
 
   private drawPeople(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
-    const sprites = [...this.sprites.values()].sort((a, b) => a.y - b.y);
     const families = new Map(game.customers.map((c) => [c.id, c]));
+    const sprites = [...this.sprites.values()].sort((a, b) => a.y - b.y);
     for (const s of sprites) {
-      const look = segLook(s.segment);
       const c = families.get(s.customerId);
-      const kid = look.extra === "kids" && s.member >= 2;
-      const r = L.person * (kid ? 0.72 : 1);
+      const slot = c?.tableId ? L.tables.get(c.tableId) : undefined;
+      if (c && slot && SEATED.has(c.stage) && !s.leaving && !s.path.length) {
+        const seat = slot.seats[s.member % slot.seats.length]!;
+        if (Math.abs(s.x - seat.x) < 1 && Math.abs(s.y - seat.y) < 1) continue; // drawn with their table
+      }
       const walking = s.path.length > 0 && opts.speed > 0;
-      const bob = walking ? Math.sin(opts.now / 90 + s.phase) * 1.4 : 0;
-      const x = s.x, y = s.y + bob;
       ctx.globalAlpha = s.leaving && s.walkedOut ? 0.85 : 1;
-      // shadow
-      ctx.fillStyle = "rgba(60,40,20,0.18)";
-      ctx.beginPath(); ctx.ellipse(x + 1, s.y + r * 0.9, r * 1.05, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
-      // accessories behind
-      if (look.extra === "backpack" && !kid) { ctx.fillStyle = C.tomatoDeep; roundRect(ctx, x - r * 0.7, y + r * 0.1, r * 1.4, r * 0.9, 2); ctx.fill(); }
-      // body (shoulders)
-      ctx.fillStyle = look.body; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(x, y + r * 0.25, r * 1.05, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      // head
-      ctx.fillStyle = skinFor(s.key);
-      ctx.beginPath(); ctx.arc(x, y - r * 0.2, r * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      // hat
-      drawHat(ctx, look, x, y - r * 0.2, r * 0.62, kid);
-      if (look.extra === "briefcase" && walking) { ctx.fillStyle = "#6e4f33"; ctx.fillRect(x + r * 0.9, y + r * 0.2, r * 0.6, r * 0.5); }
-      if (look.extra === "camera" && !kid) { ctx.fillStyle = C.ink; ctx.fillRect(x - r * 0.35, y + r * 0.45, r * 0.7, r * 0.35); }
+      this.drawGuest(s, L, c, walking, opts.now);
       ctx.globalAlpha = 1;
+      const r = L.person;
       // walkout: little storm cloud above the lead member
       if (s.leaving && s.walkedOut && s.member === 0) {
         ctx.fillStyle = "#7d7f86";
-        for (const [dx, dy, rr] of [[-4, 0, 4], [0, -2, 5], [4, 0, 4]] as const) { ctx.beginPath(); ctx.arc(x + dx, y - r * 1.8 + dy, rr, 0, Math.PI * 2); ctx.fill(); }
+        for (const [dx, dy, rr] of [[-4, 0, 4], [0, -2, 5], [4, 0, 4]] as const) { ctx.beginPath(); ctx.arc(s.x + dx, s.y - r * 2.2 + dy, rr, 0, Math.PI * 2); ctx.fill(); }
       }
       // queue patience pip on the lead member
       if (c && c.stage === "queue" && s.member === 0 && !walking) {
         ctx.fillStyle = patienceColour(c.patience); ctx.strokeStyle = C.paper; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(x, y - r * 1.55, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(s.x, s.y - r * 2.1, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
     }
+  }
+
+  /** Round 8: evening comes in from 18:00 — the street darkens, lamps and windows glow (one cached light layer). */
+  private drawLighting(game: GameState, L: Layout, key: string) {
+    const dusk = clamp((game.tick - 72) / 36, 0, 1);
+    if (dusk <= 0) return;
+    const ctx = this.ctx;
+    ctx.fillStyle = alpha(C.night, 0.34 * dusk); ctx.fillRect(0, L.wallY + 5, L.w, L.h - L.wallY - 5);
+    ctx.fillStyle = alpha(C.night, 0.16 * dusk); ctx.fillRect(0, 0, L.w, L.wallY + 5);
+    ctx.save();
+    ctx.globalAlpha = dusk;
+    ctx.globalCompositeOperation = "lighter";
+    this.layers.draw(ctx, "light", key, this.w, this.h, this.dpr, (c) => paintLight(c, L));
+    ctx.restore();
   }
 
   /** Pulsing tomato rings around an incident's table / waiting party / staff member. */
@@ -690,7 +640,7 @@ export class RestaurantView {
     const h = opts.highlight;
     if (!h || (!h.tableIds.length && !h.customerIds.length && !h.staffIds.length)) return;
     const ctx = this.ctx;
-    const t = (Math.sin(opts.now / 220) + 1) / 2; // 0..1
+    const t = motion ? (Math.sin(opts.now / 220) + 1) / 2 : 0.6; // 0..1
     const ring = (x: number, y: number, r: number, id: string) => {
       const strong = h.strong?.includes(id);
       ctx.save();
@@ -729,8 +679,8 @@ export class RestaurantView {
     const ctx = this.ctx;
     ctx.font = "800 13px Nunito, system-ui, sans-serif";
     const w = ctx.measureText(text).width + 14;
-    const x = 8, y = L.pavement.y + 6;
-    ctx.fillStyle = "rgba(43,38,34,0.78)";
+    const x = 8, y = L.pavement.y + 10;
+    ctx.fillStyle = alpha(C.ink, 0.82);
     roundRect(ctx, x, y, w, 20, 9); ctx.fill();
     label(ctx, text, x + 7, y + 14.5, { size: 13, weight: 800, colour: C.paper });
   }
@@ -749,10 +699,12 @@ export class RestaurantView {
       const stove = L.stoves[i % L.stoves.length]!;
       const busy = game.tickets.some((t) => t.chefId === s.id && t.ticksRemaining > 0);
       const plated = game.tickets.some((t) => t.chefId === s.id && t.ticksRemaining <= 0);
-      const home = { x: stove.x + (i >= L.stoves.length ? 14 : 0), y: stove.y + 30 };
-      const target = plated && !busy ? { x: clamp(stove.x, L.pass.x + 20, L.pass.x + L.pass.w - 20), y: L.pass.y - 6 } : home;
-      const sp = this.moveStaff(s.id, target, dt, opts, L, home);
-      this.drawStaffMarker(s, sp.x + (busy ? Math.sin(opts.now / 140 + i) * 2 : 0), sp.y, opts);
+      const home = { x: stove.x + (i >= L.stoves.length ? 14 : 0), y: stove.y + 32 };
+      const target = plated && !busy ? { x: clamp(stove.x, L.pass.x + 20, L.pass.x + L.pass.w - 20), y: L.pass.y - 8 } : home;
+      const sp = this.moveStaff(s.id, target, dt, opts, L, home, undefined, false);
+      if (!sp.moving) sp.facing = sp.y > home.y + 4 ? "down" : "up";
+      const stir = busy && motion ? Math.sin(opts.now / 140 + i) * 1.5 : 0;
+      this.drawStaffMarker(s, sp.x + stir, sp.y, sp, opts, false, false, true);
     });
 
     // front of house: serve tables that need someone (paying > needs order > food just ready)
@@ -775,58 +727,60 @@ export class RestaurantView {
       const slot = job ? L.tables.get(job.tableId) : undefined;
       const idle = passPoint(i);
       const stand = slot ? { x: slot.x + (slot.x > L.w / 2 ? -1 : 1) * (slot.r + L.person * 3.2), y: slot.y + slot.r * 0.4 } : idle;
-      const m = this.moveStaff(s.id, stand, dt, opts, L, idle, job?.viaPass ? passPoint(i) : undefined);
+      const m = this.moveStaff(s.id, stand, dt, opts, L, idle, job?.viaPass ? passPoint(i) : undefined, true);
       m.task = job?.tableId;
       if (job && m.until < opts.now) m.until = opts.now + 1600 / Math.max(1, opts.speed);
-      this.drawStaffMarker(s, m.x, m.y, opts);
+      if (!m.moving && slot) m.facing = facingFrom(slot.x - m.x, slot.y - m.y, m.facing);
+      const carrying = !!job?.viaPass && !!m.via && !m.path.includes(m.via);
+      this.drawStaffMarker(s, m.x, m.y, m, opts, carrying, job?.pri === 0);
     });
     // nobody front-of-house: a little sign on the pass
-    if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 20, { size: 14, weight: 800, colour: C.tomatoDeep });
-    if (!chefs.length) label(ctx, "No chef: you’re cooking!", L.stoves[0]!.x - 20, 64, { size: 14, weight: 900, colour: C.tomatoDeep });
+    if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 20, { size: 14, weight: 800, colour: C.tomatoDeep, stroke: C.paper });
+    if (!chefs.length) label(ctx, "No chef: you’re cooking!", L.stoves[0]!.x - 20, 64, { size: 14, weight: 900, colour: C.tomatoDeep, stroke: C.paper });
   }
 
-  private moveStaff(id: string, target: Pt, dt: number, opts: RenderOptions, L: Layout, start: Pt, via?: Pt): StaffSprite {
+  private moveStaff(id: string, target: Pt, dt: number, opts: RenderOptions, L: Layout, start: Pt, via: Pt | undefined, aisles: boolean): StaffSprite {
     let s = this.staffSprites.get(id);
-    if (!s) { s = { id, x: start.x, y: start.y, path: [], target: null, until: 0 }; this.staffSprites.set(id, s); }
+    if (!s) { s = { id, x: start.x, y: start.y, path: [], target: null, until: 0, facing: "down", moving: false }; this.staffSprites.set(id, s); }
     if (!s.target || s.target.x !== target.x || s.target.y !== target.y) {
       s.target = target;
-      s.path = via && dist(s, via) > 4 ? [via, target] : [target];
+      // Round 8: front-of-house walks the aisles (via the pass for food), so their routes read
+      if (via && dist(s, via) > 4) { s.via = via; s.path = [...(aisles ? aislePath(L, s, via) : [via]), ...(aisles ? aislePath(L, via, target) : [target])]; }
+      else { s.via = undefined; s.path = aisles ? aislePath(L, s, target) : [target]; }
     }
     let budget = (110 + L.person * 8) * Math.max(1, opts.speed) * (opts.speed > 0 ? dt : 0);
+    s.moving = false;
     while (budget > 0 && s.path.length) {
       const p = s.path[0]!;
       const d = dist(s, p);
+      if (d > 0.5) { s.facing = facingFrom(p.x - s.x, p.y - s.y, s.facing); s.moving = true; }
       if (d <= budget) { s.x = p.x; s.y = p.y; budget -= d; s.path.shift(); }
       else { s.x += ((p.x - s.x) / d) * budget; s.y += ((p.y - s.y) / d) * budget; budget = 0; }
     }
     return s;
   }
 
-  private drawStaffMarker(s: Staff, x: number, y: number, _opts: RenderOptions) {
+  private drawStaffMarker(s: Staff, x: number, y: number, sp: StaffSprite, opts: RenderOptions, carrying: boolean, bill = false, tagBeside = false) {
     const ctx = this.ctx;
-    const size = 20;
-    const chef = s.role === "chef";
-    const colour = chef ? C.paper : s.role === "server" ? C.basil : s.role === "bar" ? C.plum : s.role === "porter" ? C.sky : C.inkSoft;
-    ctx.fillStyle = "rgba(60,40,20,0.2)";
-    ctx.beginPath(); ctx.ellipse(x + 1, y + size * 0.55, size * 0.55, size * 0.22, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = colour; ctx.strokeStyle = chef ? C.tomato : C.ink; ctx.lineWidth = 2.5;
-    roundRect(ctx, x - size / 2, y - size / 2, size, size, 6); ctx.fill(); ctx.stroke();
-    label(ctx, s.name.slice(0, 1).toUpperCase(), x, y + 5, { align: "center", size: 13, weight: 900, colour: chef ? C.tomatoDeep : C.paper });
-    if (chef) { // toque
-      ctx.fillStyle = C.paper; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
-      ctx.fillRect(x - 6, y - size / 2 - 6, 12, 6); ctx.strokeRect(x - 6, y - size / 2 - 6, 12, 6);
-      for (const dx of [-5, 0, 5]) { ctx.beginPath(); ctx.arc(x + dx, y - size / 2 - 9, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
-    } else if (s.role === "server") { // bow tie
-      ctx.fillStyle = C.ink;
-      ctx.beginPath(); ctx.moveTo(x, y + 7); ctx.lineTo(x - 5, y + 4); ctx.lineTo(x - 5, y + 10); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(x, y + 7); ctx.lineTo(x + 5, y + 4); ctx.lineTo(x + 5, y + 10); ctx.closePath(); ctx.fill();
+    const r = clamp(L_PERSON_STAFF * (this.layout?.person ?? 8), 7, 11);
+    const look = staffLook(s);
+    const walking = sp.moving && !!motion;
+    const hy = drawPerson(ctx, x, y, r, look, { facing: sp.facing, moving: walking, phase: walking ? opts.now / 85 : 0, carrying: carrying || bill, outline: C.outline, shadow: C.shadow });
+    if (carrying || bill) {
+      const fx = sp.facing === "left" ? -1 : sp.facing === "right" ? 1 : 0;
+      const ix = x + fx * r * 1.05, iy = sp.facing === "up" ? hy - r * 0.4 : hy;
+      if (carrying) plate(ctx, ix, iy, r * 0.62, C.tomato);
+      else { ctx.fillStyle = C.paper; ctx.strokeStyle = C.outline; ctx.lineWidth = 1; ctx.fillRect(ix - 3.5, iy - 4.5, 7, 9); ctx.strokeRect(ix - 3.5, iy - 4.5, 7, 9); ctx.fillStyle = C.gold; ctx.fillRect(ix - 2, iy - 2, 4, 1.5); }
     }
     const first = s.name.split(" ")[0] ?? s.name;
     ctx.font = "800 13px Nunito, system-ui, sans-serif";
-    const w = ctx.measureText(first).width + 8;
-    ctx.fillStyle = "rgba(255,253,248,0.9)";
-    roundRect(ctx, x - w / 2, y + size / 2 + 3, w, 16, 7); ctx.fill();
-    label(ctx, first, x, y + size / 2 + 15.5, { align: "center", size: 13, weight: 800, colour: C.ink });
+    const w = ctx.measureText(first).width + 10;
+    // chefs in the narrow kitchen wear their tag beside them, clear of the ticket rail below
+    const tx = tagBeside ? x + r * 1.3 + w / 2 : x, ty = tagBeside ? y - 8 : y + r * 1.25 + 2;
+    ctx.fillStyle = C.shadow; roundRect(ctx, tx - w / 2 + 1, ty + 1.5, w, 16, 8); ctx.fill();
+    ctx.fillStyle = alpha(C.paper, 0.95);
+    roundRect(ctx, tx - w / 2, ty, w, 16, 8); ctx.fill();
+    label(ctx, first, tx, ty + 12.5, { align: "center", size: 13, weight: 800, colour: C.ink });
   }
 
   private drawFloaties(now: number) {
@@ -835,15 +789,253 @@ export class RestaurantView {
     for (const f of this.floaties) {
       const t = (now - f.born) / f.life;
       ctx.globalAlpha = 1 - t * t;
-      label(ctx, f.text, f.x, f.y - 6 - t * 28, { align: "center", size: 14, weight: 900, colour: f.colour, stroke: C.paper });
+      label(ctx, f.text, f.x, f.y - 6 - t * 28 * (motion || 0.3), { align: "center", size: 14, weight: 900, colour: f.colour, stroke: C.paper });
     }
     ctx.globalAlpha = 1;
   }
 }
 
+/** Staff sprites are a touch bigger than guests (they're the ones you watch). */
+const L_PERSON_STAFF = 1.15;
+
+function staffLook(s: Staff): Look {
+  const h = hashKey(s.id);
+  const skin = SKINS[h % SKINS.length]!, hair = HAIRS[(h >> 3) % HAIRS.length]!;
+  switch (s.role) {
+    case "chef": return { body: "#fbfaf6", skin, hair, hat: "toque", hatColour: "#fffdf8", trim: C.tomato, apron: "#ece7dc" };
+    case "server": return { body: "#2f3a33", skin, hair, hat: "cap", hatColour: C.basil, shirt: true, trim: C.tomato, apron: "#1f2622" };
+    case "bar": return { body: C.plum, skin, hair, hat: "cap", hatColour: C.outline, shirt: true, trim: C.ink };
+    case "porter": return { body: C.sky, skin, hair, apron: "#3a7398" };
+    default: return { body: C.inkSoft, skin, hair, shirt: true, trim: C.gold };
+  }
+}
+
+// ───────────────────────── static layers ─────────────────────────
+
+/** Floors, walls, pavement and road, light pools: under the glows. */
+function paintFloor(ctx: CanvasRenderingContext2D, L: Layout) {
+  const k = L.kitchen;
+  ctx.fillStyle = C.cream; ctx.fillRect(0, 0, L.w, L.h);
+  // kitchen: small non-slip tiles with grout
+  ctx.fillStyle = C.grout; ctx.fillRect(0, 0, k.w, k.h + 6);
+  const q = 16;
+  for (let j = 0, y = 0; y < k.h + 6; j++, y += q) for (let i = 0, x = 0; x < k.w; i++, x += q) {
+    ctx.fillStyle = (i + j) & 1 ? C.tileA : C.tileB;
+    if (noise(i, j) > 0.88) ctx.fillStyle = mix(C.tileB, C.grout, 0.25);
+    ctx.fillRect(x + 0.5, y + 0.5, q - 1, q - 1);
+  }
+  // back wall: cap and a tiled splash-back
+  ctx.fillStyle = C.splash; ctx.fillRect(0, 4, k.w, 12);
+  ctx.strokeStyle = C.splashGrout; ctx.lineWidth = 1;
+  for (let j = 0; j < 2; j++) {
+    const yy = 4 + j * 6;
+    ctx.beginPath(); ctx.moveTo(0, yy + 6); ctx.lineTo(k.w, yy + 6); ctx.stroke();
+    for (let x = j % 2 ? 7 : 0; x < k.w; x += 14) { ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy + 6); ctx.stroke(); }
+  }
+  ctx.fillStyle = C.wallTop; ctx.fillRect(0, 0, k.w, 4);
+  ctx.fillStyle = linear(ctx, 0, 16, 0, 26, [[0, "rgba(40,25,10,0.16)"], [1, "rgba(40,25,10,0)"]]); ctx.fillRect(0, 16, k.w, 10);
+
+  // dining: staggered oak planks
+  const top = k.h + 6, bottom = L.wallY;
+  const ph = 18;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top, L.w, bottom - top); ctx.clip();
+  for (let row = 0, y = top; y < bottom; row++, y += ph) {
+    let x = -noise(row, 7) * 60;
+    for (let i = 0; x < L.w; i++) {
+      const len = 70 + noise(row, i) * 70;
+      const tone = noise(i, row + 99);
+      ctx.fillStyle = mix(C.floorA, C.floorB, tone); ctx.fillRect(x, y, len, ph);
+      ctx.fillStyle = C.floorGrain;
+      ctx.fillRect(x + len * 0.1, y + ph * (0.3 + 0.4 * noise(i + 3, row)), len * 0.55, 1);
+      if (tone > 0.5) ctx.fillRect(x + len * 0.45, y + ph * 0.72, len * 0.4, 1);
+      ctx.fillStyle = C.floorJoint; ctx.fillRect(x, y, 1, ph);
+      x += len;
+    }
+    ctx.fillStyle = C.floorJoint; ctx.fillRect(0, y + ph - 1, L.w, 1);
+  }
+  ctx.restore();
+  // warm pools under the pendant lamps, a rug at the door, the heat-lamp spill in front of the pass
+  for (const s of L.tables.values()) {
+    const R = s.r * 2.4;
+    ctx.fillStyle = radial(ctx, s.x, s.y, R, C.lamp, "rgba(255,206,130,0)");
+    ctx.fillRect(s.x - R, s.y - R, R * 2, R * 2);
+  }
+  ctx.fillStyle = mix(C.tomato, C.floorB, 0.55);
+  roundRect(ctx, L.door.x - 8, L.wallY - 44, L.door.w + 16, 38, 6); ctx.fill();
+  ctx.strokeStyle = alpha(C.paper, 0.35); ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  roundRect(ctx, L.door.x - 4, L.wallY - 40, L.door.w + 8, 30, 4); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = linear(ctx, 0, top, 0, top + 26, [[0, "rgba(40,25,10,0.18)"], [1, "rgba(40,25,10,0)"]]); ctx.fillRect(0, top, L.w, 26);
+  ctx.fillStyle = linear(ctx, 0, L.wallY - 40, 0, L.wallY, [[0, "rgba(200,230,245,0)"], [1, "rgba(200,230,245,0.22)"]]); ctx.fillRect(0, L.wallY - 40, L.w, 40);
+
+  // pavement: paving slabs, kerb, road
+  const pv = L.pavement;
+  ctx.fillStyle = C.pavingJoint; ctx.fillRect(0, pv.y, L.w, pv.h);
+  const sh = 22, sw = 40;
+  for (let j = 0, y = pv.y + 4; y < L.h - 14; j++, y += sh) for (let x = j % 2 ? -sw / 2 : 0, i = 0; x < L.w; x += sw, i++) {
+    ctx.fillStyle = noise(i, j + 40) > 0.6 ? C.pavingAlt : C.paving;
+    ctx.fillRect(x + 1, y + 1, sw - 2, Math.min(sh - 2, L.h - 14 - y - 1));
+  }
+  ctx.fillStyle = C.kerb; ctx.fillRect(0, L.h - 14, L.w, 4);
+  ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(0, L.h - 14, L.w, 1);
+  ctx.fillStyle = C.road; ctx.fillRect(0, L.h - 10, L.w, 10);
+  ctx.fillStyle = C.roadLine; for (let x = 10; x < L.w; x += 46) ctx.fillRect(x, L.h - 5, 22, 2);
+  // shade from the shopfront onto the pavement
+  ctx.fillStyle = linear(ctx, 0, pv.y + 5, 0, pv.y + 20, [[0, "rgba(40,25,10,0.18)"], [1, "rgba(40,25,10,0)"]]); ctx.fillRect(0, pv.y + 5, L.w, 15);
+  // street lamps
+  for (const lx of [L.w * 0.18, L.w * 0.52]) {
+    ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.ellipse(lx + 9, L.h - 17, 12, 3, 0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3d3a37"; ctx.beginPath(); ctx.arc(lx, L.h - 20, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#2f2c2a"; ctx.fillRect(lx - 1.5, L.h - 34, 3, 14);
+    ctx.fillStyle = "#3d3a37"; roundRect(ctx, lx - 6, L.h - 40, 12, 7, 3); ctx.fill();
+    ctx.fillStyle = "#ffe3a8"; ctx.fillRect(lx - 4, L.h - 35, 8, 2);
+  }
+
+  // walls: kitchen partition (gap behind the pass), front wall with windows and the door gap
+  const p = L.pass;
+  wallBand(ctx, 0, k.h, p.x, 7);
+  wallBand(ctx, p.x + p.w, k.h, k.w - p.x - p.w, 7);
+  wallBand(ctx, 0, L.wallY - 5, L.door.x, 11);
+  wallBand(ctx, L.door.x + L.door.w, L.wallY - 5, L.w - L.door.x - L.door.w, 11);
+  // windows: glazing with mullions, a sill and a shine
+  for (let x = 30; x < L.w - 60; x += 130) {
+    const x1 = Math.min(x + 96, L.w - 20);
+    if (!(x1 < L.door.x - 14 || x > L.door.x + L.door.w + 14)) continue;
+    ctx.fillStyle = C.glass; ctx.fillRect(x, L.wallY - 3, x1 - x, 5);
+    ctx.fillStyle = C.glassShine; ctx.fillRect(x + 8, L.wallY - 2, 14, 1.5);
+    ctx.fillStyle = C.wallFace; for (let m = x; m <= x1; m += (x1 - x) / 3) ctx.fillRect(m - 1, L.wallY - 4, 2, 7);
+    ctx.strokeStyle = C.wallFace; ctx.lineWidth = 1; ctx.strokeRect(x, L.wallY - 3, x1 - x, 5);
+  }
+  // door frame and threshold
+  ctx.fillStyle = C.wallFace;
+  ctx.fillRect(L.door.x - 4, L.wallY - 8, 4, 16); ctx.fillRect(L.door.x + L.door.w, L.wallY - 8, 4, 16);
+  ctx.fillStyle = C.steelDark; ctx.fillRect(L.door.x, L.wallY - 1, L.door.w, 3);
+}
+
+/** A wall seen from above-front: a lit cap and a darker face below it. */
+function wallBand(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  if (w <= 0) return;
+  ctx.fillStyle = C.wall; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = C.wallTop; ctx.fillRect(x, y, w, h * 0.55);
+  ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(x, y, w, 1);
+  ctx.fillStyle = C.shadow; ctx.fillRect(x, y + h, w, 3);
+}
+
+/** Counters, stoves at rest, fridge, sink, pass, bar, tables and chairs, plants, the shopfront. */
+function paintFurniture(ctx: CanvasRenderingContext2D, L: Layout, name: string) {
+  const k = L.kitchen;
+  // back counter with the stoves set into it
+  counter(ctx, 8, 12, k.w * 0.68, 40, C.steelTop, C.steelFace, C.steelDark);
+  for (const s of L.stoves) {
+    ctx.fillStyle = C.hobTop; roundRect(ctx, s.x - 22, s.y - 12, 44, 24, 4); ctx.fill();
+    ctx.strokeStyle = "#1f1d1c"; ctx.lineWidth = 1; ctx.stroke();
+    for (const dx of [-10, 10]) {
+      ctx.fillStyle = "#24211f"; ctx.beginPath(); ctx.arc(s.x + dx, s.y, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#6b6662"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(s.x + dx, s.y, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(s.x + dx - 8, s.y); ctx.lineTo(s.x + dx + 8, s.y); ctx.moveTo(s.x + dx, s.y - 8); ctx.lineTo(s.x + dx, s.y + 8); ctx.stroke();
+    }
+    for (const dx of [-10, 10]) { ctx.fillStyle = C.outline; ctx.beginPath(); ctx.arc(s.x + dx, 47, 2.2, 0, Math.PI * 2); ctx.fill(); }
+  }
+  // tall fridge and the sink
+  const fx = k.w * 0.74;
+  ctx.fillStyle = C.shadow; roundRect(ctx, fx + 4, 8, 40, 56, 5); ctx.fill();
+  ctx.fillStyle = C.steelFace; roundRect(ctx, fx, 4, 40, 56, 5); ctx.fill();
+  ctx.fillStyle = C.steelTop; roundRect(ctx, fx, 4, 40, 10, 4); ctx.fill();
+  ctx.fillStyle = linear(ctx, fx, 0, fx + 40, 0, [[0, "#eef1f2"], [1, "#c9d0d3"]]);
+  roundRect(ctx, fx + 2, 15, 17, 43, 3); ctx.fill(); roundRect(ctx, fx + 21, 15, 17, 43, 3); ctx.fill();
+  ctx.fillStyle = C.steelDeep; ctx.fillRect(fx + 16, 28, 2, 14); ctx.fillRect(fx + 22, 28, 2, 14);
+  ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1; roundRect(ctx, fx, 4, 40, 56, 5); ctx.stroke();
+  counter(ctx, fx + 52, 12, 56, 38, C.steelTop, C.steelFace, C.steelDark);
+  ctx.fillStyle = C.steelDeep; roundRect(ctx, fx + 57, 16, 32, 20, 4); ctx.fill();
+  ctx.fillStyle = C.water; roundRect(ctx, fx + 58.5, 17.5, 29, 17, 3); ctx.fill();
+  ctx.strokeStyle = C.glassShine; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(fx + 76, 27, 4, 0.2, 2.2); ctx.stroke();
+  ctx.strokeStyle = C.steelDeep; ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(fx + 73, 13); ctx.quadraticCurveTo(fx + 73, 22, fx + 77, 21); ctx.stroke(); ctx.lineCap = "butt";
+  ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(fx + 93 + i * 3.5, 17); ctx.lineTo(fx + 93 + i * 3.5, 35); ctx.stroke(); }
+  label(ctx, "KITCHEN", k.w - 12, 64, { align: "right", size: 13, colour: alpha(C.ink, 0.5), weight: 900, spacing: 2 });
+
+  // the pass: a steel shelf under heat lamps
+  const p = L.pass;
+  counter(ctx, p.x, p.y, p.w, p.h, C.steelTop, C.steelFace, C.steelDark);
+  ctx.fillStyle = "rgba(255,176,90,0.16)"; ctx.fillRect(p.x + 4, p.y + 3, p.w - 8, p.h - 10);
+  ctx.fillStyle = C.steelDeep; ctx.fillRect(p.x + 6, p.y + 1, p.w - 12, 2);
+  for (let x = p.x + 30; x < p.x + p.w - 20; x += 70) { ctx.fillStyle = C.outline; roundRect(ctx, x - 14, p.y - 1, 28, 4, 2); ctx.fill(); ctx.fillStyle = "#ffb067"; ctx.fillRect(x - 11, p.y + 1, 22, 1.5); }
+
+  // the bar (when there's room): oak counter, taps, stools, a back shelf of bottles
+  if (L.bar) {
+    const b = L.bar;
+    ctx.fillStyle = C.shadow; ctx.fillRect(L.w - 18, b.y - 2, 10, b.h + 10);
+    ctx.fillStyle = C.barFace; ctx.fillRect(L.w - 20, b.y - 4, 10, b.h + 6);
+    const cols = [C.basil, C.amber, C.tomato, C.sky, C.plum, C.straw, "#8e2b3a"];
+    for (let y = b.y + 4, i = 0; y < b.y + b.h - 4; y += 9, i++) { ctx.fillStyle = cols[i % cols.length]!; ctx.beginPath(); ctx.arc(L.w - 15, y, 3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = C.shadow; roundRect(ctx, b.x + 4, b.y + 4, b.w, b.h, 5); ctx.fill();
+    ctx.fillStyle = C.barFace; roundRect(ctx, b.x, b.y, b.w, b.h, 5); ctx.fill();
+    ctx.fillStyle = C.barTop; roundRect(ctx, b.x + 2, b.y + 1, b.w - 4, b.h - 8, 4); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fillRect(b.x + 4, b.y + 3, 2, b.h - 14);
+    ctx.fillStyle = "#c9a14a"; ctx.fillRect(b.x - 3, b.y + 4, 2, b.h - 10);
+    for (let i = 0; i < 3; i++) { const ty = b.y + 16 + i * 14; ctx.fillStyle = C.steelDark; roundRect(ctx, b.x + b.w - 10, ty - 2.5, 7, 5, 2); ctx.fill(); ctx.fillStyle = [C.amber, C.tomato, C.basil][i]!; ctx.fillRect(b.x + b.w - 5, ty - 4, 3, 8); }
+    for (let y = b.y + 18; y < b.y + b.h - 10; y += 30) {
+      ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(b.x - 11, y + 3, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C.barFace; ctx.beginPath(); ctx.arc(b.x - 13, y, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C.chairTop; ctx.beginPath(); ctx.arc(b.x - 13.5, y - 0.5, 5.5, 0, Math.PI * 2); ctx.fill();
+    }
+    label(ctx, "BAR", b.x + b.w / 2, b.y + b.h + 16, { align: "center", size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
+  }
+
+  // tables and chairs (tops of occupied tables are redrawn live, so far-side guests sit behind them)
+  for (const s of L.tables.values()) {
+    for (const seat of s.seats) chair(ctx, seat.x, seat.y, seat.a, L.person);
+    tableTop(ctx, s.x, s.y, s.r);
+  }
+  // plants in the corners
+  plant(ctx, 22, L.wallY - 24, 12);
+  if (!L.bar) plant(ctx, L.w - 22, L.kitchen.h + 30, 12);
+
+  // the shopfront outside: planters under the windows, the awning over the door, the name board, the OPEN sign
+  for (let x = 30; x < L.w - 60; x += 130) {
+    const x1 = Math.min(x + 96, L.w - 20);
+    if (!(x1 < L.door.x - 14 || x > L.door.x + L.door.w + 14)) continue;
+    ctx.fillStyle = C.shadow; ctx.fillRect(x + 4, L.wallY + 9, x1 - x - 4, 7);
+    ctx.fillStyle = "#7a5636"; ctx.fillRect(x + 2, L.wallY + 6, x1 - x - 4, 7);
+    for (let px = x + 8; px < x1 - 4; px += 9) { ctx.fillStyle = noise(px, 3) > 0.5 ? C.leaf : C.leafDeep; ctx.beginPath(); ctx.arc(px, L.wallY + 7, 4, 0, Math.PI * 2); ctx.fill(); }
+    for (let px = x + 12; px < x1 - 8; px += 22) { ctx.fillStyle = noise(px, 5) > 0.5 ? C.tomato : C.gold; ctx.beginPath(); ctx.arc(px, L.wallY + 6, 1.8, 0, Math.PI * 2); ctx.fill(); }
+  }
+  const aw = L.door.w + 36, ax = L.door.x - 18, ay = L.wallY + 4;
+  ctx.fillStyle = C.shadow; ctx.fillRect(ax + 3, ay + 4, aw, 16);
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? C.awningB : C.awningA; ctx.fillRect(ax + (i * aw) / 6, ay, aw / 6 + 0.5, 12); }
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? C.awningB : C.awningA; ctx.beginPath(); ctx.arc(ax + (i * aw) / 6 + aw / 12, ay + 12, aw / 12, 0, Math.PI); ctx.fill(); }
+  ctx.strokeStyle = alpha(C.outline, 0.35); ctx.lineWidth = 1; ctx.strokeRect(ax, ay, aw, 12);
+  const nm = name.toUpperCase();
+  ctx.font = `800 13px Nunito, system-ui, sans-serif`;
+  const tw = Math.min(ctx.measureText(nm).width + 18, L.w * 0.4);
+  const by = L.wallY + L.pavement.h - 42;
+  ctx.fillStyle = C.shadow; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2 + 2, by + 2, tw, 20, 5); ctx.fill();
+  ctx.fillStyle = C.ink; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, by, tw, 20, 5); ctx.fill();
+  label(ctx, nm, L.door.x + L.door.w / 2, by + 15, { align: "center", size: 13, weight: 800, colour: C.cream, spacing: 1, maxW: tw - 10 });
+  ctx.font = `900 13px Nunito, system-ui, sans-serif`;
+  const ow = ctx.measureText("OPEN").width + 14;
+  const ox = L.door.x - 26 - ow, oy = L.wallY - 30;
+  ctx.fillStyle = C.shadow; roundRect(ctx, ox + 2, oy + 2, ow, 19, 5); ctx.fill();
+  ctx.fillStyle = C.paper; roundRect(ctx, ox, oy, ow, 19, 5); ctx.fill();
+  ctx.strokeStyle = C.basilDeep; ctx.lineWidth = 1.5; ctx.stroke();
+  label(ctx, "OPEN", ox + ow / 2, oy + 14, { align: "center", size: 13, weight: 900, colour: C.basilDeep, spacing: 2 });
+}
+
+/** The evening light layer (drawn with "lighter" at dusk strength): table lamps, street lamps, windows on the pavement. */
+function paintLight(ctx: CanvasRenderingContext2D, L: Layout) {
+  const pool = (x: number, y: number, r: number, a: number) => {
+    ctx.fillStyle = radial(ctx, x, y, r, `rgba(255,190,110,${a})`, "rgba(255,190,110,0)");
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+  for (const s of L.tables.values()) pool(s.x, s.y, s.r * 2.4, 0.1);
+  for (const lx of [L.w * 0.18, L.w * 0.52]) pool(lx, L.h - 22, 70, 0.32);
+  pool(L.door.x + L.door.w / 2, L.wallY + 18, 60, 0.2);
+  for (let x = 30; x < L.w - 60; x += 130) pool(x + 48, L.wallY + 14, 56, 0.12);
+  if (L.bar) pool(L.bar.x + L.bar.w / 2, L.bar.y + L.bar.h / 2, L.bar.h * 0.6, 0.16);
+}
+
 // ───────────────────────── small drawing helpers ─────────────────────────
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  const rr = Math.min(r, w / 2, h / 2);
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + rr, y);
   ctx.arcTo(x + w, y, x + w, y + h, rr);
@@ -851,6 +1043,95 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x, y + h, x, y, rr);
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
+}
+
+function radial(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, inner: string, outer: string): CanvasGradient | string {
+  const g = typeof ctx.createRadialGradient === "function" ? ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, r)) : undefined;
+  if (!g || typeof g.addColorStop !== "function") return inner;
+  g.addColorStop(0, inner); g.addColorStop(1, outer);
+  return g;
+}
+function linear(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]): CanvasGradient | string {
+  const g = typeof ctx.createLinearGradient === "function" ? ctx.createLinearGradient(x0, y0, x1, y1) : undefined;
+  if (!g || typeof g.addColorStop !== "function") return stops[0]![1];
+  for (const [o, c] of stops) g.addColorStop(o, c);
+  return g;
+}
+function noise(i: number, j = 0): number {
+  let h = (i * 374761393 + j * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+
+/** A counter: lit top, darker front face, soft shadow down-right. */
+function counter(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, top: string, face: string, edge: string) {
+  const d = Math.min(10, h * 0.3);
+  ctx.fillStyle = C.shadow; roundRect(ctx, x + 4, y + 4, w, h, 5); ctx.fill();
+  ctx.fillStyle = face; roundRect(ctx, x, y + h - d - 2, w, d + 2, 5); ctx.fill();
+  ctx.fillStyle = top; roundRect(ctx, x, y, w, h - d, 5); ctx.fill();
+  ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.fillRect(x + 5, y + 1, w - 10, 1);
+}
+
+function tableTop(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.ellipse(cx + 3, cy + 4, r, r * 0.96, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.tableEdge; ctx.beginPath(); ctx.arc(cx, cy + 1.5, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.table; ctx.beginPath(); ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.tableTop; ctx.beginPath(); ctx.arc(cx - r * 0.06, cy - r * 0.06, r * 0.86, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(120,80,40,0.16)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0.3, 2.6); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.78, Math.PI * 1.05, Math.PI * 1.45); ctx.stroke();
+}
+
+function chair(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, s: number) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = C.shadow; roundRect(ctx, -s * 0.85 + 2, -s * 0.85 + 3, s * 1.7, s * 1.7, s * 0.4); ctx.fill();
+  ctx.fillStyle = C.chair; roundRect(ctx, -s * 0.85, -s * 0.85, s * 1.7, s * 1.7, s * 0.4); ctx.fill();
+  ctx.fillStyle = C.chairTop; roundRect(ctx, -s * 0.7, -s * 0.7, s * 1.3, s * 1.4, s * 0.32); ctx.fill();
+  ctx.fillStyle = mix(C.chair, C.outline, 0.35); roundRect(ctx, s * 0.55, -s * 0.85, s * 0.32, s * 1.7, s * 0.14); ctx.fill();
+  ctx.restore();
+}
+
+function plate(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, food?: string) {
+  ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.beginPath(); ctx.arc(x + 1, y + 1.5, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.paper; ctx.strokeStyle = "#a99c86"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (food) {
+    ctx.fillStyle = food; ctx.beginPath(); ctx.arc(x - r * 0.1, y + r * 0.05, r * 0.48, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.basil; ctx.beginPath(); ctx.arc(x + r * 0.38, y - r * 0.2, r * 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function setting(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, r: number) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2);
+  ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#cfc3ad"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = C.steelDark; ctx.fillRect(-r * 1.6, -r * 0.8, 1.2, r * 1.6); ctx.fillRect(r * 1.45, -r * 0.8, 1.2, r * 1.6);
+  ctx.restore();
+}
+
+function menu(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, r: number) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2 + 0.15);
+  const w = Math.max(6, r * 0.3), h = Math.max(8, r * 0.42);
+  ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(-w / 2 + 1, -h / 2 + 1.5, w, h);
+  ctx.fillStyle = C.tomatoDeep; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = C.paper; ctx.fillRect(-w / 2 + 1.5, -h / 2 + 1.5, w - 3, h - 3);
+  ctx.restore();
+}
+
+function moodFace(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, patience: number) {
+  const mood = patience > 60 ? "happy" : patience > 30 ? "meh" : "cross";
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(x, y, r + 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = mood === "happy" ? "#f6d77a" : mood === "meh" ? C.amber : C.red; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.ink;
+  ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.2, Math.max(1, r * 0.13), 0, Math.PI * 2); ctx.arc(x + r * 0.35, y - r * 0.2, Math.max(1, r * 0.13), 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+  ctx.beginPath();
+  if (mood === "happy") ctx.arc(x, y + r * 0.05, r * 0.45, Math.PI * 0.15, Math.PI * 0.85);
+  else if (mood === "meh") { ctx.moveTo(x - r * 0.4, y + r * 0.35); ctx.lineTo(x + r * 0.4, y + r * 0.35); }
+  else ctx.arc(x, y + r * 0.7, r * 0.42, Math.PI * 1.2, Math.PI * 1.8);
+  ctx.stroke(); ctx.lineCap = "butt";
 }
 
 /** Round 5 type scale: no canvas text below 13 CSS px (the canvas draws in CSS pixels; see UI-NOTES "Type scale"). */
@@ -867,44 +1148,13 @@ function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number
   if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
 }
 
-function drawHat(ctx: CanvasRenderingContext2D, look: SegLook, x: number, y: number, r: number, kid: boolean) {
-  ctx.lineWidth = 1.2; ctx.strokeStyle = C.ink;
-  switch (kid ? "none" : look.hat) {
-    case "beanie":
-      ctx.fillStyle = look.hatColour;
-      ctx.beginPath(); ctx.arc(x, y, r, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(x, y - r, r * 0.3, 0, Math.PI * 2); ctx.fill();
-      break;
-    case "parting":
-      ctx.fillStyle = look.hatColour;
-      ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.05, Math.PI * 1.95); ctx.closePath(); ctx.fill();
-      break;
-    case "beret":
-      ctx.fillStyle = look.hatColour;
-      ctx.beginPath(); ctx.ellipse(x - r * 0.15, y - r * 0.45, r * 1.05, r * 0.5, -0.25, 0, Math.PI * 2); ctx.fill();
-      ctx.fillRect(x - r * 0.1, y - r * 1.05, r * 0.2, r * 0.3);
-      break;
-    case "sunhat":
-      ctx.fillStyle = look.hatColour;
-      ctx.beginPath(); ctx.ellipse(x, y - r * 0.1, r * 1.55, r * 1.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = C.tomato; ctx.beginPath(); ctx.arc(x, y - r * 0.1, r * 0.75, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = look.hatColour; ctx.beginPath(); ctx.arc(x, y - r * 0.1, r * 0.6, 0, Math.PI * 2); ctx.fill();
-      break;
-    default:
-      if (look.extra === "kids") { // families: a hair bow on the grown-ups, plain heads on kids
-        ctx.fillStyle = kid ? "#5a3a24" : C.tomato;
-        if (kid) { ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.9); ctx.closePath(); ctx.fill(); }
-        else { ctx.beginPath(); ctx.arc(x - r * 0.6, y - r * 0.8, r * 0.3, 0, Math.PI * 2); ctx.arc(x + r * 0.6 - r * 0.6 * 2 + r * 1.2, y - r * 0.8, r * 0.3, 0, Math.PI * 2); ctx.fill(); }
-      }
-  }
-}
-
 function plant(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
-  ctx.fillStyle = "#b5703d"; ctx.beginPath(); ctx.arc(x, y, r * 0.75, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.basil;
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.5, r * 0.28, a, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(x + 3, y + 4, r * 0.8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.pot; ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#5a3a22"; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, Math.PI * 2); ctx.fill();
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + 0.3;
+    ctx.fillStyle = i % 2 ? C.leaf : C.leafDeep;
+    ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5 - r * 0.1, r * 0.52, r * 0.24, a, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.fillStyle = C.basilDeep; ctx.beginPath(); ctx.arc(x, y, r * 0.3, 0, Math.PI * 2); ctx.fill();
 }

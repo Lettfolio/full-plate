@@ -2,7 +2,12 @@
 export * from "./types";
 export { COLD_PLATE_SECS, NUDGE_SHARE, sousName, createSession, updateSession, nearestStation, openFoodTickets, openDrinkTickets, readyGroups, dirtyTables, payingParties, NO_INPUT, PLAYER_RADIUS } from "./session";
 export type { SessionOptions } from "./session";
-export { render, viewMetrics, C as HANDSON_PALETTE, avoidPlayer, moodOf, slipTimeLeft, sousPending, withKey, yourStations } from "./render";
+export { render, viewMetrics, C as HANDSON_PALETTE, avoidPlayer, layersFor, moodOf, slipTimeLeft, sousPending, staffLook, withKey, yourStations } from "./render";
+export { applyPalette, DEFAULT_PALETTE, readPalette, toHex, TOKEN_VARS } from "./palette";
+export type { Palette } from "./palette";
+export { LayerCache, layerKey } from "./layers";
+export { drawPerson, facingFrom, guestLook } from "./sprites";
+export type { Facing, Look, Pose } from "./sprites";
 export { hitTest, MIN_TARGET_PX, padToMin, railSlotRect, railTagRect, railTarget, stationRect } from "./touch";
 export type { Hit, Rect } from "./touch";
 export type { HandsOnView, ViewMetrics } from "./render";
