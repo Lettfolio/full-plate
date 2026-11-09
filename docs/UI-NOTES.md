@@ -402,3 +402,21 @@ At ≤ 1180 px with Bigger text the planning tabs drop their icons and narrow, a
   ribbon, the win journey).
 - Main chunk 171.5 → 185.6 kB (+14.1 kB; Dialog, Settings sheet, GoalExplainer and Shopfront are in it). Stars, Empire,
   board and win changes are in their lazy chunks.
+
+## Round 7 — review (conventions after the merge)
+
+- **Sheets hold the clock.** Any `aria-modal="true"` dialog (`lib/modal.ts` `modalOpen()`) pauses Service's ticks and
+  the hands-on shift, and owns the keys (`shortcutsBlocked`, handson `onControl`). The hands-on onboarding is
+  `aria-modal="false"` and has its own hold. When a sheet closes during a shift, or a bar button is pressed with a
+  pointer, focus goes back to the canvas so Space/E use a station.
+- **Confirms focus the safe answer** (C's `ConfirmDialog`, B's inline Remove → Keep), and Keep returns focus to the
+  control that asked.
+- **Toast placement.** Bottom-centre, above `.actiondock`; during service it sits at the top of the floor under the
+  PAUSED badge (`toastPlacement`), never over the pavement queue or the speed deck.
+- **Term tips flip** leftwards when they would run off the right edge (`placeTip`, `data-flip`): no sideways scroll
+  while a tip shows.
+- **The planning bar** is two rows at every width: day strip + heading, then tabs + help (B's ≤ 1180 px layout).
+- **At ≤ 1180 px**: the Menu is one column (matrix ≤ 460 px above the list); Stock folds Keeps and Unit cost under the
+  ingredient; Staff stacks the team above the job hunt (person cards ≥ 340 px). No large-text-only layout rules remain.
+- **Start picker**: the start button lives in an `.actiondock` with the choices summed up; the lease shows a picked
+  difficulty as a reminder with Change.

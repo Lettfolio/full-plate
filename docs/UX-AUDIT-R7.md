@@ -92,9 +92,9 @@ are not counted here.
 | A6 | Fixed: hit targets padded to ≥ 44 px. |
 | A7, A8 | Fixed: score card spans the evening, "Next shift, try this" hero with a sentence from the night's numbers; USE wording on touch. |
 | A9, A10 | Fixed: reasons as text; 44 px controls (header Settings is C's). |
-| A11 | Handed to B (Service.tsx). |
+| A11 | Fixed in the review (`0f0f195`, `fdecf73`): no Break buttons on the read-only watch view (`StaffStrip readOnly`), "Play my shift" a 52 px primary. |
 | A12–A16, A18, A19 | Fixed. |
-| A17 | Open (start picker layout; not sticky). |
+| A17 | Fixed in the review (`2733d51`): the start button is pinned bottom-right in an action dock with the choices summed up (≤ 768 px from the top at 1024×768, both text sizes). |
 
 ## B. Owner daily loop
 
@@ -196,6 +196,12 @@ per-week snapshot).
 and goals-sidebar P3s. Open: toast anchoring and the shell's 34/32 px buttons (agent C), inline glossary targets
 (exempt), "last Monday" retry (no weekly save exists). Shots `shots/r7/b/after/`.
 
+**Status after the review (REVIEW.md "Round 7"):** toast anchoring fixed (`738142a`: during service the toast sits on
+the floor's top edge, never over the queue or the speed deck; elsewhere bottom-centre above the dock, no overlap at
+1280/1024 × normal/Bigger). The shell's buttons are ≥ 44 px (Settings 44, Save & quit moved into the sheet). The
+1024 px matrix labels (C22) are fixed by a one-column Menu at ≤ 1180 px (smallest label 17.9 px). Still open: the
+"last Monday" retry; inline glossary words (exempt); matrix legend dots (decorative).
+
 ## C. Shell, onboarding, Stars and Empire
 
 Surface: TitleScreen, StartPicker, NewGame, the header (StatusBar + Settings), Tabs, Toast, HelpPopover, Term, the fork
@@ -280,13 +286,13 @@ celebration, no sense of the road travelled, nothing to keep. Two buttons.
 | C15 | P3 | Empty star glyphs 1.1–1.3:1. | Accepted: decorative, the count is in the aria-label and the filled stars carry it. |
 | C16 | P3 | Guide-day table squeezes five scores into one cell. | Fixed: a column per criterion. |
 | C17 | P3 | Fork card uses emoji pairs; toast ✕ 32 px. | Fixed: the explainer's pictures; toast badge + 44 px close. |
-| C18 | P3 | At 1024 the header wraps the district onto a second line. | Open (readable; a shorter date format would fix it). |
+| C18 | P3 | At 1024 the header wraps the district onto a second line. | Fixed in the review (`2733d51`): the district wraps as a whole name, never mid-name. |
 | C19 | P3 | Empire KPI row: six caps cards with long sub-lines. | Open (the side tabs now carry the heroes; the row could drop to four). |
 | C20 | P3 | Ownership colours (tomato / amber / plum) are colour-only on the map and bars. | Open (the legend and aria-labels name them). |
-| C21 | P3 | The owner start asks difficulty twice (picker, then lease). | Open (preselected, so harmless). |
-| C22 | P3 | 1024 px: the menu matrix's SVG labels render at 12.4 px; the planning heading squeezes with five tabs. | Handed to B (Planning). Tabs are narrower at ≤ 1180 px; with Bigger text they drop their icons and the Menu tab's columns may shrink. |
+| C21 | P3 | The owner start asks difficulty twice (picker, then lease). | Fixed in the review (`2733d51`): the lease shows the picked difficulty with a Change button. |
+| C22 | P3 | 1024 px: the menu matrix's SVG labels render at 12.4 px; the planning heading squeezes with five tabs. | Fixed in the review: the Menu is one column at ≤ 1180 px (labels ≥ 17.9 px; C's large-text `.menu-layout` rule removed, `2733d51`); the day strip has its own row above the tabs at every width (`924b338`). |
 
-**Counts:** 5 P1 (all fixed), 9 P2 (all fixed), 8 P3 (3 fixed, 1 accepted, 4 open, of which one handed to B).
+**Counts:** 5 P1 (all fixed), 9 P2 (all fixed), 8 P3 (5 fixed, 3 of them in the review; 1 accepted; 2 open: C19, C20).
 
 ### The shell as a whole
 
