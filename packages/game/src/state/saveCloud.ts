@@ -118,7 +118,7 @@ export async function startCloud(c: Core, conn: { db: MiniDb; uid: string }): Pr
     if (!raw || !summary) { dirty.delete(slotId); c.emit(); return; }
     const hash = fnv1a(raw);
     const prev = c.headers.get(slotId);
-    if (prev?.hash === hash && prev.name === summary.name) { c.markSynced(slotId, hash); c.emit(); return; }
+    if (prev?.hash === hash && prev.name === summary.name) { c.markSynced(slotId, hash); c.stalled.delete(slotId); c.emit(); return; }
     dirty.delete(slotId); inflight.add(slotId); c.emit();
     try {
       // The account's copy moved on since we last agreed (played on another device while this one was offline):
@@ -138,8 +138,10 @@ export async function startCloud(c: Core, conn: { db: MiniDb; uid: string }): Pr
       c.headers.set(slotId, header);
       if (cur) for (let n = 0; n < cur.chunkCount; n++) await call(() => chunkRef(slotId, cur.bank, n).delete()).catch(() => {});
       c.markSynced(slotId, hash);
+      c.stalled.delete(slotId);
     } catch (e) {
       dirty.add(slotId);
+      c.stalled.add(slotId);
       failed(e);
     } finally {
       inflight.delete(slotId);

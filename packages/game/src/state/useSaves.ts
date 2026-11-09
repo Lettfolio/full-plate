@@ -11,7 +11,7 @@ export function useSaves(store: SaveStore = getSaveStore()) {
 /** What the header's save mark says about the game being played. */
 export type SaveMark = "account" | "saving" | "device" | "memory";
 export function saveMark(status: StoreStatus, slotId: string): SaveMark {
-  if (status.cloud === "on") return status.pending.includes(slotId) ? "saving" : "account";
+  if (status.cloud === "on" && !status.stalled?.includes(slotId)) return status.pending.includes(slotId) ? "saving" : "account";
   return status.local ? "device" : "memory";
 }
 

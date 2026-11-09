@@ -161,10 +161,20 @@ try {
   await page.getByRole("button", { name: /How do I win/ }).click(); await page.waitForTimeout(300);
   await audit("01b-goal-explainer");
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "New game" }).click(); await page.waitForTimeout(300);
-  // Round 7: with a save, New game asks first.
-  await audit("01c-confirm-new-game");
-  await page.getByRole("button", { name: /Yes, start a new game/ }).click(); await page.waitForTimeout(300);
+  // Round 9: Your games (the slot picker), a rename box and the delete confirm.
+  await page.getByRole("button", { name: /Your games/ }).click(); await page.waitForTimeout(400);
+  await audit("01d-your-games");
+  await page.getByRole("button", { name: /^Rename / }).first().click(); await page.waitForTimeout(200);
+  await audit("01e-your-games-rename");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: /^Delete / }).first().click(); await page.waitForTimeout(300);
+  await audit("01f-delete-confirm");
+  await page.getByRole("button", { name: "Keep it" }).click(); await page.waitForTimeout(200);
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+  // Round 7 asked before replacing the save; round 9 asks where the new game goes.
+  await page.getByRole("button", { name: "New game" }).click(); await page.waitForTimeout(400);
+  await audit("01c-new-game-slot");
+  await page.getByRole("button", { name: /Start in an empty slot/ }).click(); await page.waitForTimeout(300);
   await audit("02-start-picker");
   await page.getByRole("radio", { name: /^Apprentice chef/ }).click(); await page.waitForTimeout(200);
   await audit("03-start-picker-career");
@@ -184,6 +194,10 @@ try {
   await page.getByRole("button", { name: "Settings" }).click(); await page.waitForTimeout(200);
   await audit("15-settings");
   await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  // Round 9: the header's save mark explains itself.
+  await page.locator(".savemark").click(); await page.waitForTimeout(400);
+  await audit("16-save-mark");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
 
   // Owner service (canvas)
   await tab(/^Menu/);
@@ -198,7 +212,7 @@ try {
   await boot({ owner: "owner-evening" }); await cont(); await audit("30-evening");
   await boot({ owner: "fork-evening" }); await cont(); await audit("31-fork-card");
   await boot({ career: save("gameover") });
-  await page.getByRole("button", { name: /Continue career/ }).click(); await page.waitForTimeout(700);
+  await cont(); // round 9: the career save is a slot; Continue plays the most recent
   await audit("32-game-over");
   await boot({ owner: "win" }); await cont(); await audit("33-win");
 

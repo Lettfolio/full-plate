@@ -82,6 +82,8 @@ export interface StoreStatus {
   local: boolean;
   /** Slots with a cloud write queued or in flight. */
   pending: string[];
+  /** Slots whose last cloud write failed for now (they go up with the next save): only on this device meanwhile. */
+  stalled?: string[];
 }
 
 // ── the subset of the db capability the store uses (db.d.ts) ──
@@ -202,6 +204,7 @@ export interface Core {
   synced: Map<string, string>;
   dirty: Set<string>;
   inflight: Set<string>;
+  stalled: Set<string>;
   timers: Map<string, ReturnType<typeof setTimeout>>;
   st: { cloud: CloudState; reason?: CloudOffReason | undefined; localFailed: boolean; prefsEarly: boolean };
   prefs: PrefsBridge | null;

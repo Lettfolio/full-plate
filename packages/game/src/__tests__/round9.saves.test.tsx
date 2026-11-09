@@ -293,6 +293,8 @@ describe("save store: account saves", () => {
     const g = owner();
     await a.save("s1", g.game, g.meta);
     expect(await a.flush("s1")).toBe("device");
+    expect(a.status().stalled).toEqual(["s1"]); // the header mark says "this device only" meanwhile
+    expect(a.status().pending).toEqual([]);
     expect([...db.docs.keys()].some((p) => p.includes("/chunks/"))).toBe(true);
     const b = track(mk({ db }));
     await b.connect();

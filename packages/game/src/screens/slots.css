@@ -47,3 +47,4 @@
 .conflict__where { display: flex; align-items: center; gap: 6px; font-weight: 800; }
 .conflict__new { background: var(--basil-wash); color: var(--basil-deep); margin-left: 4px; }
 @media (prefers-reduced-motion: no-preference) { .conflict__opt { transition: transform var(--dur-fast) var(--ease); } .conflict__opt:active { transform: translateY(2px); } }
+@media (max-width: 640px) { .slot--empty { min-height: 56px; } .slots__fresh { align-self: stretch; } }

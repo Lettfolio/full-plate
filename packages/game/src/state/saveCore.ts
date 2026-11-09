@@ -114,7 +114,7 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
   };
 
   const core: Core = {
-    d, index, memory, headers: new Map(), synced, dirty: new Set(), inflight: new Set(), timers: new Map(),
+    d, index, memory, headers: new Map(), synced, dirty: new Set(), inflight: new Set(), stalled: new Set(), timers: new Map(),
     st: { cloud: "waiting", localFailed: false, prefsEarly: false }, prefs: null, part: null,
     emit, writeIndex, writeBlob, readBlob, dropLocal, serial, putRaw, markSynced, schedulePush, uniqueId, list, renameNext, connecting: null,
   };
@@ -212,7 +212,7 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
   };
 
   function status(): StoreStatus {
-    return { cloud: core.st.cloud, ...(core.st.reason ? { reason: core.st.reason } : {}), local: !!storage && !core.st.localFailed, pending: [...new Set([...core.dirty, ...core.inflight])] };
+    return { cloud: core.st.cloud, ...(core.st.reason ? { reason: core.st.reason } : {}), local: !!storage && !core.st.localFailed, pending: [...new Set([...core.dirty, ...core.inflight])].filter((id) => !core.stalled.has(id)), stalled: [...core.stalled] };
   }
 }
 
