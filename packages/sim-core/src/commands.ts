@@ -31,12 +31,13 @@ import { deliverPlate, holdsAtPass, tallyPlate, toPass, untallyPlate } from "./s
 import { aiDueTick, stationOf } from "./systems/station";
 import { bookTakings, settleParty } from "./systems/payment";
 import { frontCharm } from "./systems/system";
-import { staffFromCandidate } from "./staff";
+import { candidateStaffId, staffFromCandidate } from "./staff";
+import { nextTrackFee, trackById, trackLevel, TRACK_MAX_LEVEL } from "./personality";
 import { purchaseCost } from "./stock";
 import { planArrivals } from "./systems/arrival";
 import { applyChoice } from "./systems/eventDeck";
 import { shiftCost } from "./systems/finance";
-import type { Command, ContentPack, GameState, KitchenTicket, Phase, SimEvent, StaffRole, StepResult } from "./types";
+import type { Command, ContentPack, GameState, KitchenTicket, Phase, SimEvent, Staff, StaffRole, StepResult } from "./types";
 import { clamp, findDish, findIngredient, foldLog, logEvent, monthOf, onFloor, round2, tallyOf, worksToday } from "./util";
 
 type Cmd<T extends Command["type"]> = Extract<Command, { type: T }>;
@@ -108,13 +109,21 @@ const removeMenuItem: Handler<"REMOVE_MENU_ITEM"> = (_c, state, cmd) => {
 export const recruitmentFeeOf = (state: GameState): number =>
   isInt(state.recruitmentFee) && state.recruitmentFee >= 0 ? state.recruitmentFee : RECRUITMENT_FEE;
 
+/** [round 10] Today's candidate index from a Candidate.id ("s<day>-<index>"); NaN when it isn't today's. */
+function candidateIndexOf(state: GameState, id: string | undefined): number {
+  const m = typeof id === "string" ? /^s(\d+)-(\d+)$/.exec(id) : null;
+  return m && Number(m[1]) === state.day ? Number(m[2]) : NaN;
+}
+
 const hire: Handler<"HIRE"> = (content, state, cmd) => {
   const bad = requirePhase(state, PLANNING, "hire");
   if (bad) return bad;
-  if (!isInt(cmd.candidateIndex) || cmd.candidateIndex < 0) return reject(state, "No such candidate.");
-  if ((state.hiredCandidates ?? []).includes(cmd.candidateIndex)) return reject(state, "You've already hired that candidate.");
+  const index = cmd.candidateIndex ?? candidateIndexOf(state, cmd.candidateId);
+  if (!isInt(index) || index < 0) return reject(state, "No such candidate.");
+  if (cmd.candidateId !== undefined && cmd.candidateId !== candidateStaffId(state.day, index)) return reject(state, "No such candidate.");
+  if ((state.hiredCandidates ?? []).includes(index)) return reject(state, "You've already hired that candidate.");
   if (state.staff.length >= MAX_STAFF) return reject(state, `There's no room for more than ${MAX_STAFF} staff.`);
-  const staff = staffFromCandidate(content, state, cmd.candidateIndex);
+  const staff = staffFromCandidate(content, state, index);
   if (!staff) return reject(state, "No such candidate.");
   const fee = recruitmentFeeOf(state);
   const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
@@ -123,7 +132,7 @@ const hire: Handler<"HIRE"> = (content, state, cmd) => {
     ...state,
     cash: state.cash - fee,
     staff: [...state.staff, staff],
-    hiredCandidates: [...(state.hiredCandidates ?? []), cmd.candidateIndex],
+    hiredCandidates: [...(state.hiredCandidates ?? []), index],
   };
   return ok(next, `Hired ${staff.name} (${staff.role}).`, "good");
 };
@@ -323,6 +332,7 @@ const train: Handler<"TRAIN"> = (_c, state, cmd) => {
   const who = state.staff.find((s) => s.id === cmd.staffId);
   if (!who) return reject(state, "No such staff member.");
   if (who.trainingDay === state.day) return reject(state, `${who.name} is already on a course today.`);
+  if (cmd.track !== undefined) return trainTrack(state, who, cmd.track);
   if (who.skill >= who.potential) return reject(state, `${who.name} has learned all a course can teach them.`);
   if (state.cash < TRAINING_FEE) return reject(state, `Not enough cash for a course (£${Math.round(TRAINING_FEE / 100)}).`);
   const rng = Rng.fromSeed(hashSeed(state.seed, state.day, TRAIN_SALT, state.staff.indexOf(who)));
@@ -332,6 +342,32 @@ const train: Handler<"TRAIN"> = (_c, state, cmd) => {
   const shift = worksToday(who, state.day) ? " They're off the floor today." : "";
   return ok({ ...state, cash: state.cash - TRAINING_FEE, staff }, `${who.name} is on a training course: skill ${Math.round(who.skill)} → ${Math.round(skill)}.${shift}`, "good");
 };
+
+/**
+ * [round 10] TRAIN with a track: the next level (1-3) of a training path (personality.ts TRAINING_TRACKS). Costs that
+ * level's fee and the day (off the floor, still paid); the stat rises now by the track's gain (capped at 100; potential
+ * is raised with skill so plating isn't undone), and the evening says "level up".
+ */
+function trainTrack(state: GameState, who: Staff, trackId: string): StepResult {
+  const t = trackById(trackId);
+  if (!t) return reject(state, "No such training course.");
+  if (!t.roles.includes(who.role)) return reject(state, `${t.name} isn't a course for a ${who.role}.`);
+  const fee = nextTrackFee(who, t);
+  if (fee === undefined) return reject(state, `${who.name} has finished every level of ${t.name}.`);
+  if (state.cash < fee) return reject(state, `Not enough cash for ${t.name} (£${Math.round(fee / 100)}).`);
+  const level = trackLevel(who, t.id) + 1;
+  const raised: Partial<Staff> = {};
+  if (t.stat) {
+    const v = round2(Math.min(100, who[t.stat] + t.gain));
+    raised[t.stat] = v;
+    if (t.stat === "skill") raised.potential = round2(Math.max(who.potential, v));
+  }
+  const next: Staff = { ...who, ...raised, tracks: { ...(who.tracks ?? {}), [t.id]: level }, trainingDay: state.day, trainingTrack: t.id };
+  const staff = state.staff.map((s) => (s.id === who.id ? next : s));
+  const shift = worksToday(who, state.day) ? " They're off the floor today." : "";
+  const top = level === TRACK_MAX_LEVEL ? " (the top level!)" : "";
+  return ok({ ...state, cash: state.cash - fee, staff }, `${who.name} is learning ${t.name}, level ${level}${top}.${shift}`, "good");
+}
 
 const giveBreak: Handler<"GIVE_BREAK"> = (content, state, cmd) => {
   const bad = requirePhase(state, ["service"], "give a break");

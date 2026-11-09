@@ -231,7 +231,8 @@ describe("eveningAdvice: one tip, in priority order, with a cooldown", () => {
 // ── END_DAY records it; saves stay byte-identical ──
 describe("advice log (END_DAY) and saves", () => {
   it("END_DAY records what the Evening showed; a quiet evening leaves the log alone", () => {
-    const run = playOne(content, 1, 60, STRATEGIES.typical, "hard").final!;
+    // Round 10: seed 3 (seed 1 shows one tip once staff personalities nudge mood; seed 3 shows 40+ either way).
+    const run = playOne(content, 3, 60, STRATEGIES.typical, "hard").final!;
     const log = run.adviceLog!;
     expect(log).toBeDefined();
     const total = Object.values(log).reduce((a, e) => a + e!.count, 0);

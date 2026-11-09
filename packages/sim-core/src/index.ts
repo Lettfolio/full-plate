@@ -142,6 +142,15 @@ export { isWeekend, monthOf, weekdayOf } from "./util";
 export { humanTickets as stationRailTickets, ticketsToCover, aiTicks, isCoursed } from "./systems/station";
 /** [round 6 review] The cook id of a hands-on commis's AI hands is `<staffId>${SHADOW_COOK_SUFFIX}` (kitchen.ts cooksOnShift). */
 export { SHADOW_COOK_SUFFIX } from "./systems/kitchen";
+/** [round 10] Staff with personality: portraits, likes/dislikes, relationships, training tracks (personality.ts). */
+export {
+  avatarFor, playerAvatar, PLAYER_LOOKS, AVATAR_COLOURS, AVATAR_SKINS, AVATAR_HAIRS, HAIR_STYLES,
+  personalityOf, likeLabel, dislikeLabel, quoteFor, LIKE_LABELS, DISLIKE_LABELS, LIKE_IDS, DISLIKE_IDS,
+  relationBetween, relationsOf, personalityFactors, personalityMood, mainReason, PERSONALITY_MOOD,
+  TRAINING_TRACKS, TRACK_MAX_LEVEL, trackById, tracksFor, trackLevel, nextTrackFee, PASS_COVER_HIT_PER_LEVEL,
+  type AvatarSpec, type HairStyle, type FaceShape, type AvatarHat, type LikeId, type DislikeId, type Personality,
+  type Relation, type MoodFactor, type PersonalityDay, type TrackDef, type PersonKey,
+} from "./personality";
 export { STATION_COURSES } from "./constants";
 /** Cost of one rostered shift for a staff member (wage × SHIFT_HOURS × (1 + EMPLOYER_ONCOST)). */
 export { shiftCost } from "./systems/finance";

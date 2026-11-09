@@ -34,8 +34,8 @@ export function packFor(meta: PathMeta): ContentPack {
 }
 
 // ───────────────────────── career ─────────────────────────
-export function startCareer(opts: { seed: number; track: CareerTrack; strategy: OwnerStrategy; playerName: string; difficulty: GameState["difficulty"]; districtId?: string }) {
-  const g = newCareer(careerContent, { seed: opts.seed, track: opts.track, strategy: opts.strategy, playerName: opts.playerName, difficulty: opts.difficulty, ...(opts.districtId ? { districtId: opts.districtId } : {}) });
+export function startCareer(opts: { seed: number; track: CareerTrack; strategy: OwnerStrategy; playerName: string; difficulty: GameState["difficulty"]; districtId?: string; look?: number }) {
+  const g = newCareer(careerContent, { seed: opts.seed, track: opts.track, strategy: opts.strategy, playerName: opts.playerName, difficulty: opts.difficulty, ...(opts.districtId ? { districtId: opts.districtId } : {}), ...(opts.look !== undefined ? { look: opts.look } : {}) });
   return { game: g.state, meta: { ...initialMeta("career"), career: g.career } satisfies PathMeta };
 }
 

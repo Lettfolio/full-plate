@@ -15,6 +15,7 @@ import type {
   IngredientDef,
   SegmentDef,
   StaffArchetypeDef,
+  StaffTextPack,
   TraitDef,
 } from "@full-plate/sim-core";
 
@@ -39,6 +40,7 @@ import careerTextJson from "../data/careerText.json";
 import incidentTextJson from "../data/incidentText.json";
 import goalTextJson from "../data/goalText.json";
 import adviceTextJson from "../data/adviceText.json";
+import staffQuotesJson from "../data/staffQuotes.json";
 import type {
   CareerText, CountriesData, CriticText, DietaryRule, DishTag, DishTags, Extras, FormulaDef, GoalTextData, IncidentTextData,
   TastingMenuDef, WineDef, WorldData,
@@ -354,6 +356,7 @@ export function validateContent(pack: unknown): string[] {
 
   // [round 6] evening tips (optional on ContentPack, always shipped here)
   if (pack.adviceText !== undefined) validateAdvice(p, pack.adviceText);
+  if (pack.staffText !== undefined) validateStaffText(p, pack.staffText, archetypes.map((a) => (isObj(a) ? a.id : undefined)));
 
   return p;
 }
@@ -423,6 +426,42 @@ function validateAdvice(p: Problems, at: unknown): void {
   }
 }
 
+/** [round 10] sim-core personality.ts LIKE_IDS / DISLIKE_IDS (local copy: this file imports types only; a test checks). */
+export const STAFF_LIKE_IDS: readonly string[] = ["busy_nights", "quiet_nights", "weekends_off", "happy_guests", "tips", "learning", "short_weeks"];
+export const STAFF_DISLIKE_IDS: readonly string[] = ["mondays", "long_weeks", "grumpy_guests", "mad_rush", "slow_nights", "working_tired", "sunday_shifts"];
+const QUOTE_MAX = 70;
+
+/** [round 10] staffQuotes.json: quotes keyed by archetype (or role) id, labels for every like and dislike. */
+function validateStaffText(p: Problems, st: unknown, archetypeIds: unknown[]): void {
+  if (!isObj(st)) {
+    p.push("staffText: expected an object");
+    return;
+  }
+  const keys = new Set([...archetypeIds.filter(isStr), ...ROLES]);
+  if (st.quotes !== undefined) {
+    if (!isObj(st.quotes)) p.push("staffText.quotes: expected an object");
+    else
+      for (const [k, v] of Object.entries(st.quotes)) {
+        if (!keys.has(k)) p.push(`staffText.quotes: unknown archetype or role "${k}"`);
+        if (!Array.isArray(v) || v.length === 0) p.push(`staffText.quotes.${k}: expected a non-empty array`);
+        else v.forEach((q, i) => { if (str(p, `staffText.quotes.${k}[${i}]`, q) && q.length > QUOTE_MAX) p.push(`staffText.quotes.${k}[${i}]: longer than ${QUOTE_MAX} characters`); });
+      }
+  }
+  for (const [field, ids] of [["likes", STAFF_LIKE_IDS], ["dislikes", STAFF_DISLIKE_IDS]] as const) {
+    const m = st[field];
+    if (m === undefined) continue;
+    if (!isObj(m)) {
+      p.push(`staffText.${field}: expected an object`);
+      continue;
+    }
+    for (const id of ids) if (!(id in m)) p.push(`staffText.${field}: missing "${id}"`);
+    for (const [k, v] of Object.entries(m)) {
+      if (!ids.includes(k)) p.push(`staffText.${field}: unknown id "${k}"`);
+      else str(p, `staffText.${field}.${k}`, v);
+    }
+  }
+}
+
 /** Dish ids kept out of the starter library and the default pack (Round 3 path dishes). */
 export const LIBRARY_HIDDEN_DISH_IDS: readonly string[] = (libraryHiddenJson as { dishIds: string[] }).dishIds;
 
@@ -439,7 +478,14 @@ function assembleFull(): ContentPack {
     balance: balanceJson as BalanceDef,
     reviewTemplates: reviewTemplatesJson as Record<string, string[]>,
     adviceText: adviceTextOf(adviceTextJson),
+    staffText: staffTextOf(staffQuotesJson),
   };
+}
+
+/** [round 10] Staff quotes and like/dislike labels, without the `_note`. */
+function staffTextOf(json: unknown): StaffTextPack {
+  const { _note: _n, ...rest } = json as Record<string, unknown>;
+  return rest as StaffTextPack;
 }
 
 /** [round 6] The evening tips' rules and words (sim-core advice.ts), without the `_note`. */

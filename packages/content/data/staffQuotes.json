@@ -1,0 +1,72 @@
+{
+  "_note": "Round 10 (B): staff personality text. `quotes` are the one-line 'why me' a candidate says on the hiring sheet, by staffArchetypes id (a role id works as a fallback). `likes` / `dislikes` are the labels for sim-core personality.ts LIKE_IDS / DISLIKE_IDS (every id must be present). Keep lines short, friendly and readable by a 10-year-old.",
+  "quotes": {
+    "chef_commis": [
+      "I've been cooking with my gran since I was six!",
+      "I'm new, but I learn really fast. Teach me anything.",
+      "I can peel a whole sack of potatoes before lunch.",
+      "I want to be a head chef one day. This is step one!",
+      "I make the best scrambled eggs in my street."
+    ],
+    "chef_line": [
+      "Give me a busy grill and I'm happy.",
+      "I've worked in three kitchens. I never burn the chips.",
+      "I keep my station tidy and my plates hot.",
+      "Saturday night rush? Bring it on.",
+      "I can cook ten things at once and smile."
+    ],
+    "chef_experienced": [
+      "I've cooked for a duke. Your guests will love me.",
+      "My sauces are famous. Ask anyone.",
+      "I'll teach your other chefs a trick or two.",
+      "Twenty years in kitchens. I've seen it all.",
+      "Food should make people happy. Mine does."
+    ],
+    "server": [
+      "I remember every guest's name. And their pudding.",
+      "I can carry four plates without a wobble!",
+      "I love chatting to people. Grumpy guests leave smiling.",
+      "I'm quick on my feet and I never forget an order.",
+      "Big tables, little tables: I'll look after them all."
+    ],
+    "bar": [
+      "I make a fizzy lemonade that sparkles like magic.",
+      "I can pour a drink while telling a joke.",
+      "Behind the bar is my happy place.",
+      "I know a hundred drinks. Well, ninety-nine.",
+      "I'll keep the drinks flowing and the queue short."
+    ],
+    "porter": [
+      "I make pans shine like mirrors.",
+      "Mountains of washing-up don't scare me.",
+      "A clean kitchen is a happy kitchen. I'm on it.",
+      "I'm the fastest dishwasher in town. Probably.",
+      "I'll keep the plates coming so the chefs never run out."
+    ],
+    "manager": [
+      "I love a good plan and a tidy rota.",
+      "I keep everyone cheerful, even on Mondays.",
+      "I'll make sure nobody gets too tired.",
+      "Happy team, happy guests. That's my rule.",
+      "I've run a café before. I know the ropes."
+    ]
+  },
+  "likes": {
+    "busy_nights": "busy nights",
+    "quiet_nights": "calm, quiet nights",
+    "weekends_off": "weekends off",
+    "happy_guests": "happy guests",
+    "tips": "a full tip jar",
+    "learning": "learning new things",
+    "short_weeks": "short weeks"
+  },
+  "dislikes": {
+    "mondays": "Mondays",
+    "long_weeks": "long weeks",
+    "grumpy_guests": "grumpy guests",
+    "mad_rush": "a mad rush",
+    "slow_nights": "slow, empty nights",
+    "working_tired": "working when tired",
+    "sunday_shifts": "Sunday shifts"
+  }
+}

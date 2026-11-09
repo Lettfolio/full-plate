@@ -83,6 +83,15 @@ export interface DistrictDef {
 }
 
 export type StaffRole = "chef" | "server" | "bar" | "porter" | "manager";
+/** [round 10] Training tracks (personality.ts). */
+export type TrackId = "knife" | "plating" | "charm" | "pass";
+
+/** [round 10] Staff text (content/data/staffQuotes.json): "why me" quotes by archetype id (or role), like/dislike labels. */
+export interface StaffTextPack {
+  quotes?: Record<string, string[]>;
+  likes?: Record<string, string>;
+  dislikes?: Record<string, string>;
+}
 
 export interface StaffArchetypeDef {
   id: string;
@@ -155,6 +164,8 @@ export interface ContentPack {
    * GOAL_LINES keys present replace the built-in lines.
    */
   goalText?: GoalTextPack;
+  /** [round 10] Staff quotes and like/dislike labels (content exports staffQuotes.json as `staffText`). Optional. */
+  staffText?: StaffTextPack;
   /**
    * [round 6] Optional evening-tip thresholds and words (sim-core advice.ts; content exports `adviceText`). Rules and
    * text present replace the built-in ones key by key.
@@ -283,6 +294,12 @@ export interface Staff {
   trainingDay?: number;
   /** [round 2, sim-core] On a GIVE_BREAK until this service tick (unavailable while tick < this). Cleared when it ends. */
   breakUntilTick?: number;
+  /** [round 10] Training track levels (1-3) reached; absent = none (personality.ts TRAINING_TRACKS). */
+  tracks?: Partial<Record<TrackId, number>>;
+  /** [round 10] The track being trained on `trainingDay` (absent for a legacy TRAIN). Cleared with trainingDay. */
+  trainingTrack?: TrackId;
+  /** [round 10] Last evening's main mood reason ("had Sunday off") and that day's mood change. */
+  moodWhy?: { text: string; delta: number };
 }
 
 export type CustomerStage = "queue" | "seated" | "ordered" | "eating" | "paying" | "left";
@@ -719,7 +736,9 @@ export type Command =
   | { type: "SET_MENU_ITEM"; dishId: DishId; price?: Pence; active?: boolean }
   | { type: "ADD_MENU_ITEM"; dishId: DishId; price: Pence }
   | { type: "REMOVE_MENU_ITEM"; dishId: DishId }
-  | { type: "HIRE"; candidateIndex: number }
+  /** [round 10] `candidateId` (Candidate.id, "s<day>-<index>") may be given instead of the index; it must be today's. */
+  | { type: "HIRE"; candidateIndex: number; candidateId?: StaffId }
+  | { type: "HIRE"; candidateIndex?: undefined; candidateId: StaffId }
   | { type: "FIRE"; staffId: StaffId }
   | { type: "SET_ROTA"; staffId: StaffId; rota: boolean[] }
   | { type: "ORDER_STOCK"; ingredientId: IngredientId; qty: number }
@@ -733,7 +752,7 @@ export type Command =
   | { type: "RESOLVE_EVENT"; choiceId: string }
   // round 2
   | { type: "RESPOND_INCIDENT"; incidentId: string; optionId: string }
-  | { type: "TRAIN"; staffId: StaffId }                  // planning: pay for a training day (skill up, not on rota that day)
+  | { type: "TRAIN"; staffId: StaffId; track?: TrackId } // planning: pay for a training day (skill up, not on rota that day); [round 10] track = next level of that path
   | { type: "GIVE_BREAK"; staffId: StaffId }             // service: short break (fatigue down, briefly short-handed)
   // round 3 — hands-on results (service only; see docs/SIM-NOTES.md "Round 3 hooks")
   | { type: "PLAYER_COOKED"; ticketId: string; quality: number }
@@ -796,6 +815,10 @@ export interface Candidate {
   potentialHint: string;
   /** [sim-core addition] True once hired today; the index stays stable but cannot be hired again. */
   hired?: boolean;
+  /** [round 10] The Staff id this candidate gets when hired (`s<day>-<index>`): portraits and personality stay the same. */
+  id?: StaffId;
+  /** [round 10] Archetype id (picks the "why me" quote). */
+  archetype?: string;
 }
 
 /** Menu-matrix classification for the UI. */

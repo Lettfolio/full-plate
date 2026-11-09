@@ -186,6 +186,8 @@ export interface CareerState {
   rung: number;
   playerStaffId: StaffId;
   playerName: string;
+  /** [round 10] Portrait: index into sim-core PLAYER_LOOKS (0-5). Optional; old saves have none (shown as look 0). */
+  look?: number;
   /** Career day counter (0-based), independent of the employer GameState's day. */
   day: number;
   stats: PlayerStats;

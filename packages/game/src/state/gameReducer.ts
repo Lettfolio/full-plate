@@ -53,7 +53,7 @@ export interface AppState {
 export type AppAction =
   | { type: "new"; cmd: Extract<Command, { type: "NEW_GAME" }> }
   | { type: "load"; game: GameState; meta?: PathMeta }
-  | { type: "newCareer"; seed: number; track: CareerTrack; strategy: OwnerStrategy; playerName: string; difficulty: GameState["difficulty"]; districtId?: string }
+  | { type: "newCareer"; seed: number; track: CareerTrack; strategy: OwnerStrategy; playerName: string; difficulty: GameState["difficulty"]; districtId?: string; /** [round 10] portrait look 0-5 */ look?: number }
   | { type: "career"; cmd: CareerCommand }
   | { type: "empire"; cmd: EmpireCommand }
   | { type: "stars"; cmd: StarsCommand }
