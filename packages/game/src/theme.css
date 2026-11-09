@@ -39,9 +39,13 @@
   /* type */
   --font-display: "Fredoka", "Nunito", system-ui, sans-serif;
   --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Round 5 type scale (UI-NOTES "Type scale"): nothing on screen below 13 px, body text ≥ 14 px, panel labels 15 px.
+     --fs-micro is only for tiny chrome (tab badges, initials, clock ends, caps counters); never for a sentence. */
   --fs-base: 16px;
-  --fs-sm: 14px;
-  --fs-xs: 12.5px;
+  --fs-sm: 15px;
+  --fs-xs: 14px;
+  --fs-micro: 13px;
+  --fs-label: 15px;
   --fs-h3: 20px;
   --fs-h2: 24px;
   --fs-h1: 28px;
@@ -170,7 +174,7 @@ button, input { font: inherit; color: inherit; }
 }
 .tab:hover { color: var(--ink); background: rgba(255,255,255,0.5); }
 .tab--active { color: var(--ink); border-bottom-color: var(--tomato); background: var(--paper); }
-.tab__badge { font-family: var(--font-body); font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--cream-deep); }
+.tab__badge { font-family: var(--font-body); font-size: var(--fs-micro); font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--cream-deep); }
 .tab__badge--warn { background: var(--tomato); color: #fff; }
 
 /* ───────── stepper ───────── */
@@ -248,7 +252,7 @@ button, input { font: inherit; color: inherit; }
 .mix .bar__label { min-width: 72px; }
 .season { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
 .season__m { flex: 1; background: var(--sky); border-radius: 2px 2px 0 0; opacity: 0.75; min-height: 2px; }
-.season__labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-faint); font-weight: 700; }
+.season__labels { display: flex; justify-content: space-between; font-size: var(--fs-micro); color: var(--ink-faint); font-weight: 700; }
 
 .difficulty { display: flex; flex-direction: column; gap: 8px; }
 .diff {
@@ -356,14 +360,14 @@ button, input { font: inherit; color: inherit; }
 .clock__track { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .clock__bar { height: 8px; background: var(--cream-deep); border-radius: 99px; overflow: hidden; }
 .clock__fill { height: 100%; background: var(--amber); border-radius: 99px; }
-.clock__ends { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: var(--ink-faint); }
+.clock__ends { display: flex; justify-content: space-between; font-size: var(--fs-micro); font-weight: 800; color: var(--ink-faint); }
 .speeds { display: flex; gap: 4px; background: var(--cream); border-radius: 999px; padding: 4px; border: 1.5px solid var(--line); }
 .speed { border: 0; background: transparent; border-radius: 999px; padding: 6px 0; flex: 1; font-weight: 800; cursor: pointer; color: var(--ink-soft); }
 .speed:hover { background: var(--paper); color: var(--ink); }
 .speed[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .counter { background: var(--cream); border-radius: var(--r-sm); padding: 8px 10px; }
-.counter__k { font-size: 11px; font-weight: 800; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.counter__k { font-size: var(--fs-micro); font-weight: 800; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; }
 .counter__v { font-family: var(--font-display); font-weight: 600; font-size: 22px; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .counter--bad .counter__v { color: var(--tomato-deep); }
 .ticker { flex: 1; min-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 4px; }
@@ -399,7 +403,7 @@ button, input { font: inherit; color: inherit; }
 .pnl .pnl__pct { font-size: var(--fs-xs); color: var(--ink-faint); font-weight: 700; margin-left: 6px; }
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .kpi { background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--r); padding: 12px 14px; box-shadow: var(--shadow); }
-.kpi__k { font-size: var(--fs-xs); font-weight: 800; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi__k { font-size: var(--fs-label); font-weight: 800; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; }
 .kpi__v { font-family: var(--font-display); font-weight: 600; font-size: 26px; line-height: 1.2; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
 .dishpair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .dishpick { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-sm); }
@@ -526,7 +530,7 @@ button, input { font: inherit; color: inherit; }
 .goal__reward { font-size: var(--fs-xs); font-weight: 800; color: #7a4f0a; background: var(--amber-wash); padding: 0 7px; border-radius: 99px; white-space: nowrap; }
 .goal__show { padding: 1px 8px; font-size: var(--fs-xs); }
 .goal--done { padding: 6px 8px; border-radius: var(--r-sm); background: var(--basil-wash); color: var(--basil-deep); animation: goalflash 0.7s ease-in-out 3; }
-.goal__tick { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--basil); color: #fff; font-size: 11px; font-weight: 900; }
+.goal__tick { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--basil); color: #fff; font-size: var(--fs-micro); font-weight: 900; }
 @keyframes goalflash { 50% { background: #fdf0c9; } }
 
 /* incidents */
@@ -563,8 +567,8 @@ button, input { font: inherit; color: inherit; }
 /* clock weekday + staff strip */
 .clock__day { font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint); }
 .staffstrip { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.staffstrip__p { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; }
-.staffstrip__p .avatar { width: 26px; height: 26px; font-size: 11px; }
+.staffstrip__p { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; }
+.staffstrip__p .avatar { width: 30px; height: 30px; font-size: var(--fs-micro); }
 .staffstrip__p--rest { opacity: 0.7; }
 .staffstrip__info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .staffstrip .btn--sm { padding: 2px 10px; font-size: var(--fs-xs); }
@@ -701,7 +705,7 @@ button, input { font: inherit; color: inherit; }
 .empire__legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 .empire__lower { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .empire__log { max-height: 220px; overflow: auto; }
-.tabs--sm .tab { padding: 6px 12px; font-size: var(--fs-sm); }
+.tabs--sm .tab { padding: 8px 14px; font-size: 16px; }
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: var(--fs-sm); }
 .facts dt { color: var(--ink-soft); }
 .facts dd { margin: 0; font-weight: 700; }
@@ -716,7 +720,7 @@ button, input { font: inherit; color: inherit; }
 .starstab { display: flex; flex-direction: column; gap: 14px; }
 .tracks { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 10px; }
 .track { padding: 12px 14px; }
-.track__k { font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); }
+.track__k { font-size: var(--fs-label); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); }
 .track__v { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
 .track__stars { font-size: 34px; color: var(--star-empty); line-height: 1.1; }
 .track__stars .on { color: var(--star); text-shadow: 0 1px 0 var(--star-edge); }
@@ -746,3 +750,12 @@ button, input { font: inherit; color: inherit; }
 .stockwarn__head { font-size: var(--fs-md, 1rem); }
 .starhints { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .starhints li { display: flex; gap: 8px; align-items: baseline; }
+
+/* Round 5: the hands-on bar at 1280 px with the bigger type — keys line may wrap, the clock track keeps its ends apart. */
+.handson__bar { flex-wrap: wrap; row-gap: 6px; }
+.handson__bar > :first-child { min-width: 220px; max-width: 320px; }
+.handson__bar .clock__track { min-width: 140px; }
+.handson__bar .clock__ends { gap: 12px; }
+.handson__score { white-space: nowrap; }
+.handson__keys { flex: 1 1 260px; min-width: 0; }
+

@@ -401,7 +401,7 @@ export class RestaurantView {
     ctx.beginPath(); ctx.moveTo(k.w * 0.74 + 32, 20); ctx.lineTo(k.w * 0.74 + 32, 34); ctx.stroke();
     ctx.fillStyle = C.steel; roundRect(ctx, k.w * 0.74 + 52, 10, 56, 34, 6); ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#b9d4e0"; roundRect(ctx, k.w * 0.74 + 58, 15, 44, 24, 5); ctx.fill();
-    label(ctx, "KITCHEN", k.w - 12, 18, { align: "right", size: 11, colour: C.inkFaint, weight: 800, spacing: 2 });
+    label(ctx, "KITCHEN", k.w - 12, 20, { align: "right", size: 13, colour: C.inkFaint, weight: 800, spacing: 2 });
 
     // the pass
     const p = L.pass;
@@ -433,11 +433,11 @@ export class RestaurantView {
       byCustomer.set(t.customerId, list);
     }
     const groups = [...byCustomer.entries()].sort((a, b) => (a[1][0]?.createdTick ?? 0) - (b[1][0]?.createdTick ?? 0));
-    const cw = 34, ch = 30, gap = 6;
+    const cw = 40, ch = 34, gap = 6; // round 5: 13 px table numbers need a bigger card
     const max = Math.max(1, Math.floor((p.w - 12) / (cw + gap)));
     groups.slice(0, max).forEach(([cid, tks], i) => {
       const x = p.x + 8 + i * (cw + gap);
-      const y = p.y - 36;
+      const y = p.y - 40;
       const age = game.tick - (tks[0]?.createdTick ?? game.tick);
       const head = age < 6 ? C.basil : age < 12 ? C.amber : C.red;
       const sway = Math.sin(opts.now / 600 + i) * 1.2;
@@ -452,13 +452,13 @@ export class RestaurantView {
       ctx.fillStyle = head; ctx.fillRect(-cw / 2, 0, cw, 5);
       const c = game.customers.find((x) => x.id === cid);
       const tn = c?.tableId ? tableNo.get(c.tableId) : undefined;
-      label(ctx, tn ? `T${tn}` : "—", 0, 15, { align: "center", size: 10, weight: 800, colour: C.ink });
+      label(ctx, tn ? `T${tn}` : "—", 0, 18, { align: "center", size: 13, weight: 800, colour: C.ink });
       // one dot per dish; filled when plated
       const n = tks.length;
       const dotW = Math.min(6, (cw - 6) / n);
       tks.forEach((t, j) => {
         ctx.beginPath();
-        ctx.arc(-((n - 1) * dotW) / 2 + j * dotW, 23, Math.max(1.6, dotW / 2 - 0.6), 0, Math.PI * 2);
+        ctx.arc(-((n - 1) * dotW) / 2 + j * dotW, 27, Math.max(1.6, dotW / 2 - 0.6), 0, Math.PI * 2);
         if (t.ticksRemaining <= 0) { ctx.fillStyle = C.basil; ctx.fill(); }
         else { ctx.strokeStyle = C.inkFaint; ctx.lineWidth = 1; ctx.stroke(); }
       });
@@ -474,8 +474,8 @@ export class RestaurantView {
         ctx.fillStyle = C.tomato; ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill();
       }
     });
-    if (groups.length > max) label(ctx, `+${groups.length - max}`, p.x + p.w - 6, p.y - 18, { align: "right", size: 12, weight: 800, colour: C.tomatoDeep });
-    if (!groups.length) label(ctx, "no tickets", p.x + 10, p.y - 18, { size: 11, colour: C.inkFaint, weight: 700 });
+    if (groups.length > max) label(ctx, `+${groups.length - max}`, p.x + p.w - 6, p.y - 18, { align: "right", size: 14, weight: 800, colour: C.tomatoDeep });
+    if (!groups.length) label(ctx, "no tickets", p.x + 10, p.y - 18, { size: 13, colour: C.inkFaint, weight: 700 });
   }
 
   private drawDining(L: Layout) {
@@ -543,12 +543,12 @@ export class RestaurantView {
     ctx.fillStyle = C.tomato; ctx.fill();
     // name board
     const nm = game.restaurantName.toUpperCase();
-    ctx.font = `800 11px Nunito, system-ui, sans-serif`;
+    ctx.font = `800 13px Nunito, system-ui, sans-serif`;
     const tw = Math.min(ctx.measureText(nm).width + 18, L.w * 0.4);
     ctx.fillStyle = C.ink;
-    roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, L.wallY + pv.h - 40, tw, 18, 5); ctx.fill();
-    label(ctx, nm, L.door.x + L.door.w / 2, L.wallY + pv.h - 27, { align: "center", size: 11, weight: 800, colour: C.cream, spacing: 1, maxW: tw - 10 });
-    label(ctx, "OPEN", L.door.x - 26, L.wallY - 14, { align: "right", size: 10, weight: 900, colour: C.basilDeep, spacing: 2 });
+    roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, L.wallY + pv.h - 42, tw, 20, 5); ctx.fill();
+    label(ctx, nm, L.door.x + L.door.w / 2, L.wallY + pv.h - 27, { align: "center", size: 13, weight: 800, colour: C.cream, spacing: 1, maxW: tw - 10 });
+    label(ctx, "OPEN", L.door.x - 26, L.wallY - 14, { align: "right", size: 13, weight: 900, colour: C.basilDeep, spacing: 2 });
   }
 
   private drawTables(game: GameState, L: Layout, opts: RenderOptions) {
@@ -618,15 +618,15 @@ export class RestaurantView {
         if (c.stage === "paying") {
           ctx.fillStyle = C.gold; ctx.strokeStyle = C.amberDeep; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, s.r * 0.32), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-          label(ctx, "£", s.x, s.y + 4, { align: "center", size: Math.max(9, s.r * 0.4), weight: 900, colour: C.amberDeep });
+          label(ctx, "£", s.x, s.y + 4, { align: "center", size: Math.max(13, s.r * 0.4), weight: 900, colour: C.amberDeep });
         }
       }
       // table number
       const tag = String(i + 1);
       ctx.fillStyle = c ? C.ink : "rgba(43,38,34,0.55)";
       const tx = s.x + s.r * 0.72, ty = s.y - s.r * 0.72;
-      ctx.beginPath(); ctx.arc(tx, ty, 8, 0, Math.PI * 2); ctx.fill();
-      label(ctx, tag, tx, ty + 3.5, { align: "center", size: 10, weight: 900, colour: C.paper });
+      ctx.beginPath(); ctx.arc(tx, ty, 10, 0, Math.PI * 2); ctx.fill();
+      label(ctx, tag, tx, ty + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
     });
   }
 
@@ -692,7 +692,7 @@ export class RestaurantView {
       // a "!" badge so it reads without colour too
       ctx.fillStyle = C.tomatoDeep;
       ctx.beginPath(); ctx.arc(x + r * 0.75, y - r * 0.75, 8, 0, Math.PI * 2); ctx.fill();
-      label(ctx, "!", x + r * 0.75, y - r * 0.75 + 4, { align: "center", size: 12, weight: 900, colour: C.paper });
+      label(ctx, "!", x + r * 0.75, y - r * 0.75 + 5, { align: "center", size: 14, weight: 900, colour: C.paper });
     };
     for (const id of new Set(h.tableIds)) {
       const s = L.tables.get(id);
@@ -714,12 +714,12 @@ export class RestaurantView {
     const people = queue.reduce((a, c) => a + c.partySize, 0);
     const text = `${people} waiting`;
     const ctx = this.ctx;
-    ctx.font = "800 11px Nunito, system-ui, sans-serif";
+    ctx.font = "800 13px Nunito, system-ui, sans-serif";
     const w = ctx.measureText(text).width + 14;
     const x = 8, y = L.pavement.y + 6;
     ctx.fillStyle = "rgba(43,38,34,0.78)";
-    roundRect(ctx, x, y, w, 17, 8); ctx.fill();
-    label(ctx, text, x + 7, y + 12.5, { size: 11, weight: 800, colour: C.paper });
+    roundRect(ctx, x, y, w, 20, 9); ctx.fill();
+    label(ctx, text, x + 7, y + 14.5, { size: 13, weight: 800, colour: C.paper });
   }
 
   private drawStaff(game: GameState, L: Layout, opts: RenderOptions, dt: number) {
@@ -768,8 +768,8 @@ export class RestaurantView {
       this.drawStaffMarker(s, m.x, m.y, opts);
     });
     // nobody front-of-house: a little sign on the pass
-    if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 18, { size: 12, weight: 800, colour: C.tomatoDeep });
-    if (!chefs.length) label(ctx, "No chef: you’re cooking!", L.stoves[0]!.x - 20, 64, { size: 13, weight: 900, colour: C.tomatoDeep });
+    if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 20, { size: 14, weight: 800, colour: C.tomatoDeep });
+    if (!chefs.length) label(ctx, "No chef: you’re cooking!", L.stoves[0]!.x - 20, 64, { size: 14, weight: 900, colour: C.tomatoDeep });
   }
 
   private moveStaff(id: string, target: Pt, dt: number, opts: RenderOptions, L: Layout, start: Pt, via?: Pt): StaffSprite {
@@ -798,7 +798,7 @@ export class RestaurantView {
     ctx.beginPath(); ctx.ellipse(x + 1, y + size * 0.55, size * 0.55, size * 0.22, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = colour; ctx.strokeStyle = chef ? C.tomato : C.ink; ctx.lineWidth = 2.5;
     roundRect(ctx, x - size / 2, y - size / 2, size, size, 6); ctx.fill(); ctx.stroke();
-    label(ctx, s.name.slice(0, 1).toUpperCase(), x, y + 4.5, { align: "center", size: 12, weight: 900, colour: chef ? C.tomatoDeep : C.paper });
+    label(ctx, s.name.slice(0, 1).toUpperCase(), x, y + 5, { align: "center", size: 13, weight: 900, colour: chef ? C.tomatoDeep : C.paper });
     if (chef) { // toque
       ctx.fillStyle = C.paper; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
       ctx.fillRect(x - 6, y - size / 2 - 6, 12, 6); ctx.strokeRect(x - 6, y - size / 2 - 6, 12, 6);
@@ -809,11 +809,11 @@ export class RestaurantView {
       ctx.beginPath(); ctx.moveTo(x, y + 7); ctx.lineTo(x + 5, y + 4); ctx.lineTo(x + 5, y + 10); ctx.closePath(); ctx.fill();
     }
     const first = s.name.split(" ")[0] ?? s.name;
-    ctx.font = "800 10px Nunito, system-ui, sans-serif";
+    ctx.font = "800 13px Nunito, system-ui, sans-serif";
     const w = ctx.measureText(first).width + 8;
     ctx.fillStyle = "rgba(255,253,248,0.9)";
-    roundRect(ctx, x - w / 2, y + size / 2 + 3, w, 13, 6); ctx.fill();
-    label(ctx, first, x, y + size / 2 + 13, { align: "center", size: 10, weight: 800, colour: C.ink });
+    roundRect(ctx, x - w / 2, y + size / 2 + 3, w, 16, 7); ctx.fill();
+    label(ctx, first, x, y + size / 2 + 15.5, { align: "center", size: 13, weight: 800, colour: C.ink });
   }
 
   private drawFloaties(now: number) {
@@ -840,8 +840,11 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+/** Round 5 type scale: no canvas text below 13 CSS px (the canvas draws in CSS pixels; see UI-NOTES "Type scale"). */
+export const CANVAS_MIN_PX = 13;
+
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, o: { align?: CanvasTextAlign; size?: number; weight?: number; colour?: string; spacing?: number; stroke?: string; maxW?: number } = {}) {
-  ctx.font = `${o.weight ?? 700} ${o.size ?? 12}px Nunito, system-ui, sans-serif`;
+  ctx.font = `${o.weight ?? 700} ${Math.max(CANVAS_MIN_PX, o.size ?? 13)}px Nunito, system-ui, sans-serif`;
   ctx.textAlign = o.align ?? "left";
   ctx.textBaseline = "alphabetic";
   if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${o.spacing ?? 0}px`;

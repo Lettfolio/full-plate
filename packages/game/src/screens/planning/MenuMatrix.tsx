@@ -47,9 +47,9 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
   const boxes: { x: number; y: number; w: number }[] = [];
   const labelled = new Set<DishId>();
   for (const p of [...placed].sort((a, b) => b.x - a.x)) {
-    const w = Math.min(160, (names[p.m.dishId] ?? p.m.dishId).length * 6);
+    const w = Math.min(160, (names[p.m.dishId] ?? p.m.dishId).length * 8);
     const y = p.cy - 13;
-    if (boxes.some((b) => Math.abs(b.y - y) < 13 && Math.abs(b.x - p.cx) < (b.w + w) / 2)) continue;
+    if (boxes.some((b) => Math.abs(b.y - y) < 16 && Math.abs(b.x - p.cx) < (b.w + w) / 2)) continue;
     boxes.push({ x: p.cx, y, w });
     labelled.add(p.m.dishId);
   }
@@ -63,15 +63,15 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
         <rect x={W / 2} y={H / 2} width={W / 2} height={H / 2} fill="#dfeef7" rx="10" />
         <line x1={W / 2} y1="0" x2={W / 2} y2={H} stroke="#fffdf8" strokeWidth="4" />
         <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke="#fffdf8" strokeWidth="4" />
-        <g fontFamily="Fredoka, Nunito, sans-serif" fontSize="14" fontWeight="600">
+        <g fontFamily="Fredoka, Nunito, sans-serif" fontSize="16" fontWeight="600">
           <text x="10" y="22" fill="#6a3f7d">Puzzles</text>
           <text x={W - 10} y="22" fill="#8a5a0b" textAnchor="end">Stars ★</text>
-          <text x="10" y={H - 12} fill="#6b6157">Dogs</text>
-          <text x={W - 10} y={H - 12} fill="#2d6788" textAnchor="end">Plough-horses</text>
+          <text x="10" y={H - 20} fill="#6b6157">Dogs</text>
+          <text x={W - 10} y={H - 20} fill="#2d6788" textAnchor="end">Plough-horses</text>
         </g>
-        <g fontFamily="Nunito, sans-serif" fontSize="10.5" fontWeight="800" fill="#8f857a">
+        <g fontFamily="Nunito, sans-serif" fontSize="14" fontWeight="800" fill="#5c534a">
           <text x={W / 2} y={H - 4} textAnchor="middle">more popular →</text>
-          <text transform={`translate(10 ${H / 2}) rotate(-90)`} textAnchor="middle" dy="0">more margin →</text>
+          <text transform={`translate(12 ${H / 2}) rotate(-90)`} textAnchor="middle" dy="0">more margin →</text>
         </g>
         {placed.map(({ m, cx, cy }) => {
           const q = quadrants[m.dishId] ?? "dog";
@@ -80,7 +80,7 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
             <g key={m.dishId} onMouseEnter={() => onHover?.(m.dishId)} onMouseLeave={() => onHover?.(null)} style={{ cursor: "default" }}>
               <circle cx={cx} cy={cy} r={hl ? 11 : 8} fill={QUADRANT[q].colour} stroke="#2b2622" strokeWidth={hl ? 3 : 2} />
               {(hl || labelled.has(m.dishId)) && (
-                <text x={cx} y={cy - 13} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="11" fontWeight="800" fill="#2b2622" paintOrder="stroke" stroke="#fffdf8" strokeWidth="3">
+                <text x={cx} y={cy - 13} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="14.5" fontWeight="800" fill="#2b2622" paintOrder="stroke" stroke="#fffdf8" strokeWidth="3">
                   {names[m.dishId] ?? m.dishId}
                 </text>
               )}
@@ -88,7 +88,7 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
           );
         })}
         {noSales && (
-          <text x={W / 4} y={H - 30} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="12" fontWeight="700" fill="#5c534a">
+          <text x={W / 4} y={H - 30} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="14" fontWeight="700" fill="#5c534a">
             No sales yet: margin only
           </text>
         )}
