@@ -879,3 +879,177 @@ button, input { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .skeleton__bar { animation: none; } }
 @media (max-width: 1100px) { .handson__keys { display: none; } }
 .startpick .newgame__head .btn--sm { min-height: 44px; padding: 8px 16px; }
+
+/* ═══════════ R7-B: the owner's daily loop (Planning → Service → Evening) ═══════════
+   Three beats, one primary button each, always bottom-right; numbers a child can read; 44 px targets on these screens. */
+:root {
+  --beat-morning: var(--amber);
+  --beat-service: var(--tomato);
+  --beat-evening: var(--plum);
+}
+
+/* the day's three beats */
+.beathead { display: flex; flex-direction: column; gap: 8px; }
+.beathead h1 { margin: 0; }
+.dayrhythm { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; flex-wrap: wrap; row-gap: 4px; }
+.dayrhythm__beat { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px 3px 3px; border-radius: 999px; font-size: var(--fs-sm); font-weight: 800; color: var(--ink-soft); }
+.dayrhythm__beat + .dayrhythm__beat { margin-left: 26px; }
+.dayrhythm__beat + .dayrhythm__beat::before { content: ""; position: absolute; left: -23px; top: 50%; width: 20px; border-top: 2px dashed var(--line-strong); }
+.dayrhythm__beat--morning { --beat: var(--beat-morning); }
+.dayrhythm__beat--service { --beat: var(--beat-service); }
+.dayrhythm__beat--evening { --beat: var(--beat-evening); }
+.dayrhythm__icon { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--cream-deep); font-size: 15px; line-height: 1; flex: none; }
+.dayrhythm__beat.is-done .dayrhythm__icon { background: var(--basil); color: #fff; font-weight: 900; }
+.dayrhythm__beat.is-now { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 2px var(--beat); }
+.dayrhythm__beat.is-now .dayrhythm__icon { background: var(--beat); }
+.dayrhythm--compact .dayrhythm__beat { font-size: var(--fs-xs); padding-right: 10px; }
+.dayrhythm--compact .dayrhythm__beat + .dayrhythm__beat { margin-left: 18px; }
+.dayrhythm--compact .dayrhythm__beat + .dayrhythm__beat::before { left: -16px; width: 13px; }
+.dayrhythm--compact .dayrhythm__icon { width: 24px; height: 24px; font-size: 13px; }
+
+/* the action dock: the beat's one primary button, pinned bottom-right of the scrolling page */
+.actiondock {
+  position: sticky; bottom: 0; z-index: 6; margin: 18px -24px -40px; padding: 12px 24px 14px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 16px;
+  background: rgba(255, 253, 248, 0.97); border-top: 2px solid var(--line); box-shadow: 0 -10px 24px -18px rgba(80, 55, 20, 0.45);
+}
+.actiondock .btn--xl { min-height: 56px; }
+.actiondock__note { flex: 1; }
+@media (max-width: 1180px) { .actiondock { margin: 16px -16px -32px; padding: 10px 16px 12px; } }
+.hint--link { min-height: 44px; display: inline-flex; align-items: center; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.hint--link:active { transform: translateY(1px); }
+
+/* 44 px targets on the owner's screens (career/paths/shell keep their own sizes) */
+.planning .btn, .evening .btn, .actiondock .btn, .service__side .btn, .gameover .btn { min-height: 44px; }
+.planning .btn--sm, .evening .btn--sm, .service__side .btn--sm { padding: 6px 14px; }
+.planning .stepper__btn { width: 44px; height: 44px; font-size: 20px; }
+.planning .iconbtn { width: 44px; height: 44px; }
+.planning .rota__day { min-height: 44px; }
+.service__side .staffstrip .btn--sm { padding: 6px 12px; font-size: var(--fs-sm); }
+.service__side .tablelist__item { min-height: 44px; }
+.service__side .goals__toggle { min-height: 44px; }
+.evening .advice__why { padding: 10px 8px; margin: 0 0 0 -8px; }
+/* a press you can see on the quiet buttons too */
+.btn--ghost:active:not(:disabled) { background: var(--cream-deep); box-shadow: inset 0 2px 0 rgba(80, 55, 20, 0.12); }
+.rota__day { transition: background 0.12s, border-color 0.12s, transform 0.06s; }
+.rota__day:active { transform: translateY(1px); }
+.money--counting { color: inherit; }
+
+/* goals sidebar: the hint gets the card's full width */
+.planning__side .goal > .row { flex-wrap: wrap; row-gap: 6px; }
+.planning__side .goal > .row > .spacer { flex-basis: 100%; }
+
+/* Menu: today's menu first, the matrix as an expert view */
+.menuview { display: inline-flex; gap: 4px; padding: 4px; background: var(--cream); border: 1.5px solid var(--line); border-radius: 999px; align-self: flex-start; }
+.menuview__btn { min-height: 44px; border: 0; background: transparent; border-radius: 999px; padding: 0 18px; font-weight: 800; cursor: pointer; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.menuview__btn:hover { background: var(--paper); color: var(--ink); }
+.menuview__btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.menuview__note { font-size: var(--fs-xs); font-weight: 600; }
+.menu-layout--list { grid-template-columns: minmax(0, 1fr); }
+.dish__remove { margin-left: 6px; }
+.dish__confirm { display: inline-flex; gap: 6px; }
+
+/* Stock: the forecast in a sentence */
+.forecast { display: flex; gap: 10px; align-items: center; margin: 0; padding: 12px 14px; border-radius: var(--r-sm); font-size: var(--fs-base); background: var(--basil-wash); border: 1.5px solid var(--basil); }
+.forecast--short { background: var(--amber-wash); border-color: var(--amber); }
+.forecast--opening { background: var(--sky-wash); border-color: var(--sky); }
+.forecast__icon { font-size: 22px; }
+.stocktable .need { font-size: var(--fs-sm); font-weight: 700; }
+.need--coming { color: var(--basil-deep); }
+
+/* Staff: the week strip */
+.rotaweek { padding: 14px 16px; }
+.rotaweek .card__title { margin-bottom: 8px; }
+.rotaweek__grid { display: grid; gap: 4px; }
+.rotaweek__row { display: grid; grid-template-columns: 92px repeat(7, minmax(0, 1fr)); gap: 4px; }
+.rotaweek__role { font-weight: 800; font-size: var(--fs-sm); align-self: center; }
+.rotaweek__day { text-align: center; font-weight: 800; font-size: var(--fs-xs); color: var(--ink-soft); }
+.rotaweek__day.is-today { color: var(--ink); }
+.rotaweek__cell { position: relative; min-height: 48px; border-radius: 10px; background: var(--cream); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; padding: 4px; }
+.rotaweek__cell.is-today { border-color: var(--ink-soft); }
+.rotaweek__cell--doubled { background: var(--amber-wash); border-color: var(--amber); }
+.rotaweek__cell--empty { background: var(--tomato-wash); border-color: #f0c2b6; }
+.rotaweek__face { width: 30px; height: 30px; font-size: var(--fs-micro); border: 2px solid var(--paper); box-shadow: none; }
+.rotaweek__face + .rotaweek__face { margin-left: -9px; }
+.rotaweek__x { position: absolute; top: -9px; right: -5px; background: var(--amber-deep); color: #fff; font-size: var(--fs-micro); font-weight: 900; padding: 0 6px; border-radius: 999px; line-height: 1.45; }
+.rotaweek__you { font-size: var(--fs-xs); font-weight: 800; color: var(--tomato-deep); }
+.rotaweek__note { display: flex; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--amber-wash); font-size: var(--fs-sm); }
+.rotaweek__note--bad { background: var(--tomato-wash); border: 1.5px solid var(--tomato); }
+.rotaweek__note--ok { background: var(--basil-wash); }
+.rota__day--doubled[aria-pressed="true"] { background: var(--amber-deep); border-color: #7a4808; }
+
+/* Restaurant: table numbers that pass (white on #8f6436 ≈ 5.6:1; was 2.5:1 on #c99a63) */
+.planning .tablechip:not(.tablechip--empty) { background: #8f6436; border-color: #6e4a24; }
+
+/* Service: the live summary and a speed deck that looks like one */
+.livesum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.livesum__tile { position: relative; background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--r-sm); padding: 8px 12px; box-shadow: var(--shadow); }
+.livesum__icon { position: absolute; top: 8px; right: 10px; font-size: 20px; line-height: 1; }
+.livesum__k { font-size: var(--fs-xs); font-weight: 800; color: var(--ink-soft); }
+.livesum__v { font-family: var(--font-display); font-weight: 600; font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; }
+.livesum__stars { display: inline-flex; }
+.livesum__trend { font-size: var(--fs-xs); font-weight: 800; }
+.livesum__trend--good { color: var(--basil-deep); }
+.livesum__trend--bad { color: var(--tomato-deep); }
+.livesum__trend--flat { color: var(--ink-faint); }
+.livesum__tile--bad { border-color: var(--tomato); }
+.livesum__tile--bad .livesum__v { color: var(--tomato-deep); }
+.livesum__tile[data-flash] { animation: livesum-flash 0.9s ease-out; }
+@keyframes livesum-flash { 0% { background: var(--tomato-wash); transform: scale(1.05); } 100% { background: var(--paper); transform: none; } }
+.livesum__till { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px; font-weight: 800; font-size: var(--fs-sm); color: var(--ink-soft); }
+.livesum__till .money { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--ink); }
+.speeds--deck { padding: 4px; }
+.speeds--deck .speed { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 52px; padding: 4px 0; transition: background 0.12s, transform 0.06s; }
+.speeds--deck .speed:active { transform: translateY(1px); }
+.speed__icon { font-size: 16px; letter-spacing: -4px; line-height: 1.1; padding-right: 4px; }
+.speed__word { font-size: var(--fs-xs); font-weight: 800; }
+.speeds--deck .speed--0[aria-pressed="true"] { background: var(--amber-deep); color: #fff; }
+
+/* Evening: tonight's money */
+.evening__money { grid-column: 1 / -1; }
+.tonight { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 380px); gap: 24px; align-items: center; padding: 18px 24px; border-radius: var(--r-lg); border: 2px solid var(--line); background: var(--paper); box-shadow: var(--shadow); }
+.tonight--up { background: var(--basil-wash); border-color: var(--basil); }
+.tonight--down { background: var(--tomato-wash); border-color: var(--tomato); }
+.tonight__k { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.tonight__v { font-family: var(--font-display); font-weight: 600; font-size: 64px; line-height: 1; display: flex; align-items: center; gap: 10px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tonight--up .tonight__v { color: var(--basil-deep); }
+.tonight--down .tonight__v { color: var(--tomato-deep); }
+.tonight__arrow { font-size: 34px; }
+.tonight__vs { margin-top: 6px; font-weight: 800; }
+.tonight__vs--up { color: var(--basil-deep); }
+.tonight__vs--down { color: var(--tomato-deep); }
+.tonight__facts { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 10px; align-items: center; }
+.tonight__bad b { color: var(--tomato-deep); }
+.tonight__bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; height: 132px; }
+.tonight__col { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.tonight__half { display: flex; min-height: 0; }
+.tonight__half--up { align-items: flex-end; border-bottom: 2px solid var(--ink-soft); }
+.tonight__half--down { align-items: flex-start; }
+.tonight__half i { display: block; width: 100%; background: var(--basil); border-radius: 4px 4px 0 0; }
+.tonight__half--down i { background: var(--tomato); border-radius: 0 0 4px 4px; }
+.tonight__col.is-tonight i { box-shadow: 0 0 0 2px var(--ink); }
+.tonight__day { font-size: var(--fs-micro); font-weight: 800; text-align: center; color: var(--ink-soft); padding-top: 3px; }
+.tonight__col.is-tonight .tonight__day { color: var(--ink); }
+.tonight__weeknote { font-size: var(--fs-xs); color: var(--ink-soft); text-align: center; margin-top: 2px; font-weight: 700; }
+.sums > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.sums > summary::-webkit-details-marker { display: none; }
+.sums > summary h3 { flex: 1; }
+.sums > summary h3::before { content: "▸ "; color: var(--ink-soft); }
+.sums[open] > summary { margin-bottom: 12px; }
+.sums[open] > summary h3::before { content: "▾ "; }
+@media (max-width: 1180px) { .tonight__v { font-size: 52px; } .tonight { grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); } }
+
+/* Game over: the cause first, in her words */
+.gameover__cause { font-family: var(--font-display); font-size: 22px; font-weight: 500; line-height: 1.3; max-width: 520px; color: var(--ink); }
+.gameover__buttons { flex-wrap: wrap; justify-content: center; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .livesum__tile[data-flash] { animation: none; }
+}
+.evening__head.beathead { flex-direction: column; align-items: flex-start; }
+@media (max-width: 1180px) {
+  .planning__bar { flex-wrap: wrap; row-gap: 8px; }
+  .planning__bar > .beathead { flex-basis: 100%; flex-direction: row; align-items: center; gap: 18px; }
+  .planning__bar > .beathead h1 { font-size: var(--fs-h2); }
+  .dayrhythm { flex-wrap: nowrap; }
+}

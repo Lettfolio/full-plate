@@ -5,7 +5,8 @@ import { Bar } from "../../components/Bar";
 import { MoneyText } from "../../components/MoneyText";
 import { traitName } from "../../lib/content";
 import { WEEKDAYS, weekdayIndex } from "../../lib/calendar";
-import { coverage, initials, isTrainingToday, moodFace, moodWord, ROLE_LABEL, SHIFT_HOURS, trainBlocker } from "../../lib/staff";
+import { RotaWeek } from "./RotaWeek";
+import { initials, isTrainingToday, moodFace, moodWord, ROLE_LABEL, SHIFT_HOURS, trainBlocker } from "../../lib/staff";
 
 /** A former colleague from the career (sim-career Relationship), hireable with HIRE_STAFF. */
 export interface KnownPerson { staff: Staff; bond: number; employer: string }
@@ -82,9 +83,9 @@ function PersonCard({ s, game, today, send }: { s: Staff; game: GameState; today
           {WEEKDAYS.map((d, i) => (
             <button
               key={d}
-              className={`rota__day ${i === today ? "rota__day--today" : ""}`}
+              className={`rota__day ${i === today ? "rota__day--today" : ""} ${s.rota[i] && game.staff.some((o) => o !== s && o.role === s.role && o.rota[i]) ? "rota__day--doubled" : ""}`}
               aria-pressed={!!s.rota[i]}
-              title={i === today ? `${d} (today)` : d}
+              title={`${i === today ? `${d} (today)` : d}${s.rota[i] && game.staff.some((o) => o !== s && o.role === s.role && o.rota[i]) ? ` — another ${ROLE_LABEL[s.role].toLowerCase()} is on too` : ""}`}
               onClick={() => send({ type: "SET_ROTA", staffId: s.id, rota: s.rota.map((v, j) => (j === i ? !v : v)) })}
             >
               {d.slice(0, 2)}
@@ -142,12 +143,13 @@ export function StaffTab({ game, send, wantRole, known = [] }: Props) {
     .map((c, i) => ({ c, i }))
     .filter(({ c }) => !c.hired)
     .sort((a, b) => Number(b.c.role === wantRole) - Number(a.c.role === wantRole));
-  const roles: StaffRole[] = ["chef", "server", ...(["bar", "porter", "manager"] as const).filter((r) => game.staff.some((s) => s.role === r))];
   const wageBill = game.staff.reduce((a, s) => a + (s.rota[today] ? shiftCost(s) : 0), 0);
   const fee = recruitmentFeeOf(game);
   const friends = known.filter((k) => k.bond >= 0 && !game.staff.some((s) => s.id === k.staff.id || s.name === k.staff.name));
 
   return (
+    <div className="stack">
+    {game.staff.length > 0 && <RotaWeek game={game} today={today} />}
     <div className="staffgrid">
       <div className="stack">
         <div className="row">
@@ -157,16 +159,6 @@ export function StaffTab({ game, send, wantRole, known = [] }: Props) {
         {game.staff.length === 0 ? <div className="empty">Nobody works here yet. Hire a chef and a server →</div> : (
           <div className="roster">{game.staff.map((s) => <PersonCard key={s.id} s={s} game={game} today={today} send={send} />)}</div>
         )}
-        <div className="card" style={{ padding: 12 }}>
-          <div className="xs faint" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Who's on each day</div>
-          <div className="coverage">
-            <span />
-            {WEEKDAYS.map((d, i) => <span key={d} className="coverage__cell" style={{ background: "transparent", outline: i === today ? "2px solid var(--amber)" : undefined }}>{d}</span>)}
-            {roles.map((r) => (
-              <Coverage key={r} label={ROLE_LABEL[r] + "s"} counts={coverage(game.staff, r)} />
-            ))}
-          </div>
-        </div>
       </div>
 
       <aside className="stack stack--sm">
@@ -190,14 +182,6 @@ export function StaffTab({ game, send, wantRole, known = [] }: Props) {
         )}
       </aside>
     </div>
-  );
-}
-
-function Coverage({ label, counts }: { label: string; counts: number[] }) {
-  return (
-    <>
-      <span>{label}</span>
-      {counts.map((n, i) => <span key={i} className={`coverage__cell ${n === 0 ? "coverage__cell--zero" : ""}`}>{n}</span>)}
-    </>
+    </div>
   );
 }

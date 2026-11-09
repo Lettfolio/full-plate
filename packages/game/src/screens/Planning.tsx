@@ -18,7 +18,8 @@ import { RestaurantTab } from "./planning/RestaurantTab";
 import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
 import { StockWarning } from "./planning/StockWarning";
 import { inSeason } from "@full-plate/sim-stars";
-import { weekdayIndex, WEEKDAYS } from "../lib/calendar";
+import { weekdayIndex, WEEKDAYS, WEEKDAY_NAMES } from "../lib/calendar";
+import { DayRhythm } from "../components/DayRhythm";
 import { unplateable } from "../lib/plateable";
 import type { PathKind } from "../lib/library";
 import type { EmpireCommand } from "@full-plate/sim-empire";
@@ -108,9 +109,9 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   return (
     <div className="page planning">
       <div className="planning__bar">
-        <div>
-          <div className="xs faint" style={{ fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>Morning</div>
-          <h1 style={{ marginBottom: 6 }}>Get ready for {WEEKDAYS[today]}</h1>
+        <div className="beathead">
+          <DayRhythm beat="morning" weekday={WEEKDAY_NAMES[today]!} />
+          <h1>Get ready for {WEEKDAY_NAMES[today]}</h1>
         </div>
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
         <div className="planning__help"><HelpPopover /></div>
@@ -164,10 +165,11 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           </Suspense>
         </div>
       </div>
-      <div className="openbar">
+      {/* Round 7: the day's one primary button sits in a dock pinned to the bottom-right, on every tab. */}
+      <div className="openbar actiondock">
         <div className="openbar__hints">
           {hints.map((h) => (
-            <button key={h.text} className={`hint hint--${h.tone}`} style={{ border: 0, cursor: h.tab ? "pointer" : "default" }} onClick={() => h.tab && setTab(h.tab)}>
+            <button key={h.text} className={`hint hint--${h.tone} ${h.tab ? "hint--link" : ""}`} style={{ border: 0, cursor: h.tab ? "pointer" : "default" }} onClick={() => h.tab && setTab(h.tab)}>
               {h.text}
             </button>
           ))}
