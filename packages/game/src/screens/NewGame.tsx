@@ -4,6 +4,7 @@ import { Bar } from "../components/Bar";
 import { MoneyText } from "../components/MoneyText";
 import { segmentName } from "../lib/content";
 import { Term } from "../components/Term";
+import { DifficultyPicker } from "../components/DifficultyPicker";
 
 interface Props {
   content: ContentPack;
@@ -48,7 +49,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
     <div className="page">
       <div className="newgame">
         <div className="newgame__head">
-          <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
+          <button className="btn btn--ghost btn--tap" onClick={onBack}>← Back</button>
           <h1>Where will you open?</h1>
         </div>
 
@@ -110,25 +111,15 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
           </label>
 
           <div className="field">
-            <span className="field__label">Difficulty</span>
-            <div className="difficulty" role="radiogroup" aria-label="Difficulty">
-              {DIFFICULTIES.map((d) => (
-                <button key={d.id} role="radio" aria-checked={difficulty === d.id} className="diff" onClick={() => setDifficulty(d.id)}>
-                  <span className="diff__dot" aria-hidden="true" />
-                  <span>
-                    <span className="diff__name">{d.name}</span>
-                    <span className="diff__desc" style={{ display: "block" }}>{d.desc}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
+            <span className="field__label" id="ng-diff">How tricky?</span>
+            <DifficultyPicker value={difficulty} onChange={setDifficulty} labelId="ng-diff" />
           </div>
 
           <label className="field">
             <span className="field__label">Seed</span>
             <span className="seedrow">
               <input className="input" inputMode="numeric" value={seedText} onChange={(e) => setSeedText(e.target.value.replace(/[^\d]/g, ""))} aria-invalid={!seedOk} />
-              <button type="button" className="iconbtn" title="New random seed" aria-label="New random seed" onClick={() => setSeedText(String(Math.floor(Math.random() * 900_000) + 100_000))}>⟳</button>
+              <button type="button" className="iconbtn iconbtn--tap" title="New random seed" aria-label="New random seed" onClick={() => setSeedText(String(Math.floor(Math.random() * 900_000) + 100_000))}>⟳</button>
             </span>
             <span className="xs faint">Same seed + same choices = the same game. Share it with a friend.</span>
           </label>

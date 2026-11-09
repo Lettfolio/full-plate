@@ -53,7 +53,7 @@ describe("start picker routing", () => {
   it("offers all five starts with a line from the brief", () => {
     render(<StartPicker content={content} onBack={() => {}} onOwner={() => {}} onCareer={() => {}} />);
     for (const n of ["Owner", "Apprentice chef", "Bar", "Waiter", "Restaurant manager"]) expect(screen.getAllByRole("radio", { name: new RegExp(`^${n}`) }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Commis in someone else's kitchen/)).toBeTruthy();
+    expect(screen.getByText(/Cook in someone else's kitchen/)).toBeTruthy();
   });
 });
 

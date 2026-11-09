@@ -9,7 +9,7 @@
  *   pnpm --filter @full-plate/game build
  *   node packages/game/scripts/type-audit.mjs            # from the repo root, or `node scripts/type-audit.mjs` here
  *
- * Env: FP_AUDIT_URL (default: starts `vite preview` on :4173 itself), FP_AUDIT_SHOTS (default scripts/.audit-shots),
+ * Env: FP_AUDIT_TEXT=large (Settings › Text size › Bigger), FP_AUDIT_URL (default: starts `vite preview` on :4173 itself), FP_AUDIT_SHOTS (default scripts/.audit-shots),
  *      FP_AUDIT_MIN (13), FP_AUDIT_ONLY (comma list of screen names), FP_AUDIT_SKIP_GEN=1 (reuse scripts/.audit-saves).
  * Needs Playwright with Chromium on the machine (`require("playwright")`). Exit code 1 when anything is too small.
  */
@@ -103,14 +103,16 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
 const save = (name) => readFileSync(join(SAVES, `${name}.json`), "utf8");
+// Round 7: FP_AUDIT_TEXT=large runs every screen with Settings › Text size › Bigger (data-text="large").
+const TEXT = process.env.FP_AUDIT_TEXT === "large" ? "large" : "normal";
 async function boot({ owner, career, speed = 1 } = {}) {
   await page.goto(URL);
-  await page.evaluate(([o, c, sp]) => {
+  await page.evaluate(([o, c, sp, t]) => {
     localStorage.clear();
-    localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: sp }));
+    localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: sp, textSize: t }));
     if (o) localStorage.setItem("full-plate:save:v1", o);
     if (c) localStorage.setItem("full-plate:career:v1", c);
-  }, [owner ? save(owner) : null, career ?? null, speed]);
+  }, [owner ? save(owner) : null, career ?? null, speed, TEXT]);
   await page.reload();
   await page.waitForTimeout(300);
 }
@@ -145,7 +147,13 @@ try {
   // Title, start picker, lease screen
   await boot({ owner: "owner-planning" });
   await audit("01-title");
+  await page.getByRole("button", { name: /How do I win/ }).click(); await page.waitForTimeout(300);
+  await audit("01b-goal-explainer");
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "New game" }).click(); await page.waitForTimeout(300);
+  // Round 7: with a save, New game asks first.
+  await audit("01c-confirm-new-game");
+  await page.getByRole("button", { name: /Yes, start a new game/ }).click(); await page.waitForTimeout(300);
   await audit("02-start-picker");
   await page.getByRole("radio", { name: /^Apprentice chef/ }).click(); await page.waitForTimeout(200);
   await audit("03-start-picker-career");
@@ -164,7 +172,7 @@ try {
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Settings" }).click(); await page.waitForTimeout(200);
   await audit("15-settings");
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
 
   // Owner service (canvas)
   await tab(/^Menu/);

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { forkMilestone } from "../../state/paths";
+import { EmpirePicture, GoalExplainer, StarsPicture } from "../../components/GoalExplainer";
+import { playSfx } from "../../lib/sfx";
 
 interface Props {
   game: GameState;
@@ -13,6 +15,8 @@ interface Props {
  */
 export function ForkCard({ game, onChoose }: Props) {
   const [brand, setBrand] = useState("");
+  const [explain, setExplain] = useState(false);
+  const choose = (c: "snooze" | "empire" | "stars", b?: string) => { if (c !== "snooze") playSfx("win"); onChoose(c, b); };
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => { first.current?.focus(); }, []);
   const m = forkMilestone(game);
@@ -33,7 +37,7 @@ export function ForkCard({ game, onChoose }: Props) {
           </p>
           <div className="fork__cards">
             <div className="fork__side fork__side--empire">
-              <div className="fork__icon" aria-hidden="true">🍔🌍</div>
+              <EmpirePicture className="fork__pic" />
               <h3>The franchise consultant</h3>
               <p className="small">“Your numbers are good. Lock the menu, make it fast, and I can put your name on a hundred high streets. My investors will put up £500k.”</p>
               <ul className="small fork__list">
@@ -45,10 +49,10 @@ export function ForkCard({ game, onChoose }: Props) {
                 <span className="field__label">Brand name</span>
                 <input className="input" value={brand} maxLength={28} placeholder={`${game.restaurantName} Kitchen`} onChange={(e) => setBrand(e.target.value)} />
               </label>
-              <button ref={first} className="btn btn--primary" onClick={() => onChoose("empire", brand.trim() || undefined)}>Be everywhere →</button>
+              <button ref={first} className="btn btn--primary btn--tap" onClick={() => choose("empire", brand.trim() || undefined)}>Be everywhere →</button>
             </div>
             <div className="fork__side fork__side--stars">
-              <div className="fork__icon" aria-hidden="true">⭐🍽️</div>
+              <StarsPicture className="fork__pic" />
               <h3>The visiting critic</h3>
               <p className="small">“I ate here on Tuesday. Nobody knew who I was. Your kitchen could be one of the great ones — if you are willing to obsess.”</p>
               <ul className="small fork__list">
@@ -56,13 +60,17 @@ export function ForkCard({ game, onChoose }: Props) {
                 <li>Stress, stagiaires, and a head chef with dreams of their own</li>
                 <li>Win: three stars for five years — or close at your peak</li>
               </ul>
-              <button className="btn btn--primary" onClick={() => onChoose("stars")}>Be the best →</button>
+              <button className="btn btn--primary btn--tap" onClick={() => choose("stars")}>Be the best →</button>
             </div>
           </div>
-          <p className="xs muted">You can't really have both. Two billion served, or two Michelin stars.</p>
-          <button className="btn btn--ghost" onClick={() => onChoose("snooze")}>Think about it (ask me again next week)</button>
+          <div className="fork__foot">
+            <p className="small muted spacer">You can't really have both. Two billion served, or two Michelin stars.</p>
+            <button className="btn btn--ghost btn--tap" onClick={() => setExplain(true)}><span aria-hidden="true">🏆</span> How do I win?</button>
+          </div>
+          <button className="btn btn--ghost btn--tap" onClick={() => choose("snooze")}>Think about it (ask me again next week)</button>
         </div>
       </div>
+      {explain && <GoalExplainer atFork onClose={() => setExplain(false)} />}
     </div>
   );
 }

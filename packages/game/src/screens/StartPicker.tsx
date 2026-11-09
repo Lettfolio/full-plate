@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { ContentPack, Difficulty } from "@full-plate/sim-core";
 import type { CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
-import { DIFFICULTIES, districtIcon } from "./NewGame";
+import { districtIcon } from "./NewGame";
+import { DifficultyPicker } from "../components/DifficultyPicker";
 
 /** The five starts from BRIEF "Starting levels: the career ladder". */
 export type StartKind = "owner" | CareerTrack;
@@ -14,14 +15,18 @@ export interface StartDef {
   line: string;
   /** "Typical length to ownership". */
   length: string;
+  /** Round 7: how long the road to your own place is, 0 (you start there) to 3 (longest). */
+  road: 0 | 1 | 2 | 3;
+  /** Round 7: what you play, in a few words. */
+  play: string;
 }
 
 export const STARTS: StartDef[] = [
-  { id: "owner", name: "Owner", icon: "🔑", line: "Lease, loan, menu and hiring from day one. Straight into running the place.", length: "You own it now" },
-  { id: "chef", name: "Apprentice chef", icon: "🔪", line: "Commis in someone else's kitchen: prep, stations, timing. Climb to head chef.", length: "Longest road to your own place" },
-  { id: "bar", name: "Bar", icon: "🍸", line: "Drinks orders, stock, regulars and late shifts. Bar back to general manager.", length: "A medium road" },
-  { id: "waiter", name: "Waiter", icon: "🍽️", line: "Read tables, time courses with the kitchen, earn a share of the tips (the tronc). Up to restaurant manager.", length: "A medium road" },
-  { id: "manager", name: "Restaurant manager", icon: "📋", line: "Run someone else's restaurant for a salary and a bonus. Hit targets — or be fired.", length: "The shortest road" },
+  { id: "owner", name: "Owner", icon: "🔑", line: "Run your very own restaurant from day one: the menu, the team and the money.", length: "You own it now", road: 0, play: "Plan the day, watch it run" },
+  { id: "chef", name: "Apprentice chef", icon: "🔪", line: "Cook in someone else's kitchen and work your way up to head chef.", length: "The longest road", road: 3, play: "Cook the orders yourself" },
+  { id: "bar", name: "Bar", icon: "🍸", line: "Mix the drinks, keep the bar stocked and get to know the regulars.", length: "A middle road", road: 2, play: "Pour the drinks yourself" },
+  { id: "waiter", name: "Waiter", icon: "🍽️", line: "Look after the tables, carry the plates and share the tips.", length: "A middle road", road: 2, play: "Serve the tables yourself" },
+  { id: "manager", name: "Restaurant manager", icon: "📋", line: "Run someone else's restaurant. Hit your targets or you're out.", length: "The shortest road", road: 1, play: "Watch the room and the numbers" },
 ];
 
 const OWNERS: { id: OwnerStrategy; name: string; desc: string }[] = [
@@ -59,8 +64,8 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
     <div className="page">
       <div className="startpick">
         <div className="newgame__head">
-          <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-          <h1>Start as…</h1>
+          <button className="btn btn--ghost btn--tap" onClick={onBack}>← Back</button>
+          <h1>Who do you want to be?</h1>
         </div>
 
         <div className="starts" role="radiogroup" aria-label="Start as">
@@ -69,7 +74,11 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
               <span className="start__icon" aria-hidden="true">{s.icon}</span>
               <span className="start__name">{s.name}</span>
               <span className="start__line">{s.line}</span>
-              <span className="start__len">{s.length}</span>
+              <span className="start__play"><span aria-hidden="true">🎮</span> {s.play}</span>
+              <span className="start__road" aria-label={`Road to your own place: ${s.length}`}>
+                {s.road > 0 && <span className="start__pips" aria-hidden="true">{[1, 2, 3].map((i) => <i key={i} className={i <= s.road ? "on" : ""} />)}</span>}
+                <span className="start__len">{s.road === 0 ? "🔑 " : ""}{s.length}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -77,24 +86,14 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
         <div className="startpick__opts">
           <div className="card stack">
             <div className="field">
-              <span className="field__label" id="diff-l">Difficulty</span>
-              <div className="difficulty" role="radiogroup" aria-labelledby="diff-l">
-                {DIFFICULTIES.map((d) => (
-                  <button key={d.id} role="radio" aria-checked={difficulty === d.id} className="diff" onClick={() => setDifficulty(d.id)}>
-                    <span className="diff__dot" aria-hidden="true" />
-                    <span>
-                      <span className="diff__name">{d.name}</span>
-                      <span className="diff__desc" style={{ display: "block" }}>{d.desc}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <span className="field__label startpick__q" id="diff-l">How tricky?</span>
+              <DifficultyPicker value={difficulty} onChange={setDifficulty} labelId="diff-l" />
             </div>
           </div>
 
           <div className="card stack">
             <div className="field">
-              <span className="field__label" id="dist-l">{start === "owner" ? "Where will you open?" : "Where's your first job?"}</span>
+              <span className="field__label startpick__q" id="dist-l">{start === "owner" ? "Where will you open?" : "Where's your first job?"}</span>
               <div className="districtpick" role="radiogroup" aria-labelledby="dist-l">
                 {content.districts.map((d) => (
                   <button key={d.id} role="radio" aria-checked={districtId === d.id} className="diff" onClick={() => setDistrictId(d.id)}>

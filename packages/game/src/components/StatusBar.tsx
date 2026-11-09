@@ -12,13 +12,29 @@ import { pathBadges, type PathMeta } from "../state/paths";
 interface Props {
   game: GameState;
   meta?: PathMeta;
-  onMenu?: () => void;
+  /** Save and go to the title (absent during service). */
+  onQuit?: (() => void) | undefined;
+  /** Start a new game after a confirmation (absent during service). */
+  onNewGame?: (() => void) | undefined;
+}
+
+/** Round 7: yesterday's profit as a small arrow under the cash (the trend a child can read at a glance). */
+function CashTrend({ game }: { game: GameState }) {
+  const last = game.history.at(-1);
+  if (!last) return <span className="status__sub">Day one: no sales yet</span>;
+  const up = last.profit >= 0;
+  const label = game.phase === "planning" ? "yesterday" : "today";
+  return (
+    <span className={`status__trend status__trend--${up ? "up" : "down"}`}>
+      <span aria-hidden="true">{up ? "▲" : "▼"}</span> {up ? "made" : "lost"} <MoneyText pence={Math.abs(last.profit)} whole /> {label}
+    </span>
+  );
 }
 
 export const compactMeals = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}m` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n)));
 
 /** Always-visible header: who/when, cash, reputation, loan; round 3 adds path badges and the Empire/Stars/career strip. */
-export function StatusBar({ game, meta, onMenu }: Props) {
+export function StatusBar({ game, meta, onQuit, onNewGame }: Props) {
   const district = content.districts.find((d) => d.id === game.districtId);
   const badges = meta ? pathBadges(meta) : [];
   const career = meta?.mode === "career" && meta.career && !meta.career.handover ? meta.career : undefined;
@@ -37,7 +53,7 @@ export function StatusBar({ game, meta, onMenu }: Props) {
             {badges.map((b) => <span key={b.id} className={`pathbadge pathbadge--${b.tone}`}>{b.label}</span>)}
           </div>
           <div className="status__when">
-            Day {game.day + 1} · {dateLabel(game.day)} · {district?.name ?? game.districtId}
+            <span className="status__day">Day {game.day + 1}</span> {dateLabel(game.day)} · {district?.name ?? game.districtId}
           </div>
         </div>
         {career ? (
@@ -61,6 +77,7 @@ export function StatusBar({ game, meta, onMenu }: Props) {
             <div className="status__stat">
               <span className="status__k">Cash</span>
               <MoneyText pence={game.cash} whole className={`status__cash ${game.cash < 0 ? "money--neg" : ""}`} />
+              <CashTrend game={game} />
             </div>
             <div className="status__stat status__stat--bars">
               <Bar label="Popularity" value={game.reputation.popularity} tone="accent" showValue size="sm" title="Popularity — brings more people through the door" />
@@ -69,14 +86,13 @@ export function StatusBar({ game, meta, onMenu }: Props) {
             <div className="status__stat">
               <span className="status__k">Loan left</span>
               <MoneyText pence={game.loan.remaining} whole />
-              <span className="status__sub">{game.loan.daysRemaining} days · <MoneyText pence={game.loan.dailyPayment} />/day</span>
+              <span className="status__sub"><MoneyText pence={game.loan.dailyPayment} />/day · {game.loan.daysRemaining} days</span>
             </div>
           </>
         )}
         <div className="status__end">
           <span className={`pill pill--${game.difficulty}`}>{game.difficulty}</span>
-          {onMenu && <button className="btn btn--ghost btn--sm" onClick={onMenu}>Save &amp; quit</button>}
-          <SettingsMenu />
+          <SettingsMenu onQuit={onQuit} onNewGame={onNewGame} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
         </div>
       </div>
       {e && (
