@@ -304,6 +304,8 @@ function reduce(s: AppState, a: AppAction): AppState {
       // Evening → tomorrow. Employees: the AI owner closes the day. Owners: END_DAY (the event modal handles "event").
       if (!s.game) return s;
       const m = s.meta;
+      // Round 6: the Empire's board meeting pauses the calendar until it is answered or skipped.
+      if (m.empire?.boardMeeting) return withToast(s, "The board is waiting: answer or skip this month's meeting first.", "info");
       if (m.mode === "career" && m.career && !m.career.handover) {
         if (m.career.employer.status !== "employed") {
           const r = careerIdleDay(s.game, m);

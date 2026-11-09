@@ -53,6 +53,15 @@ export const GLOSSARY = {
   crewSkill: { term: "crew skill", plain: "How good the team is", explain: "the local cooks' and servers' average skill, out of 100." },
   plot: { term: "property", plain: "Buy the land", explain: "own the land under a shop (40% deposit, the rest on a 25-year mortgage); franchisees then pay you rent." },
   remodel: { term: "remodel", plain: "Do up the shop", explain: "a refit that brings an old shop back in line with your formula." },
+  // Round 6: the board meeting
+  boardMeeting: { term: "board meeting", plain: "Monthly money meeting", explain: "once a month the people who run HQ look at the money and make one big choice." },
+  refurb: { term: "refurb", plain: "Make it feel new", explain: "fixing up a tired shop so its wage and repair bills drop back for a while." },
+  feeHoliday: { term: "fee holiday", plain: "A break from paying you", explain: "a franchise owner skips the royalty for a while to get back on their feet." },
+  supplyMarkup: { term: "supply markup", plain: "Extra on the food you sell them", explain: "HQ buys food for every shop; a markup means franchise owners pay HQ a little more than it cost." },
+  hqCosts: { term: "HQ overheads", plain: "Running HQ", explain: "offices, staff, mortgages and interest: what HQ itself costs each month." },
+  driveThru: { term: "drive-thru", plain: "Order from your car", explain: "a lane where drivers order and collect without parking; more guests, bigger plot." },
+  localise: { term: "localise", plain: "A menu for that city", explain: "changing the menu so it follows the local food rules, so guests there stop staying away." },
+  campaign: { term: "brand campaign", plain: "Adverts", explain: "paying for adverts in one region so more people there know your name." },
 } satisfies Record<string, GlossaryEntry>;
 
 export type TermId = keyof typeof GLOSSARY;

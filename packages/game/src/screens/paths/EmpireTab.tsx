@@ -7,6 +7,7 @@ import {
 } from "@full-plate/sim-empire";
 import type { DistrictId } from "@full-plate/sim-core";
 import { content, extras } from "../../sim";
+import { dateLabel } from "../../lib/calendar";
 import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
 import { compactMeals } from "../../components/StatusBar";
@@ -130,11 +131,35 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
                 </div>
                 <p className="xs faint">Keeps £2,000 in the till. Till now: <MoneyText pence={game.cash} whole /></p>
               </div>
+              <BoardMinutes e={e} />
               <ContractPanel e={e} send={send} />
             </>
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+/** "Mar · Year 3": the month of a board meeting. */
+const monthLabel = (day: number) => dateLabel(day).replace(/^\w+ \d+ /, "");
+
+/** Round 6: the board's minutes, one line a month (newest first): what was decided and what HQ made. */
+function BoardMinutes({ e }: { e: EmpireState }) {
+  const minutes = (e.boardMinutes ?? []).slice(-12).reverse();
+  return (
+    <div className="card stack stack--sm" aria-label="Board meetings">
+      <div className="card__title"><h3><Term id="boardMeeting">Board meetings</Term></h3><span className="xs faint">once a month</span></div>
+      {e.boardMeeting && <p className="small"><b>This month's meeting is waiting for you.</b></p>}
+      {minutes.length === 0 ? <p className="small muted">The first meeting is at the end of this month.</p> : (
+        <ul className="boardminutes">
+          {minutes.map((m) => (
+            <li key={m.id} className="small">
+              <b>{monthLabel(m.day)}</b> · {m.text} · HQ {m.net >= 0 ? "made" : "lost"} <MoneyText pence={Math.abs(m.net)} whole />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

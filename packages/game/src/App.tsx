@@ -26,6 +26,7 @@ const GuideEnvelope = lazy(() => import("./screens/paths/GuideEnvelope").then((m
 const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((m) => ({ default: m.HandoverModal })));
 const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
 const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
+const BoardMeeting = lazy(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
 const Loading = () => <div className="page"><div className="empty small muted">Loading…</div></div>;
 import { Toast } from "./components/Toast";
 import { handsOnRoleFor } from "./state/paths";
@@ -95,6 +96,8 @@ export function App() {
   // Evening → tomorrow morning (via the morning post on event days). Tomorrow opens on the Menu tab
   // unless a shortcut ("Hire", "Buy a table") picked another.
   const nextDay = () => {
+    // Round 6: the month doesn't move on until the board meeting is answered or skipped.
+    if (meta.empire?.boardMeeting) return;
     setLastShift(null);
     if (!career && game?.phase === "event") setEventOpen(true);
     else dispatch({ type: "nextDay" });
@@ -263,6 +266,9 @@ export function App() {
       )}
       <Suspense fallback={null}>
         {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} onClose={() => dispatch({ type: "openGuide" })} />}
+        {!career && meta.empire?.boardMeeting && (game.phase === "planning" || isEvening) && !meta.fork.offered && (
+          <BoardMeeting empire={meta.empire} meeting={meta.empire.boardMeeting} send={sendEmpire} />
+        )}
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
       <Toast toast={app.toast} onDismiss={dismissToast} />
