@@ -45,7 +45,7 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
       </div>
       {/* Round 7: the forecast in one line a child can read, before the table. */}
       <p className={`forecast forecast--${opening ? "opening" : shortCount ? "short" : "ok"}`} data-testid="stock-forecast">
-        <span className="forecast__icon" aria-hidden="true">{shortCount && !opening ? "📦" : "✅"}</span>
+        <span className="forecast__icon" aria-hidden="true"><Icon name={shortCount && !opening ? "stock" : "check"} size={24} /></span>
         <span>
           Next service: about <b>{guests}</b> guests.{" "}
           {opening ? "Today's opening stock is bought for you when you open." : shortCount ? <><b>{shortCount} thing{shortCount === 1 ? "" : "s"}</b> will run short — tap <b>{opening ? "Fill for tomorrow" : "Fill what's short"}</b>, then <b>Place order</b>.</> : "The larder covers it."}

@@ -1797,3 +1797,8 @@ h3 { line-height: var(--lh-heading); }
   .btn:hover:not(:disabled), .continue:hover { transform: none; }
   .modal, .modal-back, .toast { animation: none; }
 }
+.checkmark { display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 6px; border: 2px solid var(--line-strong); background: var(--surface-raised); align-self: center; }
+.checkmark--on { background: var(--basil); border-color: var(--basil-deep); color: #fff; }
+.forecast__icon { display: inline-grid; place-items: center; color: var(--basil-deep); }
+.forecast--short .forecast__icon { color: var(--amber-deep); }
+.forecast--opening .forecast__icon { color: var(--sky-deep); }
