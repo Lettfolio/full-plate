@@ -71,7 +71,7 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
         </g>
         <g fontFamily="Nunito, sans-serif" fontSize="14" fontWeight="800" fill="#5c534a">
           <text x={W / 2} y={H - 4} textAnchor="middle">more popular →</text>
-          <text transform={`translate(12 ${H / 2}) rotate(-90)`} textAnchor="middle" dy="0">more margin →</text>
+          <text transform={`translate(16 ${H * 0.3}) rotate(-90)`} textAnchor="middle" dy="0" paintOrder="stroke" stroke="#efe3f3" strokeWidth={3}>more margin →</text>
         </g>
         {placed.map(({ m, cx, cy }) => {
           const q = quadrants[m.dishId] ?? "dog";
