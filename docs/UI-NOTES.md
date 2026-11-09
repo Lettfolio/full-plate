@@ -574,3 +574,30 @@ sources, advice tips, the win journey, Stars news.
 - **Do** keep one primary per screen (`.btn--xl`, bottom-right dock). **Don't** add a second tomato button beside it.
 - **Do** put a caption and scopes on any new `<table>`; numbers right-aligned with `tabular-nums`.
 - **Do** give every hover/press transition a `prefers-reduced-motion` off switch (the R8 block has one list).
+
+## Round 8 — review (conventions after the merge)
+
+A's and B's sections above are kept as each builder wrote them, in merge order (A then B); C's notes are in
+HANDSON-NOTES "Round 8 — C". Where this section and theirs disagree, this one is current.
+
+- **Map styles live in `screens/paths/map.css`**, never theme.css (A's test pins it). The old one-svg map's theme.css
+  rules (`.empire__map svg*`, `.pin-hit`, `.empire__legend`) are gone, and so is map.css's block that undid them.
+- **Ownership colours are `--own` / `--franchise` / `--licence` everywhere** (B's tokens: tomato / amber / plum).
+  `OWN_COLOUR` in WorldMap.tsx is `var(--own)`, `var(--franchise)`, `var(--licence)`, so the map pins, the map key, the
+  My shops city bars, the site dots and any chart agree. Amber is under 3:1 on paper: always beside a word.
+- **Canvases read tokens**, listed in one place each: `handson/src/palette.ts` (`TOKEN_VARS`) for the kitchen and
+  `game/src/canvas/floorPalette.ts` (`FLOOR_TOKENS`) for the owner's floor. A token they read must stay a literal
+  colour (or a `var()` alias of one) in theme.css; a miss falls back silently to the default, so `round8.review.test.ts`
+  resolves each one. `--awning` must stay a two-colour stripe gradient.
+- **The owner's floor is a lazy chunk.** Service.tsx imports `RestaurantView` for types only and loads it with
+  `import()` (prefetched in idle time); the frame loop that drives the sim clock starts at once and draws once the view
+  lands. Don't add a static import of `canvas/RestaurantView` or `@full-plate/handson/{sprites,layers,palette}` to
+  anything in the main chunk.
+- **Pills are sentence case in the source.** `.pill` has `text-transform: none` (B's `capitalize` produced Title Case:
+  "You Run This One", "Out Of Season"). Write "In season", "Worked"; capitalise a data word in JSX.
+- **No all-caps eyebrows.** The career screens' kicker lines use `.panel__eyebrow`; the hands-on kicker ("Your shift ·
+  Sides") is sentence case too, and `.caps` is gone. Map region names are the one tracked-caps exception (cartographic
+  labels, `map.css`).
+- **Chrome glyphs are Icons**: the city map's Back and Open here use `back` / `plus` like the rest of the game.
+- **Empire totals** are six tiles at ≥ 1181 px and three a row below (`.empire__stats`).
+- **Type audit** measures canvas text drawn into offscreen layers too (C's cached scenes), at the layer's dpr.

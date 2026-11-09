@@ -728,7 +728,6 @@ button, input { font: inherit; color: inherit; }
 .openbar__confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; max-width: 640px; padding: 10px 14px; border-radius: var(--r); background: var(--amber-wash); border: 2px solid var(--amber); font-size: var(--fs-sm); }
 
 /* ───────── round 3: start picker, career, hands-on, paths ───────── */
-.caps { font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .callout--good { background: var(--basil-wash); border-color: var(--basil); }
 .status-wrap { flex: none; z-index: 5; }
 .pathbadge { display: inline-block; margin-left: 8px; padding: 1px 9px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 800; font-family: var(--font-body); vertical-align: 2px; }
@@ -780,7 +779,7 @@ button, input { font: inherit; color: inherit; }
 
 .handson { display: flex; flex-direction: column; height: 100%; padding: 12px 24px 16px; gap: 10px; }
 .handson__bar { display: flex; align-items: center; gap: 16px; }
-.handson__kicker { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.handson__kicker { font-weight: 800; } /* R8 review: sentence case like every other label (was tracked caps) */
 .handson__clock { font-family: var(--font-display); font-size: 26px; font-weight: 600; }
 .handson__score b { font-family: var(--font-display); font-size: 24px; }
 .handson__keys kbd { font-family: var(--font-body); font-weight: 800; background: var(--paper); border: 1.5px solid var(--line-strong); border-radius: 5px; padding: 0 5px; }
