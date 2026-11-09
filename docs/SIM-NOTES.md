@@ -401,31 +401,32 @@ R5.6 step 3: teach the owner levers in-game the way the rota tip does. `rotaAdvi
 
 | kind | rule (defaults; `content/data/adviceText.json` → `ContentPack.adviceText.rules`) | one tap |
 |---|---|---|
-| `rota` | round 5 unchanged: losing fortnight + the later hire's doubled-up days. **No cooldown** (shown every losing evening, as in round 5). | `SET_ROTA` without those days |
+| `rota` | round 5 unchanged: losing fortnight + the later hire's doubled-up days. **No cooldown**, but (round 6 review) after `rotaRestAfter` (2) showings in a row it steps aside for one evening when another tip is due. | `SET_ROTA` without those days |
 | `idleChef` | last 7 days: ≥ 2 days with two chefs cooking, and on each of them the two plated ≤ what one chef managed alone in the last 14 days. Names the later chef rostered alongside another on those weekdays. | `SET_ROTA` without those days |
-| `overstock` | last 7 days: an ingredient binned ≥ £15 and ≥ 25% of the portions used (`DayResult.spoiled`, new). Costliest named. | opens the Stock tab (no command shrinks an order) |
+| `overstock` | last 7 days: an ingredient binned ≥ £15 and ≥ 25% of the portions used (`DayResult.spoiled`, new). Costliest named. | (round 6 review) with more on tomorrow's order than tomorrow's forecast needs: `CANCEL_ORDER` for the excess, applied **tonight** (`now: true`; words `fix`: "Take 110 cod fillet off tomorrow's order"); otherwise opens the Stock tab |
 | `underpriced` | popularity ≥ 70, ≥ 4 walk-outs a night over the week, kept < 5% of takings over 14 days, prices ≤ 1.05 × suggested. | `SET_MENU_ITEM` +10% on every active dish (to 10p) |
 | `dog` | a dish selling < 50% of its course's average at a below-average ex-VAT margin per plate, in **each** of the last two weeks; course has ≥ 3 dishes; it sold in the first week (not new). | `REMOVE_MENU_ITEM` |
 
-- Priority: rota → idleChef → overstock → underpriced → dog. Every kind but rota rests `cooldownDays` (7) after it is shown.
+- Priority: rota → idleChef → overstock → underpriced → dog. Every kind but rota rests `cooldownDays` (7) after it is shown; rota steps aside every third losing evening (`rotaRests`: shown last night and its showings so far a multiple of `rotaRestAfter`; it falls back to rota when nothing else is due).
+- **`CANCEL_ORDER { ingredientId, qty }`** (round 6 review; the ORDER_STOCK shape): takes portions off tomorrow's pending order, newest line first, refunded pro rata to the penny (cash + money on order unchanged); planning/evening/event; refused when nothing of it is on order. `overOrdered(content, state, id)` = pending − `suggestedOrder` without that ingredient's lines. The learners never issue it (over-stock stays their lasting lesson), so it doesn't move the table below.
 - **What was shown is recorded at END_DAY** (and RESOLVE_EVENT, from the evening state before the post's choice) in `GameState.adviceLog[kind] = { day, count, subject }`. Optional: a state that never showed a tip serializes byte-identically to round 5; with a log it round-trips byte-identically (tests).
 - `DayResult.spoiled?: Record<ingredientId, { qty, cost }>` (absent when nothing spoiled).
 - Words: `ADVICE_TEXT` (icon, title, body, why, action) with `{placeholders}` and `[[termId|label]]` glossary marks; the content pack ships the same words (a content test keeps them equal) and validates placeholders, kinds and rule ranges. `adviceSentences` gives the plain sentences.
-- Planning-phase commands from the Evening button are applied by the game the next morning (after any morning post), then a toast says what changed.
+- Planning-phase commands from the Evening button are applied by the game the next morning (after any morning post, and after an Empire board meeting has been answered), then a toast says what changed. Round 6 review: this lives in the reducer (`actTomorrow` → `AppState.tomorrow`, applied on the first planning morning after that evening; `actNow` for the over-stock trim), not an App effect.
 
 **Headless owners.** `learner` now follows every tip; `learner-<kind>` follows one. `learner-rota` is round 5's `learner`, byte-identical (hard 33/100). The others act once that tip has been **shown twice** (`LEARNER_NOTICE_SHOWS`): the morning after a showing they issue the tip's commands (`followTips`); over-stock is a lasting lesson (stock days 2.0 → balanced's 1.3); a chef named by the idle-chef tip keeps the extra days off until the room is busy. `typical` and `balanced` never read the log (a test plays them with every tip switched off: same cash to the penny).
 
-| owner year 1, 100 seeds, real pack | cosy | normal | hard |
-|---|---|---|---|
-| typical | 100% | 83% | 0% |
-| balanced | 100% | 100% | 45% |
-| **learner (follows every tip)** | 100% | 100% | **50%** |
-| learner-rota (= round 5 learner) | 100% | 100% | 33% |
-| learner-overstock | 100% | 88% | 3% |
-| learner-dog | 100% | 83% | 0% |
-| learner-idleChef | 100% | 85% | 0% |
-| learner-underpriced | 100% | 85% | 5% |
+| owner year 1, 100 seeds, real pack | cosy | normal | hard | round 6 as first shipped (rota never rests) |
+|---|---|---|---|---|
+| typical | 100% | 83% | 0% | same |
+| balanced | 100% | 100% | 45% | same |
+| **learner (follows every tip)** | 100% | 100% | **50%** | 100 / 100 / 50 |
+| learner-rota (= round 5 learner) | 100% | 100% | 33% | 100 / 100 / 33 |
+| learner-overstock | 100% | 92% | 3% | 100 / 88 / 3 |
+| learner-dog | 100% | 83% | 0% | 100 / 83 / 0 |
+| learner-idleChef | 100% | 95% | 0% | 100 / 85 / 0 |
+| learner-underpriced | 100% | 88% | 10% | 100 / 85 / 5 |
 
-Reading it: on hard the rota tip shows every losing evening and comes first, so on its own each other tip rarely gets an evening while the doubled-up rota bleeds (the single-tip learners don't trim it): 0–5%. Once the rota is trimmed the other tips get their evenings, and together they add 17 points over the rota alone (33% → 50%). On normal the rota tip rarely holds and each tip alone helps a little (over-stock most: 83% → 88%). DIFFICULTY is unchanged; typical is unchanged (0 / 83 / 100).
+Reading it: on hard the rota tip comes first on losing evenings, so on its own each other tip rarely gets an evening while the doubled-up rota bleeds (the single-tip learners don't trim it): 0–10%. Once the rota is trimmed the other tips get their evenings, and together they add 17 points over the rota alone (33% → 50%). Round 6 review: with the rota tip stepping aside every third losing evening the other tips get more evenings, so the single-tip learners rose (normal: over-stock 88 → 92%, idle chef 85 → 95%, under-pricing 85 → 88%; under-pricing hard 5 → 10%) while learner-rota (33%) and the full learner (50%) are unchanged — the review's condition for shipping the rest. DIFFICULTY is unchanged; typical is unchanged (0 / 83 / 100).
 
-`test/round6.advice.test.ts` (24), `content/test/advice.test.ts` (3), game `adviceCard.test.tsx` (8).
+`test/round6.advice.test.ts` (24), `test/round6.review.test.ts` (8: CANCEL_ORDER, the trim, the rota rest, a sim-core source scan), `content/test/advice.test.ts` (3), game `adviceCard.test.tsx` (9), `round6.seams.test.tsx` (8).

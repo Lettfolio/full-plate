@@ -416,6 +416,10 @@ bookSousWalk(walks, item, slot, now) · sousPose(walks, time, railX) · sousLine
 ```
 All derive from the same rules as `stationTickets`/`coverDueTick` (which mirror sim-core `humanTickets`/`ticketsToCover`),
 so the rail colours can't disagree with what the sim does. `sousName` is now exported from the session.
+**Round 6 review:** `HELPER_SUFFIX` is now sim-core's exported `SHADOW_COOK_SUFFIX` (not a copy of `"~ai"`), and
+`game/src/__tests__/round6.railAgree.test.ts` plays three whole bot shifts and checks every sim tick: hers + amber slips =
+sim-core's `stationRailTickets`, every ticket `ticketsToCover` takes on the next tick was already amber, markers only on
+parties eating with `courseOut`, the helper badge only on a `~ai` cook (0 disagreements in 360 ticks).
 
 ### Numbers (headless, the half-speed bot on the balanced employer "Desserts · Burgers", seeds 1–3, every frame)
 The sous chef is on a trip in 32–35% of frames, a slip is amber (going within a tick) in 27–42%, a course marker shows in
@@ -427,4 +431,6 @@ Type audit: 25 screens, 0 text runs below 13 px.
   reaches for it (the flying slip stands in for it). Starting the walk a tick early (when `coverSoon` turns amber) would
   need the game's tick clock in render; not worth it yet.
 - The sous chef walks through the player (no collision for NPCs); at the pass they can overlap for a moment.
-- The "Covered by the sous chef" toast still rises from the pass and can overlap his bubble when he is there.
+- The "Covered by the sous chef" toast still rises from the pass and can overlap his bubble when he is there. (Round 6 review: not seen in 301 frames of three
+  played shifts; his bubble shows only during the take, under the slip, while the toast rises at the pass.)
+- Round 6 review: when he stands at the pass his name tag sits on the floor's "PASS" label ("Alfie" over "PASS"). P3.

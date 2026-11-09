@@ -862,3 +862,89 @@ Top three next steps:
 1. **Show the course on the canvas.** A small "dessert coming" marker on a table eating its mains and a sous-chef sprite taking a ticket off the rail, so the child sees the help instead of reading a number.
 2. **An Empire monthly "board meeting" card** (income by source, one question: raise royalty? localise Vasant? buy the Campus plot?) — with maturity drag the late game now has real trade-offs to put on it.
 3. **Teach the owner levers in-game the way the rota tip does:** the same evening-tip pattern for over-stock (spoilage), a dog on the menu, and an idle second chef, each measured by a `learner` variant in the headless table.
+
+# Round 6: integration review, balance and playtest (help on the canvas, board meeting, evening tips)
+
+Reviewer: lead. Date: 9 Nov 2026. Covers `c7c7d96` … `336c377` (three streams: A help on the canvas, B Empire board meeting + flagship maturity, C evening tips). C's branch `r6c` had been rebased onto master before B landed; it rebased again onto B with no conflicts (C and B touched different lines of App.tsx, glossary.ts and theme.css) and master fast-forwarded to it. Fixes are `e2cf6c2` … `6c32353`, one commit per fix, then this docs commit.
+
+**Status at the end of this pass:**
+- `pnpm -r typecheck` ✓ (7 packages). `pnpm -r test` ✓: sim-core 243, content 54, handson 70, sim-career 61, sim-stars 67, sim-empire 96, game 216 (**807**; the merged streams were 786, +21 this pass).
+- `pnpm --filter @full-plate/game build` ✓ from the final commit. Type audit (`FP_AUDIT_URL=http://localhost:4733`): **27 screens, 0 text runs below 13 px, 0 page errors** (before and after the fixes).
+- Worktrees `fp-r6c` and `wt-r6b` removed, branches `r6c`/`r6-board` deleted; seven orphaned `vite preview` servers (4173 ×2, 4181, 4196, 4627 …) killed. Tree clean.
+
+Artefacts (scratchpad): `r6rev/sweep.sh`, `r6rev/owner-final.txt`, `r6rev/empire.txt`; playtests `shots/r6/review/{kid.cjs,tips.cjs}` with screenshots in `shots/r6/review/{kid,tips,empire}/` and `log.json` / `tips-*.json`; saves `shots/r6/review/saves/` (an over-stock evening with 120 cod on order; B's year-4 board save with a tip due the same night).
+
+## R6.1 What landed
+- **A (help on the canvas):** the sous chef walks a covered slip to the pass with a speech bubble, a cloche "course coming" marker on tables eating their mains, her `~ai` hands at her station with a "helping" badge, rail owner bands (tomato hers / amber the sous chef's within a tick / sky helper). Render only.
+- **B (board meeting):** a monthly meeting on the last evening of each month (income by source, top mover, one risk, one 2–3-option decision with the board's tip; skip allowed), a modal that holds Next day, minutes on the Money panel; the founder's flagship now matures.
+- **C (evening tips):** `eveningAdvice` — one tip an evening from rota / idle chef / over-stock / under-pricing / dud dish, cooldowns, `adviceLog` recorded at END_DAY, `DayResult.spoiled`; the tip card first on the Evening with Why? and a one-tap action; `learner` and `learner-<kind>` owners.
+
+## R6.2 Integration seams (with tests)
+- **(a) Tip action × board modal** (`6c32353`). The tip's tomorrow-commands lived in an App `useEffect` (untestable) and App's Next day returned silently while the board was open, so the reducer's "The board is waiting" toast never showed. Now `actTomorrow` queues them in `AppState.tomorrow` and `appReducer` applies them on the first planning morning after that evening (after the morning post, after the board); `actNow` for tonight-commands; a game over drops the queue; a refused command keeps its own toast. Tested both orders: tip first → Next day held with the toast, the meeting object unchanged (the card still shows), the action waits, then lands the morning after the board is skipped; board first → tip → applied. The over-stock trim applies under an open meeting and leaves it up. **`adviceLog` + `boardMeeting` round-trip together** through `encodeSave`/`decodeSave` byte-identically (END_DAY-recorded log, unanswered meeting).
+- **(b) Tip card + board card on one evening.** No stacked modals: the tip is inline (first card on the Evening), the board is the only dialog; the fork card hides the board, and the event modal can only open after Next day, which the board holds. Order: board → tip → Next day (→ morning post). Test renders both: one `role=dialog`, the tip outside it and first. Browser: the tip's button sits under the board's backdrop (`elementFromPoint` = backdrop), then is live once the board is answered.
+- **(c) Rail bands vs the sim** (`e2cf6c2`). sim-core now exports `SHADOW_COOK_SUFFIX`; handson's `HELPER_SUFFIX` is it, not a copy. `round6.railAgree.test.ts` plays three whole bot shifts (seeds 5–7, 360 ticks) and checks every tick: hers + amber slips = sim-core `stationRailTickets`; every ticket `ticketsToCover` takes on the next tick was already amber (51 covers); 198 course-marker frames all on parties eating with `courseOut`; 19 helper frames all on a `~ai` cook. **0 disagreements.**
+- **(d) "Your own shops £0"** (`8e00090`). When the only company shop is the focused flagship (its till isn't HQ's) the card adds: "£0 because your only own shop is the one you run: its money stays in its own till (the Evening shows it)." Not shown when HQ has another company shop. Tested; seen in the browser on B's year-4 save.
+- **(e) The rota tip never rests** (`f7bbef7`). `rules.rotaRestAfter` = 2: after two showings in a row it steps aside for one evening when another tip is due (else it shows anyway; never two rests running). Condition met — hard: **learner-rota 33%** (≥ 33), **learner 50%** (≥ 50) — so it ships. It also lifts the single-tip learners (table below).
+- **(f) Over-stock one-tap fix** (`f7bbef7`, `6c32353`). New `CANCEL_ORDER { ingredientId, qty }` (ORDER_STOCK's shape): takes portions off tomorrow's pending order, newest line first, refunded pro rata to the penny (cash + money on order unchanged), planning/evening/event, refused with nothing on order. The tip carries it (`now: true`, words `fix`) when more is on order than tomorrow's forecast (`suggestedOrder` without that ingredient) needs, and applies **tonight** — a morning command would be too late, the order arrives at dawn. With nothing to trim it stays "Check the larder →". Tests: refund arithmetic, refusals, frozen-input purity, serialize round-trip; learners never issue it, so the headless table is untouched by it.
+- **(g) Purity** (`f7bbef7`, `6b13b2a`). sim-core had only a run-time Math.random/Date trap; it now has a recursive source scan (every src file but the headless CLI, `advice.ts`, `strategies.ts`, `systems/*` asserted present; also `performance.now`). sim-empire's scan asserts `board.ts` is in it. `eveningAdvice` and the trim on deep-frozen real states; `buildBoardMeeting` already had a frozen test.
+
+## R6.3 Fixes in this pass
+| Commit | Fix |
+|---|---|
+| `e2cf6c2` | sim-core exports `SHADOW_COOK_SUFFIX`; handson imports it; rail/marker/helper-vs-sim probe test. |
+| `f7bbef7` | `CANCEL_ORDER`, the over-stock trim (`overOrdered`, `now`, `fix` words, content pack + validation); `rotaRestAfter`; sim-core source scan. |
+| `6b13b2a` | sim-empire purity scan asserts `board.ts`. |
+| `8e00090` | Board card: the "Your own shops £0" line. |
+| `6c32353` | Tip actions in the reducer (`actTomorrow`/`actNow`, `AppState.tomorrow`); Next day toasts while the board waits; seams (a)(b)(d) tests; empire fixture shared. |
+
+## R6.4 Balance
+**(a) Owner year 1, 100 seeds, real pack (final code):**
+
+| | cosy | normal | hard | C's table (rota never rests) |
+|---|---|---|---|---|
+| typical | 100% | 83% | **0%** | 100 / 83 / 0 |
+| balanced | 100% | 100% | 45% | 100 / 100 / 45 |
+| learner (every tip) | 100% | 100% | **50%** | 100 / 100 / 50 |
+| learner-rota (= R5 learner) | 100% | 100% | **33%** | 100 / 100 / 33 |
+| learner-overstock | 100% | 92% | 3% | 100 / 88 / 3 |
+| learner-dog | 100% | 83% | 0% | 100 / 83 / 0 |
+| learner-idleChef | 100% | 95% | 0% | 100 / 85 / 0 |
+| learner-underpriced | 100% | 88% | 10% | 100 / 85 / 5 |
+
+C's table confirmed exactly before the rest; with it, the headline rows are unchanged and the single-tip learners gain (their tips now get evenings on losing streaks). Typical/hard stays 0% by design (the advice-ignoring baseline).
+
+**(b) Empire 10 years × 5 seeds, `--board both`:** identical to B's table in EMPIRE-NOTES, seed for seed.
+
+| Style | skip | board-follower |
+|---|---|---|
+| franchise | 5/5, y5.0–5.6; HQ £0.39–0.60bn; mood 73–76 | 5/5, y5.3–6.2; £0.55–0.69bn; mood 65–71 |
+| company | 5/5, y7.2–8.1; £0.48–0.70bn | 5/5, y7.2–8.1; £0.47–0.69bn |
+| innout | 3/5, y9.0; £0.11–0.18bn | 5/5, y8.5–9.1; £0.10–0.18bn |
+
+## R6.5 Playtests (`vite preview` of the built dist on :4733, Chromium via Playwright; 0 page errors and 0 console errors on every screen)
+
+**A. Apprentice chef, cosy, `?autopilot=0.55,0.5`, 3 worked shifts** (`kid/`, 301 canvas frames). 196–206 s a shift; 8–9 plates, 88% quality, 3 stars each; +0.8–0.9 skill a shift; Shifts 3/10. The sous chef works as A describes: at 56 s he stands under the table-2 slip with "I've got table 2!" while "Covered by the sous chef" rises at the pass (`d1-h28-56s.png`); two seconds later he is at the pass (`d1-h29`). The cloche with its tomato ring sits on table 1 while it eats (`d1-h50-100s.png`), and the slip carries the small dome. The helper in light whites with the blue "helping" badge cooks table 5's brownie at the oven while the rail's slip says HELPER (`d1-h47-94s.png`; 4 frames of 301 by colour scan). **Toast/bubble overlap (A's open item): not seen** — the bubble shows during the take, under the slip; the toast rises at the pass at that moment. New nit: at the pass his name tag sits on the floor's "PASS" label.
+
+**B. Owner Evening tips** (`tips/`, C's five saves + one with 120 cod on order). Every tip is the first card; every button does what it says: rota → "Give Kofi Brennan Friday, Saturday and Sunday off" → Staff tab, toast "Done: …"; idle chef → Staff; under-pricing → Menu "Raise prices 10%"; dud → Menu, dish gone; over-stock with nothing on order → "Check the larder →" (Stock); **over-stock with cod on order → "Take 110 cod fillet off tomorrow's order"**: stays on the Evening, toast "Done: …", the card goes back to "Check the larder →", the Restock card doesn't re-order it.
+
+**C. Empire year 4** (`empire/`, B's `empire-board` save with a tip due the same night). One dialog (the board) over the Evening; the tip card underneath, its button covered by the backdrop; "Your own shops £0" carries the new line; answering with the board's tip (buy the Campus plot) closes it, then the trim ("Take 175 beef mince off tomorrow's order") applies with its toast. Then 27 days played at 4× (cap 20 min; one more over-stock tip on day 6 after its cooldown), and from a morning save of the month's last day (generated by the reducer): Open → the evening shows the May board card (drive-thru question, the £0 line again), Escape doesn't dismiss it, Skip closes it, Next day → 1 June, the Money panel minutes read "May · Year 4 · Skipped · HQ made £329,947 / Apr · Year 4 · Skipped · HQ made £272,602 / …".
+
+| Sev | Finding | State |
+|---|---|---|
+| **P2** | Evening tip's action held in an App effect; while the board held Next day the tap did nothing visible (no "board is waiting" toast) and the path was untested. | Fixed (`6c32353`) |
+| **P2** | Over-stock tip had no one-tap fix, and a morning command could never trim an order that arrives at dawn. | Fixed (`f7bbef7`): `CANCEL_ORDER`, applied tonight |
+| **P2** | The rota tip never rested, so on a losing streak no other tip ever showed (single-tip learners 0–5% on hard). | Fixed (`f7bbef7`): rests every third losing evening; learner-rota 33%, learner 50% unchanged |
+| P3 | "Your own shops £0" every month when the only company shop is the flagship. | Fixed (`8e00090`) |
+| P3 | handson mirrored sim-core's `"~ai"`; sim-core had no source scan. | Fixed (`e2cf6c2`, `f7bbef7`, `6b13b2a`) |
+| P3 | Sous chef's name tag over the "PASS" floor label while he stands at the pass. | Open |
+| P3 | "Covered by the sous chef" toast vs his bubble (A's item). | Open, not reproduced in 301 frames |
+| P3 | The year-4 audit save's flagship is the founder alone (10 served, 57 walk-outs a night, "A tough night." for 27 nights) — the Empire's own focused shop reads as failing while HQ makes £300k a month. | Open (fixture/design: a hire prompt exists; the board could raise it) |
+| P3 | The walk is a replay (the slip has left the rail before he reaches it); NPCs walk through the player. | Open (A's notes) |
+
+## R6.6 Is it fun yet?
+**Career: yes, and now visible.** The help the round-5 card only counted is on the canvas: a named sous chef walking her slip to the pass, a dome on the table waiting for her dessert, a helper at her oven. A child can see why a slip left her rail. **Owner: better.** One tip a night, in her words, with a button that does it; the over-stock tip finally has a real fix, and other tips now get a turn on a bad run. **Empire: closer still.** The monthly board card gives the mid-game the rhythm R5 lacked (one money summary, one worry, one question); the tip and the board share an evening without fighting. What it lacks is consequence on the focused shop: HQ booms while the shop she runs struggles every night, and nothing connects the two.
+
+Top three next steps:
+1. **Connect the flagship to the board.** When the shop she runs loses money for a month, make that the board's worry and offer the fix (hire a manager / a cook for the flagship, paid by HQ), so the Empire screen and the Evening tell one story.
+2. **Start the sous chef's walk a tick early.** Begin the trip when the slip turns amber (`coverSoon`), so he takes the slip off the rail instead of replaying it, and keep NPCs from walking through her (the name-tag and pass-label nit goes with it).
+3. **Measure the tips with a child, not just bots.** Log which tips were shown, read (Why? opened) and acted on in a real session (a local, opt-in record on the save), and check that the learner's 50% on hard is reachable by a person; if hard stays out of reach, a "cosy-hard" middle setting is cheaper than retuning hard.
