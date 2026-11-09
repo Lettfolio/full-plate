@@ -301,7 +301,9 @@ export class RestaurantView {
   }
 
   private updateSprites(game: GameState, L: Layout, dt: number, opts: RenderOptions) {
-    const speed = (80 + L.person * 6) * Math.max(1, opts.speed);
+    // round 8: quicker than before: the aisle routes are ~30% longer than the old beelines, and a
+    // party shouldn't still be walking in when its food lands
+    const speed = (80 + L.person * 6) * 1.8 * Math.max(1, opts.speed);
     const moving = opts.speed > 0 ? dt : 0;
     const spots = this.queueSpots(game, L);
     const alive = new Set<string>();
