@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
 import { classifyMenu, content, MAX_MENU_ITEMS } from "../../sim";
 import { suggestedStarterMenu } from "../../lib/starterMenu";
@@ -6,11 +6,33 @@ import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
 import { marginFraction, plateCost } from "../../lib/content";
 import { pct } from "../../lib/format";
-import { MenuMatrix, QUADRANT } from "./MenuMatrix";
+import { QUADRANT } from "./quadrants";
+// Round 7: the matrix is the expert view, loaded the first time it is opened.
+const MenuMatrixPanel = lazy(() => import("./MenuMatrixPanel"));
 import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
 import { Term } from "../../components/Term";
-import type { TermId } from "../../lib/glossary";
-const QUADRANT_TERM = { star: "mmStar", ploughhorse: "mmPloughhorse", puzzle: "mmPuzzle", dog: "mmDog" } as const satisfies Record<string, TermId>;
+
+export type MenuView = "list" | "matrix";
+const VIEW_KEY = "full-plate:menuView:v1";
+/** The last view she picked (a per-browser convenience; the list when storage is missing or blocked). */
+export function readMenuView(): MenuView {
+  try { return localStorage.getItem(VIEW_KEY) === "matrix" ? "matrix" : "list"; } catch { return "list"; }
+}
+function writeMenuView(v: MenuView): void {
+  try { localStorage.setItem(VIEW_KEY, v); } catch { /* private window: keep it for this visit only */ }
+}
+
+/** ✕ asks once before a dish leaves the menu (there is no undo). */
+function RemoveDish({ name, onRemove }: { name: string; onRemove: () => void }) {
+  const [sure, setSure] = useState(false);
+  if (!sure) return <button className="iconbtn dish__remove" aria-label={`Remove ${name}`} title="Remove from menu" onClick={() => setSure(true)}>✕</button>;
+  return (
+    <span className="dish__confirm" role="group" aria-label={`Remove ${name}?`}>
+      <button className="btn btn--sm btn--primary" onClick={onRemove} autoFocus>Remove</button>
+      <button className="btn btn--sm btn--ghost" onClick={() => setSure(false)}>Keep</button>
+    </span>
+  );
+}
 
 interface Props {
   game: GameState;
@@ -36,6 +58,8 @@ function marginTone(f: number): string {
 
 export function MenuTab({ game, send, path }: Props) {
   const [hover, setHover] = useState<DishId | null>(null);
+  const [view, setViewState] = useState<MenuView>(readMenuView);
+  const setView = (v: MenuView) => { setViewState(v); writeMenuView(v); };
   const quadrants = useMemo(() => classifyMenu(content, game), [game]);
   const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), []);
   const byCourse = (a: MenuItem, b: MenuItem) => {
@@ -53,20 +77,20 @@ export function MenuTab({ game, send, path }: Props) {
 
   return (
     <div className="stack">
-      <div className="menu-layout">
-        <div className="stack stack--sm">
-          <h3>Menu matrix</h3>
-          <MenuMatrix items={active} quadrants={quadrants} names={names} fallbackMargin={(m) => m.price - plateCost(content, m.dishId)} highlight={hover} onHover={setHover} />
-          <div className="matrix__legend">
-            {(Object.keys(QUADRANT) as (keyof typeof QUADRANT)[]).map((q) => (
-              <div key={q}><b style={{ color: QUADRANT[q].colour }}>●</b> <Term id={QUADRANT_TERM[q]} inline><b>{QUADRANT[q].label}</b></Term> — {QUADRANT[q].hint}</div>
-            ))}
-          </div>
-        </div>
+      <div className="menuview" role="group" aria-label="How to show the menu">
+        <button className="menuview__btn" aria-pressed={view === "list"} onClick={() => setView("list")}>📋 Today's menu</button>
+        <button className="menuview__btn" aria-pressed={view === "matrix"} onClick={() => setView("matrix")}>📊 Menu matrix <span className="menuview__note">for experts</span></button>
+      </div>
+      <div className={view === "matrix" ? "menu-layout" : "menu-layout menu-layout--list"}>
+        {view === "matrix" && (
+          <Suspense fallback={<div className="empty small muted">Loading the matrix…</div>}>
+            <MenuMatrixPanel items={active} quadrants={quadrants} names={names} highlight={hover} onHover={setHover} />
+          </Suspense>
+        )}
 
         <div className="stack stack--sm">
           <div className="row">
-            <h3 className="spacer">On the menu</h3>
+            <h3 className="spacer">{view === "list" ? "Today's menu" : "On the menu"}</h3>
             <span className="small muted">{active.length} active · aim for 6–10 · max {MAX_MENU_ITEMS}</span>
           </div>
           <div className="dishlist">
@@ -90,7 +114,7 @@ export function MenuTab({ game, send, path }: Props) {
                   <div style={{ minWidth: 0 }}>
                     <div className="row">
                       <span className="dish__name">{d?.name ?? m.dishId}</span>
-                      {m.active && q && <span className={`pill pill--${q}`}>{QUADRANT[q].label}</span>}
+                      {m.active && q && <span className={`pill pill--${q}`} title={QUADRANT[q].hint}>{QUADRANT[q].label}</span>}
                       {!m.active && <span className="pill pill--off">Off today</span>}
                     </div>
                     <div className="dish__meta">
@@ -111,7 +135,7 @@ export function MenuTab({ game, send, path }: Props) {
                     <button className="btn btn--ghost btn--sm" onClick={() => send({ type: "SET_MENU_ITEM", dishId: m.dishId, active: !m.active })} title={m.active ? "Keep the recipe but don't serve it" : "Serve it again"}>
                       {m.active ? "Rest" : "Serve"}
                     </button>
-                    <button className="iconbtn" aria-label={`Remove ${d?.name ?? m.dishId}`} title="Remove from menu" onClick={() => send({ type: "REMOVE_MENU_ITEM", dishId: m.dishId })}>✕</button>
+                    <RemoveDish name={d?.name ?? m.dishId} onRemove={() => send({ type: "REMOVE_MENU_ITEM", dishId: m.dishId })} />
                   </div>
                 </div>
               );

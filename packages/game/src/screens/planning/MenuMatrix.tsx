@@ -10,12 +10,9 @@ interface Props {
   onHover?: (id: DishId | null) => void;
 }
 
-export const QUADRANT: Record<MenuQuadrant, { label: string; colour: string; hint: string }> = {
-  star: { label: "Star", colour: "#e9a23b", hint: "Popular and profitable. Keep it, show it off." },
-  ploughhorse: { label: "Plough-horse", colour: "#4f8fb8", hint: "Popular, thin margin. Nudge the price up or trim the cost." },
-  puzzle: { label: "Puzzle", colour: "#8a5a9e", hint: "Profitable, but few order it. Rename it, move it, push it." },
-  dog: { label: "Dog", colour: "#9b8f80", hint: "Neither. Think about taking it off." },
-};
+import { QUADRANT } from "./quadrants";
+// Round 7: QUADRANT moved to ./quadrants (the list view shows the labels without loading this lazy chunk); re-exported.
+export { QUADRANT };
 
 const W = 360, H = 300, PAD = 30;
 /** Width of a 14.5 px extra-bold label, generously (Nunito ≈ 8.6 px a character). */
