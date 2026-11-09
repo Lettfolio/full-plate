@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  createInputSource, createSession, render, summarise, updateSession,
+  botInput, createInputSource, createSession, render, summarise, updateSession,
   type HandsOnResult, type HandsOnRole, type HandsOnSession, type ShiftSummary,
 } from "@full-plate/handson";
 import { content, HOOKS, SERVICE_TICKS } from "../sim";
@@ -9,6 +9,12 @@ import { clockLabel } from "../lib/calendar";
 
 /** Real seconds per sim tick while a hands-on session is live (HANDSON-NOTES: a 120-tick service is 3 minutes). */
 export const HANDS_ON_SECONDS_PER_TICK = 1.5;
+const AUTOPILOT: number | undefined = (() => {
+  try {
+    const v = new URLSearchParams(window.location.search).get("autopilot");
+    return v === null ? undefined : Math.max(0, Math.min(1, Number(v) || 0));
+  } catch { return undefined; }
+})();
 const STEP = 1 / 60;
 
 interface Props {
@@ -56,8 +62,10 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
     let acc = 0;
     let tickAcc = 0;
     let lastHud = 0;
+    let alive = true;
     const resize = () => {
-      const r = wrapRef.current!.getBoundingClientRect();
+      if (!wrapRef.current) return;
+      const r = wrapRef.current.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.round(r.width * dpr);
       canvas.height = Math.round(r.height * dpr);
@@ -68,13 +76,16 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
     ro.observe(wrapRef.current!);
     resize();
     const frame = (now: number) => {
+      // A dispatch inside this frame (results, ticks) can end the service and unmount us before the frame finishes.
+      if (!alive || !wrapRef.current) return;
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
       const L = live.current;
       if (!pausedRef.current && L.game.phase === "service") {
         acc += dt;
         tickAcc += dt;
-        const inp = input.read();
+        // Playtests/attract mode: `?autopilot=0.4` lets the package's hint-following bot play at that skill.
+        const inp = AUTOPILOT !== undefined ? botInput(sessionRef.current!, L.game, AUTOPILOT) : input.read();
         const results: HandsOnResult[] = [];
         while (acc >= STEP) {
           const r = updateSession(sessionRef.current!, L.game, inp, STEP);
@@ -90,7 +101,8 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
           L.runTicks(Math.min(due, 4));
         }
       }
-      const rect = wrapRef.current!.getBoundingClientRect();
+      if (!alive || !wrapRef.current) return;
+      const rect = wrapRef.current.getBoundingClientRect();
       render(ctx, sessionRef.current!, L.game, { width: rect.width, height: rect.height, dpr: window.devicePixelRatio || 1 });
       if (now - lastHud > 500) { lastHud = now; force((x) => x + 1); }
       raf = requestAnimationFrame(frame);
@@ -98,6 +110,7 @@ export function HandsOnShift({ game, role, playerStaffId, jumpIn, tutorial = tru
     raf = requestAnimationFrame(frame);
     canvas.focus();
     return () => {
+      alive = false;
       cancelAnimationFrame(raf);
       ro.disconnect();
       input.dispose();

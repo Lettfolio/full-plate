@@ -122,8 +122,9 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
             <li key={i.key} className={i.met ? "checklist__item checklist__item--met" : "checklist__item"}>
               <span aria-hidden="true">{i.met ? "✅" : "⬜"}</span>
               <span className="spacer">{i.label}</span>
-              <b>{i.key === "reviewAvg" ? i.current.toFixed(1) : Math.floor(i.current)}</b>
-              <span className="xs muted">/ {i.target}</span>
+              {i.key === "reviewAvg" && career.weeklyReview.length === 0
+                ? <span className="xs muted">{6 - (career.day % 7) === 0 ? "first review tonight" : `first review in ${6 - (career.day % 7)} day${6 - (career.day % 7) === 1 ? "" : "s"}`}</span>
+                : <><b>{i.key === "reviewAvg" ? i.current.toFixed(1) : Math.floor(i.current)}</b><span className="xs muted">/ {i.target}</span></>}
             </li>
           ))}
         </ul>

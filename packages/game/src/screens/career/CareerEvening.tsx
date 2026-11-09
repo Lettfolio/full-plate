@@ -4,7 +4,7 @@ import { careerContent } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Stars } from "../../components/Stars";
 import { Bar } from "../../components/Bar";
-import { dateLabel } from "../../lib/calendar";
+import { dateLabel, weekdayIndex } from "../../lib/calendar";
 import type { PathMeta } from "../../state/paths";
 
 interface Props {
@@ -23,7 +23,9 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
   const promoted = evs.find((e): e is Extract<CareerEvent, { type: "PROMOTED" }> => e.type === "PROMOTED");
   const lines = career.log.filter((l) => l.day === career.day - 1).slice(-6);
   const r = result;
-  const worked = !!r && career.week.workedSimDays.includes(r.day);
+  // On review day the week tally has already been reset, so also ask the employer's rota (the player's sim record).
+  const me = game.staff.find((x) => x.id === PLAYER_ID);
+  const worked = !!r && (career.week.workedSimDays.includes(r.day) || (!!review && !!me?.rota[weekdayIndex(r.day)] && career.trainingSimDay !== r.day));
   const shiftPay = worked ? Math.round(career.wage * 10) : 0;
   const budget = openingBudget(careerContent, career);
   const management = rungDef(career.track, career.rung).simRole === "manager";
@@ -56,8 +58,9 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             <table className="pnl">
               <tbody>
                 <tr><td>Pay ({perHour(career.wage)} × 10h)</td><td><MoneyText pence={shiftPay} /></td></tr>
-                <tr><td>Tips this week so far <span className="pnl__pct">tronc, shared by law</span></td><td><MoneyText pence={career.week.tips} /></td></tr>
-                <tr><td>Wages this week so far</td><td><MoneyText pence={career.week.wagesGross} /></td></tr>
+                {!slip && <tr><td>Tips this week so far <span className="pnl__pct">tronc, shared by law</span></td><td><MoneyText pence={career.week.tips} /></td></tr>}
+                {!slip && <tr><td>Wages this week so far</td><td><MoneyText pence={career.week.wagesGross} /></td></tr>}
+                {slip && <tr><td colSpan={2} className="xs muted">Pay day — this week's wages and tips are on the payslip below.</td></tr>}
               </tbody>
             </table>
             {summary && (
