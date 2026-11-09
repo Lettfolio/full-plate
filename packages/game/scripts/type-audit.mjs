@@ -193,6 +193,15 @@ try {
     await audit(`4${i + 1}-empire-${p.trim().toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}`);
   }
 
+  // Round 6: the board meeting card, then the Money panel's minutes once it is answered.
+  await boot({ owner: "empire-board" }); await cont();
+  await audit("45-empire-board-meeting");
+  await page.getByRole("button", { name: "Skip this one" }).click(); await page.waitForTimeout(300);
+  await page.getByRole("button", { name: /Next day/ }).click(); await page.waitForTimeout(500);
+  await tab(/Empire/);
+  await page.locator(".empire aside [role=tab]").filter({ hasText: "Money" }).click(); await page.waitForTimeout(300);
+  await audit("46-empire-board-minutes");
+
   // Stars
   await boot({ owner: "stars" }); await cont();
   await tab(/Stars/);

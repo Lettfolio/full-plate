@@ -7,6 +7,7 @@
  *   owner-evening   the same game straight after a service
  *   fork-evening    day 365 evening with the fork card showing
  *   empire          Empire path, planning (Empire tab)
+ *   empire-board    Empire path two years on (franchise style), the evening a board meeting is held (round 6)
  *   stars           Stars path, planning (Stars tab)
  *   gameover        bust
  *   win             an ending (Stars dynasty)
@@ -19,6 +20,8 @@ import { appReducer, initialAppState, type AppState } from "../src/state/gameRed
 import { FORK_DAY, initialMeta, type PathMeta } from "../src/state/paths";
 import { chooseEmpire, chooseStars } from "../src/state/pathEngine";
 import { encodeSave } from "../src/state/save";
+import { stepEmpireDay } from "@full-plate/sim-empire";
+import { runStyle } from "../../sim-empire/src/strategies";
 import { applyCommand, content, runDay, suggestedOrder } from "../src/sim";
 
 const OUT = process.env.FP_AUDIT_SAVES ?? join(__dirname, ".audit-saves");
@@ -58,6 +61,14 @@ it("writes the audit saves", () => {
   const morning: GameState = { ...g, day: FORK_DAY + 1 };
   const m0: PathMeta = { ...initialMeta("owner"), lastPathDay: FORK_DAY };
   write("empire", morning, chooseEmpire(morning, m0, "Rosie's Burgers"));
+  // Round 6: two years of franchise-style growth, then the evening a board meeting is held (game day = the meeting's).
+  const forked = chooseEmpire(morning, m0, "Rosie's Burgers");
+  let emp = runStyle(content, "franchise", 3, 2, forked.empire!, "follow").final;
+  do emp = stepEmpireDay(content, emp).empire;
+  while (!emp.boardMeeting);
+  const bday = emp.boardMeeting.day;
+  const last = eve.history.at(-1)!;
+  write("empire-board", { ...eve, day: bday, history: [...eve.history.slice(0, -1), { ...last, day: bday }] }, { ...forked, empire: emp, lastPathDay: bday });
   const stars = chooseStars(morning, m0);
   write("stars", morning, stars);
 
