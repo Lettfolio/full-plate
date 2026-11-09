@@ -4,6 +4,7 @@ import type { GuideResult, InspectorVisit } from "@full-plate/sim-stars";
 import { fill } from "@full-plate/content";
 import { extras } from "../../sim";
 import { dateLabel } from "../../lib/calendar";
+import { playSfx } from "../../lib/sfx";
 
 interface Props {
   game: GameState;
@@ -41,7 +42,7 @@ export function GuideEnvelope({ game, pending, onClose }: Props) {
             <>
               <p>{fill(g.envelope, vars)}</p>
               <div className="envelope__seal" aria-hidden="true">✉️</div>
-              <button ref={btn} className="btn btn--primary btn--xl" onClick={() => setOpen(true)}>Open the envelope</button>
+              <button ref={btn} className="btn btn--primary btn--xl" onClick={() => { playSfx("open"); setOpen(true); }}>Open the envelope</button>
             </>
           ) : (
             <>
@@ -54,21 +55,21 @@ export function GuideEnvelope({ game, pending, onClose }: Props) {
                 <div>
                   <h4>The inspectors who came this year</h4>
                   <table className="stocktable">
-                    <thead><tr><th>Night</th><th>Who</th><th className="r">Score</th><th>Ingredients · Harmony · Technique · Personality · Consistency</th></tr></thead>
+                    <thead><tr><th>Night</th><th>Who</th><th className="r">Score</th>{["Ingredients", "Harmony", "Technique", "Personality", "Steadiness"].map((h) => <th key={h} className="r envelope__crit">{h}</th>)}</tr></thead>
                     <tbody>
                       {pending.visits.map((v) => (
                         <tr key={v.day}>
                           <td>{dateLabel(v.day)}</td>
                           <td>{v.inspector}</td>
                           <td className="r"><b>{v.total.toFixed(0)}</b></td>
-                          <td className="xs">{[v.scores.ingredients, v.scores.harmony, v.scores.technique, v.scores.personality, v.scores.consistency].map((x) => x.toFixed(0)).join(" · ")}</td>
+                          {[v.scores.ingredients, v.scores.harmony, v.scores.technique, v.scores.personality, v.scores.consistency].map((x, i) => <td key={i} className="r num">{x.toFixed(0)}</td>)}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-              <button ref={btn} className="btn btn--primary" onClick={onClose}>Back to work</button>
+              <button ref={btn} className="btn btn--primary btn--tap" onClick={onClose}>Back to work</button>
             </>
           )}
         </div>

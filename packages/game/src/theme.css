@@ -808,6 +808,10 @@ button, input { font: inherit; color: inherit; }
   visibility: hidden;
 }
 .term:hover > .term__tip, .term:focus > .term__tip, .term:focus-within > .term__tip { visibility: visible; }
+/* R7-C: hidden tips took up scroll width (a sideways scrollbar on Planning and the Empire); now display:none until shown. */
+.term__tip { display: none; }
+.term:hover > .term__tip, .term:focus > .term__tip, .term:focus-within > .term__tip { display: block; }
+.empire__side .term__tip, .status .term__tip { left: auto; right: 0; }
 
 /* ───────── round 5: Empire side panel for a child (My shops / The brand / Money) ───────── */
 .empire__side { font-size: var(--fs-base); }
@@ -1127,3 +1131,15 @@ button, input { font: inherit; color: inherit; }
 .confetti__bit--3 { background: var(--plum); }
 @keyframes confetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(105vh) rotate(540deg); opacity: 0.2; } }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } .win .gameover__icon { animation: none; } }
+.seedrow .input { min-width: 0; width: 100%; }
+/* R7-C: with bigger text on a 1024 px iPad the planning tab row must still fit beside the heading */
+@media (max-width: 1180px) {
+  :root[data-text="large"] .tab { font-size: 17px; padding: 10px 8px 9px; }
+  :root[data-text="large"] .tab__icon { display: none; }
+}
+@media (max-width: 1180px) {
+  /* R7-C: the Bigger text setting must not push the Menu tab's two columns off the side (scoped to large text only). */
+  :root[data-text="large"] .menu-layout { grid-template-columns: minmax(0, 300px) minmax(0, 1fr); }
+  :root[data-text="large"] .menu-layout > * { min-width: 0; }
+}
+.modal.envelope { width: min(720px, 100%); } .envelope__crit { font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
