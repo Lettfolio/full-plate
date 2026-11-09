@@ -1,0 +1,228 @@
+{
+  "countries": [
+    {
+      "id": "albrenn",
+      "name": "Albrenn",
+      "regionId": "isles",
+      "dietaryRules": [],
+      "home": true,
+      "currencyNote": "Pounds and pence, just like home.",
+      "rules": [
+        "No special food rules. Customers like chips with everything and a cup of tea after."
+      ],
+      "entryText": "Home turf. Everyone already knows your name here."
+    },
+    {
+      "id": "caledh",
+      "name": "Caledh",
+      "regionId": "isles",
+      "dietaryRules": [],
+      "rules": [
+        "No special food rules.",
+        "Locals are proud of their own fish and their own weather."
+      ],
+      "entryText": "A short hop north. The menu travels well, though the wind may blow your sign away."
+    },
+    {
+      "id": "velland",
+      "name": "Velland",
+      "regionId": "mainland",
+      "dietaryRules": [],
+      "rules": [
+        "No special food rules.",
+        "Strict about bread: if your buns are squashy, people will say so, loudly."
+      ],
+      "entryText": "Velmont loves its own chip shop, Maison Frites. You'll need to win people over one bun at a time."
+    },
+    {
+      "id": "ostria",
+      "name": "Ostria",
+      "regionId": "mainland",
+      "dietaryRules": [],
+      "rules": [
+        "No special food rules.",
+        "Big appetite for breakfast: muffins and coffee sell well before work."
+      ],
+      "entryText": "Port Sarn wakes up early and hungry. A breakfast menu would make friends fast."
+    },
+    {
+      "id": "westrian_union",
+      "name": "Westrian Union",
+      "regionId": "westland",
+      "dietaryRules": [],
+      "rules": [
+        "No special food rules.",
+        "Portions are expected to be big, and drive-thru lanes are expected to be quick."
+      ],
+      "entryText": "The land of the drive-thru. Big Sky Burgers got here first, so you'll be the new kid in town."
+    },
+    {
+      "id": "nihara",
+      "name": "Nihara",
+      "regionId": "sunrise",
+      "dietaryRules": [],
+      "rules": [
+        "No special food rules.",
+        "Customers expect everything spotless, on time and the same every visit."
+      ],
+      "entryText": "Kaito rewards a tidy, standardised kitchen. Sometimes a brand becomes part of a local holiday, and nobody quite knows why."
+    },
+    {
+      "id": "isla_verde",
+      "name": "Isla Verde",
+      "regionId": "sunrise",
+      "dietaryRules": [],
+      "rules": [
+        "No special food rules.",
+        "Families love sweet flavours, fried chicken and long weekend lunches."
+      ],
+      "entryText": "Manara adores Jolly Hen, its very own chain. Beating a local hero is hard; joining the party with a local dish might work better."
+    },
+    {
+      "id": "saravan",
+      "name": "Saravan",
+      "regionId": "sunrise",
+      "dietaryRules": [
+        "no-beef",
+        "no-pork"
+      ],
+      "rules": [
+        "No beef: cows are respected and not eaten by many people here.",
+        "No pork either.",
+        "Lots of customers are vegetarian, so veggie options sell brilliantly."
+      ],
+      "entryText": "A beef burger menu won't work in Vasant. Swap to chicken and veggie buns, or localise the menu before you open."
+    },
+    {
+      "id": "al_rimal",
+      "name": "Al-Rimal",
+      "regionId": "crescent",
+      "dietaryRules": [
+        "halal"
+      ],
+      "rules": [
+        "Halal: no pork, and meat must come from halal-certified suppliers.",
+        "No alcohol on the menu."
+      ],
+      "entryText": "Qamar's kitchens are halal. Take bacon and sausage off, check your meat suppliers, and the city is yours to win."
+    },
+    {
+      "id": "tevah",
+      "name": "Tevah",
+      "regionId": "crescent",
+      "dietaryRules": [
+        "kosher"
+      ],
+      "rules": [
+        "Kosher: no pork and no shellfish.",
+        "Meat and dairy are never served in the same dish, so no cheeseburgers.",
+        "Many places close on the day of rest each week."
+      ],
+      "entryText": "Seren keeps kosher. Your cheeseburger needs a rethink: the patty can stay, but the cheese has to go."
+    }
+  ],
+  "dietaryRules": {
+    "no-beef": {
+      "name": "No beef",
+      "short": "Beef isn't eaten here.",
+      "explain": "Many people here don't eat beef. Any dish with a beef patty, mince or steak loses most of its customers until you localise the menu."
+    },
+    "no-pork": {
+      "name": "No pork",
+      "short": "Pork isn't eaten here.",
+      "explain": "Bacon, sausages and pork belly are off the table. Swap them for chicken or egg."
+    },
+    "halal": {
+      "name": "Halal",
+      "short": "No pork, no alcohol, halal meat only.",
+      "explain": "Halal kitchens use meat from certified suppliers, never serve pork, and keep alcohol off the menu."
+    },
+    "kosher": {
+      "name": "Kosher",
+      "short": "No pork or shellfish; never meat with dairy.",
+      "explain": "Kosher kitchens never serve pork or shellfish, and never put meat and dairy in the same dish. A cheeseburger breaks two rules at once!"
+    }
+  },
+  "_breakersNote": "Ingredient ids that break each rule. Superset of sim-empire model.ts DIET_BREAKERS, including the Round 3 fast-food and fine-dining ingredients. kosher also forbids any dish with one of kosherMeat AND one of kosherDairy.",
+  "dietaryBreakers": {
+    "no-beef": [
+      "beef_steak",
+      "beef_mince",
+      "beef_patty",
+      "beef_fillet"
+    ],
+    "no-pork": [
+      "pork_belly",
+      "sausages",
+      "bacon",
+      "pork_sausage_patty"
+    ],
+    "halal": [
+      "pork_belly",
+      "sausages",
+      "bacon",
+      "pork_sausage_patty",
+      "house_wine",
+      "fine_wine",
+      "prosecco",
+      "lager",
+      "craft_ale",
+      "spirit",
+      "wine_albrenn_sparkling",
+      "wine_loire_white",
+      "wine_alsace_riesling",
+      "wine_burgundy_white",
+      "wine_provence_rose",
+      "wine_rioja_red",
+      "wine_burgundy_red",
+      "wine_sauternes"
+    ],
+    "kosher": [
+      "pork_belly",
+      "sausages",
+      "bacon",
+      "pork_sausage_patty",
+      "prawns",
+      "mussels",
+      "scallops",
+      "langoustines",
+      "lobster"
+    ]
+  },
+  "kosherMeat": [
+    "beef_steak",
+    "beef_mince",
+    "beef_patty",
+    "beef_fillet",
+    "chicken_breast",
+    "chicken_fillet_crumbed",
+    "chicken_nuggets",
+    "lamb",
+    "duck_breast",
+    "venison_loin"
+  ],
+  "kosherDairy": [
+    "cheddar",
+    "butter",
+    "cream",
+    "milk",
+    "parmesan",
+    "mozzarella",
+    "halloumi",
+    "ice_cream",
+    "cheese_slices",
+    "shake_mix",
+    "soft_serve_mix",
+    "aged_cheese"
+  ],
+  "puzzleLines": {
+    "breaksRules": "Your menu breaks the food rules in {city}: {rules}. Customers will stay away until you localise.",
+    "fits": "Good news: your menu already fits the food rules in {city}.",
+    "localiseOffer": "Localise the menu for {city}? It costs {cost} and makes things a little less consistent there, but locals will finally come in.",
+    "localised": "{city} has its own local menu now. The queue is out the door!",
+    "champion": "{champion} is the local favourite in {city}. Expect a tough fight for customers.",
+    "championBeaten": "People in {city} are starting to say your name in the same breath as {champion}.",
+    "tradition": "Something funny happened in {city}: eating at {brand} has become a holiday tradition!",
+    "firstInCountry": "First restaurant in {country}! Setting up costs extra: {cost} for permits, offices and a lot of paperwork."
+  }
+}

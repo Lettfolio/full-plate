@@ -1,0 +1,328 @@
+{
+  "regions": [
+    {
+      "id": "isles",
+      "name": "The Isles",
+      "commissary": false,
+      "x": 455,
+      "y": 110,
+      "blurb": "Home. Rainy, chatty, and very fond of chips."
+    },
+    {
+      "id": "mainland",
+      "name": "The Mainland",
+      "commissary": false,
+      "x": 560,
+      "y": 175,
+      "blurb": "Old cities, long lunches and people with strong views about bread."
+    },
+    {
+      "id": "westland",
+      "name": "Westland",
+      "commissary": false,
+      "x": 190,
+      "y": 190,
+      "blurb": "Big roads, big portions and the home of the drive-thru."
+    },
+    {
+      "id": "sunrise",
+      "name": "Sunrise Coast",
+      "commissary": false,
+      "x": 820,
+      "y": 230,
+      "blurb": "Enormous, fast-growing cities where everyone is hungry at once."
+    },
+    {
+      "id": "crescent",
+      "name": "The Crescent",
+      "commissary": false,
+      "x": 640,
+      "y": 290,
+      "blurb": "Sunny trading ports with food rules you must learn before you open."
+    }
+  ],
+  "cities": [
+    {
+      "id": "harbourton",
+      "name": "Harbourton",
+      "country": "Albrenn",
+      "regionId": "isles",
+      "population": 2500000,
+      "districts": [
+        "high_street",
+        "student_quarter",
+        "business_park",
+        "seaside"
+      ],
+      "costIndex": 1,
+      "dietaryRules": [],
+      "x": 452,
+      "y": 150,
+      "blurb": "Where it all began: a busy port town with a pier, a university and your first restaurant.",
+      "championStrength": 0
+    },
+    {
+      "id": "kingsbridge",
+      "name": "Kingsbridge",
+      "country": "Albrenn",
+      "regionId": "isles",
+      "population": 1200000,
+      "districts": [
+        "high_street",
+        "student_quarter",
+        "business_park"
+      ],
+      "costIndex": 0.95,
+      "dietaryRules": [],
+      "x": 492,
+      "y": 104,
+      "blurb": "A smart cathedral city with lots of students and even more umbrellas.",
+      "championStrength": 0
+    },
+    {
+      "id": "glenmoor",
+      "name": "Glenmoor",
+      "country": "Caledh",
+      "regionId": "isles",
+      "population": 800000,
+      "districts": [
+        "high_street",
+        "seaside"
+      ],
+      "costIndex": 0.9,
+      "dietaryRules": [],
+      "x": 428,
+      "y": 64,
+      "blurb": "Granite houses, sea lochs and the best fish suppers in the north.",
+      "championStrength": 0
+    },
+    {
+      "id": "velmont",
+      "name": "Velmont",
+      "country": "Velland",
+      "regionId": "mainland",
+      "population": 3000000,
+      "districts": [
+        "high_street",
+        "business_park",
+        "student_quarter"
+      ],
+      "costIndex": 1.1,
+      "dietaryRules": [],
+      "localChampion": "Maison Frites",
+      "championStrength": 0.3,
+      "x": 545,
+      "y": 165,
+      "blurb": "A grand capital of boulevards and cafés, where the local chip shop has a waiting list."
+    },
+    {
+      "id": "port_sarn",
+      "name": "Port Sarn",
+      "country": "Ostria",
+      "regionId": "mainland",
+      "population": 1500000,
+      "districts": [
+        "high_street",
+        "seaside"
+      ],
+      "costIndex": 1.05,
+      "dietaryRules": [],
+      "x": 600,
+      "y": 140,
+      "blurb": "A windy harbour city of ferries, fish markets and bakeries open before dawn.",
+      "championStrength": 0
+    },
+    {
+      "id": "bayview",
+      "name": "Bayview",
+      "country": "Westrian Union",
+      "regionId": "westland",
+      "population": 5000000,
+      "districts": [
+        "high_street",
+        "business_park",
+        "student_quarter",
+        "seaside"
+      ],
+      "costIndex": 1.15,
+      "dietaryRules": [],
+      "localChampion": "Big Sky Burgers",
+      "championStrength": 0.5,
+      "x": 160,
+      "y": 175,
+      "blurb": "A sprawling sunny city of freeways and beaches. Everyone already has a favourite burger."
+    },
+    {
+      "id": "sierra_vista",
+      "name": "Sierra Vista",
+      "country": "Westrian Union",
+      "regionId": "westland",
+      "population": 2000000,
+      "districts": [
+        "high_street",
+        "business_park"
+      ],
+      "costIndex": 1.05,
+      "dietaryRules": [],
+      "x": 230,
+      "y": 215,
+      "blurb": "A desert city of office parks and long drives, made for drive-thru lanes.",
+      "championStrength": 0
+    },
+    {
+      "id": "kaito",
+      "name": "Kaito",
+      "country": "Nihara",
+      "regionId": "sunrise",
+      "population": 9000000,
+      "districts": [
+        "high_street",
+        "business_park",
+        "student_quarter"
+      ],
+      "costIndex": 1.1,
+      "dietaryRules": [],
+      "x": 880,
+      "y": 175,
+      "blurb": "A neon megacity where trains run to the second and so should your kitchen.",
+      "championStrength": 0
+    },
+    {
+      "id": "manara",
+      "name": "Manara",
+      "country": "Isla Verde",
+      "regionId": "sunrise",
+      "population": 8000000,
+      "districts": [
+        "high_street",
+        "student_quarter",
+        "seaside"
+      ],
+      "costIndex": 0.55,
+      "dietaryRules": [],
+      "localChampion": "Jolly Hen",
+      "championStrength": 0.8,
+      "x": 850,
+      "y": 270,
+      "blurb": "A warm island capital that adores fried chicken, sweet spaghetti and its own home-grown chain."
+    },
+    {
+      "id": "vasant",
+      "name": "Vasant",
+      "country": "Saravan",
+      "regionId": "sunrise",
+      "population": 12000000,
+      "districts": [
+        "high_street",
+        "business_park",
+        "student_quarter"
+      ],
+      "costIndex": 0.45,
+      "dietaryRules": [
+        "no-beef",
+        "no-pork"
+      ],
+      "localChampion": "Chaat Express",
+      "championStrength": 0.4,
+      "x": 760,
+      "y": 250,
+      "blurb": "A huge, bustling city of street food and spice. No beef or pork on the menu here."
+    },
+    {
+      "id": "qamar",
+      "name": "Qamar",
+      "country": "Al-Rimal",
+      "regionId": "crescent",
+      "population": 3000000,
+      "districts": [
+        "high_street",
+        "business_park",
+        "seaside"
+      ],
+      "costIndex": 0.9,
+      "dietaryRules": [
+        "halal"
+      ],
+      "x": 670,
+      "y": 300,
+      "blurb": "A shining desert port of malls and marinas. Every kitchen here is halal.",
+      "championStrength": 0
+    },
+    {
+      "id": "seren",
+      "name": "Seren",
+      "country": "Tevah",
+      "regionId": "crescent",
+      "population": 1500000,
+      "districts": [
+        "high_street",
+        "seaside"
+      ],
+      "costIndex": 1.05,
+      "dietaryRules": [
+        "kosher"
+      ],
+      "x": 625,
+      "y": 265,
+      "blurb": "An old hilltop city by the sea, where many restaurants keep kosher kitchens.",
+      "championStrength": 0
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "spudline",
+      "name": "Spudline Farms (fries)",
+      "category": "potatoes",
+      "discountPct": 0.05,
+      "failureRisk": 0.04,
+      "ingredientIds": [
+        "frozen_fries",
+        "hash_browns",
+        "potatoes"
+      ],
+      "blurb": "Miles of potato fields and a freezer the size of a football pitch."
+    },
+    {
+      "id": "meadow_beef",
+      "name": "Meadow Beef Co.",
+      "category": "beef",
+      "discountPct": 0.06,
+      "failureRisk": 0.06,
+      "ingredientIds": [
+        "beef_patty",
+        "beef_mince",
+        "beef_steak"
+      ],
+      "blurb": "Grass-fed herds and a patty press that never sleeps."
+    },
+    {
+      "id": "greenleaf",
+      "name": "Greenleaf Produce",
+      "category": "salad",
+      "discountPct": 0.03,
+      "failureRisk": 0.08,
+      "ingredientIds": [
+        "shredded_lettuce",
+        "salad_leaves",
+        "tomatoes",
+        "onions",
+        "apple_slices"
+      ],
+      "blurb": "Crunchy lettuce by the lorry-load. Hates heatwaves."
+    },
+    {
+      "id": "bunworks",
+      "name": "Bunworks Bakery",
+      "category": "bread",
+      "discountPct": 0.03,
+      "failureRisk": 0.03,
+      "ingredientIds": [
+        "soft_buns",
+        "english_muffins",
+        "tortilla_wraps",
+        "burger_buns"
+      ],
+      "blurb": "Bakes a million buns a night and knows every one by name. (Probably.)"
+    }
+  ]
+}
