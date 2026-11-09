@@ -65,7 +65,7 @@
 .worldmap__labels { position: absolute; inset: 0; pointer-events: none; }
 .worldmap__region { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; }
 .worldmap__regionname {
-  font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase;
+  font-family: var(--font-display); font-weight: 600; font-size: var(--fs-sm); letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--map-label); text-shadow: 0 0 3px var(--map-halo-text), 0 0 6px var(--map-halo-text);
 }
 .worldmap__known {
@@ -81,6 +81,9 @@
   display: grid; place-items: center; cursor: pointer; pointer-events: auto; color: var(--ink); font: inherit; border-radius: 50%;
 }
 .mappin:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: 0; }
+/* Off the zoomed frame: still in the tab order (focus pans to it), but not drawn or clickable. */
+.mappin--off { opacity: 0; pointer-events: none; }
+.mappin--off .mappin__label { pointer-events: none; }
 .mappin__mark { position: relative; display: grid; place-items: center; transition: transform 0.12s ease; }
 .mappin:hover .mappin__mark, .mappin:focus-visible .mappin__mark { transform: scale(1.1); }
 .mappin__dot { width: 14px; height: 14px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); box-shadow: 0 1px 2px rgba(43, 38, 34, 0.35); }
@@ -235,7 +238,7 @@
 .starpin__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .starpin__name { font-weight: 800; font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .starpin__sub { font-size: var(--fs-micro); color: var(--ink-soft); }
-.starpin__stars { color: var(--star-empty); letter-spacing: 1px; font-size: 15px; }
+.starpin__stars { color: var(--ink-faint); letter-spacing: 1px; font-size: 15px; }
 .starpin__stars .on { color: var(--star); text-shadow: 0 1px 0 var(--star-edge); }
 .district--season { box-shadow: inset 0 0 0 3px var(--plum); }
 .district__season { font-size: var(--fs-micro); font-weight: 800; color: #fff; background: var(--plum); padding: 1px 8px; border-radius: 999px; }

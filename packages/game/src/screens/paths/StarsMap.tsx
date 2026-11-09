@@ -33,7 +33,7 @@ export function starsPlaces(v: Pick<StarsView, "satellites" | "rival">, restaura
   ];
 }
 
-const starRow = (n: number) => <span className="starpin__stars" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={i < n ? "on" : ""}>★</span>)}</span>;
+const starRow = (n: number) => <span className="starpin__stars" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={i < n ? "on" : ""}>{i < n ? "★" : "☆"}</span>)}</span>;
 
 export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v: StarsView; restaurantName: string; districtId: string; shownStars: number; day: number }) {
   const city = homeCity();

@@ -115,14 +115,16 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
     if (pointers.current.size >= 2 && g.pinch) {
       const [a, b] = [...pointers.current.values()];
       const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      if (d > 0) setView((v) => zoomAt(v, d / g.pinch!, toUnits((a!.x + b!.x) / 2, (a!.y + b!.y) / 2)));
+      // Read everything now: the updater runs later, after g.pinch has moved on.
+      const ratio = d / g.pinch, mid = toUnits((a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
+      if (d > 0) setView((v) => zoomAt(v, ratio, mid));
       g.pinch = d;
       return;
     }
     if (!g.moved && Math.hypot(next.x - g.startX, next.y - g.startY) < 6) return;
     if (!g.moved) { g.moved = true; try { frame.current?.setPointerCapture(ev.pointerId); } catch { /* jsdom */ } }
-    const s = unitsPerPx();
-    setView((v) => ({ ...v, tx: v.tx + (next.x - prev.x) * s, ty: v.ty + (next.y - prev.y) * s }));
+    const s = unitsPerPx(), dx = (next.x - prev.x) * s, dy = (next.y - prev.y) * s;
+    setView((v) => ({ ...v, tx: v.tx + dx, ty: v.ty + dy }));
   };
   const onPointerEnd = (ev: RPointerEvent<HTMLDivElement>) => {
     pointers.current.delete(ev.pointerId);
@@ -159,7 +161,9 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
 
   const k = view.k;
   const gT = `translate(${view.tx.toFixed(2)} ${view.ty.toFixed(2)}) scale(${k.toFixed(4)})`;
-  const tipCity = tip ? e.cities.find((c) => c.id === tip) : undefined;
+  const tipAt = tip && pos.get(tip) ? toScreenPct(view, pos.get(tip)!) : undefined;
+  // No tooltip for a pin the zoom has pushed off the frame.
+  const tipCity = tipAt && tipAt[0] >= -2 && tipAt[0] <= 102 && tipAt[1] >= -3 && tipAt[1] <= 103 ? e.cities.find((c) => c.id === tip) : undefined;
   return (
     <div className="worldmap">
       <div
@@ -238,7 +242,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
               <button
                 key={c.id}
                 type="button"
-                className={`mappin mappin--${state} mappin--${LABEL_SIDE[c.id] ?? "r"} ${sel ? "mappin--picked" : ""}`}
+                className={`mappin mappin--${state} mappin--${LABEL_SIDE[c.id] ?? "r"} ${sel ? "mappin--picked" : ""} ${x < -2 || x > 102 || y < -3 || y > 103 ? "mappin--off" : ""}`}
                 style={{ left: `${x}%`, top: `${y}%` }}
                 aria-label={name}
                 aria-pressed={sel}
@@ -261,7 +265,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
           })}
         </div>
 
-        {tipCity && <CityTip e={e} c={tipCity} m={mix.get(tipCity.id)} at={toScreenPct(view, pos.get(tipCity.id)!)} id={`${uid}-tip`} />}
+        {tipCity && tipAt && <CityTip e={e} c={tipCity} m={mix.get(tipCity.id)} at={tipAt} id={`${uid}-tip`} />}
 
         <div className="worldmap__ctl worldmap__zoom" role="group" aria-label="Map zoom">
           <button type="button" className="mapbtn" aria-label="Zoom in" disabled={k >= ZOOM_MAX} onClick={() => setView((v) => zoomAt(v, 1.6))}>+</button>
