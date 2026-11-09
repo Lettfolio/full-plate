@@ -1765,6 +1765,15 @@ h3 { line-height: var(--lh-heading); }
 .citybar__part + .citybar__part { box-shadow: inset 2px 0 0 var(--surface-panel); }
 .nights__strip { gap: 2px; }
 
+/* Bigger text at <= 1180 px: R7-C hid the tab pictures to make room; drawn icons are narrower than emoji, so they stay
+   (icon + word on every tab), with tighter padding. */
+@media (max-width: 1180px) {
+  :root[data-text="large"] .tab__icon { display: inline-grid; }
+  :root[data-text="large"] .tab__icon .icon { width: 20px; height: 20px; }
+  :root[data-text="large"] .tab { padding: 10px 7px 9px; gap: 5px; }
+  :root[data-text="large"] .tab__badge { min-width: 22px; padding: 1px 6px; }
+}
+
 /* ───────── panel and stat-tile components (components/Panel.tsx) ───────── */
 .panel__title { display: inline-flex; align-items: center; gap: var(--space-2); }
 .panel__icon, .goals__icon { color: var(--tomato); }
