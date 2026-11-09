@@ -6,8 +6,27 @@ type Migration = (raw: Record<string, unknown>) => Record<string, unknown>;
 
 /** MIGRATIONS[n] turns a version-n save into version n+1; MIGRATIONS[current] normalises the current shape. */
 export const MIGRATIONS: Record<number, Migration> = {
-  1: (raw) => raw,
+  1: (raw) => backfillFlagship(raw),
 };
+
+/**
+ * [round 6] R5 P3: the founder's flagship had no `openedTrading`, so it never matured and stayed the richest site.
+ * Saves from before round 6 get the game's start (day 0) — the flagship is the restaurant the player opened then.
+ * Idempotent: a flagship that already has the field (every new empire) is left alone, so new saves round-trip
+ * byte-identically.
+ */
+function backfillFlagship(raw: Record<string, unknown>): Record<string, unknown> {
+  const sites = raw.sites;
+  if (!Array.isArray(sites)) return raw;
+  const i = sites.findIndex((s) => s && typeof s === "object" && (s as { id?: unknown }).id === FLAGSHIP_ID);
+  if (i < 0 || (sites[i] as { openedTrading?: unknown }).openedTrading !== undefined) return raw;
+  const next = sites.slice();
+  next[i] = { ...(sites[i] as object), openedTrading: 0 };
+  return { ...raw, sites: next };
+}
+
+/** newEmpire's id for the founder's restaurant. */
+const FLAGSHIP_ID = "s1";
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);

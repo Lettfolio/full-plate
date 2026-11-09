@@ -71,6 +71,11 @@ export interface NewEmpireOptions {
   homeCityId?: string;
   /** Override the world (tests, mods). */
   cities?: City[];
+  /**
+   * [round 6] Day the founder's flagship first traded (its maturity drag reads it). Default `day − FLAGSHIP_AGE_DAYS`
+   * (a two-year-old room); forkFromGameState passes the game's start, day 0.
+   */
+  flagshipOpenedTrading?: number;
 }
 
 const BUILD_DAYS = 90;
@@ -124,6 +129,8 @@ export function newEmpire(content: ContentPack, opts: NewEmpireOptions): EmpireS
     // A two-year-old founder-run room (forkFromGameState replaces these with the real restaurant's).
     popularity: calibration.popularity ?? K.DEFAULT_POPULARITY,
     prestige: K.FLAGSHIP_PRESTIGE,
+    // Round 6 (R5 P3): the flagship ages like every other site. It is long past its ramp, so only the drag reads this.
+    openedTrading: opts.flagshipOpenedTrading ?? day - K.FLAGSHIP_AGE_DAYS,
   };
   return {
     version: 1,
@@ -185,6 +192,7 @@ export function forkFromGameState(content: ContentPack, state: GameState, opts: 
     hqCash: (opts.investment ?? 50_000_000) + (opts.transfer ?? 0),
     menuDishIds: state.menu.filter((m) => m.active).map((m) => m.dishId),
     calibration,
+    flagshipOpenedTrading: 0, // the game's first day
     ...(opts.homeCityId ? { homeCityId: opts.homeCityId } : {}),
   });
   // The flagship keeps its own dining room (it may have bought tables); other sites get the brand's box.

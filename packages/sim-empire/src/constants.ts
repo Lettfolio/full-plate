@@ -375,3 +375,7 @@ export const MIN_CALIBRATION_DAYS = 14;
 // ── logs ──
 export const EVENT_LOG_MAX = 200;
 export const MONTHLY_HISTORY_MAX = 240;
+
+// ── round 6: the monthly board meeting (EMPIRE-NOTES §3 "Board meeting") ──
+/** The founder's restaurant had traded this long when newEmpire is called without a fork (the headless start). */
+export const FLAGSHIP_AGE_DAYS = 720;

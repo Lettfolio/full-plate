@@ -83,9 +83,11 @@ describe("a new site's first year: ramp-up and honeymoon (round 5)", () => {
     expect(y1.netPct).toBeGreaterThan(0.03);
   });
 
-  it("new sites carry openedTrading from their first day; the flagship and old saves do not ramp", () => {
+  it("new sites carry openedTrading from their first day; the flagship is a two-year-old room (round 6) and doesn't ramp", () => {
     const e = lockedHome();
-    expect(e.sites[0]!.openedTrading).toBeUndefined();
+    // Round 6 (R5 P3): the flagship ages too, from FLAGSHIP_AGE_DAYS before the empire starts — past its ramp.
+    expect(e.sites[0]!.openedTrading).toBe(e.hq.day - K.FLAGSHIP_AGE_DAYS);
+    expect(openingFactor(e.sites[0]!, e.hq.day)).toBe(1);
     const { e: opened, siteId } = openProbeSite(content, e, { districtId: "seaside" });
     expect(opened.sites.find((s) => s.id === siteId)!.openedTrading).toBe(opened.hq.day - 1);
   });
