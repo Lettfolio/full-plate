@@ -320,8 +320,10 @@ const playerCooked: Handler<"PLAYER_COOKED"> = (content, state, cmd) => {
   const t = state.tickets.find((x) => x.id === cmd.ticketId);
   if (!t) return reject(state, "That ticket has already gone.");
   if (t.atPass) return reject(state, "That plate is already on the pass.");
-  const quality = round2(clamp(cmd.quality, 0, 100));
   const cook = humanCookId(state);
+  // Round 5: never cook a ticket twice — one an AI cook has (and the human never claimed) is theirs.
+  if (t.chefId !== undefined && t.chefId !== cook) return reject(state, "Another chef is already cooking that one.");
+  const quality = round2(clamp(cmd.quality, 0, 100));
   const tally = tallyPlate(tallyOf(state), { ...tallyOf(state).dishes }, t, cook, quality);
   const events: SimEvent[] = [{ type: "DISH_PLATED", ticketId: t.id, quality }];
   let next: GameState;
@@ -404,7 +406,8 @@ const playerDropped: Handler<"PLAYER_DROPPED"> = (content, state, cmd) => {
 
 /**
  * PLAYER_CLAIMED: the human picked a ticket up (grabbed it from the fridge or started pouring). The kitchen leaves it to
- * them — even one an AI cook had been given but the human took first — until HANDS_ON.claimTimeoutTicks pass.
+ * them until HANDS_ON.claimTimeoutTicks pass. A ticket an AI cook already has is refused (round 5; it used to be taken
+ * off the AI mid-cook and the human's plate binned when the AI's landed first).
  */
 const playerClaimed: Handler<"PLAYER_CLAIMED"> = (_c, state, cmd) => {
   const bad = requirePhase(state, SERVICE, "pick that up");
@@ -415,6 +418,9 @@ const playerClaimed: Handler<"PLAYER_CLAIMED"> = (_c, state, cmd) => {
   if (t.atPass || t.ticksRemaining <= 0) return reject(state, "That plate is already cooked.");
   const human = humanCookId(state);
   if (t.chefId === human) return ok(state);
+  // Round 5: an AI cook already has it (the session was a tick behind). Taking it would cook it twice: refuse, and the
+  // session lets go of it without a cost.
+  if (t.chefId !== undefined) return reject(state, "Another chef is already cooking that one.");
   const tickets = state.tickets.map((x) => (x === t ? { ...x, chefId: human, claimedAtTick: state.tick } : x));
   return ok({ ...state, tickets });
 };

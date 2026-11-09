@@ -5,7 +5,7 @@
  * randomness (chop-mark jitter, where the green band sits) comes from sim-core's xoshiro Rng whose state lives in the
  * session. The same session + state + input/dt sequence always gives identical sessions and results.
  */
-import { weekdayOf, type ContentPack, type Customer, type GameState, type KitchenTicket, type TableId } from "@full-plate/sim-core";
+import { PLAYER_COOK_ID, weekdayOf, type ContentPack, type Customer, type GameState, type KitchenTicket, type TableId } from "@full-plate/sim-core";
 import { buildLayout, dishProfiles, isBlocked, profileFor, SPAWN } from "./layout";
 import { Rng, hashSeed } from "./rng";
 import { addPoints, emptyScore } from "./score";
@@ -93,7 +93,7 @@ export function openFoodTickets(session: HandsOnSession, state: GameState): Kitc
   const pid = session.opts.playerStaffId;
   return state.tickets
     .filter((t) => t.ticksRemaining > 0 && profile(session, t.dishId).method !== "pour" && !session.claimed[t.id] && !session.cooked[t.id]
-      && (!pid || !t.chefId || t.chefId === pid))
+      && (!t.chefId || t.chefId === (pid ?? PLAYER_COOK_ID)))
     .sort(byAge);
 }
 
@@ -368,10 +368,9 @@ function emitPlate(s: HandsOnSession, ticketId: string, dishId: string, executio
     return;
   }
   if (!ticket) {
-    // an AI cook (or a remake) beat us to it: nothing to send; it counts as a small waste
-    results.push({ type: "DROPPED", cost: prof.cost, item: "cooked" });
-    s.score.drops++; s.score.dropCost += prof.cost; addPoints(s.score, POINTS.drop);
-    say(s, "That ticket already went out — binned");
+    // The table left, service closed, or (round 5) another cook sent it: the food was only ever cooked once (its
+    // stock went when it fired), so it costs nothing and the player loses nothing.
+    say(s, "That one already went out — no harm done. Grab the next ticket!");
     return;
   }
   const age = s.time - (s.seenAt[`t:${ticketId}`] ?? s.time);
@@ -559,6 +558,17 @@ function sync(s: HandsOnSession, state: GameState) {
   if (s.carrying?.kind === "plates") for (const p of s.carrying.plates) carriedIds.add(p.ticketId);
   if (s.carrying && "ticketId" in s.carrying) carriedIds.add(s.carrying.ticketId);
   for (const id of Object.keys(s.claimed)) if (!live.has(id) && !carriedIds.has(id)) delete s.claimed[id];
+  // Round 5: the sim refused our claim (an AI cook already had it) or later gave it to the AI: let go, no cost.
+  const human = s.opts.playerStaffId ?? PLAYER_COOK_ID;
+  if (s.carrying && "ticketId" in s.carrying) {
+    const t = live.get(s.carrying.ticketId);
+    if (t && t.chefId !== undefined && t.chefId !== human && t.claimedAtTick === undefined) {
+      delete s.claimed[s.carrying.ticketId];
+      if (s.activeAction?.ticketId === s.carrying.ticketId) s.activeAction = undefined;
+      s.carrying = undefined;
+      say(s, "Another chef already has that one — grab the next ticket!");
+    }
+  }
   for (const id of Object.keys(s.cooked)) if (!live.has(id)) delete s.cooked[id];
   for (const id of Object.keys(s.served)) if (!live.has(id)) delete s.served[id];
   // picked: gone, or re-fired after a drop (back in the kitchen)
