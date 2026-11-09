@@ -75,10 +75,11 @@ describe("EmpireTab sites copy (round 3)", () => {
   it("splits each site's covers into the dining room you'd run hands-on and the takeaway lanes", () => {
     let s = forkedEmpire();
     s = appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } });
-    render(<EmpireTab game={s.game!} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Sites" }));
+    const { container } = render(<EmpireTab game={s.game!} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: /My shops/ }));
     expect(screen.getByText(/Hands-on, you run the dining room; the takeaway counter adds about 40% on top/)).toBeTruthy();
-    expect(screen.getAllByText(/covers today: \d+ in the dining room \(\d+ tables, crew skill \d+\) \+ \d+ takeaway/).length).toBeGreaterThan(0);
+    // Round 5: "guests" and "crew skill" are <Term>s, so match the card's text rather than one element.
+    expect(container.querySelector(".sitelist")!.textContent).toMatch(/guests today: \d+ in the dining room \(\d+ tables, crew skill \d+\) \+ \d+ takeaway/);
   });
 });
 
@@ -86,7 +87,7 @@ describe("round 4 review: the contract panel warns before the formula is locked"
   afterEach(cleanup);
   const panel = (s: AppState) => {
     render(<EmpireTab game={s.game!} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Contract" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
   };
   it("shows 'Lock your formula first' on the contract panel until the formula is locked", () => {
     const s = forkedEmpire();
@@ -94,10 +95,40 @@ describe("round 4 review: the contract panel warns before the formula is locked"
     panel(s);
     const note = screen.getByLabelText("Formula warning");
     expect(note.textContent).toContain("Lock your formula first — franchisees of an unstandardised brand lose money.");
-    expect(note.textContent).toMatch(/Brand → Lock the formula: every site/);
+    expect(note.textContent).toMatch(/The brand → Lock the formula: every site/);
     expect(note.textContent!.match(/first/g)).toHaveLength(1);
     cleanup();
     panel(appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } }));
     expect(screen.queryByLabelText("Formula warning")).toBeNull();
+  });
+});
+
+describe("round 5: the Empire side panel is three cards and keeps every control", () => {
+  afterEach(cleanup);
+  it("My shops / The brand / Money, with plain labels and the real terms beneath", () => {
+    const s = forkedEmpire();
+    const { container } = render(<EmpireTab game={{ ...s.game!, cash: 5_000_000 }} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
+    const tabs = screen.getAllByRole("tab", { name: /My shops|The brand|Money/ });
+    expect(tabs.map((t) => t.textContent)).toEqual(["🏪 My shops", "🍔 The brand", "💷 Money"]);
+
+    // My shops: the city (open a site) and every site's actions.
+    expect(screen.getAllByRole("button", { name: /^Company ·/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Run it hands-on/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Buy the plot/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Remodel" }).length).toBeGreaterThan(0);
+    expect(container.querySelector(".sitenums")!.textContent).toMatch(/Profit this week.*margin \(7 days\)/);
+
+    fireEvent.click(screen.getByRole("tab", { name: /The brand/ }));
+    expect(screen.getByRole("button", { name: "Lock the formula" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Brand campaign/ })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^Sign$/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("How alike your shops are")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
+    expect(screen.getByRole("button", { name: "Move to HQ" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Raise Royalty" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Lower fee" })).toBeTruthy();
+    const royalty = screen.getByText("Money the brand gets from each shop").closest(".term")!;
+    expect(royalty.querySelector(".term__real")!.textContent).toBe("royalty");
   });
 });

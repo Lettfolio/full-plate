@@ -766,3 +766,22 @@ button, input { font: inherit; color: inherit; }
 .term--inline { text-decoration: underline dotted var(--ink-faint); text-underline-offset: 3px; cursor: help; }
 .term--inline:focus-visible { outline: 3px solid var(--sky); outline-offset: 1px; }
 
+/* ───────── round 5: Empire side panel for a child (My shops / The brand / Money) ───────── */
+.empire__side { font-size: var(--fs-base); }
+.empire__side .small { font-size: var(--fs-sm); }
+.empire__side .xs { font-size: var(--fs-xs); }
+.empire__side .card__title h3 { font-size: 21px; }
+.empire__tabs .tab { flex: 1; justify-content: center; padding: 10px 8px; font-size: 17px; }
+.empire__side .facts { font-size: var(--fs-base); gap: 8px 14px; align-items: baseline; }
+.bignums { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bignum { background: var(--cream); border-radius: var(--r-sm); padding: 10px 12px; }
+.bignum__k { font-size: var(--fs-label); font-weight: 800; color: var(--ink-soft); }
+.bignum__v { font-family: var(--font-display); font-weight: 600; font-size: 28px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.bignum__inline { font-family: var(--font-display); font-weight: 600; font-size: 20px; min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+.sitenums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }
+.sitenum { background: var(--paper); border-radius: var(--r-sm); padding: 6px 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); line-height: 1.2; }
+.sitenum__v { font-family: var(--font-display); font-weight: 600; font-size: 20px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.sitenums__own { grid-column: 1 / -1; justify-self: start; }
+.contract__row { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.empire__side .site { padding: 10px 12px; }
+.empire__side .site .row b { font-size: 17px; }

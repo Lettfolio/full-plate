@@ -9,6 +9,8 @@ import { content, extras } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
 import { compactMeals } from "../../components/StatusBar";
+import { Term } from "../../components/Term";
+import { GLOSSARY, type TermId } from "../../lib/glossary";
 import type { PathMeta } from "../../state/paths";
 
 interface Props {
@@ -31,12 +33,14 @@ const REGION_LABEL: Record<string, [number, number]> = { isles: [350, 120], main
 const OWN_COLOUR = ["var(--tomato)", "var(--amber)", "var(--plum)"];
 const districtName = (id: string) => content.districts.find((d) => d.id === id)?.name ?? id.replace("_", " ");
 
-type Panel = "city" | "brand" | "contract" | "sites";
+/** Round 5: three cards a child can find things in (My shops = city + sites, The brand, Money = HQ, flagship till, contract). */
+type Panel = "shops" | "brand" | "money";
+const PANEL_LABEL: Record<Panel, string> = { shops: "🏪 My shops", brand: "🍔 The brand", money: "💷 Money" };
 
 /** Path A screen: world map, city/site panels, brand & tech, contract, suppliers, campaigns (EMPIRE-NOTES §1 "What the map screen shows"). */
 export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
   const [picked, setPicked] = useState<string>(e.hq.homeCityId);
-  const [panel, setPanel] = useState<Panel>("city");
+  const [panel, setPanel] = useState<Panel>("shops");
   const [move, setMove] = useState(0);
   const city = e.cities.find((c) => c.id === picked);
   const open = openSites(e);
@@ -49,12 +53,12 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
   return (
     <div className="empire">
       <div className="empire__stats" aria-label="Empire totals">
-        <Stat k="Sites open" v={String(open.length)} sub={`${open.filter((s) => s.ownership === "company").length} company · ${open.filter((s) => s.ownership !== "company").length} franchised`} />
+        <Stat k="Shops open" v={String(open.length)} sub={`${open.filter((s) => s.ownership === "company").length} company · ${open.filter((s) => s.ownership !== "company").length} franchised`} />
         <Stat k="Meals served" v={compactMeals(e.mealsServedTotal)} sub={`of ${compactMeals(EMPIRE.WIN_MEALS)}`} />
-        <Stat k="HQ cash" v={<MoneyText pence={e.hq.cash} whole tone />} sub={<>net <MoneyText pence={e.hq.income30d} whole tone /> / month</>} />
-        <Stat k="HQ can spend" v={<MoneyText pence={Math.max(0, spendable(e))} whole />} sub={<>incl. <MoneyText pence={developmentFacility(e)} whole /> bank facility (grows with open sites)</>} />
-        <Stat k="Franchisee mood" v={mood === undefined ? "—" : String(Math.round(mood))} sub={e.association.active ? "⚠ association formed" : `revolt below ${EMPIRE.ASSOCIATION_MOOD}`} />
-        <Stat k="Plots owned" v={String(e.property.length)} sub={`${e.applicants.length} applicant${e.applicants.length === 1 ? "" : "s"} waiting`} />
+        <Stat k={<Term id="hqCash">HQ money</Term>} v={<MoneyText pence={e.hq.cash} whole tone />} sub={<>net <MoneyText pence={e.hq.income30d} whole tone /> / month</>} />
+        <Stat k={<Term id="facility">HQ can spend</Term>} v={<MoneyText pence={Math.max(0, spendable(e))} whole />} sub={<>incl. <MoneyText pence={developmentFacility(e)} whole /> bank facility (grows with open sites)</>} />
+        <Stat k={<Term id="franchiseeMood">Shop owners' mood</Term>} v={mood === undefined ? "—" : String(Math.round(mood))} sub={e.association.active ? "⚠ association formed" : `revolt below ${EMPIRE.ASSOCIATION_MOOD}`} />
+        <Stat k={<Term id="plot">Land owned</Term>} v={String(e.property.length)} sub={`${e.applicants.length} applicant${e.applicants.length === 1 ? "" : "s"} waiting`} />
       </div>
 
       {e.association.active && (
@@ -71,56 +75,75 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
       <div className="empire__layout">
         <div className="stack">
           <div className="card empire__map">
-            <WorldMap e={e} picked={picked} onPick={(id) => { setPicked(id); setPanel("city"); }} />
+            <WorldMap e={e} picked={picked} onPick={(id) => { setPicked(id); setPanel("shops"); }} />
             <div className="empire__legend xs">
-              <span><i style={{ background: OWN_COLOUR[0] }} />Company</span>
-              <span><i style={{ background: OWN_COLOUR[1] }} />Franchise</span>
-              <span><i style={{ background: OWN_COLOUR[2] }} />Licence</span>
+              <span><i style={{ background: OWN_COLOUR[0] }} /><Term id="company" inline>Your own</Term></span>
+              <span><i style={{ background: OWN_COLOUR[1] }} /><Term id="franchise" inline>Franchise</Term></span>
+              <span><i style={{ background: OWN_COLOUR[2] }} /><Term id="licence" inline>Licence</Term></span>
               <span><i style={{ background: "var(--paper)", border: "1.5px solid var(--ink)" }} />Not entered</span>
-              <span className="muted">Region bar = brand recognition (green at {EMPIRE.WIN_RECOGNITION})</span>
+              <span className="muted">Bar under a region = <Term id="recognition" inline>how many people know you</Term> (green at {EMPIRE.WIN_RECOGNITION})</span>
             </div>
           </div>
-          <div className="empire__lower">
-            <div className="card">
-              <div className="card__title"><h3>Money from the flagship</h3></div>
-              <p className="small muted">The restaurant you run keeps its own till. Move spare cash to HQ to fund new sites.</p>
-              <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn btn--sm" disabled={move <= 0} onClick={() => setMove(Math.max(0, move - step))}>−</button>
-                <b style={{ minWidth: 80, textAlign: "center" }}><MoneyText pence={move} whole /></b>
-                <button className="btn btn--sm" disabled={move + step > tillSpare} onClick={() => setMove(Math.min(tillSpare, move + step))}>+</button>
-                <button className="btn btn--green btn--sm" disabled={move <= 0} onClick={() => { send({ type: "TRANSFER_FROM_FOCUSED", amount: move }); setMove(0); }}>Move to HQ</button>
-              </div>
-              <p className="xs faint" style={{ marginTop: 4 }}>Keeps £2,000 in the till. Till now: <MoneyText pence={game.cash} whole /></p>
-            </div>
-            <div className="card">
-              <div className="card__title"><h3>News from the chain</h3></div>
-              <ul className="empire__log">
-                {recent.length === 0 && <li className="muted small">Nothing yet. Open a site to get going.</li>}
-                {recent.map((x, i) => <li key={i} className={`careerlog__line careerlog__line--${x.tone}`}>{x.text}</li>)}
-              </ul>
-            </div>
+          <div className="card">
+            <div className="card__title"><h3>News from the chain</h3></div>
+            <ul className="empire__log">
+              {recent.length === 0 && <li className="muted small">Nothing yet. Open a site to get going.</li>}
+              {recent.map((x, i) => <li key={i} className={`careerlog__line careerlog__line--${x.tone}`}>{x.text}</li>)}
+            </ul>
           </div>
         </div>
 
-        <aside className="stack">
-          <div className="tabs tabs--sm" role="tablist" aria-label="Empire panels">
-            {(["city", "sites", "brand", "contract"] as Panel[]).map((p) => (
+        <aside className="stack empire__side">
+          <div className="tabs tabs--sm empire__tabs" role="tablist" aria-label="Empire panels">
+            {(["shops", "brand", "money"] as Panel[]).map((p) => (
               <button key={p} role="tab" aria-selected={panel === p} className={`tab ${panel === p ? "tab--active" : ""}`} onClick={() => setPanel(p)}>
-                {p === "city" ? "City" : p === "sites" ? "Sites" : p === "brand" ? "Brand" : "Contract"}
+                {PANEL_LABEL[p]}
               </button>
             ))}
           </div>
-          {panel === "city" && city && <CityPanel e={e} city={city} send={send} />}
-          {panel === "sites" && <SitesPanel e={e} send={send} onFocusSite={onFocusSite} />}
+          {panel === "shops" && (
+            <>
+              {city && <CityPanel e={e} city={city} send={send} />}
+              <SitesPanel e={e} send={send} onFocusSite={onFocusSite} />
+            </>
+          )}
           {panel === "brand" && <BrandPanel e={e} send={send} />}
-          {panel === "contract" && <ContractPanel e={e} send={send} />}
+          {panel === "money" && (
+            <>
+              <div className="card stack stack--sm">
+                <div className="card__title"><h3>Money at HQ</h3></div>
+                <div className="bignums">
+                  <BigNum label={<Term id="hqCash">HQ money</Term>} value={<MoneyText pence={e.hq.cash} whole tone />} />
+                  <BigNum label={<Term id="facility">HQ can spend</Term>} value={<MoneyText pence={Math.max(0, spendable(e))} whole />} />
+                </div>
+                <p className="small muted">Last month HQ made <MoneyText pence={e.hq.income30d} whole tone />. HQ can spend its cash plus a bank loan for building that grows as shops open.</p>
+              </div>
+              <div className="card stack stack--sm">
+                <div className="card__title"><h3>Money from the flagship</h3></div>
+                <p className="small muted">The restaurant you run keeps its own till. Move spare cash to HQ to fund new sites.</p>
+                <div className="row">
+                  <button className="btn btn--sm" aria-label="Move less" disabled={move <= 0} onClick={() => setMove(Math.max(0, move - step))}>−</button>
+                  <b className="bignum__inline"><MoneyText pence={move} whole /></b>
+                  <button className="btn btn--sm" aria-label="Move more" disabled={move + step > tillSpare} onClick={() => setMove(Math.min(tillSpare, move + step))}>+</button>
+                  <button className="btn btn--green btn--sm" disabled={move <= 0} onClick={() => { send({ type: "TRANSFER_FROM_FOCUSED", amount: move }); setMove(0); }}>Move to HQ</button>
+                </div>
+                <p className="xs faint">Keeps £2,000 in the till. Till now: <MoneyText pence={game.cash} whole /></p>
+              </div>
+              <ContractPanel e={e} send={send} />
+            </>
+          )}
         </aside>
       </div>
     </div>
   );
 }
 
-function Stat({ k, v, sub }: { k: string; v: React.ReactNode; sub?: React.ReactNode }) {
+/** A big number with its plain label above (Money and Sites cards). */
+function BigNum({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
+  return <div className="bignum"><div className="bignum__k">{label}</div><div className="bignum__v">{value}</div></div>;
+}
+
+function Stat({ k, v, sub }: { k: React.ReactNode; v: React.ReactNode; sub?: React.ReactNode }) {
   return <div className="kpi"><div className="kpi__k">{k}</div><div className="kpi__v">{v}</div>{sub && <div className="xs muted">{sub}</div>}</div>;
 }
 
@@ -149,7 +172,7 @@ function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: string; onPi
         const [lx, ly] = REGION_LABEL[r.id] ?? [r.x, r.y];
         return (
           <g key={r.id} transform={`translate(${lx} ${ly})`} aria-label={`${r.name}: recognition ${Math.round(rec)}`}>
-            <text textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--ink-soft)" fontFamily="var(--font-display)">{r.name}</text>
+            <text textAnchor="middle" fontSize="17" fontWeight="800" fill="var(--ink-soft)" fontFamily="var(--font-display)">{r.name}</text>
             <rect x={-40} y={6} width={80} height={7} rx={3.5} fill="var(--cream-deep)" />
             <rect x={-40} y={6} width={0.8 * rec} height={7} rx={3.5} fill={rec >= EMPIRE.WIN_RECOGNITION ? "var(--basil)" : "var(--amber)"} />
           </g>
@@ -177,7 +200,7 @@ function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: string; onPi
               <circle r={8} fill={c.entered ? "var(--cream-deep)" : "var(--paper)"} stroke="var(--ink)" strokeWidth={1.5} strokeDasharray={c.exited ? "2 2" : undefined} />
             )}
             {p?.building ? <circle cx={r - 2} cy={-r + 2} r={4.5} fill="var(--amber)" stroke="var(--ink)" strokeWidth={1} /> : null}
-            <text y={r + 15} textAnchor="middle" fontSize="12.5" fontWeight="800" fill="var(--ink)" fontFamily="var(--font-body)">{c.name}{total ? ` · ${total}` : ""}</text>
+            <text y={r + 18} textAnchor="middle" fontSize="16" fontWeight="800" paintOrder="stroke" stroke="var(--paper)" strokeWidth={3} fill="var(--ink)" fontFamily="var(--font-body)">{c.name}{total ? ` · ${total}` : ""}</text>
           </g>
         );
       })}
@@ -240,10 +263,10 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
       {blurb && <p className="small muted">{blurb}</p>}
       <dl className="facts">
         <dt>Population</dt><dd>{(city.population / 1e6).toFixed(1)}m</dd>
-        <dt>Cost index</dt><dd>×{city.costIndex.toFixed(2)}</dd>
+        <dt><Term id="costIndex" /></dt><dd>×{city.costIndex.toFixed(2)}</dd>
         <dt>Sites</dt><dd>{live.length}{sites.length > live.length ? ` (+${sites.length - live.length} building)` : ""}</dd>
-        <dt>Avg takings / yr</dt><dd>{live.length ? <MoneyText pence={avgRev} whole /> : "—"} <span className="xs muted">(collapse below £400k)</span></dd>
-        <dt>Saturation</dt><dd>{Math.round(sat * 100)}%</dd>
+        <dt><Term id="takings">Sales a year (average)</Term></dt><dd>{live.length ? <MoneyText pence={avgRev} whole /> : "—"} <span className="xs muted">(collapse below £400k)</span></dd>
+        <dt><Term id="saturation" /></dt><dd>{Math.round(sat * 100)}%</dd>
         {city.localChampion && <><dt>Local champion</dt><dd>{city.localChampion} ({Math.round(city.championStrength * 100)}%)</dd></>}
       </dl>
       {rules.length > 0 && (
@@ -292,6 +315,11 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
   );
 }
 
+/** One of a site's three numbers: big value, plain label, the real word beneath. */
+function SiteNum({ id, label, value }: { id: TermId; label?: string; value: React.ReactNode }) {
+  return <div className="sitenum"><div className="sitenum__v">{value}</div><Term id={id}>{label}</Term></div>;
+}
+
 function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: EmpireCommand) => void; onFocusSite: (id: string) => void }) {
   const list = e.sites.filter((s) => s.status !== "closed").slice(0, 40);
   const cityName = (id: string) => e.cities.find((c) => c.id === id)?.name ?? id;
@@ -313,9 +341,11 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
               <span className="xs muted">{cityName(s.cityId)} · {s.status === "building" ? `opens day ${s.opened + 1}` : s.ownership}</span>
             </div>
             {s.status === "open" && (
-              <div className="xs muted">
-                <MoneyText pence={s.revenueYear} whole />/yr · margin 7d <MoneyText pence={s.margin7d} whole tone /> · consistency {Math.round(s.brandConsistency)}
-                {s.land === "hqOwned" ? " · you own the plot" : ""}
+              <div className="sitenums">
+                <SiteNum id="margin7d" value={<MoneyText pence={s.margin7d} whole tone />} />
+                <SiteNum id="takings" label="Sales a year" value={<MoneyText pence={s.revenueYear} whole />} />
+                <SiteNum id="brandConsistency" label="How alike" value={`${Math.round(s.brandConsistency)}/100`} />
+                {s.land === "hqOwned" && <span className="pill pill--star sitenums__own">You own the land</span>}
               </div>
             )}
             {s.status === "open" && <SiteCovers e={e} s={s} />}
@@ -325,7 +355,7 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
                 {s.land !== "hqOwned" && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cost={Math.round(propertyPrice(s) * EMPIRE.PROPERTY_DEPOSIT_SHARE)} cmd={{ type: "BUY_PROPERTY", siteId: s.id }} title="40% deposit, 25-year mortgage">Buy the plot · <MoneyText pence={propertyPrice(s)} whole /></Blockable>}
                 {s.ownership === "company" && !s.focused && applicant && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "SELL_FRANCHISE", siteId: s.id, applicantId: applicant.id }}>Sell franchise</Blockable>}
                 {s.ownership !== "company" && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "BUY_BACK", siteId: s.id }}>Buy back</Blockable>}
-                <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "REMODEL", siteId: s.id }}>Remodel</Blockable>
+                <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "REMODEL", siteId: s.id }} title={GLOSSARY.remodel.explain}>Remodel</Blockable>
               </div>
             )}
           </li>
@@ -351,8 +381,8 @@ function SiteCovers({ e, s }: { e: EmpireState; s: SiteSummary }) {
   const lanes = day.covers - room;
   const tables = s.tables ?? boxTables(content, e.brand.formula.standardisation);
   return (
-    <div className="xs muted">
-      ~{day.covers} covers today: {room} in the dining room ({tables} tables, crew skill {Math.round(s.staffQuality)}){lanes > 0 ? ` + ${lanes} takeaway` : ""}
+    <div className="small muted">
+      ~{day.covers} <Term id="covers" inline>guests</Term> today: {room} in the dining room ({tables} tables, <Term id="crewSkill" inline>crew skill</Term> {Math.round(s.staffQuality)}){lanes > 0 ? ` + ${lanes} takeaway` : ""}
     </div>
   );
 }
@@ -365,8 +395,9 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
   return (
     <div className="stack stack--sm">
       <div className="card stack stack--sm">
-        <div className="card__title"><h3>The formula</h3><span className="xs faint">standardisation {f.standardisation}</span></div>
-        <Bar value={f.standardisation} tone="accent" size="sm" label="Standardisation" showValue />
+        <div className="card__title"><h3>The formula</h3></div>
+        <div className="row"><Term id="standardisation" /><span className="spacer" /><b className="bignum__inline">{f.standardisation}</b></div>
+        <Bar value={f.standardisation} tone="accent" size="sm" title="Standardisation" />
         <p className="small muted">
           {f.locked ? "Locked: every site cooks the same menu the same way." : "Not locked yet: each site does its own thing."} {f.fresh ? "Fresh, never frozen." : ""}{" "}
           Standardisation fits more tables in the box ({boxTables(content, f.standardisation)} now) and runs a takeaway counter
@@ -389,7 +420,7 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
         </div>
       </div>
       <div className="card stack stack--sm">
-        <div className="card__title"><h3>Recognition by region</h3></div>
+        <div className="card__title"><h3><Term id="recognition" /></h3></div>
         {e.regions.map((r) => {
           const rec = e.brand.recognition[r.id] ?? 0;
           return <Bar key={r.id} label={r.name} value={rec} tone={rec >= EMPIRE.WIN_RECOGNITION ? "basil" : "amber"} size="sm" showValue />;
@@ -436,7 +467,7 @@ function UnlockedFormulaWarning({ e }: { e: EmpireState }) {
   if (e.brand.formula.locked) return null;
   return (
     <p className="small callout callout--warn" role="note" aria-label="Formula warning">
-      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>Brand → Lock the formula</b>: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. Even then a new franchisee only just gets by until drive-thru and app orders arrive, so watch their mood.
+      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>The brand → Lock the formula</b>: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. Even then a new franchisee only just gets by until drive-thru and app orders arrive, so watch their mood.
     </p>
   );
 }
@@ -445,11 +476,11 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
   const c = e.contract;
   const set = (patch: Partial<typeof c>) => send({ type: "SET_CONTRACT", contract: patch, applyTo: "new" });
   const rentIncome = e.property.reduce((a, p) => a + p.rentIncome, 0);
-  const row = (label: string, value: string, field: "royaltyPct" | "adFundPct" | "rentPctOfSales", d: number) => (
-    <div className="row">
-      <span className="spacer small">{label}</span>
+  const row = (term: TermId, label: string, value: string, field: "royaltyPct" | "adFundPct" | "rentPctOfSales", d: number) => (
+    <div className="row contract__row">
+      <span className="spacer"><Term id={term} /></span>
       <button className="btn btn--sm" aria-label={`Lower ${label}`} onClick={() => set({ [field]: Math.max(0, c[field] - d) })}>−</button>
-      <b style={{ minWidth: 56, textAlign: "center" }}>{value}</b>
+      <b className="bignum__inline">{value}</b>
       <button className="btn btn--sm" aria-label={`Raise ${label}`} onClick={() => set({ [field]: c[field] + d })}>+</button>
     </div>
   );
@@ -458,16 +489,16 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
     <div className="card stack stack--sm">
       <div className="card__title"><h3>Franchise contract</h3><span className="xs faint">for new deals</span></div>
       <UnlockedFormulaWarning e={e} />
-      <div className="row"><span className="spacer small">Fee</span>
+      <div className="row contract__row"><span className="spacer"><Term id="franchiseFee" /></span>
         <button className="btn btn--sm" aria-label="Lower fee" onClick={() => set({ fee: Math.max(0, c.fee - 500_000) })}>−</button>
-        <b style={{ minWidth: 56, textAlign: "center" }}><MoneyText pence={c.fee} whole /></b>
+        <b className="bignum__inline"><MoneyText pence={c.fee} whole /></b>
         <button className="btn btn--sm" aria-label="Raise fee" onClick={() => set({ fee: c.fee + 500_000 })}>+</button>
       </div>
-      {row("Royalty", `${(c.royaltyPct * 100).toFixed(1)}%`, "royaltyPct", 0.005)}
-      {row("Ad fund", `${(c.adFundPct * 100).toFixed(1)}%`, "adFundPct", 0.005)}
-      {row("Rent on your land", `${(c.rentPctOfSales * 100).toFixed(0)}%`, "rentPctOfSales", 0.01)}
+      {row("royalty", "Royalty", `${(c.royaltyPct * 100).toFixed(1)}%`, "royaltyPct", 0.005)}
+      {row("adFund", "Ad fund", `${(c.adFundPct * 100).toFixed(1)}%`, "adFundPct", 0.005)}
+      {row("landRent", "Rent on your land", `${(c.rentPctOfSales * 100).toFixed(0)}%`, "rentPctOfSales", 0.01)}
       <Bar label="Applicants like it" value={Math.min(1.5, attract)} max={1.5} tone={attract < 0.6 ? "accent" : attract < 1 ? "amber" : "basil"} size="sm" />
-      <p className="xs muted">You take {(contractTake(c) * 100).toFixed(1)}% of sales. Higher take = more money per store and fewer, angrier franchisees. Rent income: <MoneyText pence={rentIncome} whole />/month.</p>
+      <p className="small muted"><Term id="take" inline>You take</Term> <b>{(contractTake(c) * 100).toFixed(1)}%</b> of sales. Higher take = more money per store and fewer, angrier franchisees. Rent income: <MoneyText pence={rentIncome} whole />/month.</p>
     </div>
   );
 }
