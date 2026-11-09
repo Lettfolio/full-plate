@@ -389,3 +389,309 @@ Overall: round 2 is careful work. Incidents, goals, the opening stock and the FI
    - a "survive a quiet week by trimming the rota" goal for month 2.
    Goals are the main reason a young player comes back tomorrow.
 3. **A weekly rhythm.** A Sunday-evening "week in review": the profit week chart, best and worst day, and what the owner days cost. Ask one question for next week (raise prices / add a table / train / change the menu). Then the planning screen has a fresh decision every 7 days, and the "Make a profit over a whole week" goal has a screen that explains it.
+
+---
+
+# Round 3: integration review, playtest and code review (paths, career, hands-on)
+
+Reviewer: lead. Date: 9 Nov 2026. Covers `5595be2` … `92be4fb` (the four round-3 packages, content extras, the sim-core hooks and the game integration). Fixes are `e0551c6` … `5958473`, one commit per fix.
+
+**Status at the end of this pass:**
+- `pnpm -r typecheck` ✓ (7 packages).
+- `pnpm -r test` ✓: sim-core 185, content 51, handson 46, sim-career 57, sim-empire 51, sim-stars 57, game 77 (524 in all; +44 this pass).
+- `pnpm --filter @full-plate/game build` ✓. No chunk over 500 kB; the largest is 154 kB.
+
+Scripts and artefacts are in the scratchpad:
+- `shots/r3kid.mjs` (career), `shots/r3paths.mjs` (Empire/Stars), `shots/r3fork.mjs`
+- `r3rev/*.ts`: the headless repros
+- `shots/r3-review/`: screenshots, `log.json` per run, the real-play saves `fork-real`, `empire-start`/`y1`/`y2`, `stars-start`/`preguide`
+
+## R3.1 Blockers
+
+### 1. Stars consistency ≈ 0 (`e0551c6`): fixed
+
+**Reproduced** in two ways:
+- the integration agent's year-2 save (`guide.json`): consistency criterion 0.45, guide score 36.7;
+- a fresh run: a sim-core `balanced` owner plays year 1 on seed 3 Seaside, then `newStarsState` at day 365. Steadiness was 12–26, criterion ≈ 18, and guide day 660 scored 52.3.
+
+**What it wasn't.** The 60-day window was behaving:
+- it takes open days only (`result.covers > 0 && !isClosed`);
+- it is empty at the fork;
+- a `CLOSE_TODAY` `DayResult` (covers 0) never enters it.
+
+Regression tests now pin all three.
+
+**What it was: the scoring formula, fed by a real year-1 rota.**
+- A typical owner has one strong chef Wednesday to Sunday (quality ~85). On Monday and Tuesday a weak second chef or the owner cooks (~40).
+- The window reads `85 85 85 85 85 38 24 …`: sd 25 and 28% off nights.
+- `100 − 3·sd − 60·off − …` scores that at exactly **0**, the same as a random kitchen. No amount of quality on the other five nights could earn a star.
+- The fixture's window and its weekday pattern are in `test/fork.consistency.test.ts`.
+
+**Fix (sim-stars plus a little UI):**
+- `CONSISTENCY_SD_WEIGHT` 3→2 and `CONSISTENCY_OFF_WEIGHT` 60→40. Both terms measured the same dips.
+  - A two-speed week now scores ≈ 31 (still bad).
+  - With a decent cover chef it scores ≈ 77.
+  - A steady brigade scores ≈ 98, the same as before, so the day-0 headless is unchanged (score within 0.3 per year).
+- The window now records its sim days (`consistencyDays`). `starsView().weakNights` names the weekdays that drag steadiness down.
+- The Stars tab says: "Your Monday and Tuesday nights cook about 45 points worse than the rest of the week… put a stronger chef on, or close them".
+- Planning has a **Close tonight** button for Stars owners. It takes everyone off today's rota, then sends `CLOSE_TODAY`.
+- Sourcing relationships no longer decay on a regular day off. They decay only while shut for a refit.
+- `headless --fork-day 365 --year1 balanced|premium|typical`: a sim-core owner plays year 1, then the Stars script takes the restaurant over (`ScriptedRun` `opts.from`).
+
+**Confirmed against STARS-NOTES' claim.** 15 seeds were forked at day 365 (balanced and premium year 1; the typical seeds went bust in year 1):
+
+| | first guide (day 660) | ★★ | ★★★ |
+|---|---|---|---|
+| balanced year 1, seeds 1–8 (7 survive) | ★ every seed, score 82–89 | game year 3 | game year **4–5** |
+| premium year 1, seeds 3–10 | ★ every seed (one at 82.6) | year 3–4 | year **5** |
+
+- Peak ★★★ was reached in 15/15 runs. 0 dynasty wins within 6 years, by design.
+- That is **slightly faster than STARS-NOTES' "★★★ by ~year 6"**, because a forked restaurant already has a skilled chef and high prestige.
+- Stars is still open question 1 in STARS-NOTES (thresholds 78/85/91). I left them alone: the first star at the first guide day is what a child needs to see.
+
+**In the game** (real reducer play, seed 2026 High Street; `stars-preguide.json`):
+- Steadiness 98 at guide day, and the envelope gave **no star at 69.3**.
+- Why: the scripted owner kept the bistro menu (technique 54, personality 48). The rule doing its job.
+- STARS-NOTES' perfectionist path (technical dishes, partners, signatures) is what earns the star.
+- The envelope reveal works. The badge keeps last year's stars until it is opened. The inspector table, per-criterion scores and the reason line all show.
+
+### 2. Empire opening finances (`90aff28`): fixed (bank rule, not the defaults)
+
+**Reproduced.** Balanced year 1, then fork with £500k: enter Velmont (£572k, new country) and three company builds (3 × £242k). HQ went to **−£798k on day one**.
+- The *defaults* are fine. Two home-city company sites take HQ to +£60k, and HQ compounds to +£243k in two years.
+- The problem was that `spendable()` allowed the full £1m development facility with one site trading.
+
+**Fix:**
+- `developmentFacility(e)` = £150k per open site, capped at half the credit line. The full £1m needs about 7 sites. `spendable` uses it.
+- EmpireTab shows a **HQ can spend** KPI with the facility.
+- These buttons are disabled when HQ can't pay, with an inline "Needs £X; HQ can spend £Y" and a tooltip on how to get more: Enter city, Localise, company build, buy plot, research, both campaigns and product launch.
+- A warning appears when entering a city would leave too little to build there.
+- The overdraft callout now gives the monthly interest and the bust line.
+
+**Headless 10 y × 5:**
+- franchise-fast is unchanged (4/5 regions wins at year 4.2–4.6);
+- company-steady grows a bit slower (4/5 seeds reach 4 regions, none win);
+- In-N-Out is unchanged.
+
+**Over-expansion is still possible and visible.**
+- Entering Velmont is allowed at fork (£650k spendable). It leaves £78k and a red note that you can't build there yet.
+- The overdraft then costs about £6k/month on the strip.
+
+### 3. Fork trigger with real play (`9458cb6`): tuned
+
+**Method.** Year 1 played through `appReducer` itself: sim-core strategies issue the commands, ticks run one at a time, and the strategy answers incidents. 16 runs (typical, balanced and cheap; four districts). Script: `r3rev/forkrun.ts`.
+
+**Before:**
+- Every survivor had popularity 78–95 and 178–329 profitable days at day 364.
+- So **the card appeared on day 365 for all of them**, including a typical owner with **£83 in the bank**, whom the consultant told "your numbers are good".
+- Popularity ≥ 60 is cleared by month 2, so it isn't a milestone on its own.
+
+**Change:**
+- The milestone also needs the **last 28 days to be in profit**.
+- `forkMilestone().missing` says what to work on. An evening card on Sundays in year 2 shows it ("People in the trade are watching… when you make a profit over the last four weeks").
+
+**After:**
+- Good owners still get the card on day 365.
+- The £83 owner gets it on day 402, once back in profit.
+- Loss-making cheap owners don't get it while losing money.
+- Year-1 busts never see it.
+
+**In the UI** (real-play save): the card appears on the evening of day 365, reading "Rosie's has made a name for itself (popularity 93)" (`paths/02-fork-real-evening.png`).
+
+## R3.2 Other fixes in this pass
+
+| Commit | Fix |
+|---|---|
+| `6190319` | **P1: the career hands-on chef never got a ticket.** In the playtest the rail read "No tickets" all shift: 0 plates and ☆☆☆ every day, while `perChef.player` showed **54 plates at quality 9**, because the sim was cooking for the child. Two causes. (1) sim-core's `cooksOnShift` treated the career player's rostered Staff record as an AI cook. Now the hands-on `staffId` is excluded, with an owner fallback if they were the only chef. (2) A ticket the human grabbed was still unassigned in the sim. After the 4-tick reserve fallback an AI chef plated it, and the child's plate was binned as a drop. New **`PLAYER_CLAIMED { ticketId }`** (handson emits `TICKET_CLAIMED` on a fridge grab) holds it for `HANDS_ON.claimTimeoutTicks` (16) and releases it when hands-on stops. Headless with the bot: 12–13 plates at 78–84 (★★); an idle child is fully covered. 3 tests. |
+| `7968fc4` | **`HIRE_STAFF { staff }` in sim-core.** Planning only; same fee and cash buffer as HIRE; keeps who they are and starts mood, fatigue, rota and hiredDay fresh; rejects duplicates and bad records. The game's Staff tab lists **Old colleagues** (top 4 bonds) after a career handover. Candidate cards now show the game's own recruitment fee: the manager's cheaper-hiring perk was invisible. |
+| `77691d9` | **The hands-on score feeds the weekly review.** `stepCareerDay(…, handsOn?)` tallies stars and quality into the week. The review adds (mean stars − 1) × 0.15, clamped −0.15…+0.3, and a note ("your plates averaged 88. Brilliant."). The game reports the running score before each sim tick and on Skip. |
+| `fd22121` | **Code-split** (see R3.4). |
+| `c887681` | **Reload during a hands-on shift**: the envelope dropped `meta.handsOn` but kept `GameState.handsOn`, so sim-core went on holding plates at the pass for nobody. `load` now clears it. |
+| `36d0b21` | The path packages import `Rng` from sim-core's index; their relative `../../sim-core/src/rng` imports are gone (all four NOTES asked for this). |
+| `22bc017` | HandsOnShift: `getBoundingClientRect` of null when a dispatch inside the rAF frame ended the service (2 page errors per week). The career evening on review day said "A day off" with £0 after a worked shift (the week tally is already reset), so it now asks the rota. The checklist showed "Average review 0.0 / 3.2" before the first review; it now says "first review in N days". `?autopilot=0–1` lets the handson bot play the canvas. |
+| `5958473` | The Stars strip read "⭐ ☆☆☆", and the emoji looked like a first star; it is now "The Stars · ☆☆☆". Also "1 site" singular. |
+
+## R3.3 Playtests (frozen build, `http-server dist-r3`)
+
+**P&L sums.** Every evening's shown rows summed to the shown total on every owner, Empire, Stars and refit evening I saw (diff 0, 8 rows each, 9 evenings). The payslip arithmetic is right: £635.50 + £42.26 − £87.21 − £31.50 − £300 = £259.05. No page errors in any run after `22bc017`.
+
+### A. Apprentice chef, 7 days, cosy: a 12-year-old
+Played twice:
+- **Kid keyboard pattern** (`kid/`, before the fix in `kid-before/`): walk, tap and hold E in turn.
+- **In-game bot at skill 0.55** (`kid-bot/`, after the fix).
+
+| Day | Worked | Hands-on (bot 0.55) | Evening |
+|---|---|---|---|
+| 1 Wed | ✓ | ★ · 416 pts · 5 plates · 88% | 76 covers, 4.3★, place +£69 |
+| 2 Thu | ✓ | 166 pts · 2 plates | |
+| 3 Fri | off | — | "A day off" |
+| 4 Sat | ✓ | 84 pts · 1 plate | |
+| 5 Sun | off | — | |
+| 6 Mon | ✓ | 83 pts · 1 plate | |
+| 7 Tue | ✓ | 83 pts · 1 plate | weekly review **3.8**: "Hands-on shifts this week: plates averaged 89. Keep practising the timing.", payslip +£259 |
+
+**Is the loop clear?** Mostly.
+- Start picker → My shift (today's status, the 4 meters, the week's toggles, the checklist, co-workers, savings) → Start my shift → Watch / **Play my shift** → evening (pay, tronc, the hands-on card with a coaching tip, meters, team) → Next day.
+- The Sunday payslip and review are the best moment: real UK numbers that a child can follow line by line.
+
+**Is the hands-on shift fun and legible?**
+- Legible: yes. The rail shows the table number and dishes; the arrow and the bottom hint ("Oldest ticket: Chips for table 2 — grab it from the fridge") lead you; "Service! T6 89%" pops; stations glow.
+- Fun: the first ~40 seconds are, then **the rail empties**.
+  - The AI chef has 3 tickets of capacity and the human keeps only 3 reserved, so a slow child gets 1–5 plates a shift ("All caught up — wait for the next ticket").
+  - After day 1 the bot only got 1–2 plates, because each shift restarts at 12:00 with the full 120-tick service and the bot runs at 1.5 s/tick, but the career AI chef and owner clear the rush.
+- **P2:** a commis should *own* a station (starters and desserts, say) rather than race the head chef for the oldest ticket.
+
+**Does the promotion checklist make sense?**
+- Yes: "Cooking skill 22/36, Shifts at this rung 4/50, Average review, Owner's confidence 59/50 ✅".
+- But **50 shifts ≈ 12 in-game weeks** for the first rung is long for a 12-year-old, and the checklist never moves the skill bar visibly (+0.6 a week).
+- **P2:** show "+0.1 skill" chips per shift and halve `shiftsAtRung` for the first rung on cosy.
+
+**Dead ends found:**
+- **P1 (fixed `6190319`):** hands-on chef never got a ticket.
+- **P2 (fixed):** "A day off" on a worked review day.
+- **P3 (fixed):** "0.0 / 3.2" review.
+- **P3 (open):** "Ask for a promotion" is greyed with no reason shown; it needs a tooltip ("Tick every box first").
+- **P3 (open):** the Watch screen offers both "Play my shift" and speed controls; a child at 4× who then presses Play starts mid-afternoon with an empty rail.
+
+### B. Owner → Empire, two years after the fork
+**Setup.** Real reducer play: seed 2026, High Street, balanced year 1, fork on day 365, brand "Rosie's Burgers". A sensible player each week:
+- lock the formula;
+- sweep the till above £10k;
+- company at home when affordable, otherwise franchise to applicants;
+- enter Kingsbridge after ~10 months and Velmont after ~14;
+- refranchise a company site.
+
+Saves: `empire-start`, `empire-y1`, `empire-y2`.
+
+| | sites (co/fr) | HQ cash | HQ net/month | meals | flagship till |
+|---|---|---|---|---|---|
+| fork | 1 (1/0) | £500k | £0 | 0 | £51k |
+| +1 year | 4 (1/3), 3 building | £924k | £17.7k | 203k | £13k |
+| +2 years | 7 (1/6) | £850k | £38.2k | 655k | £16k |
+
+**Money moves make sense:**
+- a franchise fee is £35k to HQ;
+- a refranchise is £243k (fee + book value);
+- Velmont entry is £589k (the new-country premium);
+- transfers from the till are visible as news lines;
+- the evening card's "Sweep £50,252 from the till to HQ" moves exactly that amount.
+
+**Header strip:** sites with a "(+3 building)" note, meals, HQ, franchisee mood 52–54.
+
+**Map:** pies at Harbourton · 4 and Kingsbridge · 3, the building dot, the Isles recognition bar at 33; the Velmont/Qamar city panels show their rules.
+
+**Aggregate vs flagship: P2, plausible but generous.**
+- The flagship sim does **£676k/yr** (122 covers/day). Its own aggregate site agrees (£667k): the calibration holds.
+- But the franchised sites model at £0.81–1.66m/yr: **1.2–2.5× the flagship**.
+- The breakdown (`r3rev/probe4.ts`):
+  - standardisation 50 after locking the formula gives throughput ×1.24 (Speedee);
+  - Harbourton recognition 33 gives ×1.16;
+  - the Student Quarter's footfall 112 vs High Street 74 gives ×1.51.
+- So the Campus site models at 2.3× the flagship's demand on day one.
+- Each factor is documented in EMPIRE-NOTES and has a real-world anchor. But a player who "runs it hands-on" will see a 120-cover restaurant that the map claimed was doing 250. EMPIRE-NOTES open question 3 (seat cap) is the real issue.
+- **Suggestion:** cap aggregate covers at the focused sim's seat capacity × turns until a "counter service" mode exists, or show the map's numbers as "with drive-thru/app" potential.
+
+**Over-expansion.** Entering Velmont on day 1 is allowed and leaves £78k with a red warning, so the risk is real but visible.
+
+### C. Owner → Stars, to the first guide day
+**Setup.** Real reducer play: the same seed-2026 fork, then Stars. Saves: `stars-start` (day 366) and `stars-preguide` (day 658), played to guide day 660 in the UI.
+
+**Day 366:**
+- **Tasting menu** "Spring in the Garden" (£75, in season): Serve it → "on tonight", and the pill flips.
+- **Test kitchen** "Build · £8,000" and **sourcing** "Sign · £10/day" work. The cost is paid at once, so the header cash is honest.
+- The evening P&L that day was −£227 (the test kitchen's £8k is outside the P&L, as it should be: it's capital).
+
+**Refit:**
+- "Close for a 60-day refit" → the openbar reads "Closed for the refit — next day →".
+- The closed evening P&L: rent −£126.67, bills −£80, loan −£41.10, spoilage −£156.04, wages £0 (rota cleared first) = −£403.81. It sums.
+
+**Pre-guide (day 658):**
+- steadiness 98, stress 28, inspection season, three rumours (decoys and real visits are indistinguishable, as designed);
+- Toque 10/20, Good Table 4/10, local critic ★★★.
+
+**Envelope (day 660):**
+- sealed; the badge stays on last year's stars;
+- Open → "No star this year, but the guide says it is 'watching with interest'. The guide holds you where you are (score 69.3)";
+- two inspectors are shown with per-criterion scores. Consistency was 100 on both: blocker 1 is fixed in the real game.
+
+**P1 open: a stock-out around guide day.**
+- The evening of day 659 and day 660: **4–6 dishes 86'd at open**, 26 covers, then 0.
+- Cause (`r3rev/probe5/8.ts`): stock simply ran out because nobody pressed Restock in my Playwright run. It's the same feast/famine as round 1, not a Stars bug.
+- When the evening Restock is pressed, covers stay at 96–114.
+- But a Stars player who stops restocking for one evening loses an *inspection-season* service with no warning that it matters more now.
+- Suggest: on Stars, auto-restock (a standing order) or a louder evening nudge in inspection season.
+
+## R3.4 Code review
+
+**Determinism**
+- `c887681` `envelope.determinism.test.ts`: in each of owner, career (owner answering incidents each tick), Empire (a site building) and Stars (sourcing signed), save 37–60 ticks into a service, decode, then continue 2–3 days through the reducer. The envelope **and** the empire's own serialisation are byte-identical to the run that never reloaded.
+- The game only autosaves at tick 0, but a crash mid-shift is now covered.
+- The one leak found (a stale `GameState.handsOn` after reload) is fixed.
+
+**No `Math.random`/`Date` in sim packages**
+- grep: none outside the headless CLIs and sim-empire's `benchmark()` (`performance.now`, perf only).
+- Each path package now has a source-scan test (`purity.frozen.test.ts`), and the four relative `rng` imports are gone.
+
+**Mutation**
+- The round-2 deep-freeze idea is applied to every path step:
+  - `stepStarsDay`, `applyStarsEffects`, `prepareService` and 11 Stars commands;
+  - `forkFromGameState`, 120 days of `stepEmpireDay` with a focused `DayResult`, and 11 Empire commands;
+  - a career fortnight in the game's call order (beginCareerDay → service with owner responses → stepCareerDay → finishCareerDay);
+  - 20 s of bot hands-on per role.
+- **No writes found.**
+- sim-empire's engine uses an internal `draft()` with in-place mutation. It is correct: draft copies every nested array/map it touches, and the test now guards it.
+
+**Bundle**
+- Before: one 784 kB entry. After `fd22121`:
+  - entry 152 kB, content 154, react 142, paths 121, sim-core 93;
+  - HandsOnShift 64 (handson is in it);
+  - each path/career screen 2–22 kB, loaded with `React.lazy`.
+- The path *sims* stay eager because the reducer and the save envelope call them synchronously; splitting them would need an async reducer step.
+- No warning.
+
+**Hands-on → career link**: done (`77691d9`).
+
+**HIRE_STAFF**: done (`7968fc4`).
+
+**Bigger issues (not fixed; listed by severity)**
+
+**P1**
+1. **Aggregate sites model at 1.2–2.5× the flagship** (R3.3 B). Promoting a site to hands-on will look like a collapse. Needs a seat/turn cap or a counter-service mode in sim-core.
+
+**P2**
+2. **The commis competes with the head chef for the oldest ticket.** A hands-on child gets 1–5 plates a shift. Give the commis a station (starter/dessert tickets) in `reservedForHuman`.
+3. **sim-empire's `calibrate` inherits the owner's rota** (EMPIRE-NOTES open question 4). Weekday profile 0.88 on Monday. Calibrate on fully staffed days.
+4. **Stars: the scripted owner's bistro menu scores 69** with perfect steadiness. A real player won't know that *technique* means "cook harder dishes". The Stars tab should show which criterion holds them back, using `pastVisits` from last year (allowed) and "technique comes from ambitious dishes" copy.
+5. **FOCUS_SITE builds a fresh GameState with the flagship's staff copied** (UI-NOTES "Stubbed"). `HIRE_STAFF` now exists; a `newGameFromSite` would make promotion honest.
+6. **The `hire` and `hireStaff` affordability checks are duplicated** in StaffTab's CandidateCard. Expose `hireCost(state, wage)` from sim-core.
+
+**P3**
+7. `ForkCard` copy says "Year two · a week to remember", but `FORK_DAY = 365` is the *start* of year 2 by the game's own date label ("Year 2"). The BRIEF says end of year 2. A design call; 365 is right for session length.
+8. `stepCareerDay` grew a 5th positional argument. If more inputs come, make it an options object.
+9. `asCommand`/`HookCommand` in `sim.ts` is now redundant (every hook is in sim-core's union). It's harmless, but the casts hide type errors; delete it next round.
+
+## R3.5 Is it fun yet? (per mode)
+
+### Career (apprentice chef)
+**Nearly, for one week.** The first day is a delight: your name on a staff card, a boss with a personality, a shift you can actually play, and a payslip that explains tax to a 12-year-old. After the fix the hands-on canvas gives you plates and stars. What sags is the middle of the week: the rail runs dry, the skill bar crawls, and "50 shifts" is a long way off.
+
+Next three:
+1. **A commis station.** Reserve starters and desserts for the human (not "the oldest 3") so the child always has something to cook. Make the AI head chef the mains.
+2. **Visible growth per shift.** Show a "+0.2 cooking" chip on the evening and a moving skill bar. Halve the first rung's shifts on cosy.
+3. **One small story beat a week.** The mentor offers a lesson, a rival takes your Saturday, the boss tastes your dish. `careerText` already has the lines.
+
+### Empire
+**Yes, as a map game; not yet as a business game.** Watching pins appear, franchise applicants with names and cash, and a meals counter ticking towards a billion is the "make it bigger everywhere" instinct the brief promised. Money moves are legible now that the buttons say what HQ can afford. But two years in, every decision is "open another franchise". There's no trade-off yet: no applicant picker, no contract tension (mood sits at 52–54), and the sites' numbers are generous.
+
+Next three:
+1. **Make the aggregate honest** (P1 above), so "Run it hands-on" feels like visiting a real branch.
+2. **An applicant picker** (competence, honesty, cash shown) plus one franchisee story per quarter (a skimmer caught, a great operator wanting a second site). That is the people side of the brief.
+3. **A monthly "board meeting" card** with HQ income by source (royalty, rent, company profit), plus one question ("Raise royalty?", "Buy the Campus plot?", "Enter a new country?"). It gives the late game a rhythm.
+
+### Stars
+**Yes: the most game-like mode.** Hidden inspectors, rumours you can't trust, a sealed envelope and a score broken down by criterion form a perfect loop for a perfectionist. With blocker 1 fixed, steadiness now rewards a steady kitchen, and weak nights are named. The weakness: what earns a star is invisible until the envelope opens. A player with a 98-steadiness bistro gets "no star, 69" and doesn't know why.
+
+Next three:
+1. **"What the guide looks for" card** on the Stars tab. After the first guide day, show last year's per-criterion averages with a one-line fix each ("Technique 54: put two more ambitious dishes on"). Before it, show generic copy.
+2. **A standing order in inspection season.** Auto-restock to the forecast, or a red "inspection season: don't run out" nudge. One stock-out on a visit night shouldn't cost a year.
+3. **Make the test kitchen a moment.** A 20-day research ends with a tasting (a one-click hands-on plate, or a choice of three twists), so signatures feel earned rather than bought.

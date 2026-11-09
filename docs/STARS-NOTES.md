@@ -7,6 +7,7 @@ edits sim-core, content or game.
 
 ```
 pnpm --filter @full-plate/sim-stars typecheck | test | build | demo | headless [--years 6 --seed 3 --seeds N --refit-year Y --profile stars|bistro]
+                                                                       [--fork-day 365 --year1 balanced|premium|typical]   # start Stars from a played year 1
 ```
 
 ## 1. How the game mounts it
@@ -125,8 +126,10 @@ All tunables live in `src/constants.ts`. Calendar: 30-day months, 360-day years,
 | ingredients | 0.55 harmony + 5 + 25 × in-season share + 20 × partner share × relationship/100 + 100 × Σ(partner seasonalBonus × in-season share) + 5 if prepaid ticketing. Shares are over fresh-produce portions (ingredients any partner sells), weighted by plates sold |
 | consistency | `windowConsistency(last 60 open days' mean quality)` − 6 per untrained satellite (**group cap**) − 15 while disrupted − 0.4 per stress point above 70 + 1 per stagiaire (max 6) |
 
-`seriesConsistency = 100 − 3·sd − 60·offNightShare − 0.6·max(0, 80 − mean)`, shrunk toward 60 below 10 days. An
-off night is more than 8 below the series mean.
+`seriesConsistency = 100 − 2·sd − 40·offNightShare − 0.6·max(0, 80 − mean)`, shrunk toward 60 below 10 days. An
+off night is more than 8 below the series mean. (Round 3 review: was 3·sd / 60·off, which scored a strong-chef-five-nights,
+weak-cover-two-nights week at exactly 0. `starsView().weakNights` names the weekdays that drag it down; the window
+records its sim days in `consistencyDays`.)
 
 ### Chef stress, burnout, the Smyth arc
 - `stress → target` at 1.5% a day. Target when open = 20 + 14/star + 10 in inspection season + 3 per year of

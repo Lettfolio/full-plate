@@ -154,7 +154,7 @@ The test also checks that, per weekday, noise-free expected covers are within 15
   - **Royalty and ad fund:** HQ gets `royalty% × reported` and `adFund% × reported`. The ad fund feeds regional recognition.
   - **On HQ land** (`hqLease` or `hqOwned`): the operator pays `max(rent% × reported, market rent × 1.4)` to HQ (Sonneborn's rule). On `hqLease`, HQ pays the market rent to the landlord. On `hqOwned`, HQ pays the mortgage instead. The mortgage is fixed while rent grows with sales and inflation, which is the end-game engine.
   - **Operator:** net = contribution − royalty − ad fund − rent − bank-loan instalment. The operator put 30% of the build down in equity, and the bank lends the rest over 10 years at 7%.
-- **HQ costs:** overhead of £60/day plus £30/day per site, mortgages, inspections (£800 each), and overdraft interest at 8% APR below zero. HQ is bankrupt below −£2m × priceLevel. Capital spending may draw up to half the credit line (`spendable`).
+- **HQ costs:** overhead of £60/day plus £30/day per site, mortgages, inspections (£800 each), and overdraft interest at 8% APR below zero. HQ is bankrupt below −£2m × priceLevel. Capital spending may draw on a development facility of £150k per open site, capped at half the credit line (`developmentFacility`, `spendable`; round 3 review — the full £1m used to be available with one site).
 - **Inflation:** 2.5% a year on prices, wages, rents and costs. Mortgages and loans are nominal.
 
 ### Other mechanics (each has a test in `test/mechanics.test.ts`)

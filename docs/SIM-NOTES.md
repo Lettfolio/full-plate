@@ -276,6 +276,8 @@ These are the hooks requested in EMPIRE/STARS/CAREER/HANDSON-NOTES and CONTENT-N
 | `CLOSE_TODAY` | planning | Moves to evening/event without a service (see below). |
 | `SET_SET_MENU { dishIds, price, active }` | planning | Stores `GameState.setMenu`: 1–12 distinct known dishes, price whole pence ≤ £1,000. `dishIds: [], active: false` removes it. Set dishes don't need to be on the à-la-carte menu. |
 | `SET_OWNER_PROFILE { skill, speed, charm }` | planning, evening, event | `GameState.ownerProfile`, each value clamped 0–100. |
+| `PLAYER_CLAIMED { ticketId }` (review) | service | The human picked this ticket up: `chefId` = the human, `claimedAtTick`. No AI cook takes it until `HANDS_ON.claimTimeoutTicks` (16) pass or hands-on stops. A career player's own Staff record is never an AI cook while they are hands-on (chef/bar). |
+| `HIRE_STAFF { staff }` (review) | planning | Hire a known person (former colleague). Same fee and cash rule as HIRE; identity, stats, wage, traits and potential kept; mood/fatigue/rota/hiredDay fresh. |
 
 ## Hands-on fallback rules (`HANDS_ON` in constants.ts)
 The sim backs off whatever the human's role covers, but a slow fallback keeps food from being stranded if the child wanders off.

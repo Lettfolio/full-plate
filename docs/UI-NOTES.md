@@ -157,8 +157,10 @@ All four path packages are mounted, and the round-3 sim-core hooks (`3161364`, `
 - **Product launch:** it uses a fixed name ("The Big One") and the stretch fit. There is no naming dialog.
 - **Franchise sale:** it always goes to the first waiting applicant. There is no applicant picker, and no ownership slider per region.
 - **Promoted sites (FOCUS_SITE):** they copy the flagship's team instead of hiring by `staffQuality`. There is no `newGameFromSite` in sim-core.
-- **Hands-on summary:** it is not yet fed into `stepCareerDay` (CAREER-NOTES suggests an optional argument). It shows on the evening only.
-- **Former colleagues as hireable candidates later in the owner game:** not done. There is no `HIRE_STAFF` in sim-core. The day-1 colleague perk is applied by sim-career's state edit.
+- **Hands-on summary:** fed into `stepCareerDay` (review pass): the running score is reported each tick (`handsOnScore`).
+- **Former colleagues:** the Staff tab lists "Old colleagues" after a handover and hires them with sim-core `HIRE_STAFF` (review pass).
+- **Code-split (review pass):** HandsOnShift, MyShift, CareerEvening, WinScreen, GuideEnvelope, HandoverModal, EmpireTab and StarsTab are `React.lazy`; vite `manualChunks` splits react/content/sim-core/paths.
+- **Fork (review pass):** also needs the last 28 days in profit; a Sunday evening card says what's missing. Empire buttons are disabled with "Needs £X; HQ can spend £Y". Stars owners get "Close tonight". `?autopilot=0–1` lets handson's bot play the canvas.
 - **Empire charts** (monthly sparklines) and the per-site detail drawer from EMPIRE-NOTES are cut.
 
 ### Tests (`src/__tests__/round3.test.tsx`, `r3content.test.ts`)
