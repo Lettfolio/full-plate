@@ -266,6 +266,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
       {city.entered && (
         <>
           <h4>Open a site <span className="xs muted">(builds in 90 days)</span></h4>
+          {applicant && <UnlockedFormulaWarning e={e} />}
           <div className="opensite">
             {city.districts.map((d) => (
               <div key={d} className="opensite__row">
@@ -302,6 +303,7 @@ function SitesPanel({ e, send, onFocusSite }: { e: EmpireState; send: (c: Empire
         Each site is a dining room like yours: {boxTables(content, e.brand.formula.standardisation)} tables and a local crew of two chefs and two servers.
         Hands-on, you run the dining room{offPremiseNote(e)}.
       </p>
+      {applicant && list.some((s) => s.ownership === "company" && !s.focused && s.status === "open") && <UnlockedFormulaWarning e={e} />}
       <ul className="sitelist">
         {list.map((s: SiteSummary) => (
           <li key={s.id} className={`site ${s.focused ? "site--focused" : ""}`}>
@@ -425,6 +427,20 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
   );
 }
 
+/**
+ * Round 4 review (EMPIRE-NOTES open question 8c): before the formula is locked a franchised dining room barely covers
+ * its rent, royalty and loan, so the operator loses money and mood slides. Say so wherever a franchise can be sold.
+ */
+export const UNLOCKED_FORMULA_WARNING = "Lock your formula first — franchisees of an unstandardised brand lose money.";
+function UnlockedFormulaWarning({ e }: { e: EmpireState }) {
+  if (e.brand.formula.locked) return null;
+  return (
+    <p className="small callout callout--warn" role="note" aria-label="Formula warning">
+      <b>{UNLOCKED_FORMULA_WARNING}</b> Go to <b>Brand → Lock the formula</b> first: every site then cooks the same menu the same way and gets an extra table and a takeaway counter. Even then a new franchisee only just gets by until drive-thru and app orders arrive, so watch their mood.
+    </p>
+  );
+}
+
 function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => void }) {
   const c = e.contract;
   const set = (patch: Partial<typeof c>) => send({ type: "SET_CONTRACT", contract: patch, applyTo: "new" });
@@ -441,6 +457,7 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
   return (
     <div className="card stack stack--sm">
       <div className="card__title"><h3>Franchise contract</h3><span className="xs faint">for new deals</span></div>
+      <UnlockedFormulaWarning e={e} />
       <div className="row"><span className="spacer small">Fee</span>
         <button className="btn btn--sm" aria-label="Lower fee" onClick={() => set({ fee: Math.max(0, c.fee - 500_000) })}>−</button>
         <b style={{ minWidth: 56, textAlign: "center" }}><MoneyText pence={c.fee} whole /></b>

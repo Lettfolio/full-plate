@@ -495,3 +495,19 @@ describe("HQ", () => {
     expect(rejected(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "seaside", ownership: "company", land: "hqLease" })).toBeUndefined();
   });
 });
+
+describe("round 4 review: the 'lock your formula first' warning is true", () => {
+  it("an unlocked franchise loses its operator more money than the same site on the locked formula", () => {
+    const run = (locked: boolean) => {
+      let e = withApplicant(locked ? must(empire(), { type: "SET_FORMULA", locked: true }) : empire());
+      e = openAndBuild(e, { type: "OPEN_SITE", cityId: "harbourton", districtId: "high_street", ownership: "franchise", land: "thirdParty", applicantId: "a_test" }).e;
+      return days(e, 120).franchisees[0]!;
+    };
+    const unlocked = run(false);
+    const locked = run(true);
+    expect(unlocked.margin30d).toBeLessThan(-0.15);
+    // REVIEW R4: the locked unit still runs below zero in its first months (P1 balance, open question 8c).
+    expect(locked.margin30d).toBeGreaterThan(unlocked.margin30d + 0.1);
+    expect(locked.mood).toBeGreaterThan(unlocked.mood);
+  });
+});

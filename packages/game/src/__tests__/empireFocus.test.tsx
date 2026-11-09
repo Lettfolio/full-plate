@@ -81,3 +81,22 @@ describe("EmpireTab sites copy (round 3)", () => {
     expect(screen.getAllByText(/covers today: \d+ in the dining room \(\d+ tables, crew \d+\) \+ \d+ takeaway/).length).toBeGreaterThan(0);
   });
 });
+
+describe("round 4 review: the contract panel warns before the formula is locked", () => {
+  afterEach(cleanup);
+  const panel = (s: AppState) => {
+    render(<EmpireTab game={s.game!} meta={s.meta} empire={s.meta.empire!} send={() => {}} onFocusSite={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Contract" }));
+  };
+  it("shows 'Lock your formula first' on the contract panel until the formula is locked", () => {
+    const s = forkedEmpire();
+    expect(s.meta.empire!.brand.formula.locked).toBe(false);
+    panel(s);
+    const note = screen.getByLabelText("Formula warning");
+    expect(note.textContent).toContain("Lock your formula first — franchisees of an unstandardised brand lose money.");
+    expect(note.textContent).toMatch(/Brand → Lock the formula/);
+    cleanup();
+    panel(appReducer(s, { type: "empire", cmd: { type: "SET_FORMULA", locked: true } }));
+    expect(screen.queryByLabelText("Formula warning")).toBeNull();
+  });
+});
