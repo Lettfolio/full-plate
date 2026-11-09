@@ -25,5 +25,7 @@ export {
 } from "./inspector";
 export { dayInputs, dayCriteria, windowConsistency, seriesConsistency, windowStats, consistencyModifier, criteriaTotal, produceShares } from "./proxies";
 export type { DayInputs, DishLine } from "./proxies";
+export { starsHints, recentInputs, CRITERION_LABEL } from "./hints";
+export type { StarsHint, CriterionKey } from "./hints";
 export { prestigeTarget, fiftyBestRank, gaultMillauPoints, goodFoodTier, criticRating } from "./tracks";
 export * as STARS_CONSTANTS from "./constants";

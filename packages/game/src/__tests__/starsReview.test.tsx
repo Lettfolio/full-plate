@@ -12,6 +12,7 @@ import { applyCommand, content, runDay, SERVICE_TICKS, suggestedOrder } from "..
 import { suggestedStarterMenu } from "../lib/starterMenu";
 import { Planning } from "../screens/Planning";
 import { tonightRisk } from "../screens/planning/stockNeeds";
+import { StarsTab } from "../screens/paths/StarsTab";
 
 afterEach(cleanup);
 const noop = () => {};
@@ -100,5 +101,21 @@ describe("P1: the short-menu warning before service", () => {
     expect(ev && ev.type === "SHORT_MENU" && ev.text).toMatch(/dishes were off \(/);
     // A night that ran out of everything is in the window (as an off night), not skipped like a day off.
     expect(s.meta.stars!.consistencyWindow.length).toBe(window0 + 1);
+  });
+});
+
+describe("P2: the Stars tab says what holds you back", () => {
+  it("shows the top two criteria below the bar as plain hints, with the rest folded away", () => {
+    const s = appReducer(playedOwner(), { type: "fork", choice: "stars" });
+    render(<StarsTab game={s.game!} meta={s.meta} stars={s.meta.stars!} send={noop} onTastingMenu={noop} />);
+    const card = screen.getByRole("heading", { name: "What's holding you back" }).closest(".card") as HTMLElement;
+    const top = card.querySelectorAll("ol.starhints > li");
+    expect(top.length).toBe(2);
+    // A starter bistro with no test kitchen and no partners: signatures and sourcing first.
+    expect(top[0]!.textContent).toMatch(/^Personality.*build the test kitchen/);
+    expect(top[1]!.textContent).toMatch(/^Ingredients.*Sourcing/);
+    expect(card.textContent).toMatch(/stay secret until guide day/);
+    // Words only: no inspector scores, thresholds or predicted stars on the card.
+    expect(card.textContent).not.toMatch(/score|threshold|predict/i);
   });
 });

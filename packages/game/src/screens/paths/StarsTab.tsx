@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  researchDays, satelliteCost, starsView, supplierCatalogue, STARS_CONSTANTS as K,
+  CRITERION_LABEL, researchDays, satelliteCost, starsHints, starsView, supplierCatalogue, STARS_CONSTANTS as K,
   type StarsCommand, type StarsEvent, type StarsState,
 } from "@full-plate/sim-stars";
 import { fill } from "@full-plate/content";
@@ -37,6 +37,15 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
   const smyth = extras.criticText.headChef;
   const recent = meta.starsEvents.filter((e): e is Extract<StarsEvent, { type: "LOG" }> => e.type === "LOG").slice(-6);
   const refitOn = (v.refitUntil ?? -1) > game.day;
+  // Round 3 review P2: which criterion holds you back, from your own recent nights (never the inspectors' secrets).
+  const hints = starsHints(content, stars, game).filter((h) => h.behind);
+  const lastGuide = v.guideHistory.at(-1);
+  const lastVisits = lastGuide ? v.pastVisits.filter((x) => x.day <= lastGuide.day && x.day > (v.guideHistory.at(-2)?.day ?? -1)) : [];
+  const lastWeakest = lastVisits.length
+    ? (Object.keys(CRITERION_LABEL) as (keyof typeof CRITERION_LABEL)[])
+        .map((k) => ({ k, mean: lastVisits.reduce((a, x) => a + x.scores[k], 0) / lastVisits.length }))
+        .sort((a, b) => a.mean - b.mean)[0]
+    : undefined;
 
   return (
     <div className="starstab">
@@ -65,6 +74,26 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
 
       <div className="starstab__grid">
         <div className="stack">
+          <div className="card stack stack--sm" aria-labelledby="guide-looks-h">
+            <div className="card__title"><h3 id="guide-looks-h">What's holding you back</h3><span className="xs faint">from your last week</span></div>
+            {hints.length === 0 ? (
+              <p className="small">Nothing on your own record stands out as weak. Keep every night like this.</p>
+            ) : (
+              <ol className="starhints">
+                {hints.slice(0, 2).map((h) => (
+                  <li key={h.criterion}><span className="pill pill--puzzle">{h.label}</span><span className="small">{h.text}</span></li>
+                ))}
+              </ol>
+            )}
+            {hints.length > 2 && (
+              <details className="xs">
+                <summary>Also worth a look ({hints.length - 2})</summary>
+                <ul className="starhints">{hints.slice(2).map((h) => <li key={h.criterion}><b>{h.label}:</b> {h.text}</li>)}</ul>
+              </details>
+            )}
+            {lastWeakest && <p className="xs muted">Last guide day, the inspectors marked your {CRITERION_LABEL[lastWeakest.k].toLowerCase()} lowest.</p>}
+            <p className="xs faint">The inspectors' own marks stay secret until guide day. These come from your kitchen's record.</p>
+          </div>
           <div className="card stack stack--sm">
             <div className="card__title"><h3>The kitchen</h3>{v.inspectionSeason && <span className="pill pill--puzzle">inspection season</span>}</div>
             <Bar label="Head chef stress" value={v.headChef.stress} tone={v.headChef.stress >= 75 ? "accent" : v.headChef.stress >= 50 ? "amber" : "basil"} showValue />
