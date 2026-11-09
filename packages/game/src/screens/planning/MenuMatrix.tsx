@@ -18,6 +18,11 @@ export const QUADRANT: Record<MenuQuadrant, { label: string; colour: string; hin
 };
 
 const W = 360, H = 300, PAD = 30;
+/** Width of a 14.5 px extra-bold label, generously (Nunito ≈ 8.6 px a character). */
+export const labelWidth = (text: string): number => text.length * 8.8;
+/** Long dish names are cut to fit half the chart ("Fish & chips with mus…"); the full name shows in the list. */
+export const MAX_LABEL_CHARS = 22;
+export const shortName = (name: string): string => (name.length > MAX_LABEL_CHARS ? `${name.slice(0, MAX_LABEL_CHARS - 1).trimEnd()}…` : name);
 
 /**
  * Menu-engineering 2×2. X = popularity (sold in the last 7 days), Y = margin per plate.
@@ -43,15 +48,26 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
     if (n) { cx += Math.cos(n * 2.1) * 14; cy += Math.sin(n * 2.1) * 14; }
     return { ...p, cx, cy };
   });
-  // label collision: keep a label only if it doesn't overlap one already placed (hover always shows)
-  const boxes: { x: number; y: number; w: number }[] = [];
-  const labelled = new Set<DishId>();
+  // label collision: keep a label only if it doesn't overlap one already placed, a quadrant title, an axis label or
+  // another dish's dot (round 5 review: names sat on "Stars ★" and ran off the edge). Try above the dot, then below;
+  // the label is clamped inside the chart. Hover always shows.
+  const boxes: { x: number; y: number; w: number }[] = [
+    { x: 10 + 32, y: 17, w: 70 }, { x: W - 10 - 30, y: 17, w: 66 }, // Puzzles, Stars ★ (centre x, baseline-ish y)
+    { x: 10 + 20, y: H - 25, w: 44 }, { x: W - 10 - 52, y: H - 25, w: 110 }, // Dogs, Plough-horses
+    { x: W / 2, y: H - 9, w: 120 }, // more popular →
+  ];
+  const dots = placed.map((p) => ({ x: p.cx, y: p.cy }));
+  const hits = (x: number, y: number, w: number, self: { cx: number; cy: number }) =>
+    boxes.some((b) => Math.abs(b.y - y) < 16 && Math.abs(b.x - x) < (b.w + w) / 2) ||
+    dots.some((d) => (d.x !== self.cx || d.y !== self.cy) && Math.abs(d.y - (y - 5)) < 14 && Math.abs(d.x - x) < w / 2 + 8);
+  const labelAt = new Map<DishId, { x: number; y: number }>();
   for (const p of [...placed].sort((a, b) => b.x - a.x)) {
-    const w = Math.min(160, (names[p.m.dishId] ?? p.m.dishId).length * 8);
-    const y = p.cy - 13;
-    if (boxes.some((b) => Math.abs(b.y - y) < 16 && Math.abs(b.x - p.cx) < (b.w + w) / 2)) continue;
-    boxes.push({ x: p.cx, y, w });
-    labelled.add(p.m.dishId);
+    const w = labelWidth(shortName(names[p.m.dishId] ?? p.m.dishId));
+    const x = Math.max(w / 2 + 4, Math.min(W - w / 2 - 4, p.cx));
+    const spot = [p.cy - 13, p.cy + 25].find((y) => y > 14 && y < H - 4 && !hits(x, y, w, p));
+    if (spot === undefined) continue;
+    boxes.push({ x, y: spot, w });
+    labelAt.set(p.m.dishId, { x, y: spot });
   }
 
   return (
@@ -79,9 +95,9 @@ export function MenuMatrix({ items, quadrants, names, fallbackMargin, highlight,
           return (
             <g key={m.dishId} onMouseEnter={() => onHover?.(m.dishId)} onMouseLeave={() => onHover?.(null)} style={{ cursor: "default" }}>
               <circle cx={cx} cy={cy} r={hl ? 11 : 8} fill={QUADRANT[q].colour} stroke="#2b2622" strokeWidth={hl ? 3 : 2} />
-              {(hl || labelled.has(m.dishId)) && (
-                <text x={cx} y={cy - 13} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="14.5" fontWeight="800" fill="#2b2622" paintOrder="stroke" stroke="#fffdf8" strokeWidth="3">
-                  {names[m.dishId] ?? m.dishId}
+              {(hl || labelAt.has(m.dishId)) && (
+                <text x={labelAt.get(m.dishId)?.x ?? Math.max(60, Math.min(W - 60, cx))} y={labelAt.get(m.dishId)?.y ?? cy - 13} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="14.5" fontWeight="800" fill="#2b2622" paintOrder="stroke" stroke="#fffdf8" strokeWidth="3">
+                  {shortName(names[m.dishId] ?? m.dishId)}
                 </text>
               )}
             </g>
