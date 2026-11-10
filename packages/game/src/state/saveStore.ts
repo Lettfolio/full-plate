@@ -42,6 +42,8 @@ export interface SlotSummary {
   difficulty: GameState["difficulty"];
   /** ISO wall-clock time of the last save. UI metadata only. */
   updatedAt: string;
+  /** Round 11: the game has ended (the bank closed it). Kept, greyed, as "Lost — day N"; absent = still playing. */
+  archived?: boolean;
 }
 
 /** The header document `data/users/<id>/save-<slotId>`. Written after its chunks, so a half-written save never lists. */
@@ -135,15 +137,26 @@ export function slotPath(meta: PathMeta): SlotPath {
   return meta.mode === "career" && meta.career && !meta.career.handover ? "career" : meta.empire ? "empire" : meta.stars ? "stars" : "owner";
 }
 export function defaultSlotName(game: GameState, meta: PathMeta): string {
-  return slotPath(meta) === "career" && meta.career!.playerName ? `${meta.career!.playerName}'s career` : game.restaurantName || "My restaurant";
+  // Round 11 (U12): a blank career name is "You" in sim-career — "Your career", never "You's career".
+  const who = slotPath(meta) === "career" ? meta.career!.playerName?.trim() : "";
+  return who ? (who === "You" ? "Your career" : `${who}'s career`) : game.restaurantName || "My restaurant";
 }
 export function summarize(slotId: string, name: string, game: GameState, meta: PathMeta, updatedAt: string): SlotSummary {
   const path = slotPath(meta);
-  return { slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt };
+  return {
+    slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt,
+    ...(isLost(game, meta) ? { archived: true } : {}),
+  };
 }
-export const pickSummary = ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt }: SlotSummary): SlotSummary =>
-  ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt });
-export const isOver = (game: GameState, meta: PathMeta) => game.phase === "gameover" && meta.mode === "owner";
+export const pickSummary = ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt, archived }: SlotSummary): SlotSummary =>
+  ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt, ...(archived ? { archived: true } : {}) });
+/**
+ * Round 11 (U3): a finished game is never deleted. The bank closed it (any path but a career that's still running —
+ * an employer going bust isn't her game ending): it is archived, kept and greyed as "Lost — day N" in Your games.
+ */
+export const isLost = (game: GameState, meta: PathMeta) => game.phase === "gameover" && slotPath(meta) !== "career";
+/** Round 9 removed an ended owner game on save; round 11 keeps every game (archived), so nothing is "over" enough to drop. */
+export const isOver = (_game: GameState, _meta: PathMeta) => false;
 
 // ── the store ──
 export interface StoreDeps {

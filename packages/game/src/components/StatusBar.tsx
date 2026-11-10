@@ -11,6 +11,7 @@ import { MoneyText } from "./MoneyText";
 import { SettingsMenu, type SavedWhere } from "./Settings";
 import { pathBadges, type PathMeta } from "../state/paths";
 import { Icon } from "./Icon";
+import { BankChip } from "./Bank";
 
 interface Props {
   game: GameState;
@@ -87,6 +88,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
               <span className="status__k">Cash</span>
               <MoneyText pence={game.cash} whole className={`status__cash ${game.cash < 0 ? "money--neg" : ""}`} />
               <CashTrend game={game} />
+              <BankChip game={game} />
             </div>
             <div className="status__stat status__stat--bars">
               <Bar label="Popularity" value={game.reputation.popularity} tone="accent" showValue size="sm" title="Popularity — brings more people through the door" />

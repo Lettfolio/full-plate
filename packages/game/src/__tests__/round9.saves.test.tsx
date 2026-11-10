@@ -181,12 +181,12 @@ describe("save store: device only", () => {
     expect(await a.flush("s1")).toBe("memory");
   });
 
-  it("an ended owner game is removed (it can't be continued), as before", async () => {
+  it("an ended owner game is kept, archived (round 11: it used to be removed)", async () => {
     const a = track(mk());
     const g = owner();
     await a.save("s1", g.game, g.meta);
     await a.save("s1", { ...g.game, phase: "gameover" }, g.meta);
-    expect(a.list()).toEqual([]);
+    expect(a.list().map((s) => [s.slotId, s.archived])).toEqual([["s1", true]]);
   });
 
   it("caps at six slots", async () => {
@@ -215,7 +215,7 @@ describe("save store: legacy migration", () => {
     expect(b.list()).toHaveLength(2);
   });
 
-  it("a round 1–2 bare GameState migrates; an ended owner run and junk are skipped", async () => {
+  it("a round 1–2 bare GameState migrates; junk is skipped and an ended owner run is archived (round 11)", async () => {
     const st = new FakeStorage();
     const o = owner("Bare");
     st.setItem(SAVE_KEY, JSON.stringify(o.game));
@@ -225,7 +225,7 @@ describe("save store: legacy migration", () => {
     expect((await a.load(a.list()[0]!.slotId))!.loaded.game).toEqual(o.game);
     const st2 = new FakeStorage();
     st2.setItem(SAVE_KEY, encodeSave({ ...o.game, phase: "gameover" }, initialMeta("owner")));
-    expect(track(mk({ storage: st2 })).list()).toEqual([]);
+    expect(track(mk({ storage: st2 })).list().map((s) => [s.name, s.archived])).toEqual([["Bare", true]]);
   });
 
   it("does nothing when slots already exist", async () => {

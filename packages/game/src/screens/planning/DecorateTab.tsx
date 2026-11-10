@@ -17,6 +17,7 @@ import { Icon, type IconName } from "../../components/Icon";
 import { Panel, StatTile } from "../../components/Panel";
 import { MoneyText } from "../../components/MoneyText";
 import { formatPence } from "../../lib/format";
+import { useSpendGuard } from "../../components/SpendGuard";
 import "./decorate.css";
 
 // The preview always shows decor: fetch the decor art with the tab.
@@ -63,6 +64,8 @@ export function DecorateTab({ game, send }: Props) {
   const pending = new Map((game.decor?.pending ?? []).map((p) => [p.slot, p.itemId]));
   const here = installedDecor(content, game, slot);
   const wear = here ? decorWear(here.item, here.since, game.day) : "fresh";
+  // Round 11 (U2): a buy that leaves under three days of running costs asks first.
+  const { guard, dialog } = useSpendGuard(game);
 
   return (
     <div className="decorate">
@@ -70,9 +73,12 @@ export function DecorateTab({ game, send }: Props) {
         <Panel title="Your dining room" icon="paint" sub={<span className="decorate__style">{room}</span>}>
           <RoomCanvas game={shown} />
           <p className="decorate__caption small" aria-live="polite">
-            {preview && preview.id !== here?.item.id
-              ? <>Trying out <b>{preview.name}</b>{preview.starter ? "" : " — not bought yet"}.</>
-              : <>This is your room today.</>}
+            {/* Round 11 (U2): say what actually happened — a bought piece is coming, not "being tried out". */}
+            {preview && pending.get(preview.slot) === preview.id
+              ? <>Bought <b>{preview.name}</b> — the fitters come tomorrow. You have <MoneyText pence={game.cash} whole /> left.</>
+              : preview && preview.id !== here?.item.id
+                ? <>Trying out <b>{preview.name}</b>{preview.starter ? "" : " — not bought yet"}.</>
+                : <>This is your room today.</>}
           </p>
           <div className="decorate__tiles">
             <StatTile label="Prestige from decor" value={signed(now.prestige)} />
@@ -117,7 +123,7 @@ export function DecorateTab({ game, send }: Props) {
               <button
                 className="btn btn--green"
                 disabled={!canShop || game.cash < here.item.refreshCost}
-                onClick={() => send({ type: "REFRESH_DECOR", slot })}
+                onClick={() => guard(here.item.refreshCost, `Refreshing your ${lower(here.item.name)}`, () => send({ type: "REFRESH_DECOR", slot }))}
               >
                 Refresh · <MoneyText pence={here.item.refreshCost} whole />
               </button>
@@ -135,7 +141,7 @@ export function DecorateTab({ game, send }: Props) {
                 picked={picked?.id === item.id}
                 onPreview={(on) => setHover(on ? item : null)}
                 onPick={() => setPicked(picked?.id === item.id ? null : item)}
-                onBuy={() => send({ type: "BUY_DECOR", slot, itemId: item.id })}
+                onBuy={() => (item.starter ? send({ type: "BUY_DECOR", slot, itemId: item.id }) : guard(item.price, item.name, () => send({ type: "BUY_DECOR", slot, itemId: item.id })))}
               />
             ))}
           </ul>
@@ -143,6 +149,7 @@ export function DecorateTab({ game, send }: Props) {
             The fitters come the next morning. Big jobs close a table or two that night. Everything wears out in the end — a refresh costs much less than buying again.
           </p>
         </Panel>
+        {dialog}
       </div>
     </div>
   );

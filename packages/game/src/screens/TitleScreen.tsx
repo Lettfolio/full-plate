@@ -54,7 +54,8 @@ export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, save
   const [goals, setGoals] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
   // Round 9: the career save is one of the slots now (no separate "Continue career").
-  const latest = slots?.[0];
+  // Round 11: a lost (archived) game is in Your games, not behind Continue.
+  const latest = slots?.find((s) => !s.archived);
   const card: Card | null = latest ? slotCard(latest) : !slots && saved ? { name: saved.restaurantName, day: saved.day, cash: saved.cash } : null;
   const hasSave = !!card;
   return (

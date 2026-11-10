@@ -188,7 +188,16 @@ function rejectToast(s: AppState, why: string | undefined): AppState {
 
 export function appReducer(s: AppState, a: AppAction): AppState {
   const next = reduce(s, a);
-  return next === s ? s : morningActions(settle(next));
+  return next === s ? s : clearStaleToast(s, morningActions(settle(next)));
+}
+
+/**
+ * Round 11 (U4): a toast belongs to the screen it was raised on. When the phase changes (service → evening, evening →
+ * morning) a toast left over from before goes; one raised by the change itself (a goal completed at END_DAY) stays.
+ */
+function clearStaleToast(prev: AppState, next: AppState): AppState {
+  const changed = !!prev.game && !!next.game && prev.game.phase !== next.game.phase;
+  return changed && next.toast && next.toast === prev.toast ? { ...next, toast: null } : next;
 }
 
 /**

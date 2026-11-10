@@ -1,6 +1,8 @@
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
-import { content, OWNER_FATIGUE_WARNING, TABLE_COST } from "../sim";
+import { content, OWNER_FATIGUE_WARNING, spendCheck, TABLE_COST } from "../sim";
+import { BankCard, bankDue, hirePromptText, loanDue, StarterLoanTip } from "../components/Bank";
+import { Suspense } from "react";
 import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
 import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
@@ -246,6 +248,10 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const covered = r.ownerCovered ?? [];
   const staffed = covered.length ? lastStaffedDay(game.history, r.day) : undefined;
   const moreTables = r.walkouts > WALKOUTS_FOR_TABLE_TIP && game.tables.length < content.balance.maxTables;
+  // Round 11 (U6): advice she can't afford is greyed, not pushed (a table that leaves under three days' running costs).
+  const tableOk = !spendCheck(content, game, TABLE_COST).risky;
+  const hire = hirePromptText(game);
+  const over = game.phase === "gameover";
 
   return (
     <div className="page">
@@ -257,6 +263,14 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
         {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
         {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
         <div className="evening__money"><TonightMoney game={game} r={r} /></div>
+        {/* Round 11 (U3/G2): the bank's countdown and the staffless way out, before anything else she might read. */}
+        {!over && meta?.mode !== "career" && (bankDue(game) || loanDue(game)) && (
+          <div className="evening__bank">
+            <Suspense fallback={null}>
+              {bankDue(game) ? <BankCard game={game} send={send} onGoTo={onGoTo} onAct={onAct} /> : <StarterLoanTip game={game} send={send} />}
+            </Suspense>
+          </div>
+        )}
 
         <div className="stack">
           {game.phase !== "gameover" && <Restock game={game} send={send} inspection={!!meta?.stars && !meta.stars.ending && inSeason(meta.stars, game.day + 1)} stars={meta?.stars?.guides.michelin.stars ?? 0} />}
@@ -272,18 +286,21 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                     : <>Today: {r.covers} served, {r.walkouts} walked out, {r.averageRating.toFixed(1)}★. A proper team cooks better and faster, and you'll get tired doing it all.</>}
                 </div>
               </div>
-              {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>Hire →</button>}
+              {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>{hire.text}</button>}
             </div>
           )}
-          {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && game.phase !== "gameover" && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={onGoTo ? () => onGoTo("staff") : undefined} />}
+          {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && game.phase !== "gameover" && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={onGoTo ? () => onGoTo("staff") : undefined} hireLabel={hire.text} />}
           {moreTables && (
-            <div className="card tip">
+            <div className={`card tip ${tableOk ? "" : "tip--off"}`} data-testid="table-tip">
               <span className="tip__icon" aria-hidden="true">🪑</span>
               <div className="spacer">
                 <b>{r.walkouts} people walked out.</b>
-                <div className="small">Another table (<MoneyText pence={TABLE_COST} whole />) seats more of the queue — if the kitchen can keep up.</div>
+                <div className="small">
+                  Another table (<MoneyText pence={TABLE_COST} whole />) seats more of the queue — if the kitchen can keep up.
+                  {!tableOk && " Not now, though: keep your money for the bills until you're doing better."}
+                </div>
               </div>
-              {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("restaurant")}>Buy a table →</button>}
+              {tableOk ? onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("restaurant")}>Buy a table →</button> : <span className="tip__cant">Can't afford</span>}
             </div>
           )}
           <details className="card sums">
@@ -382,7 +399,8 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                       {s ? <Avatar person={s} size={32} mood={s.mood} /> : <span />}
                       <span>
                         <b>{s?.name ?? "Former staff"}</b> <span aria-hidden="true">{s ? moodFace(s.mood) : ""}</span>
-                        {s?.moodWhy && Math.abs(d) >= 0.5 && <span className="moodrow__why xs muted" data-testid="mood-why">{s.moodWhy.text}</span>}
+                        {/* Round 11 (U12): the reason only when it points the same way as tonight's change. */}
+                        {s?.moodWhy && Math.abs(d) >= 0.5 && Math.sign(s.moodWhy.delta) === Math.sign(d) && <span className="moodrow__why xs muted" data-testid="mood-why">{s.moodWhy.text}</span>}
                       </span>
                       {s ? <Bar value={s.mood} tone="auto" size="sm" /> : <span />}
                       <Delta v={d} digits={0} />

@@ -30,6 +30,10 @@ export function EventModal({ game, send }: Props) {
       </div>
     );
   }
+  // Round 11 (U6): a choice that would take cash she doesn't have is greyed ("Can't afford"), as long as another is left.
+  const short = (c: EventChoiceDef) => (c.effects.cash ?? 0) < 0 && game.cash + (c.effects.cash ?? 0) < 0;
+  const blocked = new Set(ev.choices.every(short) ? [] : ev.choices.filter(short).map((c) => c.id));
+  const firstOk = ev.choices.find((c) => !blocked.has(c.id))?.id;
   return (
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="event-title">
       <div className="modal">
@@ -43,11 +47,12 @@ export function EventModal({ game, send }: Props) {
         <div className="modal__body">
           <p>{ev.body}</p>
           <div className="choices">
-            {ev.choices.map((c, i) => {
+            {ev.choices.map((c) => {
               const chips = effectChips(c.effects);
+              const cant = blocked.has(c.id);
               return (
-                <button key={c.id} ref={i === 0 ? first : undefined} className="choice" onClick={() => send({ type: "RESOLVE_EVENT", choiceId: c.id })}>
-                  <span className="choice__label">{c.label}</span>
+                <button key={c.id} ref={c.id === firstOk ? first : undefined} className={`choice ${cant ? "choice--cant" : ""}`} disabled={cant} onClick={() => send({ type: "RESOLVE_EVENT", choiceId: c.id })}>
+                  <span className="choice__label">{c.label}{cant && <span className="choice__cant"> · Can't afford</span>}</span>
                   <span className="choice__fx">
                     {chips.length ? chips.map((x) => <span key={x.text} className={`fx fx--${x.tone}`}><span aria-hidden="true">{x.tone === "up" ? "▲ " : "▼ "}</span>{x.text}</span>) : <span className="fx fx--none">nothing changes</span>}
                   </span>

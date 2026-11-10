@@ -113,14 +113,28 @@ export const HOOKS = {
 export const recruitmentFeeOf: (s: GameState) => number = (sim as unknown as { recruitmentFeeOf?: (s: GameState) => number }).recruitmentFeeOf ?? (() => sim.RECRUITMENT_FEE);
 
 /**
- * Round 3 review P2: the one hire-affordability rule the UI uses, read only from sim-core exports (no copied
- * constants). It is sim-core's HIRE / HIRE_STAFF cash rule: the game's recruitment fee (`recruitmentFeeOf`, which
- * honours the career manager's cheaper-hiring perk) plus HIRE_CASH_BUFFER_SHIFTS shifts of the person's wages
- * (`shiftCost`). sim-core has no `canHire` export yet; when it gains one, call it here and nowhere else.
+ * Round 3 review P2: the one hire-affordability rule the UI uses. Round 11: it *is* sim-core's `hireNeed` (the rule HIRE
+ * and HIRE_STAFF apply: fee + a few shifts in the bank; on Cosy the fee may dip into the stock overdraft).
  */
 export function hireCheck(state: GameState, person: { wage: number }): { fee: number; perShift: number; needed: number; canAfford: boolean } {
-  const fee = recruitmentFeeOf(state);
-  const perShift = sim.shiftCost(person);
-  const needed = fee + sim.HIRE_CASH_BUFFER_SHIFTS * perShift;
-  return { fee, perShift, needed, canAfford: state.cash >= needed };
+  const { fee, perShift, needed, canAfford } = sim.hireNeed(state, person.wage);
+  return { fee, perShift, needed, canAfford };
+}
+
+// ── round 11: stop silent losing ──
+export const { bankStatus, spendCheck, runningCostPerDay, starterLoanOffer, STARTER_LOAN, BANK_LAST_DAYS, BANK_RED_DAYS, INSOLVENCY_DAYS } = sim;
+export const MAX_PRICE_PENCE = sim.MAX_PRICE;
+
+/**
+ * Round 11 (U2): what the "Hire →" prompts should say. The role she most needs (a chef, then a server, else anyone) and
+ * how much more cash the cheapest such candidate today needs: 0 = she can hire now. Null when nobody in the pool fits.
+ */
+export function hireShortfall(state: GameState): { role: string; short: number; needed: number } | null {
+  const pool = sim.candidates(content, state).filter((c) => !c.hired);
+  const has = (r: string) => state.staff.some((s) => s.role === r);
+  const role = !has("chef") ? "chef" : !has("server") ? "server" : "";
+  const fit = pool.filter((c) => !role || c.role === role);
+  if (!fit.length) return null;
+  const needed = Math.min(...fit.map((c) => sim.hireNeed(state, c.wage).needed));
+  return { role: role || "someone", needed, short: Math.max(0, needed - state.cash) };
 }
