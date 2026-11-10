@@ -28,9 +28,9 @@ export const SOFT_DISHES: Readonly<Record<string, { from: [string, string]; to: 
   fd_wine_loire: { from: ["Glass of Loire white", "Crisp and zesty, best friends with fish. (Over-18s only.)"], to: ["Glass of lemon & thyme cordial", "Crisp and zesty, best friends with fish."] },
   fd_wine_riesling: { from: ["Glass of Alsace Riesling", "Smells like apples and flowers; sings next to spicy things. (Over-18s only.)"], to: ["Glass of apple blossom press", "Smells like apples and flowers; sings next to spicy things."] },
   fd_wine_white_burgundy: { from: ["Glass of white Burgundy", "Rich and buttery, made for lobster. (Over-18s only.)"], to: ["Glass of peach & vanilla nectar", "Rich and smooth, made for lobster."] },
-  fd_wine_rose: { from: ["Glass of Provence rosé", "Pale pink and sunny. (Over-18s only.)"], to: ["Glass of pink lemonade", "Pale pink and sunny."] },
+  fd_wine_rose: { from: ["Glass of Provence rosé", "Pale pink and sunny. (Over-18s only.)"], to: ["Glass of rhubarb & rose pressé", "Pale pink and sunny."] },
   fd_wine_rioja: { from: ["Glass of Rioja reserva", "Warm and spicy, aged in oak barrels for years. (Over-18s only.)"], to: ["Glass of spiced cherry cordial", "Warm and spicy, steeped with cinnamon for days."] },
-  fd_wine_red_burgundy: { from: ["Glass of red Burgundy", "Light, silky and fussy to grow: the sommelier's favourite. (Over-18s only.)"], to: ["Glass of red grape juice", "Light, silky and fussy to grow: the drinks expert's favourite."] },
+  fd_wine_red_burgundy: { from: ["Glass of red Burgundy", "Light, silky and fussy to grow: the sommelier's favourite. (Over-18s only.)"], to: ["Glass of pressed Pinot Noir grape", "Light, silky and fussy to grow: the drinks expert's favourite."] },
   fd_wine_sauternes: { from: ["Small glass of Sauternes", "Golden and honey-sweet, for pudding. (Over-18s only.)"], to: ["Small glass of honey & pear nectar", "Golden and honey-sweet, for pudding."] },
 };
 
@@ -45,9 +45,9 @@ export const SOFT_INGREDIENTS: Readonly<Record<string, [string, string]>> = {
   wine_loire_white: ["Loire Valley white (glass)", "Lemon & thyme cordial (glass)"],
   wine_alsace_riesling: ["Alsace Riesling (glass)", "Apple blossom press (glass)"],
   wine_burgundy_white: ["White Burgundy (glass)", "Peach & vanilla nectar (glass)"],
-  wine_provence_rose: ["Provence rosé (glass)", "Pink lemonade (glass)"],
+  wine_provence_rose: ["Provence rosé (glass)", "Rhubarb & rose pressé (glass)"],
   wine_rioja_red: ["Rioja reserva (glass)", "Spiced cherry cordial (glass)"],
-  wine_burgundy_red: ["Red Burgundy (glass)", "Red grape juice (glass)"],
+  wine_burgundy_red: ["Red Burgundy (glass)", "Pressed Pinot Noir grape (glass)"],
   wine_sauternes: ["Sweet Sauternes (small glass)", "Honey & pear nectar (small glass)"],
 };
 
@@ -57,9 +57,9 @@ export const SOFT_WINES: Readonly<Record<string, { from: [string, string, string
   bottle_loire: { from: ["Loire white", "Loire Valley", "Crisp as a fresh apple, with a squeeze of lemon. Perfect with fish."], to: ["Lemon & thyme cordial", "A herb garden in the Loire Valley", "Crisp as a fresh apple, with a squeeze of lemon. Perfect with fish."] },
   bottle_riesling: { from: ["Alsace Riesling", "Alsace", "Flowery and bright, with just enough sweetness to tame a spicy sauce."], to: ["Apple blossom press", "An orchard in Alsace", "Flowery and bright, with just enough sweetness to tame a spicy sauce."] },
   bottle_white_burgundy: { from: ["White Burgundy", "Burgundy (Côte de Beaune)", "Rich, nutty and buttery; lobster's best friend."], to: ["Peach & vanilla nectar", "A farm near Beaune", "Rich, smooth and creamy; lobster's best friend."] },
-  bottle_rose: { from: ["Provence rosé", "Provence", "Pale pink and sunny, like a summer holiday in a glass."], to: ["Pink lemonade", "Provence", "Pale pink and sunny, like a summer holiday in a glass."] },
+  bottle_rose: { from: ["Provence rosé", "Provence", "Pale pink and sunny, like a summer holiday in a glass."], to: ["Rhubarb & rose pressé", "A rose garden in Provence", "Pale pink and sunny, like a summer holiday in a glass."] },
   bottle_rioja: { from: ["Rioja reserva", "Rioja", "Warm vanilla and red berries from years asleep in oak barrels."], to: ["Spiced cherry cordial", "A cherry farm in northern Spain", "Warm vanilla and red berries, steeped with cinnamon for days."] },
-  bottle_red_burgundy: { from: ["Red Burgundy", "Burgundy (Côte de Nuits)", "Light, silky and famously fussy to grow; sommeliers sigh over it."], to: ["Red grape juice", "A vineyard near Nuits", "Light, silky and famously fussy to grow; drinks experts sigh over it."] },
+  bottle_red_burgundy: { from: ["Red Burgundy", "Burgundy (Côte de Nuits)", "Light, silky and famously fussy to grow; sommeliers sigh over it."], to: ["Pressed Pinot Noir grape", "A vineyard near Nuits", "Light, silky and famously fussy to grow; drinks experts sigh over it."] },
   bottle_sauternes: { from: ["Sauternes", "Sauternes, Bordeaux", "Golden and honey-sweet; made from grapes that are allowed to go wrinkly."], to: ["Honey & pear nectar", "A beekeeper near Bordeaux", "Golden and honey-sweet; made from pears that are allowed to go extra ripe."] },
 };
 
@@ -67,10 +67,10 @@ export const SOFT_WINES: Readonly<Record<string, { from: [string, string, string
 export const SOFT_LINES: Readonly<Record<string, string>> = {
   "A guest ate alone, slowly, and asked for the wine list twice. The sommelier is now very nervous.":
     "A guest ate alone, slowly, and asked for the drinks list twice. The drinks expert is now very nervous.",
-  "No alcohol on the menu.": "No grown-up drinks on the menu.",
-  "No pork, no alcohol, halal meat only.": "No pork, no grown-up drinks, halal meat only.",
+  "No alcohol on the menu.": "Soft drinks only on the menu.",
+  "No pork, no alcohol, halal meat only.": "No pork, soft drinks only, halal meat only.",
   "Halal kitchens use meat from certified suppliers, never serve pork, and keep alcohol off the menu.":
-    "Halal kitchens use meat from certified suppliers, never serve pork, and keep grown-up drinks off the menu.",
+    "Halal kitchens use meat from certified suppliers, never serve pork, and serve soft drinks only.",
 };
 
 /** Every original display string → its soft-drinks version. */
