@@ -32,6 +32,13 @@ import { lastNights, versusYesterday } from "../lib/dayLoop";
 import { formatPence } from "../lib/format";
 import { ArrowLabel, Icon } from "../components/Icon";
 import { Panel } from "../components/Panel";
+import { CountUp } from "../lib/motion";
+
+/** Round 12 (A): tonight beat every earlier night (at least two of them, and tonight made money). */
+export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boolean {
+  const before = history.filter((n) => n.day !== r.day);
+  return r.profit > 0 && before.length >= 2 && before.every((n) => r.profit > n.profit);
+}
 
 /**
  * Round 7 (B): tonight's money as one big friendly figure (count-up, ▲/▼, green/red), what that is against last
@@ -42,6 +49,7 @@ export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
   const vs = versusYesterday(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
   const nights = lastNights(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
   const peak = Math.max(1, ...nights.map((n) => Math.abs(n.profit)));
+  const best = bestNightSoFar(game.history, r);
   return (
     <section className={`tonight tonight--${up ? "up" : "down"}`} aria-label="Tonight's money">
       <div className="tonight__main">
@@ -50,15 +58,16 @@ export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
           <span className="tonight__arrow" aria-hidden="true"><Icon name={up ? "trendUp" : "trendDown"} size={44} /></span>
           <MoneyText pence={Math.abs(r.profit)} whole countUp="mount" />
         </div>
+        {best && <div className="tonight__best" data-testid="best-night"><Icon name="trophy" size={18} />Best night so far</div>}
         {vs !== undefined && (
           <div className={`tonight__vs tonight__vs--${vs >= 0 ? "up" : "down"}`}>
             {vs === 0 ? "The same as last night" : `${formatPence(Math.abs(vs), { whole: true })} ${vs > 0 ? "better" : "worse"} than last night`}
           </div>
         )}
         <div className="tonight__facts">
-          <span><b>{r.covers}</b> <Term id="covers" inline>guests</Term></span>
+          <span><b><CountUp value={r.covers} mode="mount" ms={600} /></b> <Term id="covers" inline>guests</Term></span>
           <span className={r.walkouts ? "tonight__bad" : ""}><b>{r.walkouts}</b> walked out</span>
-          <span><b>{r.averageRating.toFixed(1)}</b> <Stars rating={r.averageRating} size={15} /></span>
+          <span><b><CountUp value={Number(r.averageRating.toFixed(1))} mode="mount" ms={600} digits={1} /></b> <Stars rating={r.averageRating} size={15} /></span>
           <span>Cash in the bank <b><MoneyText pence={game.cash} whole tone /></b></span>
         </div>
       </div>

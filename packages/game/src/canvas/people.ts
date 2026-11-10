@@ -18,6 +18,8 @@ export interface Sprite {
   walkedOut: boolean;
   phase: number;
   facing: Facing;
+  /** Round 12 (A): queue shuffle — don't start the step up before this time (performance.now ms). */
+  wait?: number;
 }
 export interface StaffSprite { id: string; x: number; y: number; path: Pt[]; target: Pt | null; task?: string; until: number; facing: Facing; via?: Pt; moving: boolean }
 export interface Floaty { x: number; y: number; text: string; colour: string; born: number; life: number }

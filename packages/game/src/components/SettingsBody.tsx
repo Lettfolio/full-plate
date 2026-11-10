@@ -3,6 +3,7 @@ import { startSpeed, useSettings, type TextSize, type UnderlineTerms } from "../
 import { playSfx } from "../lib/sfx";
 import { ConfirmDialog, Dialog } from "./Dialog";
 import { Icon, type IconName } from "./Icon";
+import { VolumeSlider } from "./VolumeSlider";
 import type { SavedWhere, SettingsProps } from "./Settings";
 
 const SAVED_SAY: Record<SavedWhere, string> = {
@@ -74,6 +75,15 @@ export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
             <span>Hide alcoholic drinks <span className="xs muted">(soft drinks take their place on the menu, at the same prices)</span></span>
           </label>
           <Choice<UnderlineTerms> label="Underline words I can tap" value={s.underlineTerms} onChange={(v) => set({ underlineTerms: v })} options={[{ id: "first", label: "First time" }, { id: "always", label: "Always" }]} />
+          {/* R12-A */}
+          <label className="sheet__row sheet__check">
+            <input type="checkbox" className="switch" checked={s.animations} onChange={(e) => set({ animations: e.target.checked })} />
+            <span>Animations <span className="xs muted">(the floor's little moments, numbers that count up, fades between screens; off makes them instant)</span></span>
+          </label>
+          {/* R12-A */}
+          <VolumeSlider label="Music" value={s.musicVolume} onChange={(v) => set({ musicVolume: v })} {...(s.sound ? {} : { note: "Sound is off" })} />
+          {/* R12-A */}
+          <VolumeSlider label="Sound effects" value={s.sfxVolume} onChange={(v) => set({ sfxVolume: v })} onDone={() => playSfx("orderUp")} {...(s.sound ? {} : { note: "Sound is off" })} />
           <div className="sheet__game">
             <p className="small muted">Your game saves itself every morning and every evening.</p>
             {onQuit || onNewGame ? (

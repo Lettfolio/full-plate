@@ -24,6 +24,15 @@ export interface Settings {
    * time ("always"). Either way every term stays tappable and keeps its tip (components/Term.tsx).
    */
   underlineTerms: UnderlineTerms;
+  /**
+   * Round 12 (A): the juice — the floor's little beats, counters that tick up, the evening's count-up, screen fades.
+   * Off (or the OS's prefers-reduced-motion) makes them instant; `data-motion="off"` on <html> carries it to CSS.
+   */
+  animations: boolean;
+  /** Round 12 (A): soundtrack volume 0..1 (lib/music.ts). Sound (above) is the master: off silences this too. */
+  musicVolume: number;
+  /** Round 12 (A): sound-effects volume 0..1 (lib/sfx.ts). */
+  sfxVolume: number;
 }
 
 export type UnderlineTerms = "first" | "always";
@@ -31,7 +40,7 @@ export type UnderlineTerms = "first" | "always";
 export type TextSize = "normal" | "large";
 
 export const SETTINGS_KEY = "full-plate:settings:v1";
-export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: false, speedPicked: false, underlineTerms: "first" };
+export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: false, speedPicked: false, underlineTerms: "first", animations: true, musicVolume: 0.4, sfxVolume: 0.8 };
 
 function read(): Settings {
   try {
@@ -52,7 +61,15 @@ function normalize(p: Partial<Settings>): Settings {
       noGrownUpDrinks: typeof p.noGrownUpDrinks === "boolean" ? p.noGrownUpDrinks : DEFAULT_SETTINGS.noGrownUpDrinks,
       speedPicked: p.speedPicked === true,
       underlineTerms: p.underlineTerms === "always" ? "always" : "first",
+      animations: typeof p.animations === "boolean" ? p.animations : DEFAULT_SETTINGS.animations,
+      musicVolume: volume(p.musicVolume, DEFAULT_SETTINGS.musicVolume),
+      sfxVolume: volume(p.sfxVolume, DEFAULT_SETTINGS.sfxVolume),
     };
+}
+
+/** A stored volume: a finite number clamped to 0..1, else the default. */
+function volume(v: unknown, d: number): number {
+  return typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, Math.round(v * 100) / 100)) : d;
 }
 
 let current: Settings | null = null;
@@ -65,14 +82,16 @@ export function getSettings(): Settings {
   if (!current) {
     current = typeof window === "undefined" ? DEFAULT_SETTINGS : read();
     applyTextSize(current.textSize);
+    applyMotion(current.animations);
   }
   return current;
 }
 
 export function setSettings(patch: Partial<Settings>): void {
-  current = { ...getSettings(), ...patch };
+  current = normalize({ ...getSettings(), ...patch });
   try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* storage blocked: keep in memory */ }
   applyTextSize(current.textSize);
+  applyMotion(current.animations);
   for (const l of listeners) l();
   changeHook?.();
 }
@@ -84,6 +103,7 @@ export function adoptSettings(p: Partial<Settings>): void {
   current = next;
   try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* keep in memory */ }
   applyTextSize(current.textSize);
+  applyMotion(current.animations);
   for (const l of listeners) l();
 }
 
@@ -92,6 +112,13 @@ export function applyTextSize(size: TextSize): void {
   if (typeof document === "undefined") return;
   if (size === "large") document.documentElement.setAttribute("data-text", "large");
   else document.documentElement.removeAttribute("data-text");
+}
+
+/** Round 12 (A): `data-motion="off"` on <html> when Settings › Animations is off (theme.css "Round 12 — A" block). */
+export function applyMotion(on: boolean): void {
+  if (typeof document === "undefined") return;
+  if (on) document.documentElement.removeAttribute("data-motion");
+  else document.documentElement.setAttribute("data-motion", "off");
 }
 
 /** For tests: forget the cached value so the next read goes back to storage. */

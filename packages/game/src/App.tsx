@@ -59,6 +59,7 @@ import { noteSlot } from "./components/CrashGuard";
 import { handsOnRoleFor } from "./state/paths";
 import { weekdayIndex } from "./lib/calendar";
 import { PLAYER_ID } from "@full-plate/sim-career";
+import { setSoundtrack } from "./lib/sfx";
 
 /**
  * Shell views. "pick" = the round-3 start picker ("Start as…"); "newgame" = the owner's lease screen.
@@ -113,6 +114,9 @@ export function App() {
   useEffect(() => { if (phase !== "event") setEventOpen(false); }, [phase]);
   // Round 12 (D): warm the Evening's chunk once a day is under way, so the evening never waits on the network.
   useEffect(() => { if (phase === "planning" || phase === "service") void loadEvening().catch(() => {}); }, [phase]);
+  // R12-A: the soundtrack follows the day; the room's Music decor item picks the instruments.
+  const musicItem = game?.decor?.slots.music?.itemId ?? "music_none";
+  useEffect(() => { setSoundtrack(phase === "service" ? "service" : phase === "evening" || phase === "event" || phase === "gameover" ? "evening" : "planning", musicItem); }, [phase, musicItem]);
 
   const send = useCallback((cmd: Command) => dispatch({ type: "command", cmd }), []);
   const sendCareer = useCallback((cmd: CareerCommand) => dispatch({ type: "career", cmd }), []);
