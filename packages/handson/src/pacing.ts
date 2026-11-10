@@ -1,5 +1,5 @@
 /**
- * Round 4: pacing for a career chef's station, so a 10-year-old always has the next ticket coming and the rail never
+ * Round 4: pacing for a career chef's station, so a teenage player (12+) always has the next ticket coming and the rail never
  * runs dry for long. Two knobs, both deterministic functions of the session and the GameState:
  *
  * - **Tempo** (`shiftTempo().secondsPerTick`): how many real seconds the host waits between sim ticks. An empty rail

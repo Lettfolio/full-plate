@@ -99,7 +99,7 @@ function Relations({ s, team }: { s: Staff; team: Staff[] }) {
   const names = (xs: { name: string }[]) => xs.map((x) => first(x.name)).join(" and ");
   return (
     <div className="chips" data-testid="relations">
-      {friends.length > 0 && <TipChip tone="friend" icon="heart" label={<>Gets on with {names(friends)}</>} tip="Happier on days they work together. Put them on the same shifts!" />}
+      {friends.length > 0 && <TipChip tone="friend" icon="heart" label={<>Gets on with {names(friends)}</>} tip="Happier on days they work together. Put them on the same shifts." />}
       {clashes.length > 0 && <TipChip tone="clash" icon="bolt" label={<>Clashes with {names(clashes)}</>} tip="A bit grumpier on days they work together. Try giving them different days." />}
     </div>
   );

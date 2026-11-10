@@ -1,6 +1,6 @@
 # Full Plate
 
-A restaurant game for a ten-year-old. Start as the owner of a small café (menu, prices, staff, stock, decor, then
+A restaurant game for a teenager (14; the brief says 12+). Start as the owner of a small café (menu, prices, staff, stock, decor, then
 watch service and read the evening's P&L) or as an apprentice chef, bar back, waiter or restaurant manager working up a career
 ladder, with hands-on shifts you can cook or serve yourself. After a year the owner chooses an end-game: **Empire**
 (a fast-food chain across a world map — franchising, property, a board) or **Stars** (one restaurant chasing

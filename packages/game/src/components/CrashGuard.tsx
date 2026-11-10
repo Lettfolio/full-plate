@@ -39,7 +39,7 @@ export class CrashGuard extends Component<Props, State> {
     const slot = this.state.slot ? games.find((g) => g.id === this.state.slot) ?? { id: this.state.slot, name: "This game" } : null;
     return (
       <main className="crash" role="alert" style={{ maxWidth: 560, margin: "48px auto", padding: "0 16px" }}>
-        <h1>Oops! Something went wrong.</h1>
+        <h1>Something went wrong.</h1>
         <p>{slot ? "This game couldn't be opened. It may be damaged." : "The game hit a problem it couldn't fix by itself."} It isn't your fault.</p>
         {this.state.done && <p role="status">{this.state.done}</p>}
         <div className="row row--wrap" style={{ gap: 12, margin: "16px 0" }}>

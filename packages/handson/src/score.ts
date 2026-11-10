@@ -97,7 +97,7 @@ const count = (n: number) => WORDS[n] ?? String(n);
 const plural = (n: number, one: string, many: string) => `${count(n)} ${n === 1 ? one : many}`;
 
 /**
- * Three short notes a 10-year-old can read at a glance ("Fast on the pass!", "Two plates went cold"): up to two
+ * Three short notes a 12+ player can read at a glance ("Fast on the pass!", "Two plates went cold"): up to two
  * things that went well, then the one thing most worth working on (or a third good thing on a clean shift).
  */
 export function shiftNotes(session: HandsOnSession): ShiftNote[] {

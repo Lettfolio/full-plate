@@ -1,5 +1,5 @@
 /**
- * Round 7 (B): the owner's daily loop for a 10-year-old — the Menu tab's list/matrix toggle, the Stock tab's one-line
+ * Round 7 (B): the owner's daily loop for a young player (Round 11b: 12+, the daughter is 14) — the Menu tab's list/matrix toggle, the Stock tab's one-line
  * forecast (whole numbers), the Staff tab's week strip with doubled-up shifts highlighted, the Evening's money figure
  * and week bars, the GameOver cause, the live-summary trend and the three-beat strip. Real sim states where it matters.
  */
