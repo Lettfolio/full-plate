@@ -134,7 +134,9 @@ async function audit(name, { canvas = false } = {}) {
     // R8 review: cached scene layers are painted once (at mount, before the caller's reset); a 1 px resize and back
     // makes them repaint now, so their labels are measured too.
     const vp = page.viewportSize();
-    await page.setViewportSize({ width: vp.width - 1, height: vp.height }); await page.waitForTimeout(150);
+    // R11-D: nudge the height, not the width: 1023 px wide crosses the portrait breakpoint (NARROW_QUERY), and any width
+    // change leaves the measured layers one blit off scale.
+    await page.setViewportSize({ width: vp.width, height: vp.height - 1 }); await page.waitForTimeout(150);
     await page.setViewportSize(vp); await page.waitForTimeout(150);
   }
   await page.waitForTimeout(250);

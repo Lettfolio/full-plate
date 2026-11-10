@@ -1875,6 +1875,12 @@ h3 { line-height: var(--lh-heading); }
   .handson__bar { flex-wrap: wrap; row-gap: 8px; }
   .handson__bar > .clock__track { order: 9; flex: 1 1 100% !important; }
   .handson__when { margin-right: auto; }
+  /* title: the shopfront above the buttons, wide enough that its sign text stays >= 13 px */
+  .title .title__inner { grid-template-columns: minmax(0, 1fr); gap: 20px; justify-items: center; max-width: 560px; }
+  .title__art { width: 100%; }
+  .title .title__shop { width: 420px; max-width: 100%; }
+  /* Stars: the two card columns stack (Bigger text pushed the right one 39 px past the edge) */
+  .starstab__grid { grid-template-columns: minmax(0, 1fr); }
   /* the evening: one column (tonight's money, then the rest) */
   .evening { grid-template-columns: minmax(0, 1fr); }
   .tonight { grid-template-columns: minmax(0, 1fr); }
