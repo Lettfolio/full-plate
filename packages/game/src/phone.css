@@ -125,6 +125,10 @@
 
   /* title: the shopfront's small chalk words would draw under 13 px at this width, so they go (the art stays) */
   html .title__shop text[font-size="16"] { display: none; }
+
+  /* R12 review: the evening's best/worst dish pair goes one over the other — two 1fr columns took the longest word as
+     their minimum, so a "Cheeseburger" pushed the page 9–32 px sideways (seen in the review's phone playtest) */
+  html .dishpair { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* A phone held sideways: very little height, plenty of width. */
