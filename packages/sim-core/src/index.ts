@@ -154,6 +154,8 @@ export {
 export { STATION_COURSES } from "./constants";
 /** Cost of one rostered shift for a staff member (wage × SHIFT_HOURS × (1 + EMPLOYER_ONCOST)). */
 export { shiftCost } from "./systems/finance";
+/** [round 11] Today's rent, the rota's monthly wage bill and the bank's line (Empire: HQ tops up a till before it). */
+export { dailyRent, monthlyWages, insolvencyLine } from "./systems/finance";
 /** Opening stock allowance in effect for a content pack (BalanceDef.openingStockBudget or the default). */
 export { openingStockBudget } from "./forecast";
 /**

@@ -254,6 +254,8 @@ export type EmpireEventKind =
   | "city_entered" | "localised" | "tradition" | "product" | "scandal" | "remodel" | "inspection"
   | "skimming" | "franchisee_bankrupt" | "association" | "forced_exit" | "idea" | "rent_review"
   | "milestone" | "win" | "bankrupt" | "rejected" | "transfer" | "focus"
+  /** [round 11] HQ moved money into the hands-on site's till (a float, a top-up, settling a closed till). */
+  | "topUp"
   /** [round 6] The monthly board meeting was held (`EmpireState.boardMeeting` holds it until answered). */
   | "boardMeeting"
   /** [round 6] A board decision was taken (or skipped). */
@@ -360,7 +362,7 @@ export interface BoardIncome {
   costs: Pence;
 }
 
-export type BoardDecisionKind = "royalty" | "localise" | "buyPlot" | "refurbish" | "feeHoliday" | "driveThru" | "supplyMarkup" | "campaign";
+export type BoardDecisionKind = "royalty" | "localise" | "buyPlot" | "refurbish" | "feeHoliday" | "driveThru" | "supplyMarkup" | "campaign" | "debt";
 
 export interface BoardOption {
   id: string;
@@ -517,6 +519,12 @@ export type EmpireCommand =
   | { type: "SET_INSPECTIONS"; everyDays: number }
   /** The game moves cash from the focused restaurant's till into HQ (it must deduct the same from GameState). */
   | { type: "TRANSFER_FROM_FOCUSED"; amount: Pence }
+  /**
+   * [round 11] HQ → the focused restaurant's till (the game adds the same to GameState.cash). `why` "float" opens a
+   * till, "topUp" covers an overdraft, "close" settles the till of a shop HQ is closing (the only one allowed to take
+   * HQ past what it can spend: those debts are HQ's whatever happens).
+   */
+  | { type: "TRANSFER_TO_FOCUSED"; amount: Pence; why?: "float" | "topUp" | "close" }
   /** Mark a site as the focused one (or none). The game swaps the sim-core GameState itself. */
   | { type: "FOCUS_SITE"; siteId?: SiteId };
 
