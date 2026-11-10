@@ -52,6 +52,12 @@ export const { eveningAdvice, adviceTextOf, fillAdvice, actionWords } = sim;
 // R7-B: the Staff tab's week strip and the GameOver cause read the round-5 rota rule (pure, no new sim rules).
 export const { rotaAdvice, meanProfit, ROTA_ADVICE_DAYS } = sim;
 
+// ── round 10: decorating ──
+export const {
+  DECOR_SLOTS, DECOR_CAPS, decorCatalogue, decorEffects, decorStyle, decorStyleName, findDecorItem, installedDecor, decorWear, decorWearShare,
+  closedTableIds, fittingTablesClosed,
+} = sim;
+
 // ── round 2 ──
 export const {
   suggestedOrder,

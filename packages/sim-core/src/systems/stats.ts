@@ -120,6 +120,7 @@ export function buildDayResult(state: GameState): DayResult {
     perChef: perChefOf(tally.chefs),
     freshnessMean: tally.plates ? round2((tally.freshnessSum ?? 0) / tally.plates) : 0,
     ...(t.closed ? { closed: true } : {}),
+    ...(t.decor ? { decor: t.decor } : {}),
   };
 }
 

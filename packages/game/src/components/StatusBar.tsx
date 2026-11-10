@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { styleBadge } from "../lib/decor";
 import type { GameState } from "@full-plate/sim-core";
 import { avgFranchiseeMood, openSites } from "@full-plate/sim-empire";
 import { starsView } from "@full-plate/sim-stars";
@@ -43,6 +44,7 @@ export const compactMeals = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)}b
 export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, saveMark }: Props) {
   const district = content.districts.find((d) => d.id === game.districtId);
   const badges = meta ? pathBadges(meta) : [];
+  const style = styleBadge(game); // round 10: "Cosy café", "Smart bistro"…
   const career = meta?.mode === "career" && meta.career && !meta.career.handover ? meta.career : undefined;
   const e = meta?.empire;
   const s = meta?.stars;
@@ -57,6 +59,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
           <div className="status__name">
             {game.restaurantName}
             {badges.map((b) => <span key={b.id} className={`pathbadge pathbadge--${b.tone}`}>{b.label}</span>)}
+            {style && <span className={`pathbadge pathbadge--style pathbadge--style-${style.tag}`} title="Your restaurant's style">{style.name}</span>}
           </div>
           <div className="status__when">
             <span className="status__day">Day {game.day + 1}</span> {dateLabel(game.day)} · <span className="status__district">{district?.name ?? game.districtId}</span>

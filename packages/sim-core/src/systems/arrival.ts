@@ -22,6 +22,7 @@ import type { Rng } from "../rng";
 import type { ContentPack, Customer, DishDef, GameState, MenuItem, SegmentDef, ServiceTally, SimEvent } from "../types";
 import { clamp, districtOf, findDish, findSegment, isWeekend, monthOf, sigmoid, tallyOf } from "../util";
 import { multMod, type SystemResult } from "./system";
+import { decorEffects } from "../decor";
 
 type Offered = { item: MenuItem; dish: DishDef };
 
@@ -118,12 +119,14 @@ export function planArrivals(content: ContentPack, state: GameState): ServiceTal
   const district = districtOf(content, state);
   const parties = potentialParties(content, state);
   const offered = offeredDishes(content, state);
+  // Round 10: the room's style draws some kinds of guest in a little more (and puts others off a little).
+  const style = decorEffects(content, state).segments;
   const plan: ServiceTally["arrivals"] = [];
   for (const [segId, share] of Object.entries(district.segmentMix)) {
     const seg = findSegment(content, segId);
     if (!seg || share <= 0) continue;
     const set = setOfferFor(content, state, segId);
-    plan.push({ segment: segId, potentialParties: parties * share, entryLogit: entryLogit(seg, offered, state.reputation.prestige, set) });
+    plan.push({ segment: segId, potentialParties: parties * share, entryLogit: entryLogit(seg, offered, state.reputation.prestige, set) + (style[segId] ?? 0) });
   }
   return plan;
 }

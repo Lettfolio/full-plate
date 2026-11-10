@@ -32,7 +32,7 @@ export function summarise(results: readonly RunResult[], months: number): string
   const lines: string[] = [];
   const survived = results.filter((r) => r.survived).length;
   lines.push(`survival: ${survived}/${results.length} (${((100 * survived) / results.length).toFixed(1)}%)`);
-  lines.push(`avg covers/day: ${mean(results.flatMap((r) => r.covers)).toFixed(1)}   avg rating: ${mean(results.flatMap((r) => r.ratings)).toFixed(2)}   avg final popularity: ${mean(results.map((r) => r.finalPopularity)).toFixed(1)}`);
+  lines.push(`avg covers/day: ${mean(results.flatMap((r) => r.covers)).toFixed(1)}   avg rating: ${mean(results.flatMap((r) => r.ratings)).toFixed(2)}   avg final popularity: ${mean(results.map((r) => r.finalPopularity)).toFixed(1)}   avg final prestige: ${mean(results.map((r) => r.finalPrestige ?? 0)).toFixed(1)}`);
   lines.push("month   p10 cash   median    p90 cash   alive");
   for (let m = 0; m < months; m++) {
     // Bankrupt runs count with their last cash so the low percentile shows the failures.

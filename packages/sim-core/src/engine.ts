@@ -4,6 +4,7 @@
  */
 import { SHORT_DELIVERY_CHANCE, SHORT_DELIVERY_SHARE } from "./constants";
 import { buyOpeningStock } from "./forecast";
+import { dayDecor, fitPending } from "./decor";
 import { incidentLinesOf } from "./contentText";
 import { fill } from "./incidents/text";
 import { hashSeed, Rng } from "./rng";
@@ -49,6 +50,11 @@ export const EVENING_SYSTEMS: readonly System[] = [
   reputationSystem,
   staffMoodSystem,
   eventDeckSystem,
+  // Round 10: tonight's decorating line (fitted this morning, tables closed, items gone tired) for the DayResult.
+  (c, s) => {
+    const d = dayDecor(c, s);
+    return { state: d ? { ...s, todays: { ...s.todays, decor: d } } : s, events: [] };
+  },
   statsSystem,
   (c, s) => goalSystem(c, s),
 ];
@@ -103,6 +109,7 @@ export function canonicalState(s: GameState): GameState {
     eventHistory: s.eventHistory, gameOverReason: s.gameOverReason, incidents: s.incidents, goals: s.goals,
     ownerCovering: s.ownerCovering, ownerFatigue: s.ownerFatigue, shortDelivery: s.shortDelivery, incidentsHandled: s.incidentsHandled,
     handsOn: s.handsOn, setMenu: s.setMenu, ownerProfile: s.ownerProfile, recruitmentFee: s.recruitmentFee, adviceLog: s.adviceLog,
+    decor: s.decor,
   };
   return out;
 }
@@ -289,6 +296,8 @@ export function advanceDay(state: GameState, content?: ContentPack): StepResult 
     footfallMods,
     eightySixed: [],
     hiredCandidates: [],
+    // Round 10: yesterday's decor purchases are fitted this morning (today is their fitting day).
+    ...(state.decor ? { decor: fitPending(state.decor, day) } : {}),
   };
   const events: SimEvent[] = [];
   if (state.orders.length) events.push(logEvent(next, `${state.orders.length} deliver${state.orders.length === 1 ? "y" : "ies"} arrived.`, "info"));

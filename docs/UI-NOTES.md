@@ -633,3 +633,70 @@ Design and storage: docs/SAVES.md. UI conventions added this round:
 - **Chunks:** main JS +10.5 kB (182.8 → 193.2 kB). The store core, the account, packing, files, the picker and the mark
   sheet are lazy chunks; don't import `saveCore`/`saveCloud`/`saveFiles`/`saveCodec` statically from main-chunk code
   (type imports are fine).
+
+## Round 10 — A (decorating)
+
+Theme: make it feel like *her* restaurant. Sim model and balance: SIM-NOTES "Round 10 — A"; catalogue: CONTENT-NOTES.
+
+### The Decorate tab (`screens/planning/DecorateTab.tsx`, styles in `screens/planning/decorate.css`, lazy)
+
+A Planning tab after Restaurant (`TAB_ICONS.decorate = "paint"`; badge `!` when something is tired, else the number
+of items coming tomorrow). Two columns at ≥ 1181 px (one below):
+
+- **Your dining room** (Panel, `paint` icon, the style as a basil pill: "Cosy café" / "Plain and simple" / "A bit of
+  everything"): the real `RestaurantView` drawing an empty room (`preview: true` hides tickets, staff and the "you're
+  cooking" signs) with the **hovered or focused card's item fitted** — tapping a card's name pins it — a caption
+  ("Trying out Silk damask — not bought yet." / "This is your room today.") and three StatTiles (prestige and
+  popularity from decor, upkeep a day). Sticky beside the cards so the room changes as the pointer moves.
+- **Slot buttons**: nine 44 px buttons, icon + word (Floor, Walls, Lights, Seats, Tables, Sign, Plants, Music, Window),
+  `aria-pressed`; a blue dot = coming tomorrow, a red dot = looking tired (with sr-only words).
+- **Cards** (one per item, cheapest first): name (Fredoka heading) and price; the child-friendly description; effect
+  words as plum pills — the style first ("Cosier", "More fun", "Smarter", "Posher"), then "+1 prestige",
+  "+1 popularity", "Comfier", "Guests stay longer", "Guests order more"; "Room prestige +2 → +3" when it changes it;
+  "Costs £1.00 a day to keep. 1 table closed on fitting night." One state per card: **Buy · fit tomorrow · £950**
+  (green), **Coming tomorrow**, **In your restaurant** (the current item, outlined basil), **Keep this one** (cancels
+  tomorrow's swap, refund), **Need £340 more** (disabled), **Put it back · free** (the starter).
+- **Wear**: the slot's item, when worn or tired, gets a callout above the cards — "**Looking tired** — your squashy
+  cushions have lost their shine, so guests notice less and it drags your prestige." with **Refresh · £70**.
+- Elsewhere: the header's **style badge** (`pathbadge--style`, only when a style is dominant), a Planning hint
+  "Your rugs look tired" / "3 things in your room look tired" (→ Decorate), and the evening's **What happened today**
+  rows (`lib/decor.ts decorLines`): "🎨 Your new brass pendants — Guests stayed a bit longer and ordered more.",
+  "🪜 The fitters were in — 2 tables were closed tonight…", "🧽 Your gingham cloths look tired — a refresh (£40)…".
+
+### The canvas (`canvas/decorArt.ts`, colours in `canvas/decorPalette.ts`)
+
+`roomLook(content, game)` (memoised per decor object, day and table count) gives each slot's item id and wear band
+(0 fresh / 1 worn / 2 tired) and a `key` that joins RestaurantView's static-layer key, so the cached scene is rebuilt
+**when the decor shown changes** (a purchase, a preview hover, an item going tired) and never per frame (test: 4
+builds over 6 renders with 3 changes). Everything static is painted into the cached scene; only the dust sheets and
+the music note are live.
+
+| Slot | Drawn as |
+| --- | --- |
+| floor | oak planks (starter) · rugs under each table · black-and-white checker · terrazzo chips · herringbone parquet |
+| walls | the wall bands' colours + papered/painted side walls: sunny yellow · stripes · wood panels · plum damask with gilt |
+| lighting | pendants hung between the tables in each row (lanterns, brass domes, chandeliers with crystals) or fairy-light strings over the aisles; the floor's light pools and the evening glow take the lamp's colour and reach |
+| seating | cushions on the chairs · rainbow chairs · leather banquettes with buttons · velvet armchairs |
+| tables | gingham check · painted tops with stars · white linen · veined marble (occupied tops are redrawn live the same way) |
+| signage | the name board: chalkboard (+ an A-frame on the pavement) · painted green-and-gold · pink neon (glows at dusk) · gold leaf |
+| plants | corner pots (starter) · herb pots on the sill · hanging baskets · big palms · a flower wall down the left |
+| music | radio · jazz speakers on the walls · jukebox · grand piano, bottom-left; a plum note floats up while it plays (still under reduced motion) |
+| window | planters (starter) · cake stands · a lit menu case by the door · a toy train · seasonal flowers |
+| fitting night | dust sheets with a cone over the fitters' tables (`closedTableIds`) |
+
+Worn items fade 22% toward `worn`, tired ones 55% with scuffs (and wilting plants, a dim neon). The starter kit paints
+nothing new: an undecorated room is the round-8 picture.
+
+**Chunking.** `decorArt` is its own lazy chunk: RestaurantView imports it with `import()` the first time it draws a
+room that has `decor` (and the Decorate tab preloads it); until then — and always for undecorated rooms — the
+round-8 picture is drawn, and the key change rebuilds the scene once it lands. Don't import `decorArt` statically from
+RestaurantView.
+
+### Numbers
+
+- Chunks (raw / gzip, vs master): main `index` 193.7 → 197.5 kB (+3.7 / +1.7 gz); `RestaurantView` 36.5 → 38.4 kB
+  (+2.0 / +0.8 gz); new lazy `decorArt` 18.8 kB (6.9 gz), `DecorateTab` 7.5 kB + 3.6 kB CSS. The eager `content` chunk
+  grows +15.3 kB (+4.2 gz: the catalogue) and `sim-core` +6.2 kB (+2.3 gz).
+- Tests: `__tests__/round10.decor.test.tsx` (11): catalogue, buy/refund, need-more, refresh, prestige hint, hover
+  preview, scene-cache invalidation, every slot drawn + dust sheets, evening lines, style badge, lazy tab.
+- Type audit: a `13b-planning-decorate` step (Sign slot, hovering the gold lettering, canvas measured).

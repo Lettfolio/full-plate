@@ -458,3 +458,28 @@ import { content, fullContent, extras, dishTags, formulas, tastingMenus, wineLis
   this is the hook.
 - `cities.json` duplicates sim-empire's numbers until the swap happens. The mirror test will fail if either side
   changes alone.
+
+## Round 10 — A: the decorating catalogue (`data/decor.json`)
+
+`ContentPack.decor` (both packs): 45 items over nine slots (floor, walls, lighting, seating, tables, signage, plants,
+music, window), five per slot — one free **starter** (what the restaurant opens with: oak planks, cream paint, bare
+bulbs, wooden chairs, pine tables, a plain name board, two potted plants, a quiet room, window planters) and four to
+buy, from pocket money to a splash. Validated in `src/index.ts validateDecor` (shape, slots, tags, integer pence,
+effect ranges, one starter per slot, 4–7 items per slot, refresh cheaper than buying, descriptions ≤ 120 characters);
+`test/decor.test.ts`.
+
+- **Prices** (pence, UK-plausible for a small restaurant, fitted): herb pots £70, kitchen radio £45, chalkboard £90,
+  fairy lights £120, gingham cloths £150 … striped wallpaper £800, brass pendants £950, jukebox £1,500, terrazzo £2,200,
+  leather banquettes £2,600, marble tops £3,000, a grand piano £3,200, herringbone parquet £3,800, crystal chandeliers
+  £4,200, velvet armchairs £4,600. The whole lavish kit is £26,250 against ~£15–20k of starting cash.
+- **Tags** cosy / smart / fun / posh (1–2 each) make the room's style; `styles` names them (Cosy café, Fun diner,
+  Smart bistro, Posh dining room) with small per-segment entry nudges (±0.1: students and families like fun, foodies
+  and business like posh and smart) and a critic bonus (smart 2, posh 4).
+- **Effects** are small integers (prestige 0–2, popularity 0–2, comfort 0–3, stay 0–2, spend 0–5 %, upkeep pence/day);
+  the room's sum is capped in sim-core (`DECOR_CAPS`). Posh items carry prestige, fun/cosy ones popularity, seats,
+  lights and music comfort/stay/spend; things that need washing, watering, tuning or baking carry upkeep (gingham £1,
+  white linen £3, cake display £2, flower wall £2.50 a day).
+- **Wear**: `lifeDays` 60 (herbs wilt) to 600 (marble); `refreshCost` ≈ 10–25 % of the price (chalk £15, cushions £70,
+  damask £300). `fitTables` 0–3: floors and banquettes are big jobs.
+- **Words**: `description` is one child-friendly sentence ("Put a coin in and pick a song!"); `nightLine` finishes
+  "Your new {name}: …" on its first night ("the jukebox got everyone singing").

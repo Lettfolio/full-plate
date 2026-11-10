@@ -16,6 +16,7 @@ import type { ContentPack, Customer, GameState, SegmentDef, SimEvent, Table } fr
 import { clamp, findSegment, logEvent, mapIfChanged, round2, tallyOf } from "../util";
 import { frontCharm, type SystemResult } from "./system";
 import { dilationOf, waitingOnHuman } from "./station";
+import { decorEffects } from "../decor";
 
 /** Charmed guests wait more happily: decay × (1 + w × (50 − charm)/50), clamped. Charm 50 ⇒ ×1. */
 export function charmPatienceMult(charm: number): number {
@@ -39,8 +40,8 @@ function walkOut(c: Customer, tick: number): Customer {
  * Eating time once served. Round 5 station dilation: the ticks a party waited on the hands-on human beyond an AI
  * cook's time (`dueTick`) come off it, down to HANDS_ON.dilationMinEatTicks.
  */
-export function eatTicksFor(c: Customer): number {
-  const eat = eatTicks(c.partySize);
+export function eatTicksFor(c: Customer, extra = 0): number {
+  const eat = eatTicks(c.partySize) + extra;
   const owed = dilationOf(c);
   return owed ? Math.max(Math.min(eat, HANDS_ON.dilationMinEatTicks), eat - owed) : eat;
 }
@@ -49,9 +50,9 @@ export function eatTicksFor(c: Customer): number {
  * Advances one customer by a tick. `patienceMult` scales the patience fall (round 5: a party waiting only on the
  * hands-on human's station). A party eating its mains while its own course is out (`courseOut`) pays once it lands.
  */
-export function advanceCustomer(content: ContentPack, c: Customer, tick: number, charm = 50, patienceMult = 1): Customer {
+export function advanceCustomer(content: ContentPack, c: Customer, tick: number, charm = 50, patienceMult = 1, eatExtra = 0): Customer {
   if (c.stage === "ordered" && c.servedTick !== undefined) {
-    return { ...c, stage: "eating", stageTick: tick, eatUntil: tick + eatTicksFor(c) };
+    return { ...c, stage: "eating", stageTick: tick, eatUntil: tick + eatTicksFor(c, eatExtra) };
   }
   if (c.stage === "eating") {
     return tick >= (c.eatUntil ?? tick) && !c.courseOut ? { ...c, stage: "paying", stageTick: tick } : c;
@@ -74,9 +75,12 @@ export function serviceSystem(content: ContentPack, state: GameState, _rng: Rng)
   let walkoutCovers = 0;
   const charm = state.service?.frontCharm ?? frontCharm(content, state);
   const onHuman = waitingOnHuman(content, state);
+  // Round 10: a comfortable room (lamps, music, soft seats) keeps guests at the table a little longer — but only
+  // while nobody is queueing for a table (staff don't let people linger on a busy night).
+  const stay = state.customers.some((c) => c.stage === "queue") ? 0 : decorEffects(content, state).stay;
   const customers = mapIfChanged(state.customers, (c) => {
     const slow = c.stage === "ordered" && c.servedTick === undefined && onHuman.has(c.id);
-    const next = advanceCustomer(content, c, state.tick, charm, slow ? HANDS_ON.stationPatienceMult : 1);
+    const next = advanceCustomer(content, c, state.tick, charm, slow ? HANDS_ON.stationPatienceMult : 1, stay);
     if (next.walkedOut && !c.walkedOut) {
       walkouts++;
       walkoutCovers += c.partySize;

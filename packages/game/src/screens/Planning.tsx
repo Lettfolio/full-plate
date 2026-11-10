@@ -13,8 +13,11 @@ import { StaffTab, type KnownPerson } from "./planning/StaffTab";
 // Round 3 review: the path tabs load on first open (code-split).
 const EmpireTab = lazy(() => import("./paths/EmpireTab").then((m) => ({ default: m.EmpireTab })));
 const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
+// Round 10: the Decorate tab (catalogue, live room preview) loads on first open too.
+const DecorateTab = lazy(() => import("./planning/DecorateTab").then((m) => ({ default: m.DecorateTab })));
 import { StockTab } from "./planning/StockTab";
 import { RestaurantTab } from "./planning/RestaurantTab";
+import { tiredSlots, tiredText } from "../lib/decor";
 import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
 import { StockWarning } from "./planning/StockWarning";
 import { inSeason } from "@full-plate/sim-stars";
@@ -27,7 +30,7 @@ import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import type { PathMeta } from "../state/paths";
 
-export type PlanningTab = "menu" | "staff" | "stock" | "restaurant" | "empire" | "stars";
+export type PlanningTab = "menu" | "staff" | "stock" | "restaurant" | "decorate" | "empire" | "stars";
 type TabId = PlanningTab;
 
 interface Props {
@@ -85,6 +88,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const noStock = opening ? 0 : unplateable(content, game).length;
   if (noStock) hints.push({ text: `${noStock} dish${noStock > 1 ? "es" : ""} out of stock today — order in the evening`, tone: "bad", tab: "stock" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
+  const tired = tiredSlots(game);
+  if (tired.length) hints.push({ text: tired.length === 1 ? tiredText(game, tired[0]!) : `${tired.length} things in your room look tired`, tone: "warn", tab: "decorate" });
   if (!hints.length) hints.push({ text: "Everything looks ready", tone: "good" });
 
   // Goals go in a sidebar when the sim provides them. First run (empty menu): the card is spotlit
@@ -97,6 +102,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
     { id: "staff", label: "Staff", badge: !chefs ? "!" : game.staff.length, badgeTone: !chefs ? "warn" : "info" },
     { id: "stock", label: "Stock", badge: short ? short : "", badgeTone: "warn" },
     { id: "restaurant", label: "Restaurant", badge: game.tables.length },
+    { id: "decorate", label: "Decorate", badge: tired.length ? "!" : game.decor?.pending?.length || "", badgeTone: tired.length ? "warn" : "info" },
     ...(meta?.empire ? [{ id: "empire" as const, label: "Empire", badge: meta.empire.sites.filter((x) => x.status === "open").length }] : []),
     ...(meta?.stars ? [{ id: "stars" as const, label: "Stars", badge: meta.stars.headChef.wantsOwnPlace ? "!" : "", badgeTone: "warn" as const }] : []),
   ];
@@ -161,6 +167,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
           <Suspense fallback={<div className="empty small muted">Loading…</div>}>
+            {tab === "decorate" && <DecorateTab game={game} send={send} />}
             {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
             {tab === "stars" && meta?.stars && sendStars && <StarsTab game={game} meta={meta} stars={meta.stars} send={sendStars} onTastingMenu={onTastingMenu ?? (() => {})} />}
           </Suspense>

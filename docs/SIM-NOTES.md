@@ -430,3 +430,78 @@ R5.6 step 3: teach the owner levers in-game the way the rota tip does. `rotaAdvi
 Reading it: on hard the rota tip comes first on losing evenings, so on its own each other tip rarely gets an evening while the doubled-up rota bleeds (the single-tip learners don't trim it): 0–10%. Once the rota is trimmed the other tips get their evenings, and together they add 17 points over the rota alone (33% → 50%). Round 6 review: with the rota tip stepping aside every third losing evening the other tips get more evenings, so the single-tip learners rose (normal: over-stock 88 → 92%, idle chef 85 → 95%, under-pricing 85 → 88%; under-pricing hard 5 → 10%) while learner-rota (33%) and the full learner (50%) are unchanged — the review's condition for shipping the rest. DIFFICULTY is unchanged; typical is unchanged (0 / 83 / 100).
 
 `test/round6.advice.test.ts` (24), `test/round6.review.test.ts` (8: CANCEL_ORDER, the trim, the rota rest, a sim-core source scan), `content/test/advice.test.ts` (3), game `adviceCard.test.tsx` (9), `round6.seams.test.tsx` (8).
+
+# Round 10 — A (decorating)
+
+Make it feel like *her* restaurant: nine slots of decor, each holding one item from `content/data/decor.json`
+(`ContentPack.decor`, 45 items). Code: `src/decor.ts`; hooks in arrival, order, service, payment, reputation,
+finance, seating, engine (morning fitting, evening line); commands in `commands.ts`; strategy in `strategies.ts`.
+
+## Model
+
+- **Slots** (`DECOR_SLOTS`): floor, walls, lighting, seating, tables, signage, plants, music, window — the nine that
+  read on the owner's canvas (a bar front was dropped: the bar only appears when the tables leave room).
+- **State** `GameState.decor?: DecorState` — `slots[slot] = { itemId, since }` (since = day fitted or last refreshed),
+  `pending[]` (bought, fitted next morning), `fitting { day, tables, slots }` (this morning's fitting). A slot not in
+  `slots` holds its **starter** item (price 0, no effects, never tires). **Absent = the starter kit**: `newGame` doesn't
+  set it, so old saves and games that never decorate serialise byte-identically (test: same seed with and without the
+  catalogue → equal `serialize`). `canonicalState` lists `decor`.
+- **Commands** (planning or evening; rejected with a "bad" LOG and the state unchanged otherwise):
+  - `BUY_DECOR { slot, itemId }` — cash ≥ price (plus any refund); pays now, queues the item. Buying again in the same
+    slot before morning swaps it and refunds the first; choosing what's already in the room cancels the fitting.
+  - `REFRESH_DECOR { slot }` — a bought item that is worn or tired; pays `refreshCost`, `since = today`.
+- **Fitting day**: `advanceDay` → `fitPending` installs pending items (`since = day`) and records
+  `fitting = { day, tables: max fitTables }`. That night `seatingSystem` skips the last `fittingTablesClosed` tables
+  (never leaving fewer than `DECOR_MIN_OPEN_TABLES` = 3). The fitting is dropped the next morning.
+- **Wear** (`wearOf`): fresh → worn at `ceil(lifeDays × DECOR_WORN_SHARE)` (0.75) → tired at `lifeDays`. A tired item
+  gives half its good effects (`floor(x/2)`) and drags prestige by 1 (`DECOR_TIRED_DRAG`, at most 3 in all). Upkeep
+  is paid in full whatever the wear.
+- **Style** (`decorStyle`): the tag shared by ≥ 3 bought items (`DECOR_STYLE_MIN`) with no tie, else none (UI: "Plain
+  and simple" with nothing bought, "A bit of everything" for a mix). `ContentPack.decor.styles[tag]` gives its name
+  ("Cosy café", "Fun diner", "Smart bistro", "Posh dining room"), a small entry-logit nudge per segment and a critic
+  bonus (satisfaction points for VIP parties: smart +2, posh +4). No segments.json field fitted, so this is the mild
+  multiplier.
+- **Evening**: an evening system (before stats) writes `todays.decor`; `DayResult.decor = { fitted, tablesClosed,
+  tired }` (tired = turned tired today). Absent when nothing happened.
+
+## Effects (summed over the room, then capped — `DECOR_CAPS`)
+
+| Effect (items' ints) | Where | Meaning | Cap |
+| --- | --- | --- | --- |
+| prestige | reputation `nextPrestige(…, lift)` | prestige decays toward 50 + lift (settles `lift` higher) | 8 (− tired drag ≤ 3) |
+| popularity | reputation `nextPopularity(…, lift)` | pulled toward rating×20 + lift, decays toward 50 + lift | 4 |
+| comfort | payment `settleParty` | + satisfaction points for every party | 3 |
+| stay | service `advanceCustomer(…, eatExtra)` | + eating ticks, **only while nobody is queueing** | 3 |
+| spend | order `chooseForGuest(…, boost)` | each extra course's chance × (1 + spend/100), ≤ 1 | 12 |
+| upkeep | finance (in `overheads`) | pence a day (laundry, flowers, cakes, tuning) | — |
+| style | arrival `planArrivals` | entry logit + `styles[tag].segments[seg]` (±0.1) | — |
+
+All zero with no decor (`NO_DECOR_EFFECTS`, a fast path); `decorEffects` is memoised per decor object and day. A full
+lavish kit (the priciest item in every slot, £26,250) is worth +8 prestige (capped from 10) and makes the room
+"Posh dining room"; the decorator's cosy kit (£2,355) is +4 popularity (capped from 7), +3 comfort, +2 stay, +4 spend and £5.30 a day upkeep.
+
+## Balance (headless, real pack, 200 seeds × 365 days, normal)
+
+`decorator` = the typical owner plus a cosy kit (lanterns, cushions, chalkboard, gingham, radio, stripes, cake display,
+hanging baskets, rugs — one piece a fortnight while £10k stays in hand) and refreshes when worn.
+
+| Strategy | Survival before | after | Median cash m12 | Final popularity | Final prestige |
+| --- | --- | --- | --- | --- | --- |
+| typical | 86.5% | 86.5% | £44,302 | 81.1 | 91.8 |
+| balanced | 99.5% | 99.5% | — | 86.9 | 96.2 |
+| decorator (new) | (= typical) | **85.0%** | £43,479 | 84.6 | 91.0 |
+
+typical and balanced never decorate, so their runs are identical to master. The decorator went through four passes:
+v1 (stay always on, caps 8/6/4, upkeep as first written) 81.5%; v2 halved upkeep and a £10k buffer 82.0%; v3 halved
+style nudges and caps popularity 4 / comfort 3 80.0%; **v4 stay only on a quiet floor 85.0%**. The diagnosis
+(seeds 5/29/41, High Street): longer meals cost table turns on busy nights (covers 107 → 61, more walkouts). Now the
+cosy kit pays for itself (median cash level, +3.5 popularity, +0.7 covers a day) without being dominant; end-of-year
+prestige saturates near 91 for everyone, so decor prestige mostly matters in the first months and on the Stars path.
+
+## Seams
+
+- **Stars**: decor prestige moves `reputation.prestige` like reviews do; sim-stars reads that number (prestige anchor)
+  and adds nothing for decor — no double count.
+- **Empire**: sites keep their own REFURBISH/REMODEL (sim-empire state). `capacity.ts` (the closed-form model Empire
+  calibrates with) ignores decor; a decorated flagship's history feeds the fit like any other history.
+- `buyOpeningStock`/forecast don't know about the spend boost (≤ 12% on extra courses).

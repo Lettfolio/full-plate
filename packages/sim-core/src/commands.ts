@@ -36,6 +36,7 @@ import { purchaseCost } from "./stock";
 import { planArrivals } from "./systems/arrival";
 import { applyChoice } from "./systems/eventDeck";
 import { shiftCost } from "./systems/finance";
+import { findDecorItem, installed, isDecorSlot, wearOf } from "./decor";
 import type { Command, ContentPack, GameState, KitchenTicket, Phase, SimEvent, StaffRole, StepResult } from "./types";
 import { clamp, findDish, findIngredient, foldLog, logEvent, monthOf, onFloor, round2, tallyOf, worksToday } from "./util";
 
@@ -523,6 +524,49 @@ const setOwnerProfile: Handler<"SET_OWNER_PROFILE"> = (_c, state, cmd) => {
   return ok({ ...state, ownerProfile });
 };
 
+// ── round 10: decorating ──
+const DECOR_PHASES: readonly Phase[] = ["planning", "evening"];
+const pounds = (p: number) => `£${(p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
+
+const buyDecor: Handler<"BUY_DECOR"> = (content, state, cmd) => {
+  const bad = requirePhase(state, DECOR_PHASES, "decorate");
+  if (bad) return bad;
+  if (!content.decor) return reject(state, "There's nothing to decorate with.");
+  if (!isDecorSlot(cmd.slot)) return reject(state, "That isn't part of the room.");
+  const item = findDecorItem(content, cmd.itemId);
+  if (!item || item.slot !== cmd.slot) return reject(state, "That doesn't go there.");
+  const pending = state.decor?.pending ?? [];
+  const already = pending.find((p) => p.slot === cmd.slot);
+  if (already?.itemId === item.id) return reject(state, `${item.name} is already coming tomorrow.`);
+  const now = installed(content, state, cmd.slot);
+  if (!already && now?.item.id === item.id) return reject(state, `You already have ${item.name}.`);
+  const refund = already?.paid ?? 0;
+  if (state.cash + refund < item.price) return reject(state, `Not enough cash for ${item.name} (${pounds(item.price)}).`);
+  // Choosing the item that is already in the room just cancels tomorrow's fitting there.
+  const others = pending.filter((p) => p.slot !== cmd.slot);
+  const next = now?.item.id === item.id ? others : [...others, { slot: cmd.slot, itemId: item.id, paid: item.price, tables: item.fitTables }];
+  const decor = { slots: {}, ...state.decor, pending: next };
+  if (!next.length) delete (decor as { pending?: unknown }).pending;
+  const cash = state.cash + refund - (now?.item.id === item.id ? 0 : item.price);
+  const text = now?.item.id === item.id
+    ? `Kept your ${item.name} — tomorrow's fitting is off${refund ? ` (${pounds(refund)} back)` : ""}.`
+    : `${item.name} bought — the fitters come tomorrow morning${item.fitTables ? ` (${item.fitTables} table${item.fitTables === 1 ? "" : "s"} closed tomorrow night)` : ""}.`;
+  return ok({ ...state, cash, decor }, text, "money");
+};
+
+const refreshDecor: Handler<"REFRESH_DECOR"> = (content, state, cmd) => {
+  const bad = requirePhase(state, DECOR_PHASES, "decorate");
+  if (bad) return bad;
+  if (!content.decor) return reject(state, "There's nothing to decorate with.");
+  if (!isDecorSlot(cmd.slot)) return reject(state, "That isn't part of the room.");
+  const it = installed(content, state, cmd.slot);
+  if (!it?.bought || !state.decor) return reject(state, "The starter kit doesn't need a refresh.");
+  if (wearOf(it.item, it.since, state.day) === "fresh") return reject(state, `Your ${it.item.name} still look${it.item.name.endsWith("s") ? "" : "s"} fresh.`);
+  if (state.cash < it.item.refreshCost) return reject(state, `Not enough cash to refresh ${it.item.name} (${pounds(it.item.refreshCost)}).`);
+  const decor = { ...state.decor, slots: { ...state.decor.slots, [cmd.slot]: { itemId: it.item.id, since: state.day } } };
+  return ok({ ...state, cash: state.cash - it.item.refreshCost, decor }, `${it.item.name} refreshed — good as new.`, "money");
+};
+
 const newGameCmd: Handler<"NEW_GAME"> = (_c, state) => reject(state, "Use newGame() to start a new game.");
 
 const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
@@ -555,6 +599,8 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
   CLOSE_TODAY: closeToday,
   SET_SET_MENU: setSetMenu,
   SET_OWNER_PROFILE: setOwnerProfile,
+  BUY_DECOR: buyDecor,
+  REFRESH_DECOR: refreshDecor,
 };
 
 export function dispatch(content: ContentPack, state: GameState, cmd: Command): StepResult {

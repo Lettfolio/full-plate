@@ -20,9 +20,24 @@ import { facingFrom, guestLook, hashKey, HAIRS, SKINS, SpriteCache, type Facing,
 import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { weekdayIndex } from "../lib/calendar";
 import { FLOOR_DEFAULTS, readFloorPalette, type FloorPalette } from "./floorPalette";
+import type { RoomLook } from "./decorArt";
 
 /** The live palette (replaced on resize from the canvas's CSS variables). */
 let C: FloorPalette = { ...FLOOR_DEFAULTS };
+
+/**
+ * Round 10: the decor art (decorArt.ts) is its own small chunk, loaded the first time a decorated room is drawn (or
+ * by the Decorate tab). Until it lands — and always for a room that was never decorated — the round-8 picture is
+ * drawn; `D.key` joins the static-layer key, so the scene rebuilds once when it arrives.
+ */
+let art: typeof import("./decorArt") | null = null;
+let artLoad: Promise<void> | null = null;
+export function loadDecorArt(): Promise<void> {
+  return (artLoad ??= import("./decorArt").then((m) => { art = m; }));
+}
+const PLAIN: Pick<RoomLook, "key" | "closed"> & { items: Partial<RoomLook["items"]> } = { key: "", closed: [], items: {} };
+/** What the room is decorated with (set per frame). */
+let D: RoomLook = PLAIN as RoomLook;
 /** 1, or 0 under reduced motion (no bob, sway, pulse or flicker). Set per frame. */
 let motion = 1;
 
@@ -158,6 +173,8 @@ export interface RenderOptions {
   now: number;
   /** Round 8: prefers-reduced-motion — no bob, sway, pulse or flicker. */
   reducedMotion?: boolean;
+  /** Round 10: the Decorate tab's empty-room preview — no kitchen tickets, staff or "you're cooking" signs. */
+  preview?: boolean;
 }
 
 /** Green (full) → amber → red (empty). */
@@ -203,6 +220,7 @@ export class RestaurantView {
   private keyFor: Layout | null = null;
   private keyName = "";
   private keyPalette = -1;
+  private keyDecor = "";
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -250,24 +268,28 @@ export class RestaurantView {
     this.lastNow = opts.now;
     motion = opts.reducedMotion ? 0 : 1;
     this.name = game.restaurantName;
+    if (game.decor && !art) void loadDecorArt();
+    D = art && game.decor ? art.roomLook(opts.content, game) : (PLAIN as RoomLook);
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
     this.updateSprites(game, L, dt, opts);
 
-    if (this.keyFor !== L || this.keyName !== this.name || this.keyPalette !== this.paletteVersion) {
-      this.keyFor = L; this.keyName = this.name; this.keyPalette = this.paletteVersion;
-      this.key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}`);
+    if (this.keyFor !== L || this.keyName !== this.name || this.keyPalette !== this.paletteVersion || this.keyDecor !== D.key) {
+      this.keyFor = L; this.keyName = this.name; this.keyPalette = this.paletteVersion; this.keyDecor = D.key;
+      // Round 10: the decor (items and how worn they look) is part of the picture, so it is part of the key.
+      this.key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}|${D.key}`);
     }
     const key = this.key;
     // one cached, opaque scene layer: one full blit a frame and no clear (the blit is the costly part in software raster)
     this.layers.draw(ctx, "scene", key, this.w, this.h, this.dpr, (c) => { paintFloor(c, L); paintFurniture(c, L, this.name); });
     this.drawTableGlows(game, L, opts);
-    this.drawKitchen(game, L, opts);
+    if (!opts.preview) this.drawKitchen(game, L, opts);
     this.drawTables(game, L, opts);
-    this.drawStaff(game, L, opts, dt);
+    if (!opts.preview) this.drawStaff(game, L, opts, dt);
     this.drawPeople(game, L, opts);
     this.drawLighting(game, L);
+    if (D.key) art?.paintNote(ctx, L, D, C, opts.now, motion);
     this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
@@ -488,6 +510,8 @@ export class RestaurantView {
       const s = L.tables.get(t.id);
       if (!s) return;
       const c = t.occupiedBy ? byId.get(t.occupiedBy) : undefined;
+      // Round 10: on a fitting night the fitters' tables are under dust sheets.
+      if (!c && D.closed.includes(t.id)) { art?.paintDustSheet(ctx, s, L.person); return; }
       const waiting = c && (c.stage === "seated" || c.stage === "ordered");
       if (opts.hoverTable === t.id && c) {
         ctx.strokeStyle = alpha(C.paper, 0.9); ctx.lineWidth = 2.5; ctx.setLineDash([4, 4]);
@@ -497,7 +521,7 @@ export class RestaurantView {
       // guests seated on the far side sit behind the table top
       const seated = c ? this.seatedSprites(c, s) : [];
       for (const sp of seated) if (sp.y < s.y - 1) this.drawGuest(sp, L, c!);
-      if (c) tableTop(ctx, s.x, s.y, s.r);
+      if (c) tableTop(ctx, s.x, s.y, s.r, s.id);
       if (waiting) {
         ctx.strokeStyle = "rgba(43,38,34,0.14)"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 2.6 - 2, 0, Math.PI * 2); ctx.stroke();
@@ -846,8 +870,9 @@ function paintFloor(ctx: CanvasRenderingContext2D, L: Layout) {
   // dining: staggered oak planks
   const top = k.h + 6, bottom = L.wallY;
   const ph = 18;
-  ctx.save(); ctx.beginPath(); ctx.rect(0, top, L.w, bottom - top); ctx.clip();
-  for (let row = 0, y = top; y < bottom; row++, y += ph) {
+  const decorFloor = !!D.key && !!art?.paintDecorFloor(ctx, L, D, top, bottom);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top, L.w, decorFloor ? 0 : bottom - top); ctx.clip();
+  for (let row = 0, y = top; !decorFloor && y < bottom; row++, y += ph) {
     let x = -noise(row, 7) * 60;
     for (let i = 0; x < L.w; i++) {
       const len = 70 + noise(row, i) * 70;
@@ -862,10 +887,12 @@ function paintFloor(ctx: CanvasRenderingContext2D, L: Layout) {
     ctx.fillStyle = C.floorJoint; ctx.fillRect(0, y + ph - 1, L.w, 1);
   }
   ctx.restore();
+  if (D.key) art?.paintRugs(ctx, L, D);
   // warm pools under the pendant lamps, a rug at the door, the heat-lamp spill in front of the pass
+  const pool = (D.key && art?.lightPool(D, C.lamp)) || { colour: C.lamp, scale: 2.4, evening: "255,190,110" };
   for (const s of L.tables.values()) {
-    const R = s.r * 2.4;
-    ctx.fillStyle = radial(ctx, s.x, s.y, R, C.lamp, "rgba(255,206,130,0)");
+    const R = s.r * pool.scale;
+    ctx.fillStyle = radial(ctx, s.x, s.y, R, pool.colour, "rgba(255,206,130,0)");
     ctx.fillRect(s.x - R, s.y - R, R * 2, R * 2);
   }
   ctx.fillStyle = mix(C.tomato, C.floorB, 0.55);
@@ -900,6 +927,7 @@ function paintFloor(ctx: CanvasRenderingContext2D, L: Layout) {
 
   // walls: kitchen partition (gap behind the pass), front wall with windows and the door gap
   const p = L.pass;
+  if (D.key) art?.paintSideWalls(ctx, L, D);
   wallBand(ctx, 0, k.h, p.x, 7);
   wallBand(ctx, p.x + p.w, k.h, k.w - p.x - p.w, 7);
   wallBand(ctx, 0, L.wallY - 5, L.door.x, 11);
@@ -922,8 +950,9 @@ function paintFloor(ctx: CanvasRenderingContext2D, L: Layout) {
 /** A wall seen from above-front: a lit cap and a darker face below it. */
 function wallBand(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   if (w <= 0) return;
-  ctx.fillStyle = C.wall; ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = C.wallTop; ctx.fillRect(x, y, w, h * 0.55);
+  const col = D.key ? art?.wallColours(D) : undefined; // round 10: painted or papered walls
+  ctx.fillStyle = col?.wall ?? C.wall; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = col?.top ?? C.wallTop; ctx.fillRect(x, y, w, h * 0.55);
   ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(x, y, w, 1);
   ctx.fillStyle = C.shadow; ctx.fillRect(x, y + h, w, 3);
 }
@@ -990,18 +1019,25 @@ function paintFurniture(ctx: CanvasRenderingContext2D, L: Layout, name: string) 
   }
 
   // tables and chairs (tops of occupied tables are redrawn live, so far-side guests sit behind them)
+  const decor = D.key ? art : null;
+  decor?.startSeats();
   for (const s of L.tables.values()) {
-    for (const seat of s.seats) chair(ctx, seat.x, seat.y, seat.a, L.person);
-    tableTop(ctx, s.x, s.y, s.r);
+    for (const seat of s.seats) if (!decor?.paintDecorChair(ctx, seat.x, seat.y, seat.a, L.person, D, C, C.shadow)) chair(ctx, seat.x, seat.y, seat.a, L.person);
+    tableTop(ctx, s.x, s.y, s.r, s.id);
   }
-  // plants in the corners
-  plant(ctx, 22, L.wallY - 24, 12);
-  if (!L.bar) plant(ctx, L.w - 22, L.kitchen.h + 30, 12);
+  // round 10: light fittings over the aisles, then plants (two corner pots unless bought) and the music
+  decor?.paintLamps(ctx, L, D, C);
+  if (!decor?.paintPlants(ctx, L, D, C, (x, y, r) => plant(ctx, x, y, r))) {
+    plant(ctx, 22, L.wallY - 24, 12);
+    if (!L.bar) plant(ctx, L.w - 22, L.kitchen.h + 30, 12);
+  }
+  decor?.paintMusic(ctx, L, D, C);
 
   // the shopfront outside: planters under the windows, the awning over the door, the name board, the OPEN sign
   for (let x = 30; x < L.w - 60; x += 130) {
     const x1 = Math.min(x + 96, L.w - 20);
     if (!(x1 < L.door.x - 14 || x > L.door.x + L.door.w + 14)) continue;
+    if (decor?.paintWindowDisplay(ctx, x, x1, L.wallY, D, C)) continue;
     ctx.fillStyle = C.shadow; ctx.fillRect(x + 4, L.wallY + 9, x1 - x - 4, 7);
     ctx.fillStyle = "#7a5636"; ctx.fillRect(x + 2, L.wallY + 6, x1 - x - 4, 7);
     for (let px = x + 8; px < x1 - 4; px += 9) { ctx.fillStyle = noise(px, 3) > 0.5 ? C.leaf : C.leafDeep; ctx.beginPath(); ctx.arc(px, L.wallY + 7, 4, 0, Math.PI * 2); ctx.fill(); }
@@ -1016,9 +1052,15 @@ function paintFurniture(ctx: CanvasRenderingContext2D, L: Layout, name: string) 
   ctx.font = `800 13px Nunito, system-ui, sans-serif`;
   const tw = Math.min(ctx.measureText(nm).width + 18, L.w * 0.4);
   const by = L.wallY + L.pavement.h - 42;
+  const sign: { board: string; text: string; edge?: string; glow?: string } = decor?.signColours(D, C) ?? { board: C.ink, text: C.cream }; // round 10
   ctx.fillStyle = C.shadow; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2 + 2, by + 2, tw, 20, 5); ctx.fill();
-  ctx.fillStyle = C.ink; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, by, tw, 20, 5); ctx.fill();
-  label(ctx, nm, L.door.x + L.door.w / 2, by + 15, { align: "center", size: 13, weight: 800, colour: C.cream, spacing: 1, maxW: tw - 10 });
+  ctx.fillStyle = sign.board; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, by, tw, 20, 5); ctx.fill();
+  if (sign.edge) { ctx.strokeStyle = sign.edge; ctx.lineWidth = 1.5; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2 + 2, by + 2, tw - 4, 16, 4); ctx.stroke(); }
+  if (sign.glow) { ctx.shadowColor = sign.glow; ctx.shadowBlur = 8; }
+  label(ctx, nm, L.door.x + L.door.w / 2, by + 15, { align: "center", size: 13, weight: 800, colour: sign.text, spacing: 1, maxW: tw - 10 });
+  ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+  decor?.paintAFrame(ctx, L, D);
+  decor?.paintMenuCase(ctx, L, D);
   ctx.font = `900 13px Nunito, system-ui, sans-serif`;
   const ow = ctx.measureText("OPEN").width + 14;
   const ox = L.door.x - 26 - ow, oy = L.wallY - 30;
@@ -1030,11 +1072,13 @@ function paintFurniture(ctx: CanvasRenderingContext2D, L: Layout, name: string) 
 
 /** The evening light layer (drawn with "lighter" at dusk strength): table lamps, street lamps, windows on the pavement. */
 function paintLight(ctx: CanvasRenderingContext2D, L: Layout) {
-  const pool = (x: number, y: number, r: number, a: number) => {
-    ctx.fillStyle = radial(ctx, x, y, r, `rgba(255,190,110,${a})`, "rgba(255,190,110,0)");
+  const pool = (x: number, y: number, r: number, a: number, rgb = "255,190,110") => {
+    ctx.fillStyle = radial(ctx, x, y, r, `rgba(${rgb},${a})`, `rgba(${rgb},0)`);
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   };
-  for (const s of L.tables.values()) pool(s.x, s.y, s.r * 2.4, 0.1);
+  const lamps = (D.key && art?.lightPool(D, C.lamp)) || { scale: 2.4, evening: "255,190,110" }; // round 10: the lamps' colour and reach
+  for (const s of L.tables.values()) pool(s.x, s.y, s.r * lamps.scale, 0.1, lamps.evening);
+  if (D.key && D.items.signage === "sign_neon") pool(L.door.x + L.door.w / 2, L.wallY + L.pavement.h - 32, 70, 0.22, "255,111,174");
   for (const lx of [L.w * 0.18, L.w * 0.52]) pool(lx, L.h - 22, 70, 0.32);
   pool(L.door.x + L.door.w / 2, L.wallY + 18, 60, 0.2);
   for (let x = 30; x < L.w - 60; x += 130) pool(x + 48, L.wallY + 14, 56, 0.12);
@@ -1081,7 +1125,8 @@ function counter(ctx: CanvasRenderingContext2D, x: number, y: number, w: number,
   ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.fillRect(x + 5, y + 1, w - 10, 1);
 }
 
-function tableTop(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+function tableTop(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, id = "") {
+  if (D.key && art?.paintDecorTable(ctx, id, cx, cy, r, D, C, C.shadow)) return; // round 10: cloths, paint, marble
   ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.ellipse(cx + 3, cy + 4, r, r * 0.96, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = C.tableEdge; ctx.beginPath(); ctx.arc(cx, cy + 1.5, r, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = C.table; ctx.beginPath(); ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2); ctx.fill();
