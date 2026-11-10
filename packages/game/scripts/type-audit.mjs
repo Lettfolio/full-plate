@@ -1,74 +1,30 @@
 #!/usr/bin/env node
 /**
- * Type-scale audit (round 5). Walks every screen of the built game in Chromium at 1280×800 and fails if any rendered
- * text is smaller than MIN px:
+ * Type-scale audit (round 5; round 11: 1024 as well as 1280, canvas text on every screen with a canvas, a private
+ * preview on a free port, and a committed baseline). Walks every screen of the built game in Chromium
+ * (scripts/lib/harness.mjs walkScreens) and counts rendered text smaller than MIN px:
  *   - DOM text: getComputedStyle(fontSize) of every visible text node's parent (SVG <text> × its on-screen scale);
- *   - canvas text: every fillText/strokeText call, font px × canvas transform × (CSS width / backing width).
+ *   - canvas text: every fillText/strokeText call, font px × canvas transform × (CSS width / backing width), measured on
+ *     every screen that shows a canvas (the cached layers are repainted first).
  * Screenshots (deviceScaleFactor 2) go to FP_AUDIT_SHOTS.
  *
- *   pnpm --filter @full-plate/game build
- *   node packages/game/scripts/type-audit.mjs            # from the repo root, or `node scripts/type-audit.mjs` here
+ *   pnpm --filter @full-plate/game audit                 # builds if needed; exit 1 above scripts/probe-baseline.json
+ *   pnpm --filter @full-plate/game audit -- --update-baseline
  *
- * Env: FP_AUDIT_TEXT=large (Settings › Text size › Bigger), FP_AUDIT_URL (default: starts `vite preview` on :4173 itself), FP_AUDIT_SHOTS (default scripts/.audit-shots),
- *      FP_AUDIT_MIN (13), FP_AUDIT_ONLY (comma list of screen names), FP_AUDIT_SKIP_GEN=1 (reuse scripts/.audit-saves).
- * Needs Playwright with Chromium on the machine (`require("playwright")`). Exit code 1 when anything is too small.
+ * Env: FP_AUDIT_TEXT=large (Settings › Text size › Bigger), FP_AUDIT_VIEWPORTS ("1280x800,1024x768"),
+ *      FP_AUDIT_SHOTS (default scripts/.audit-shots), FP_AUDIT_MIN (13), FP_AUDIT_ONLY (comma list of screen names),
+ *      and the harness's FP_URL / FP_PORT / FP_SKIP_GEN. Needs Playwright with Chromium.
  */
-import { createRequire } from "node:module";
-import { execSync, spawn } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { canvasProbe, canvasSmall, checkBaseline, genSaves, HERE, loadPlaywright, settle, startPreview, walkScreens } from "./lib/harness.mjs";
 
-const require = createRequire(import.meta.url);
-const { chromium } = require("playwright");
-const HERE = dirname(fileURLToPath(import.meta.url));
-const PKG = join(HERE, "..");
 const MIN = Number(process.env.FP_AUDIT_MIN ?? 13);
 const SHOTS = process.env.FP_AUDIT_SHOTS ?? join(HERE, ".audit-shots");
-const SAVES = process.env.FP_AUDIT_SAVES ?? join(HERE, ".audit-saves");
 const ONLY = process.env.FP_AUDIT_ONLY?.split(",").map((s) => s.trim()).filter(Boolean);
+const VIEWPORTS = (process.env.FP_AUDIT_VIEWPORTS ?? "1280x800,1024x768").split(",").map((v) => v.split("x").map(Number));
+const TEXT = process.env.FP_AUDIT_TEXT === "large" ? "large" : "normal";
 mkdirSync(SHOTS, { recursive: true });
-
-if (!process.env.FP_AUDIT_SKIP_GEN) {
-  execSync("npx vitest run --config scripts/vitest.audit.config.ts", { cwd: PKG, stdio: "inherit", env: { ...process.env, FP_AUDIT_SAVES: SAVES } });
-}
-
-async function reachable(url) { try { return (await fetch(url)).ok; } catch { return false; } }
-let preview;
-let URL = process.env.FP_AUDIT_URL;
-if (!URL) {
-  URL = "http://localhost:4173/";
-  if (!(await reachable(URL))) {
-    preview = spawn("npx", ["vite", "preview", "--port", "4173", "--strictPort"], { cwd: PKG, stdio: "ignore" });
-    for (let i = 0; i < 60 && !(await reachable(URL)); i++) await new Promise((r) => setTimeout(r, 250));
-  }
-}
-
-/** Runs in the page before any app code: records the effective CSS px of every canvas text draw. */
-function canvasProbe() {
-  window.__canvasText = [];
-  // R8 review: C's static layers paint their labels into an OffscreenCanvas (or a detached <canvas>) at w·dpr and blit
-  // it at CSS w, so those draws are measured too: font px × transform ÷ the layer's dpr (the canvas dpr cap, 2).
-  const layerDpr = () => Math.min(2, window.devicePixelRatio || 1);
-  for (const C of [CanvasRenderingContext2D, ...(typeof OffscreenCanvasRenderingContext2D !== "undefined" ? [OffscreenCanvasRenderingContext2D] : [])]) {
-    for (const fn of ["fillText", "strokeText"]) {
-      const orig = C.prototype[fn];
-      C.prototype[fn] = function (text, ...rest) {
-        try {
-          const m = /(\d+(?:\.\d+)?)px/.exec(this.font);
-          const t = this.getTransform();
-          const el = this.canvas;
-          const onPage = typeof el.isConnected === "boolean" && el.isConnected;
-          const css = onPage ? el.getBoundingClientRect().width / (el.width || 1) : 1 / layerDpr();
-          const px = m ? Number(m[1]) * Math.hypot(t.a, t.b) * css : 0;
-          if (String(text).trim() && px > 0) window.__canvasText.push([Math.round(px * 10) / 10, String(text).slice(0, 30)]);
-          if (window.__canvasText.length > 20000) window.__canvasText.splice(0, 10000);
-        } catch { /* never break the game */ }
-        return orig.call(this, text, ...rest);
-      };
-    }
-  }
-}
 
 /** Runs in the page: every visible DOM/SVG text below min px. */
 function domSmall(min) {
@@ -98,201 +54,55 @@ function domSmall(min) {
   return out;
 }
 
+genSaves();
+const { chromium } = loadPlaywright();
+const preview = await startPreview();
 const results = [];
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
-await ctx.addInitScript(canvasProbe);
-const page = await ctx.newPage();
+const totals = {};
 const errors = [];
-page.on("pageerror", (e) => errors.push(String(e)));
-
-const save = (name) => readFileSync(join(SAVES, `${name}.json`), "utf8");
-// Round 7: FP_AUDIT_TEXT=large runs every screen with Settings › Text size › Bigger (data-text="large").
-const TEXT = process.env.FP_AUDIT_TEXT === "large" ? "large" : "normal";
-async function boot({ owner, career, speed = 1 } = {}) {
-  await page.goto(URL);
-  await page.evaluate(([o, c, sp, t]) => {
-    localStorage.clear();
-    localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: sp, textSize: t }));
-    if (o) localStorage.setItem("full-plate:save:v1", o);
-    if (c) localStorage.setItem("full-plate:career:v1", c);
-  }, [owner ? save(owner) : null, career ?? null, speed, TEXT]);
-  await page.reload();
-  await page.waitForTimeout(300);
-}
-async function cont() { await page.getByRole("button", { name: "Continue", exact: true }).click(); await page.waitForTimeout(700); }
-const tab = async (name) => { await page.getByRole("tab", { name }).first().click(); await page.waitForTimeout(400); };
-
-async function audit(name, { canvas = false } = {}) {
-  if (ONLY && !ONLY.includes(name)) return;
-  if (canvas) {
-    // R8 review: cached scene layers are painted once (at mount, before the caller's reset); a 1 px resize and back
-    // makes them repaint now, so their labels are measured too.
-    const vp = page.viewportSize();
-    await page.setViewportSize({ width: vp.width - 1, height: vp.height }); await page.waitForTimeout(150);
-    await page.setViewportSize(vp); await page.waitForTimeout(150);
-  }
-  await page.waitForTimeout(250);
-  const dom = await page.evaluate(domSmall, MIN);
-  let canvasSmall = [];
-  if (canvas) {
-    const drawn = await page.evaluate(() => window.__canvasText.splice(0));
-    const seen = new Map();
-    for (const [px, text] of drawn) if (px < MIN - 0.05) { const k = `${px}|${text}`; if (!seen.has(k)) seen.set(k, { px, text, el: "canvas" }); }
-    canvasSmall = [...seen.values()];
-  }
-  const seen = new Set();
-  const bad = [...dom, ...canvasSmall].filter((o) => { const k = `${o.px}|${o.el}|${o.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
-  // The app scrolls inside .screen; unroll it so the full-page shot shows everything (layout width is unchanged).
-  const unroll = canvas ? null : await page.addStyleTag({ content: ".app{height:auto!important}.screen{overflow:visible!important}" });
-  await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true });
-  if (unroll) await unroll.evaluate((el) => el.remove());
-  results.push({ name, bad });
-  console.log(`${bad.length ? "✗" : "✓"} ${name}${bad.length ? `: ${bad.length} below ${MIN}px` : ""}`);
-  for (const o of bad.slice(0, 12)) console.log(`    ${o.px}px  ${o.el}  “${o.text}”`);
-  if (bad.length > 12) console.log(`    … ${bad.length - 12} more`);
-}
-const resetCanvas = () => page.evaluate(() => { window.__canvasText = []; });
-
+const browser = await chromium.launch();
 try {
-  // Title, start picker, lease screen
-  await boot({ owner: "owner-planning" });
-  await audit("01-title");
-  await page.getByRole("button", { name: /How do I win/ }).click(); await page.waitForTimeout(300);
-  await audit("01b-goal-explainer");
-  await page.keyboard.press("Escape");
-  // Round 9: Your games (the slot picker), a rename box and the delete confirm.
-  await page.getByRole("button", { name: /Your games/ }).click(); await page.waitForTimeout(400);
-  await audit("01d-your-games");
-  await page.getByRole("button", { name: /^Rename / }).first().click(); await page.waitForTimeout(200);
-  await audit("01e-your-games-rename");
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await page.getByRole("button", { name: /^Delete / }).first().click(); await page.waitForTimeout(300);
-  await audit("01f-delete-confirm");
-  await page.getByRole("button", { name: "Keep it" }).click(); await page.waitForTimeout(200);
-  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-  // Round 7 asked before replacing the save; round 9 asks where the new game goes.
-  await page.getByRole("button", { name: "New game" }).click(); await page.waitForTimeout(400);
-  await audit("01c-new-game-slot");
-  await page.getByRole("button", { name: /Start in an empty slot/ }).click(); await page.waitForTimeout(300);
-  await audit("02-start-picker");
-  await page.getByRole("radio", { name: /^Apprentice chef/ }).click(); await page.waitForTimeout(200);
-  await audit("03-start-picker-career");
-  await page.getByRole("radio", { name: /^Owner/ }).click(); await page.waitForTimeout(200);
-  await page.locator("button.btn--xl.btn--primary").click(); await page.waitForTimeout(400);
-  await audit("04-new-game-lease");
-
-  // Owner planning tabs, help, settings
-  await boot({ owner: "owner-planning" }); await cont();
-  await audit("10-planning-menu");
-  await tab(/^Staff/); await audit("11-planning-staff");
-  // Round 10: the hiring sheet (three candidates with portraits and quotes).
-  { const hire = page.getByRole("button", { name: /Hire someone/ }); if (await hire.count()) { await hire.click(); await page.waitForTimeout(300); } await audit("11b-planning-hire-sheet"); }
-  await tab(/^Stock/); await audit("12-planning-stock");
-  await tab(/^Restaurant/); await audit("13-planning-restaurant");
-  // Round 10: the Decorate tab — catalogue cards and the live room preview (canvas), previewing a lavish item.
-  await resetCanvas();
-  await tab(/^Decorate/); await page.waitForTimeout(900);
-  await page.getByRole("group", { name: "Choose what to decorate" }).getByRole("button", { name: /^Sign/ }).click();
-  await page.locator("li.decorate__card").last().hover(); await page.waitForTimeout(500);
-  await audit("13b-planning-decorate", { canvas: true });
-  await page.getByRole("button", { name: /What do I do/ }).click(); await page.waitForTimeout(200);
-  await audit("14-planning-help");
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Settings" }).click(); await page.waitForTimeout(200);
-  await audit("15-settings");
-  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
-  // Round 9: the header's save mark explains itself.
-  await page.locator(".savemark").click(); await page.waitForTimeout(400);
-  await audit("16-save-mark");
-  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
-
-  // Owner service (canvas)
-  await tab(/^Menu/);
-  await resetCanvas();
-  await page.locator(".openbar button.btn--xl.btn--primary, button.btn--xl.btn--primary").last().click();
-  const anyway = page.getByRole("button", { name: "Open anyway" });
-  if (await anyway.count()) await anyway.click();
-  await page.waitForTimeout(6000);
-  await audit("20-service", { canvas: true });
-
-  // Evening, fork, game over, win
-  await boot({ owner: "owner-evening" }); await cont(); await audit("30-evening");
-  await boot({ owner: "fork-evening" }); await cont(); await audit("31-fork-card");
-  await boot({ career: save("gameover") });
-  await cont(); // round 9: the career save is a slot; Continue plays the most recent
-  await audit("32-game-over");
-  await boot({ owner: "win" }); await cont(); await audit("33-win");
-
-  // Empire and its side panels
-  await boot({ owner: "empire" }); await cont();
-  await tab(/Empire/);
-  await audit("40-empire");
-  const panels = await page.locator(".empire aside [role=tab]").allInnerTexts();
-  for (const [i, p] of panels.entries()) {
-    await page.locator(".empire aside [role=tab]").nth(i).click(); await page.waitForTimeout(300);
-    await audit(`4${i + 1}-empire-${p.trim().toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}`);
+  for (const [vw, vh] of VIEWPORTS) {
+    const tag = `${vw}x${vh}-${TEXT}`;
+    const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: 2 });
+    await ctx.addInitScript(canvasProbe);
+    const page = await ctx.newPage();
+    const errs = [];
+    page.on("pageerror", (e) => errs.push(String(e)));
+    const sum = { screens: 0, canvasScreens: 0, dom: 0, canvas: 0, errors: 0 };
+    async function audit(name) {
+      if (ONLY && !ONLY.includes(name)) return;
+      await page.waitForTimeout(250);
+      await settle(page);
+      const cv = await canvasSmall(page, MIN);
+      const dom = await page.evaluate(domSmall, MIN);
+      const seen = new Set();
+      const bad = [...dom, ...(cv?.small ?? [])].filter((o) => { const k = `${o.px}|${o.el}|${o.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
+      // The app scrolls inside .screen; unroll it so the full-page shot shows everything (layout width is unchanged).
+      const unroll = cv ? null : await page.addStyleTag({ content: ".app{height:auto!important}.screen{overflow:visible!important}" });
+      await page.screenshot({ path: join(SHOTS, `${tag}-${name}.png`), fullPage: true });
+      if (unroll) await unroll.evaluate((el) => el.remove());
+      results.push({ tag, name, canvas: !!cv, bad });
+      sum.screens++; if (cv) sum.canvasScreens++;
+      sum.dom += dom.length; sum.canvas += cv?.small.length ?? 0;
+      console.log(`${bad.length ? "✗" : "✓"} ${tag} ${name}${cv ? " (canvas)" : ""}${bad.length ? `: ${bad.length} below ${MIN}px` : ""}`);
+      for (const o of bad.slice(0, 12)) console.log(`    ${o.px}px  ${o.el}  “${o.text}”`);
+      if (bad.length > 12) console.log(`    … ${bad.length - 12} more`);
+    }
+    await walkScreens(page, { url: preview.url, text: TEXT, shot: audit, log: (s) => console.log(`${tag}${s}`), handsOnWait: 25000 });
+    sum.errors = errs.length;
+    errors.push(...errs.map((e) => `${tag}: ${e}`));
+    totals[tag] = sum;
+    await ctx.close();
   }
-
-  // Round 6: the board meeting card, then the Money panel's minutes once it is answered.
-  await boot({ owner: "empire-board" }); await cont();
-  await audit("45-empire-board-meeting");
-  await page.getByRole("button", { name: "Skip this one" }).click(); await page.waitForTimeout(300);
-  await page.getByRole("button", { name: /Next day/ }).click(); await page.waitForTimeout(500);
-  await tab(/Empire/);
-  await page.locator(".empire aside [role=tab]").filter({ hasText: "Money" }).click(); await page.waitForTimeout(300);
-  await audit("46-empire-board-minutes");
-  // Round 8: the year-4 world map zoomed in (labels stay CSS-sized), then a city's district map.
-  await page.getByRole("button", { name: "Zoom in" }).click(); await page.getByRole("button", { name: "Zoom in" }).click(); await page.waitForTimeout(200);
-  await audit("47-empire-map-zoomed");
-  await page.getByRole("button", { name: "Reset map" }).click();
-  await page.getByRole("button", { name: /^Harbourton,/ }).click(); await page.waitForTimeout(300);
-  await audit("48-empire-city-map");
-
-  // Stars
-  await boot({ owner: "stars" }); await cont();
-  await tab(/Stars/);
-  await audit("50-stars");
-
-  // Career: my shift → watch → hands-on → evening
-  await boot({ speed: 2 });
-  await page.getByRole("button", { name: "New game" }).click();
-  await page.getByRole("radio", { name: /^Apprentice chef/ }).click();
-  await page.getByRole("radio", { name: /^Cosy/ }).click();
-  await page.getByRole("textbox").first().fill("Mia");
-  await page.getByRole("button", { name: /Start as apprentice chef/ }).click();
-  await page.waitForTimeout(800);
-  await audit("60-my-shift");
-  for (let i = 0; i < 5 && !(await page.getByRole("button", { name: /Start my shift/ }).count()); i++) {
-    await page.getByRole("button", { name: /Watch today|Next day/ }).first().click(); await page.waitForTimeout(600);
-    const skip = page.getByRole("button", { name: /Skip to end of shift/ });
-    if (await skip.count()) { await skip.click(); await page.waitForTimeout(600); }
-    const next = page.getByRole("button", { name: /Next day/ });
-    if (await next.count()) { await next.first().click(); await page.waitForTimeout(800); }
-  }
-  await resetCanvas();
-  await page.getByRole("button", { name: /Start my shift/ }).click(); await page.waitForTimeout(3000);
-  await audit("61-watch-shift", { canvas: true });
-  const play = page.getByRole("button", { name: /Play my shift/ });
-  if (await play.count()) {
-    await resetCanvas();
-    await play.click(); await page.waitForTimeout(25000);
-    await audit("62-hands-on", { canvas: true });
-    await page.getByRole("button", { name: /Skip to end of shift/ }).first().click(); await page.waitForTimeout(1500);
-    await audit("63-shift-scorecard");
-    const cont2 = page.getByRole("button", { name: /Continue|See my evening|Done|Close/ });
-    if (await cont2.count()) { await cont2.first().click(); await page.waitForTimeout(800); }
-  } else {
-    await page.getByRole("button", { name: /Skip to end of shift/ }).first().click(); await page.waitForTimeout(1500);
-  }
-  await audit("64-career-evening");
 } finally {
   await browser.close();
-  preview?.kill();
+  preview.stop();
 }
 
 const total = results.reduce((a, r) => a + r.bad.length, 0);
-writeFileSync(join(SHOTS, "audit.json"), JSON.stringify({ min: MIN, total, errors, results }, null, 1));
+writeFileSync(join(SHOTS, "audit.json"), JSON.stringify({ min: MIN, total, totals, errors, results }, null, 1));
 console.log(`\n${results.length} screens, ${total} text runs below ${MIN}px, ${errors.length} page errors. Shots: ${SHOTS}`);
+for (const [tag, t] of Object.entries(totals)) console.log(`  ${tag}: ${t.screens} screens (${t.canvasScreens} with a canvas), DOM ${t.dom}, canvas ${t.canvas}, errors ${t.errors}`);
 for (const e of errors) console.log("  page error:", e);
-process.exit(total || errors.length ? 1 : 0);
+process.exit(ONLY ? (total || errors.length ? 1 : 0) : checkBaseline(`audit-${TEXT}`, totals));
