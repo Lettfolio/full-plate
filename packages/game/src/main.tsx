@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./theme.css";
 import { App } from "./App";
+import { CrashGuard } from "./components/CrashGuard";
 import { getSettings } from "./lib/settings";
 import { attachPrefs } from "./lib/prefsSync";
 import { getSaveStore } from "./state/saveStore";
@@ -13,6 +14,8 @@ attachPrefs(getSaveStore());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <CrashGuard>
+      <App />
+    </CrashGuard>
   </StrictMode>,
 );

@@ -1,4 +1,4 @@
-# Full Plate — saves (round 9)
+# Full Plate — saves (round 9; hardened in round 11)
 
 The owner's ask: "I need to be able to save games so it doesn't have to start new each time." Up to round 8 the game
 autosaved one owner game and one career game to `localStorage`. Inside the Claude app the game runs in a sandboxed
@@ -28,6 +28,7 @@ that talks about saving says **Not saved** (the header mark, the title's note, S
 | `saveFiles.ts` | lazy (on use) | Rename, delete, save files (export / import / offer via the `downloads` capability or `<a download>`). |
 | `useSaves.ts` | main | `useSaves()` (slots + status via `useSyncExternalStore`), `useSlotAutosave()`, the header mark's state. |
 | `save.ts` | main | Unchanged envelope (`encodeSave` / `decodeSave`); `decodeSave` also reads an uncompressed save file. |
+| `saveCheck.ts` | lazy (`saveCheck` chunk, with saveCore) | Round 11: `validateLoaded` / `checkedDecode` (every save type's schema), the account header's schema `checkHeader`. |
 
 Settings and the hands-on onboarding flags ride along (`lib/prefsSync.ts`, `lib/onboardFlags.ts`): localStorage stays
 their cache; the account holds one `prefs` document.
@@ -48,7 +49,8 @@ data/users/<uid>/prefs                              { kind: "prefs", settings: {
 
 Header (`CloudHeader`): `{ kind: "save", slotId, name, mode, restaurantName, day, cash, path (owner|career|empire|stars),
 difficulty, updatedAt, chunkCount, encoding ("gzip-b64"|"b64"), bytes (raw envelope length), packedLength, hash
-(FNV-1a of the raw envelope), bank, appVersion }`. `updatedAt` is wall-clock UI metadata ("played 2 days ago") and the
+(FNV-1a of the raw envelope), bank, appVersion, hw?, backupOf? }` (round 11: `hw` = the chunk high-water mark when it
+is above `chunkCount`; `backupOf` = the slot a "Backup of …" backs up). `updatedAt` is wall-clock UI metadata ("played 2 days ago") and the
 conflict tiebreak — it never reaches the sim.
 
 No access rules beyond the defaults are needed: `data/users/{self}` is private to each viewer (even from the artifact's
@@ -72,8 +74,9 @@ the header. Local writes are not debounced. Writes to one slot are serialised (o
 
 ### Reading (load)
 
-Header (always fetched fresh) → if its hash equals the device copy, play the device copy; else fetch `chunkCount` chunks
-of its bank, join, check `packedLength`, unpack, check the hash (a mismatch = overwritten mid-read: try once more).
+Header (always fetched fresh, schema-checked) → if its hash equals the device copy, play the device copy; else fetch
+`chunkCount` chunks of its bank two at a time, join, check `packedLength`, unpack, check the hash (a mismatch =
+overwritten mid-read: try once more), then `checkedDecode`.
 
 ### Deleting
 
@@ -82,8 +85,11 @@ Header first (so it stops listing), then the chunks of both banks.
 ### Failures
 
 `unavailable` → one retry after 0.4–1.2 s; still failing → the slot is *stalled* (the mark says "This device only") and
-goes up with the next save. `invalid_argument`, `revoked`, `not_granted`, `capability_*`, `transform_error` → the account
-is off for this visit (no retry loops); `quota_exceeded` → off with "no room for more saves". A refused first read (the
+goes up with the next save. Round 11: `invalid_argument` on a slot's write (and a game packing to more than `MAX_PACKED`)
+*blocks that slot only*: its card says "Can't go to your account (too big), kept on this device", its mark explains,
+and it is not retried until the game changes — every other slot keeps syncing. `revoked`, `not_granted`, `capability_*`,
+`transform_error` → the account is off for this visit (no retry loops); `quota_exceeded` → off with "no room for more
+saves". A header write that failed (it may have landed) makes the next push re-read the header before it picks a bank. A refused first read (the
 consent prompt declined) → off, reason `refused`. `user.id()` null → off, reason `signed-out` ("sign in to keep it
 everywhere").
 
@@ -134,6 +140,61 @@ untouched; `full-plate:slots-migrated:v1` stops a second import. Unreadable lega
 an old raw envelope (what localStorage held before round 9 — e.g. the reviewers' corpus) or a bare round 1–2 GameState.
 The extension is `.fpsave.json` because the `downloads` capability only allows listed extensions (`.fpsave` is not
 one). Inside claude.ai the viewer confirms the download; elsewhere it is an `<a download>` link.
+
+## Round 11 — A: loading, saving and account hygiene (red-team S1–S6, S10–S12, G9–G14)
+
+**One schema per save type.** `@full-plate/sim-core/schema` is a ~100-line checker (`obj`, `arr`, `rec`, `num`, `int`,
+`str`, `name`, `oneOf`, `opt`, `json`); each package exports its state's schema from a `./validate` subpath
+(`validateGameState`, `validateEmpireState`, `validateStarsState`, `validateCareerState`), and `state/saveCheck.ts` adds
+the envelope's PathMeta (parked Empire sites are checked as GameStates). Every field is type-checked; numbers must be
+finite and in range (money ±£100bn, 0–100 stats, days ≤ 1e6); lists are capped (staff ≤ `MAX_STAFF`, history ≤
+`HISTORY_MAX` = 400, log ≤ 5 × `LOG_MAX`, …); enums are checked; names lose bidi / zero-width / control characters and are
+cut to 40 (Empire site/brand names 80); other strings are refused past their cap (ids 80, text 4,000); unknown top-level
+keys are dropped and unknown nested keys are kept only as sanitised JSON; `__proto__` keys are dropped. Key order is
+kept, so a real save comes back byte-identical. A failing save is refused with "That save file is damaged."
+
+Applied at: save-file import (`decodeSaveFile`), the account copy and the device cache (`load`), backups, and parked
+sites. `pickSummary` / the index reader coerce every summary field (an object name becomes text before any screen sees
+it); `takeDocs` drops headers that fail `checkHeader` (and such a slot's device copy is pushed back over it rather than
+being taken for "deleted elsewhere"). **Import re-serialises**: the slot keeps `encodeSave(loaded)`, never the file text.
+
+**Size caps.** Files over 5 MB are refused before they are read (the picker checks `File.size`); base64 is length-checked
+before `atob`; the gzip pipe stops at 8 MiB (`MAX_UNPACKED`, the stream is cancelled) — the device's and account's own
+copies may inflate to 96 MiB (old Empire saves with many parked sites); a slot packs to at most `MAX_PACKED` (1,000,000
+characters ≈ 6 chunks) on the account; a header's `chunkCount` must equal ⌈packedLength / 180,000⌉ and be ≤ 8.
+
+**Accounts on a shared browser.** Each index entry records `owner` (a hash of the account id: `o` + FNV-1a). On connect,
+untied games are claimed by the account (except a game an older build synced with some account that isn't this one: it
+stays untied and untouched); another account's games are hidden, never pushed and never deleted. `full-plate:owner:v1`
+holds the device's last account hash so the first paint already hides them. When the account differs from the last one,
+the cached settings and onboarding flags are replaced by this account's (`PrefsBridge.forget`), not merged.
+
+**Storage hygiene.** At most two backups per game (`backupOf`); the chunk high-water mark (`hw`, in the index before the
+chunks are written and in the header) makes pushes and deletes clean every chunk ever written; the account's `prefs`
+keeps the newest 50 onboarding flags.
+
+**Autosave can't throw.** `save()` catches a failing `encodeSave` (e.g. a NaN from a junk Empire command): the header mark
+says "Couldn't save" until a save works again.
+
+**Error page.** `components/CrashGuard.tsx` wraps `<App/>` in main.tsx: "Oops! Something went wrong." with Back to title
+and, for the game being opened or played (App calls `noteSlot`), Delete this game; if the title itself crashed, every
+saved game is listed (names via `safeName`) with its own Delete.
+
+**Sims.** Every dispatcher refuses non-own command types (`Object.hasOwn` / a `default:`); Empire and Stars refuse
+non-finite arguments (SET_CONTRACT, SET_FORMULA, SET_INSPECTIONS, FEE_HOLIDAY, SET_SUPPLY_MARKUP, LAUNCH_*,
+TRANSFER_FROM_FOCUSED, SET_STAGIAIRE_POLICY, CLOSE_FOR_REFIT), unknown satellite kinds / ownership / land / tech / fit;
+BACK_HEAD_CHEF respects `MAX_SATELLITES`; HIRE refuses an id already on the staff; LAUNCH_CAMPAIGN needs £500 and each
+brand campaign already running in the same place halves the next one's lift; moving money from the till must be finite
+and ≤ the till; the reducer's `fork` works once, from day 365, in an owner game (or a career that became the player's
+own place), never on top of an Empire or Stars, and snooze needs the card showing; SET_OWNER_PROFILE can't come from a
+screen (only the career handover sets it).
+
+**Widened for real saves.** None needed: the 17-file corpus (rounds 6–7), generated owner (60 days and mid-service),
+Empire, Stars and career saves, 14,000 states from the red-team reducer fuzzer (every save type) and 30,000 sim-core
+fuzzer steps all pass and come back byte-identical. The bounds were set wide from the start: 0–100 stats allow −1…101;
+`rota` may be shorter than 7; a past day's `reviews` is optional; party sizes 0–100. The one refusal the fuzzers found
+was a sim bug (SET_ROTA accepted `Array(7)` — holes pass `every()` — and saved `null`s); SET_ROTA now refuses it.
+CANCEL_ORDER rounds a partial refund down (order 2, cancel 1 no longer beats buying 1 by a penny).
 
 ## Testing without claude.ai
 

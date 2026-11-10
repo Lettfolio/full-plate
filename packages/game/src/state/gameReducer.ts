@@ -4,7 +4,7 @@ import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import { applyCommand, asCommand, content, HOOKS, newGame, tick } from "../sim";
 import { formatPence } from "../lib/format";
-import { forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
+import { FORK_DAY, forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
 import {
   careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
   ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
@@ -236,6 +236,8 @@ function reduce(s: AppState, a: AppAction): AppState {
       return s.toast ? { ...s, toast: null } : s;
     case "command": {
       if (!s.game) return s;
+      // Round 11 (G14): the owner's own skills come from a career handover (pathEngine), never from a screen.
+      if ((a.cmd as { type?: unknown } | undefined)?.type === "SET_OWNER_PROFILE") return s;
       const before = s.game;
       const r = ownerApply(pack, before, s.meta, a.cmd);
       const res = { state: r.state, events: r.events };
@@ -385,6 +387,13 @@ function reduce(s: AppState, a: AppAction): AppState {
     }
     case "fork": {
       if (!s.game) return s;
+      // Round 11 (G12): once, in an owner's game (a career that became the player's own place counts), from the fork day
+      // on — never a second Empire/Stars on top of the first. Snoozing needs the card to be showing.
+      const f = s.meta.fork;
+      const ownerish = s.meta.mode === "owner" || !!s.meta.career?.handover;
+      if (f.chosen || !ownerish || s.meta.empire || s.meta.stars || s.game.day < FORK_DAY || s.game.phase === "gameover") return s;
+      if (a.choice === "snooze" ? !f.offered : a.choice !== "empire" && a.choice !== "stars") return s;
+      if (a.brandName !== undefined && typeof a.brandName !== "string") return s;
       const meta = a.choice === "snooze" ? snoozeFork(s.game, s.meta) : a.choice === "empire" ? chooseEmpire(s.game, s.meta, a.brandName) : chooseStars(s.game, s.meta);
       return { ...s, meta };
     }

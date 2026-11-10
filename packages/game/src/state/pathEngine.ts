@@ -130,6 +130,8 @@ export function empireCommand(game: GameState, meta: PathMeta, cmd: EmpireComman
   if (!meta.empire) return { game, meta, events: [] };
   let g = game;
   if (cmd.type === "TRANSFER_FROM_FOCUSED") {
+    // Round 11 (G14): a finite amount, no more than the till holds (Infinity used to move the whole till).
+    if (!Number.isFinite(cmd.amount) || Math.round(cmd.amount) > game.cash) return { game, meta, events: [{ day: meta.empire.hq.day, kind: "rejected", text: "The till doesn't hold that much.", tone: "bad" }] };
     const amount = Math.min(Math.round(cmd.amount), Math.max(0, game.cash));
     if (amount <= 0) return { game, meta, events: [{ day: meta.empire.hq.day, kind: "rejected", text: "There's no spare cash in the till to move.", tone: "bad" }] };
     cmd = { ...cmd, amount };

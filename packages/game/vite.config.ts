@@ -13,6 +13,8 @@ export default defineConfig({
         // the reducer and save envelope call synchronously get their own cacheable chunks instead of one 780 kB file.
         manualChunks(id) {
           if (id.includes("node_modules/react") || id.includes("node_modules/scheduler")) return "react";
+          // Round 11: the save schemas load with the save store, never in the main chunk.
+          if (/\/packages\/sim-(core|empire|stars|career)\/src\/(schema|validate)\.ts$/.test(id)) return "saveCheck";
           if (id.includes("/packages/content/")) return "content";
           if (id.includes("/packages/sim-core/")) return "sim-core";
           if (/\/packages\/sim-(empire|stars|career)\//.test(id)) return "paths";

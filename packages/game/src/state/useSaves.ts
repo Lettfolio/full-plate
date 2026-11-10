@@ -9,9 +9,10 @@ export function useSaves(store: SaveStore = getSaveStore()) {
 }
 
 /** What the header's save mark says about the game being played. */
-export type SaveMark = "account" | "saving" | "device" | "memory";
+export type SaveMark = "account" | "saving" | "device" | "memory" | "failed";
 export function saveMark(status: StoreStatus, slotId: string): SaveMark {
-  if (status.cloud === "on" && !status.stalled?.includes(slotId)) return status.pending.includes(slotId) ? "saving" : "account";
+  if (status.failed?.includes(slotId)) return "failed";
+  if (status.cloud === "on" && !status.stalled?.includes(slotId) && !status.blocked?.includes(slotId)) return status.pending.includes(slotId) ? "saving" : "account";
   return status.local ? "device" : "memory";
 }
 

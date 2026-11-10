@@ -250,7 +250,7 @@ describe("save store: account saves", () => {
     const paths = db.writes.map((w) => w.path);
     expect(paths).toEqual([`data/users/${UID}/save-s1/chunks/a-0`, `data/users/${UID}/save-s1`]);
     const h = db.docs.get(`data/users/${UID}/save-s1`) as unknown as CloudHeader;
-    expect(h).toMatchObject({ kind: "save", slotId: "s1", name: "Rosie's", mode: "owner", day: 0, path: "owner", difficulty: "cosy", chunkCount: 1, encoding: "b64", bank: "a", appVersion: "r9" });
+    expect(h).toMatchObject({ kind: "save", slotId: "s1", name: "Rosie's", mode: "owner", day: 0, path: "owner", difficulty: "cosy", chunkCount: 1, encoding: "b64", bank: "a", appVersion: "r11" });
     expect(h.updatedAt).toBe("2026-11-09T12:00:00.000Z");
     // Another device: nothing local.
     const b = track(mk({ db }));
@@ -266,8 +266,8 @@ describe("save store: account saves", () => {
     const a = track(mk({ db }));
     await a.connect();
     const g = owner();
-    // ~375 kB of envelope → ~500 kB of base64 → 3 chunks.
-    const meta = { ...g.meta, padding: "ab".repeat(187_500) } as PathMeta;
+    // ~375 kB of envelope → ~500 kB of base64 → 3 chunks. (Round 11: in a real field — unknown keys are dropped on load.)
+    const meta = { ...g.meta, empireEvents: Array.from({ length: 100 }, (_, i) => ({ day: i, kind: "milestone", text: "ab".repeat(1875), tone: "info" })) } as PathMeta;
     await a.save("big", g.game, meta);
     await a.flush("big");
     const h = db.docs.get(`data/users/${UID}/save-big`) as unknown as CloudHeader;
@@ -277,7 +277,7 @@ describe("save store: account saves", () => {
     expect(Math.max(...db.writes.map((w) => w.size))).toBeLessThan(MAX_DOC);
     const b = track(mk({ db }));
     await b.connect();
-    expect((await b.load("big"))!.loaded.meta).toMatchObject({ padding: (meta as unknown as { padding: string }).padding as never });
+    expect((await b.load("big"))!.loaded.meta.empireEvents).toEqual(meta.empireEvents);
     // Next save: bank b, header, then bank a's chunks go.
     db.writes = [];
     await a.save("big", { ...g.game, day: 1 }, meta);

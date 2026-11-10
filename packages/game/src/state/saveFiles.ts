@@ -5,9 +5,14 @@
  * an old raw envelope, or a bare round 1–2 GameState. `.json` because the `downloads` capability only allows listed
  * extensions (`.fpsave` is not one).
  */
-import { decodeSave, type Loaded } from "./save";
-import { pack, unpack } from "./saveCodec";
-import { defaultSlotName, isOver, MAX_SLOTS, pickSummary, runtime, type Core, type SlotPath, type SlotSummary, type SlotView } from "./saveStore";
+import { decodeSave, encodeSave, type Loaded } from "./save";
+import { DAMAGED, validateLoaded } from "./saveCheck";
+import { pack, TooBig, unpack } from "./saveCodec";
+import { defaultSlotName, isOver, MAX_FILE_BYTES, MAX_PACKED, MAX_SLOTS, pickSummary, runtime, safeName, type Core, type SlotPath, type SlotSummary, type SlotView } from "./saveStore";
+import { cleanName } from "@full-plate/sim-core/schema";
+
+export const NOT_A_SAVE = "That file isn't a Full Plate save.";
+export const TOO_BIG = "That file is too big to be a Full Plate save.";
 
 export const FILE_MAGIC = "full-plate-save-file";
 
@@ -36,17 +41,26 @@ export async function encodeSaveFile(raw: string, s: SlotSummary, now: string, c
   return JSON.stringify(file);
 }
 
-/** Reads a save file, an old raw envelope, or a bare round 1–2 GameState. Throws a child-readable message. */
+/**
+ * Reads a save file, an old raw envelope, or a bare round 1–2 GameState. Throws a child-readable message.
+ * Round 11: too-big text is refused before parsing (S4), and every field of the game is checked (S1/S3) — `loaded` is
+ * the cleaned copy; `raw` is the original text (callers keep `encodeSave(loaded)`, never `raw`).
+ */
 export async function decodeSaveFile(text: string): Promise<{ raw: string; loaded: Loaded; name?: string }> {
+  if (typeof text !== "string" || text.length > MAX_FILE_BYTES) throw new Error(TOO_BIG);
   let f: Partial<SaveFile>;
-  try { f = JSON.parse(text) as Partial<SaveFile>; } catch { throw new Error("That file isn't a Full Plate save."); }
-  try {
-    if (f?.magic !== FILE_MAGIC) return { raw: text, loaded: decodeSave(text) };
-  } catch { throw new Error("That file isn't a Full Plate save."); }
-  if (typeof f.data !== "string" || (f.encoding !== "gzip-b64" && f.encoding !== "b64" && f.encoding !== "json")) throw new Error("That save file is damaged.");
-  let raw: string, loaded: Loaded;
-  try { raw = await unpack(f.encoding, f.data); loaded = decodeSave(raw); } catch { throw new Error("That save file is damaged."); }
-  return { raw, loaded, ...(typeof f.name === "string" && f.name ? { name: f.name.slice(0, 40) } : {}) };
+  try { f = JSON.parse(text) as Partial<SaveFile>; } catch { throw new Error(NOT_A_SAVE); }
+  let raw = text, decoded: Loaded;
+  if (f?.magic !== FILE_MAGIC) {
+    try { decoded = decodeSave(text); } catch { throw new Error(NOT_A_SAVE); }
+  } else {
+    if (typeof f.data !== "string" || (f.encoding !== "gzip-b64" && f.encoding !== "b64" && f.encoding !== "json")) throw new Error(DAMAGED);
+    try { raw = await unpack(f.encoding, f.data); decoded = decodeSave(raw); } catch (e) { throw new Error(e instanceof TooBig ? TOO_BIG : DAMAGED); }
+  }
+  let loaded: Loaded;
+  try { loaded = validateLoaded(decoded); } catch { throw new Error(DAMAGED); }
+  const name = typeof f?.name === "string" ? cleanName(f.name, 40).trim() : "";
+  return { raw, loaded, ...(name ? { name } : {}) };
 }
 
 /** Offers a file: the `downloads` capability inside claude.ai (the viewer confirms), else an `<a download>` link. */
@@ -99,16 +113,20 @@ export async function saveToFile(c: Core, slotId: string): Promise<"saved" | "de
 
 /** Reads a save file into a free slot (or `intoSlotId`). Throws a child-readable message when it can't. */
 export async function importFile(c: Core, text: string, intoSlotId?: string): Promise<SlotView> {
-  const { raw, loaded, name } = await decodeSaveFile(text);
+  const { loaded, name } = await decodeSaveFile(text);
   if (isOver(loaded.game, loaded.meta)) throw new Error("That game had already finished, so it can't be continued.");
   const id = intoSlotId ?? (c.list().length < MAX_SLOTS ? c.uniqueId() : null);
   if (!id) throw new Error(`All ${MAX_SLOTS} save slots are full. Delete a game first, then load the file again.`);
+  // Round 11 (S6): keep the game, not the file — re-serialised from the checked copy, so padding and unknown keys go.
+  let raw: string;
+  try { raw = encodeSave(loaded.game, loaded.meta); } catch { throw new Error(DAMAGED); }
+  if ((await pack(raw, c.d.compress)).data.length > MAX_PACKED) throw new Error("That game is too big to keep. Sorry!");
   await c.putRaw(id, raw, loaded.game, loaded.meta, name ?? defaultSlotName(loaded.game, loaded.meta));
   return c.list().find((s) => s.slotId === id)!;
 }
 
 export async function rename(c: Core, slotId: string, name: string): Promise<void> {
-  const n = name.trim().slice(0, 40);
+  const n = safeName(String(name)).trim();
   if (!n) return;
   const m = c.memory.get(slotId), e = c.index.get(slotId), h = c.headers.get(slotId);
   if (m) m.summary = { ...m.summary, name: n };
@@ -121,8 +139,9 @@ export async function rename(c: Core, slotId: string, name: string): Promise<voi
 /** Delete everywhere: on the account the header goes first (so it stops listing), then its chunks. */
 export async function remove(c: Core, slotId: string): Promise<void> {
   clearTimeout(c.timers.get(slotId)); c.timers.delete(slotId);
+  const hw = c.index.get(slotId)?.hw ?? 0;
   c.memory.delete(slotId); c.dirty.delete(slotId); c.renameNext.delete(slotId);
   c.dropLocal(slotId);
   c.emit();
-  if (c.st.cloud === "on") await c.part?.remove(slotId);
+  if (c.st.cloud === "on") await c.part?.remove(slotId, hw);
 }
