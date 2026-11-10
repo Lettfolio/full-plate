@@ -1490,7 +1490,7 @@ trailer for the model that made them.
 ## R12.4 Tests
 
 `pnpm -r typecheck` clean. `pnpm -r test`: **1,368 passed**, 0 failed (sim-core 301, content 91, handson 97,
-sim-career 61, sim-stars 72, sim-empire 106, game 640), against 1,241 on `496776e`: +127 (content 68 → 91, game 536 → 640;
+sim-career 61, sim-stars 72, sim-empire 106, game 640), against 1,241 on `496776e`: +127 (content 69 → 91, game 535 → 640;
 the sim packages unchanged), the review's share-brand test included; nothing deleted. No timeout on this machine
 (game package 243 s; the heaviest single file, sim-core's, 67 s). Serialise byte-identity and corpus round-trip tests
 pass; `corpus.test` passes on all 31 saves.
