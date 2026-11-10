@@ -643,6 +643,8 @@ button, input { font: inherit; color: inherit; }
 .goal--done { padding: 6px 8px; border-radius: var(--r-sm); background: var(--basil-wash); color: var(--basil-deep); animation: goalflash 0.7s ease-in-out 3; }
 .goal__tick { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--basil); color: #fff; font-size: var(--fs-micro); font-weight: 900; }
 @keyframes goalflash { 50% { background: #fdf0c9; } }
+/* Round 11b: after the first week the goals stop flashing (GoalsCard quiet) */
+.goals--quiet .goal--done { animation: none; }
 
 /* incidents */
 .incidents { display: flex; flex-direction: column; gap: 10px; }
@@ -907,6 +909,10 @@ button, input { font: inherit; color: inherit; }
 .term__tip { display: none; }
 .term:hover > .term__tip, .term:focus > .term__tip, .term:focus-within > .term__tip { display: block; }
 .empire__side .term__tip, .status .term__tip { left: auto; right: 0; }
+/* Round 11b: a word's underline shows the first time it appears in a session (Term.tsx); later copies are plain text,
+   still tappable, still tipped. A term inside a button opens its tip on a tap (data-open) instead of pressing it. */
+.term--inline.term--quiet { text-decoration: none; }
+.term[data-open] > .term__tip { display: block; visibility: visible; }
 
 /* ───────── round 5: Empire side panel for a child (My shops / The brand / Money) ───────── */
 .empire__side { font-size: var(--fs-base); }

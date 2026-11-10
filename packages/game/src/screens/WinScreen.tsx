@@ -4,6 +4,7 @@ import { MoneyText } from "../components/MoneyText";
 import type { PathMeta, WinMeta } from "../state/paths";
 import { dateLabel } from "../lib/calendar";
 import { playSfx } from "../lib/sfx";
+import { TermText } from "../components/TermText";
 
 interface Props {
   game: GameState;
@@ -102,7 +103,7 @@ export function WinScreen({ game, meta, win, onKeepPlaying, onTitle }: Props) {
             <li key={i} className="journey__step">
               <span className="journey__icon" aria-hidden="true">{st.icon}</span>
               <span className="journey__day">Day {st.day + 1}</span>
-              <span className="journey__text">{st.text}</span>
+              <span className="journey__text"><TermText text={st.text} /></span>
             </li>
           ))}
         </ol>

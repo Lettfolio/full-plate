@@ -4,6 +4,7 @@ import type { Command, Incident } from "@full-plate/sim-core";
 import { MoneyText } from "./MoneyText";
 import { countdownFraction, INCIDENT_ICON } from "../lib/incidents";
 import { MINUTES_PER_TICK } from "../sim";
+import { TermText } from "./TermText";
 
 interface Props {
   incident: Incident;
@@ -47,8 +48,8 @@ export function IncidentCard({ incident: inc, leaving = false, tick, cash, send,
       <div className="incident__head">
         <span className="incident__icon" aria-hidden="true">{INCIDENT_ICON[inc.kind] ?? "❗"}</span>
         <div className="spacer">
-          <h4 id={`inc-${inc.id}`}>{inc.title}</h4>
-          <p className="small" id={`inc-${inc.id}-body`}>{inc.body}</p>
+          <h4 id={`inc-${inc.id}`}><TermText text={inc.title} /></h4>
+          <p className="small" id={`inc-${inc.id}-body`}><TermText text={inc.body} /></p>
         </div>
       </div>
       <div className="incident__timer" role="meter" aria-label="Time to decide" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(f * 100)}>

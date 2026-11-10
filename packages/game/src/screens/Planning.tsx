@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import type { Command, GameState, StaffRole } from "@full-plate/sim-core";
 import { GoalsCard } from "../components/GoalsCard";
 import { HelpPopover } from "../components/HelpPopover";
-import { GOAL_TAB } from "../lib/goals";
+import { GOAL_TAB, goalsQuiet } from "../lib/goals";
 import { Tabs, type TabDef } from "../components/Tabs";
 import { asCommand, content, HOOKS, openingStockBudget, OWNER_FATIGUE_WARNING } from "../sim";
 import { FatigueNote } from "../components/FatigueNote";
@@ -176,6 +176,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
               goals={game.goals}
               justDone={goalsJustDone}
               spotlight={firstRun}
+              quiet={goalsQuiet(game.day, game.goals)}
               onShow={(g) => { const t = GOAL_TAB[g.kind]; setWantRole(g.kind === "hire_role" ? g.role : undefined); if (t) setTab(t); }}
             />
           </aside>

@@ -13,6 +13,7 @@ import type { PathMeta } from "../../state/paths";
 import { Term } from "../../components/Term";
 import { forDevice, nightCoaching } from "../../lib/coaching";
 import { prefersTouch } from "../../lib/device";
+import { TermText } from "../../components/TermText";
 
 interface Props {
   game: GameState;
@@ -68,7 +69,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             <table className="pnl">
               <tbody>
                 <tr><td>Pay ({perHour(career.wage)} × 10h)</td><td><MoneyText pence={shiftPay} /></td></tr>
-                {!slip && <tr><td>Tips this week so far <span className="pnl__pct">shared tips, by law</span></td><td><MoneyText pence={career.week.tips} /></td></tr>}
+                {!slip && <tr><td>Tips this week so far <span className="pnl__pct"><Term id="tronc" inline>tronc</Term>, shared by law</span></td><td><MoneyText pence={career.week.tips} /></td></tr>}
                 {!slip && <tr><td>Wages this week so far</td><td><MoneyText pence={career.week.wagesGross} /></td></tr>}
                 {slip && <tr><td colSpan={2} className="xs muted">Pay day — this week's wages and tips are on the payslip below.</td></tr>}
               </tbody>
@@ -101,7 +102,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
                   <tr><td><Term id="tronc" /></td><td><MoneyText pence={slip.tips} /></td></tr>
                   {slip.bonus > 0 && <tr><td>Bonus</td><td><MoneyText pence={slip.bonus} /></td></tr>}
                   <tr className="pnl__cost"><td>Income tax</td><td><MoneyText pence={-slip.tax} /></td></tr>
-                  <tr className="pnl__cost"><td>National Insurance <span className="pnl__pct">none on shared tips</span></td><td><MoneyText pence={-slip.ni} /></td></tr>
+                  <tr className="pnl__cost"><td>National Insurance <span className="pnl__pct">none on <Term id="tronc" inline>tronc</Term></span></td><td><MoneyText pence={-slip.ni} /></td></tr>
                   <tr className="pnl__cost"><td>Rent, bills, food, travel</td><td><MoneyText pence={-slip.living} /></td></tr>
                   <tr className="pnl__total"><td>Saved</td><td><MoneyText pence={slip.saved} tone signed /></td></tr>
                 </tbody>
@@ -115,7 +116,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             <div className="card review-card">
               <div className="card__title"><h3>Your weekly review</h3><span className="small muted">from {review.reviewer} ({review.reviewerRole})</span></div>
               <div className="review-card__score"><Stars rating={review.score} size={22} /> <b>{review.score.toFixed(1)}</b></div>
-              <ul className="review-card__notes">{review.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+              <ul className="review-card__notes">{review.notes.map((n, i) => <li key={i}><TermText text={n} /></li>)}</ul>
               <div className="bars2">
                 <Bar label="Food / service" value={review.breakdown.rating} max={5} tone="accent" size="sm" />
                 <Bar label="Turning up" value={review.breakdown.reliability} max={5} tone="sky" size="sm" />
@@ -135,7 +136,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
           <div className="card">
             <div className="card__title"><h3>Today</h3></div>
             {lines.length === 0 ? <div className="empty small">A quiet one.</div> : (
-              <ul className="careerlog">{lines.map((l, i) => <li key={i} className={`careerlog__line careerlog__line--${l.kind}`}>{l.text}</li>)}</ul>
+              <ul className="careerlog">{lines.map((l, i) => <li key={i} className={`careerlog__line careerlog__line--${l.kind}`}><TermText text={l.text} /></li>)}</ul>
             )}
           </div>
           <div className="card">
@@ -154,7 +155,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
   );
 }
 
-const HEADLINE = ["Shift done — keep practising!", "Good shift", "Great shift", "Superstar shift"] as const;
+const HEADLINE = ["Shift done. Room to improve.", "Good shift", "Great shift", "Superstar shift"] as const;
 
 /** Round 7: how well you get on, in words ("bond -1" read as jargon). */
 export function bondWords(bond: number): string {
@@ -162,7 +163,7 @@ export function bondWords(bond: number): string {
 }
 
 /**
- * Round 4: the end-of-shift score card a 10-year-old reads first. Round 7: it spans the evening; the stars and "next
+ * Round 4: the end-of-shift score card a player (12+; the owner's daughter is 14) reads first. Round 7: it spans the evening; the stars and "next
  * shift, try this" are the hero — the coach's tip big, with one sentence from tonight's own numbers — then the three
  * notes and the week's progress toward the next rung.
  */
@@ -189,7 +190,7 @@ export function ShiftScoreCard({ summary, career, grew, name, touch = prefersTou
             {notes.map((n, i) => (
               <li key={i} className={`shiftcard__note shiftcard__note--${n.tone}`}>
                 <span className="shiftcard__badge" aria-hidden="true">{n.tone === "good" ? "✓" : "!"}</span>
-                <span>{n.text}</span>
+                <span><TermText text={n.text} /></span>
               </li>
             ))}
           </ul>

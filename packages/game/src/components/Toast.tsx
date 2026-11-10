@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { ToastMsg } from "../state/gameReducer";
 import { playSfx } from "../lib/sfx";
 import { Icon, type IconName } from "./Icon";
+import { TermText } from "./TermText";
 
 interface Props {
   toast: ToastMsg | null;
@@ -45,7 +46,7 @@ export function Toast({ toast, onDismiss }: Props) {
         <div key={toast.id} className={`toast toast--${toast.tone}`}>
           <span className="toast__icon" aria-hidden="true">{toast.tone === "good" && toast.text.startsWith("🎉") ? <Icon name="trophy" size={22} /> : <Icon name={ICON[toast.tone]} size={22} />}</span>
           {/* Goal toasts carry their own 🎉 in the text: it moves into the round badge. */}
-          <span className="spacer">{toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text}</span>
+          <span className="spacer"><TermText text={toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text} /></span>
           <button className="iconbtn iconbtn--tap" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" size={20} /></button>
         </div>
       )}

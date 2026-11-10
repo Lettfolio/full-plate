@@ -11,6 +11,8 @@ import { extras } from "../../sim";
 import { dateLabel } from "../../lib/calendar";
 import { CityBoard, MapLegend, districtLabel } from "./mapParts";
 import { hash32, LANDS, cityPos } from "./worldGeo";
+import { Term } from "../../components/Term";
+import { TermText } from "../../components/TermText";
 
 export interface StarsPlace { id: string; name: string; kind: "flagship" | "bar" | "bistro" | "ticketed" | "backed" | "rival"; districtId: string; stars?: number }
 
@@ -73,7 +75,7 @@ export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v
                       </li>
                     ))}
                   </ul>
-                ) : <p className="district__empty">Room for a sister restaurant</p>}
+                ) : <p className="district__empty">Room for a <Term id="satellite" inline>satellite</Term></p>}
               </>
             );
           }}
@@ -87,14 +89,14 @@ export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v
           {rumours.length > 0 && (
             <div>
               <b className="small">Overheard (might not be true)</b>
-              <ul className="starsmap__rumours">{rumours.map((r, i) => <li key={i}>🕵️ {dateLabel(r.day)}: {r.text}</li>)}</ul>
+              <ul className="starsmap__rumours">{rumours.map((r, i) => <li key={i}>🕵️ {dateLabel(r.day)}: <TermText text={r.text} /></li>)}</ul>
             </div>
           )}
         </aside>
       </div>
       <MapLegend>
         <li className="legend__item"><span className="legend__swatch" aria-hidden="true"><span className="legend__star">★</span></span><span>Golden Plate Guide stars (only your main restaurant and a rival can win them)</span></li>
-        <li className="legend__item"><span className="legend__swatch" aria-hidden="true">🍸</span><span>Sister restaurants: bars, bistros and ticketed rooms that earn money, never stars</span></li>
+        <li className="legend__item"><span className="legend__swatch" aria-hidden="true">🍸</span><span><Term id="satellite" inline>Satellites</Term>: bars, bistros and ticketed rooms that earn money, never stars</span></li>
         <li className="legend__item"><span className="legend__swatch" aria-hidden="true">🕵️</span><span>Purple edge = inspection season (an inspector could come any night)</span></li>
       </MapLegend>
     </section>

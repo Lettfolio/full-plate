@@ -60,7 +60,7 @@ describe("world map", () => {
       btn.focus();
       expect(document.activeElement).toBe(btn);
     }
-    expect(screen.getByRole("button", { name: /^Harbourton, Albrenn: 1 shop \(1 your own\), 3 being built, your head office$/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Harbourton, Albrenn: 1 shop \(1 your own\), 3 being built, your HQ$/ }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /^Bayview, Westrian Union: 0 shops, not entered/ })).toBeTruthy();
   });
 
@@ -140,7 +140,7 @@ describe("world map", () => {
     fireEvent.click(key);
     expect(key.getAttribute("aria-expanded")).toBe("true");
     expect(list.hidden).toBe(false);
-    expect(list.textContent).toMatch(/Your own.*Franchise.*Licence.*Your head office.*Not entered.*Being built.*Supply route.*Glow/);
+    expect(list.textContent).toMatch(/Your own.*Franchise.*Licence.*Your HQ.*Not entered.*Being built.*Supply route.*Glow/);
     fireEvent.click(key);
     expect(list.hidden).toBe(true);
   });

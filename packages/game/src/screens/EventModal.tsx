@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Command, EventChoiceDef, GameState } from "@full-plate/sim-core";
 import { content } from "../sim";
 import { formatPence } from "../lib/format";
+import { TermText } from "../components/TermText";
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
@@ -41,18 +42,18 @@ export function EventModal({ game, send }: Props) {
           <span className="modal__stamp" aria-hidden="true">✉️</span>
           <div>
             <div className="modal__kicker">This morning's post</div>
-            <h2 id="event-title">{ev.title}</h2>
+            <h2 id="event-title"><TermText text={ev.title} /></h2>
           </div>
         </div>
         <div className="modal__body">
-          <p>{ev.body}</p>
+          <p><TermText text={ev.body} /></p>
           <div className="choices">
             {ev.choices.map((c) => {
               const chips = effectChips(c.effects);
               const cant = blocked.has(c.id);
               return (
                 <button key={c.id} ref={c.id === firstOk ? first : undefined} className={`choice ${cant ? "choice--cant" : ""}`} disabled={cant} onClick={() => send({ type: "RESOLVE_EVENT", choiceId: c.id })}>
-                  <span className="choice__label">{c.label}{cant && <span className="choice__cant"> · Can't afford</span>}</span>
+                  <span className="choice__label"><TermText text={c.label} inButton />{cant && <span className="choice__cant"> · Can't afford</span>}</span>
                   <span className="choice__fx">
                     {chips.length ? chips.map((x) => <span key={x.text} className={`fx fx--${x.tone}`}><span aria-hidden="true">{x.tone === "up" ? "▲ " : "▼ "}</span>{x.text}</span>) : <span className="fx fx--none">nothing changes</span>}
                   </span>

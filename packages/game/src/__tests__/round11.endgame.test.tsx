@@ -97,7 +97,7 @@ describe("G1: a bust hands-on shop never ends a running Empire", () => {
     expect(s.game!.cash).toBe(0);
     expect(s.game!.distressDays ?? 0).toBe(0);
     const ev = s.meta.empireEvents.filter((x) => x.kind === "topUp").at(-1)!;
-    expect(ev.text).toMatch(/^Head office topped up the till £[\d,]+\.$/);
+    expect(ev.text).toMatch(/^HQ topped up the till £[\d,]+\.$/);
     const paid = Number(ev.text.replace(/[^\d]/g, "")) * 100;
     expect(paid).toBeGreaterThan(0);
     expect(paid).toBeLessThanOrEqual(300_000 + 50); // tonight's takings paid part of the overdraft
@@ -216,8 +216,10 @@ describe("G8: bankruptcy is a screen, and debt has a way out", () => {
     expect(sent.at(-1)).toMatchObject({ type: "BOARD_DECIDE", optionId: "sell" });
     cleanup();
     render(<EmpireTab game={s.game!} meta={s.meta} empire={e} send={(c) => sent.push(c)} onFocusSite={() => {}} />);
-    const card = screen.getByRole("note", { name: "Head office is sinking" });
-    expect(card.textContent).toMatch(/Head office is sinking £500 a day\./);
+    const card = screen.getByRole("note", { name: "HQ is sinking" });
+    const shown = card.cloneNode(true) as Element;
+    shown.querySelectorAll(".term__tip").forEach((t) => t.remove());
+    expect(shown.textContent).toMatch(/HQ is sinking £500 a day\./);
     fireEvent.click(screen.getByRole("button", { name: "Sell Eleven Campus to Sam" }));
     expect(sent.at(-1)).toEqual({ type: "SELL_FRANCHISE", siteId: "s2", applicantId: "a9" });
   });

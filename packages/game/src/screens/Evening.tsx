@@ -25,6 +25,7 @@ import { tillSweepable } from "../state/pathEngine";
 import { compactMeals } from "../components/StatusBar";
 import { inSeason } from "@full-plate/sim-stars";
 import { Term } from "../components/Term";
+import { TermText } from "../components/TermText";
 import { AdviceCard } from "../components/AdviceCard";
 import { DayRhythm } from "../components/DayRhythm";
 import { lastNights, versusYesterday } from "../lib/dayLoop";
@@ -122,7 +123,7 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
   const lastMeals = e?.history.at(-1);
   // Round 11: the sweep leaves a week's rent and wages in the till; HQ's top-up tonight (if any) is said out loud.
   const spare = e ? tillSweepable(game) : 0;
-  const topUp = e ? meta?.empireEvents.filter((x) => x.kind === "topUp" && x.day === e.hq.day && x.text.startsWith("Head office topped up")).at(-1) : undefined;
+  const topUp = e ? meta?.empireEvents.filter((x) => x.kind === "topUp" && x.day === e.hq.day && x.text.startsWith("HQ topped up")).at(-1) : undefined;
   // Year 2 has started but nobody has come calling yet: say what's missing (once a week, on Sundays).
   const fork = meta?.fork;
   const forkHint = meta && meta.mode === "owner" && fork && !fork.chosen && !fork.offered && game.day >= FORK_DAY && weekdayIndex(game.day) === 6 ? forkMilestone(game).missing : undefined;
@@ -146,18 +147,18 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
       {e && (
         <div className="card">
           <div className="card__title"><h3>🍔 {e.brand.name} tonight</h3><span className="xs faint">{e.sites.filter((x) => x.status === "open").length} site{e.sites.filter((x) => x.status === "open").length === 1 ? "" : "s"}</span></div>
-          <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · <Term id="hqCash" inline>Head office money</Term> <MoneyText pence={e.hq.cash} whole tone /> · head office today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
+          <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · <Term id="hqCash" inline>HQ cash</Term> <MoneyText pence={e.hq.cash} whole tone /> · <Term id="hq" inline>HQ</Term> net today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
           {lastMeals && <div className="xs muted">This month so far: {lastMeals.sites} sites trading.</div>}
-          {topUp && <div className="small" role="note">🏦 {topUp.text} The shop ran short tonight, so head office paid its bills.</div>}
+          {topUp && <div className="small" role="note">🏦 <TermText text={topUp.text} /> The shop ran short tonight, so <Term id="hq" inline>HQ</Term> paid its bills.</div>}
           {sendEmpire && spare >= 10_000 && (
-            <button className="btn btn--sm btn--green" style={{ marginTop: 8 }} onClick={() => sendEmpire({ type: "TRANSFER_FROM_FOCUSED", amount: spare })}>Sweep <MoneyText pence={spare} whole /> from the till to head office</button>
+            <button className="btn btn--sm btn--green" style={{ marginTop: 8 }} onClick={() => sendEmpire({ type: "TRANSFER_FROM_FOCUSED", amount: spare })}>Sweep <MoneyText pence={spare} whole /> from the till to <Term id="hq" inline inButton>HQ</Term></button>
           )}
         </div>
       )}
       {news.length > 0 && (
         <div className="card">
           <div className="card__title"><h3>⭐ News from the guides</h3></div>
-          <ul className="happened">{news.map((n, i) => <li key={i} className="happened__row"><span aria-hidden="true">{n.icon}</span><div className="small">{n.text}</div></li>)}</ul>
+          <ul className="happened">{news.map((n, i) => <li key={i} className="happened__row"><span aria-hidden="true">{n.icon}</span><div className="small"><TermText text={n.text} /></div></li>)}</ul>
         </div>
       )}
     </>
@@ -313,7 +314,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
               <caption className="sr-only">Where tonight's money went: sales, then each cost, then {good ? "profit" : "loss"}</caption>
               <tbody>
                 <tr><td>Food & drink sales</td><td><MoneyText pence={r.revenue} /></td></tr>
-                <tr className="pnl__cost"><td>Tax on sales, to the tax office <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
+                <tr className="pnl__cost"><td><Term id="vat" inline>VAT</Term> to the taxman <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
                 <tr className="pnl__cost"><td>Food cost <span className="pnl__pct">{ofRev(r.foodCost)}</span></td><td><MoneyText pence={-r.foodCost} /></td></tr>
                 <tr className="pnl__cost"><td>Staff wages <span className="pnl__pct">{ofRev(r.labourCost)}</span></td><td><MoneyText pence={-r.labourCost} /></td></tr>
                 <tr className="pnl__cost"><td>Rent (today's share)</td><td><MoneyText pence={-r.rent} /></td></tr>
@@ -356,7 +357,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                     <span aria-hidden="true">{d.icon}</span>
                     <div>
                       <div><b>{d.title}</b></div>
-                      <div className="small">{d.text}</div>
+                      <div className="small"><TermText text={d.text} /></div>
                     </div>
                   </li>
                 ))}
@@ -365,7 +366,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                     <span aria-hidden="true">{INCIDENT_ICON[h.kind] ?? "❗"}</span>
                     <div>
                       <div><b>{h.title}</b> <span className="xs muted">· {h.choice}</span></div>
-                      {h.outcome && <div className="small">{h.outcome}</div>}
+                      {h.outcome && <div className="small"><TermText text={h.outcome} /></div>}
                     </div>
                   </li>
                 ))}
@@ -381,7 +382,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
                     <span className="review__icon" title={SOURCE[rv.source].label} aria-hidden="true">{SOURCE[rv.source].icon}</span>
                     <div>
                       <div className="row"><Stars rating={rv.rating} size={14} /><span className="review__src">{SOURCE[rv.source].label}{rv.dishId ? ` · ${dishName(content, rv.dishId)}` : ""}</span></div>
-                      <div className="review__text">“{rv.text}”</div>
+                      <div className="review__text">“<TermText text={rv.text} />”</div>
                     </div>
                   </div>
                 ))}

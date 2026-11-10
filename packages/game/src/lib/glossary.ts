@@ -1,6 +1,9 @@
 /**
- * Round 5: the trade words the game uses, each with a plain label a 10-year-old can read and a one-line explanation.
- * Shown through <Term> (components/Term.tsx). The numbers stay real; only the words get explained.
+ * Round 5: the trade words the game uses, each with a plain label and a one-line explanation a 12+ player gets at a
+ * glance. Shown through <Term> (components/Term.tsx). The numbers stay real; only the words get explained.
+ *
+ * Round 11b (the player is 14): the real trade word is what the screen says (86, comp, HQ, royalty, satellite, tronc,
+ * VAT…); the tip is where the plain meaning lives. Sim log lines and board options get theirs from <TermText>.
  */
 export interface GlossaryEntry {
   /** The real word, as the trade says it. */
@@ -18,7 +21,12 @@ export const GLOSSARY = {
   prestige: { term: "prestige", plain: "Fancy reputation", explain: "how posh and special people think you are; it lets you charge more." },
   popularity: { term: "popularity", plain: "How liked you are", explain: "how many people want to eat here; it brings guests through the door." },
   margin: { term: "margin", plain: "Profit per plate", explain: "what you keep from each plate after paying for the food in it." },
-  eightySix: { term: "86", plain: "Take off tonight", explain: "kitchen slang: to 86 a dish means to stop selling it (usually because it ran out)." },
+  eightySix: { term: "86", plain: "Take off tonight", explain: "kitchen slang: to 86 a dish means to stop selling it for the rest of the day (usually because it ran out)." },
+  comp: { term: "comp", plain: "Make their meal free", explain: "short for complimentary: the table eats for free to make up for a bad night. They leave happy; you get no money for it." },
+  sommelier: { term: "sommelier", plain: "Wine expert", explain: "the person who looks after the wine list and helps guests pick a bottle." },
+  callOutFee: { term: "call-out fee", plain: "Fee for coming out", explain: "what a repair engineer charges just for turning up, before any fixing." },
+  vat: { term: "VAT", plain: "Tax on sales", explain: "Value Added Tax: a slice of most of what guests pay belongs to the government, not to you." },
+  hmrc: { term: "HMRC", plain: "The tax office", explain: "HM Revenue & Customs, the UK government department that collects tax (and sometimes gives some back)." },
   takings: { term: "takings", plain: "Money in", explain: "everything guests paid today, before any costs." },
   rota: { term: "rota", plain: "Who works which days", explain: "the weekly timetable of who is on shift; every shift on it gets paid." },
   spoilage: { term: "spoilage", plain: "Food that goes off", explain: "stock that passed its use-by day before anyone cooked it, so it goes in the bin." },
@@ -28,6 +36,7 @@ export const GLOSSARY = {
   sousChef: { term: "sous chef", plain: "Second chef", explain: "the head chef's right hand, who runs the kitchen when the head chef is off." },
   satellite: { term: "satellite", plain: "Sister restaurant", explain: "a smaller place your group runs (a bar or a bistro) that earns money but never stars." },
   tronc: { term: "tronc", plain: "Shared tips", explain: "tips pooled and shared fairly between the team (the law says the owner can't keep them)." },
+  wholesaler: { term: "wholesaler", plain: "Big supplier", explain: "a big warehouse that sells food to restaurants in bulk: easy and cheap, but nothing a food guide will notice." },
   // the menu matrix
   mmStar: { term: "Star", plain: "Star dish", explain: "popular and makes good money: keep it just as it is." },
   mmPloughhorse: { term: "Plough-horse", plain: "Hard worker", explain: "popular but makes little money: nudge the price up a bit." },
@@ -43,6 +52,8 @@ export const GLOSSARY = {
   franchiseFee: { term: "franchise fee", plain: "Joining fee", explain: "what a new franchise owner pays once to open a shop with your name." },
   landRent: { term: "rent on your land", plain: "Rent for your plots", explain: "a share of sales franchise owners pay when their shop sits on land you own." },
   take: { term: "take", plain: "Your share of their sales", explain: "royalty + ad fund + rent added up: what head office gets from each franchise pound." },
+  franchisee: { term: "franchisee", plain: "Shop owner", explain: "someone who pays to run a shop under your brand and sends your head office a share of its sales." },
+  hq: { term: "HQ", plain: "Head office", explain: "headquarters: the brand's own office and bank account, separate from the till of the shop you run." },
   franchise: { term: "franchise", plain: "Someone else's shop with your name", explain: "a local owner pays to run a shop under your brand and pays you a share of sales." },
   company: { term: "company-owned", plain: "Your own shop", explain: "you build it, you pay for it and you keep all its profit." },
   licence: { term: "licence", plain: "Licensed shop", explain: "another company runs your brand in their country and pays you a small share." },
@@ -63,7 +74,7 @@ export const GLOSSARY = {
   // Round 6: the board meeting
   boardMeeting: { term: "board meeting", plain: "Monthly money meeting", explain: "once a month the people who run head office look at the money and make one big choice." },
   refurb: { term: "refurb", plain: "Make it feel new", explain: "fixing up a tired shop so its wage and repair bills drop back for a while." },
-  feeHoliday: { term: "fee holiday", plain: "A break from paying you", explain: "a franchise owner skips the royalty for a while to get back on their feet." },
+  feeHoliday: { term: "royalty holiday", plain: "A break from paying you", explain: "a franchise owner skips the royalty for a while to get back on their feet." },
   supplyMarkup: { term: "supply markup", plain: "Extra on the food you sell them", explain: "head office buys food for every shop; a markup means franchise owners pay it a little more than it cost." },
   hqCosts: { term: "HQ overheads", plain: "Running head office", explain: "offices, staff, mortgages and interest: what head office itself costs each month." },
   driveThru: { term: "drive-thru", plain: "Order from your car", explain: "a lane where drivers order and collect without parking; more guests, bigger plot." },

@@ -27,3 +27,13 @@ export function visibleGoals(goals: readonly Goal[] | undefined, justDone: reado
 export function goalFraction(g: Goal): number {
   return g.target > 0 ? Math.max(0, Math.min(1, g.progress / g.target)) : g.done ? 1 : 0;
 }
+
+/**
+ * Round 11b: after the first week (day 8 on) or once five goals are done, the goals card stops pulsing and glowing
+ * (no spotlight, no flash on a finished goal): it is still there, with "Show me", just quiet. Day 1 is unchanged.
+ */
+export const GOALS_QUIET_DAY = 7;
+export const GOALS_QUIET_DONE = 5;
+export function goalsQuiet(day: number, goals: readonly Goal[] | undefined): boolean {
+  return day >= GOALS_QUIET_DAY || (goals ?? []).filter((g) => g.done).length >= GOALS_QUIET_DONE;
+}

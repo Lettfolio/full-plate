@@ -20,6 +20,7 @@ import { handsOnRoleFor } from "../../state/paths";
 import { fill } from "@full-plate/content";
 import type { Command } from "@full-plate/sim-core";
 import { RungName, Term } from "../../components/Term";
+import { TermText } from "../../components/TermText";
 
 interface Props {
   game: GameState;
@@ -193,7 +194,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
                 <div className="spacer">
                   <b>{o.restaurantName}</b> <span className="xs muted">· {o.ownerName} · {OWNER_BLURB[o.strategy].split(":")[0]}</span>
                   <div className="small"><RungName title={rungDef(o.track, o.rung).title} /> on <b>{perHour(o.wage)}</b>{o.rung > career.rung ? " — a step up!" : ""}</div>
-                  <div className="xs muted">“{o.pitch}” · until day {o.expiresDay + 1}</div>
+                  <div className="xs muted">“<TermText text={o.pitch} />” · until day {o.expiresDay + 1}</div>
                 </div>
                 <button className="btn btn--green btn--sm" onClick={() => sendCareer({ type: "ACCEPT_OFFER", offerId: o.id })}>Accept</button>
                 <button className="btn btn--ghost btn--sm" onClick={() => sendCareer({ type: "DECLINE_OFFER", offerId: o.id })}>No thanks</button>

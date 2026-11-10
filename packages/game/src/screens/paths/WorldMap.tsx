@@ -238,7 +238,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
             const m = mix.get(c.id);
             const total = m ? m.company + m.franchise + m.licence : 0;
             const sel = c.id === picked;
-            const name = `${c.name}, ${c.country}: ${plural(total, "shop")}${total ? ` (${mixWords(m)})` : ""}${m?.building ? `, ${m.building} being built` : ""}${c.id === hq ? ", your head office" : ""}${c.exited ? ", forced out" : c.entered ? "" : ", not entered"}`;
+            const name = `${c.name}, ${c.country}: ${plural(total, "shop")}${total ? ` (${mixWords(m)})` : ""}${m?.building ? `, ${m.building} being built` : ""}${c.id === hq ? ", your HQ" : ""}${c.exited ? ", forced out" : c.entered ? "" : ", not entered"}`;
             const state = total > 0 ? "has" : c.exited ? "exited" : c.entered ? "entered" : "new";
             return (
               <button
@@ -257,7 +257,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
               >
                 <span className="mappin__mark" aria-hidden="true">
                   {total > 0 ? <PinDonut m={m!} total={total} /> : <span className="mappin__dot" />}
-                  {c.id === hq && <span className="mappin__hq" title="Head office"><Crown /></span>}
+                  {c.id === hq && <span className="mappin__hq" title="HQ"><Crown /></span>}
                   {hubs.has(c.id) && c.id !== hq && <span className="mappin__hq mappin__hq--kitchen" title="Commissary">🍳</span>}
                   {m?.building ? <span className="mappin__building" /> : null}
                 </span>
@@ -282,10 +282,10 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
         <LegendItem swatch={<i className="legend__dot" style={{ background: OWN_COLOUR[0] }} />}><Term id="company" inline>Your own</Term></LegendItem>
         <LegendItem swatch={<i className="legend__dot" style={{ background: OWN_COLOUR[1] }} />}><Term id="franchise" inline>Franchise</Term></LegendItem>
         <LegendItem swatch={<i className="legend__dot" style={{ background: OWN_COLOUR[2] }} />}><Term id="licence" inline>Licence</Term></LegendItem>
-        <LegendItem swatch={<span className="legend__hq"><Crown /></span>}>Your head office</LegendItem>
+        <LegendItem swatch={<span className="legend__hq"><Crown /></span>}>Your <Term id="hq" inline>HQ</Term></LegendItem>
         <LegendItem swatch={<i className="legend__dot legend__dot--new" />}>Not entered</LegendItem>
         <LegendItem swatch={<i className="legend__dot legend__dot--building" />}>Being built</LegendItem>
-        <LegendItem swatch={<svg className="legend__route" viewBox="0 0 30 10" aria-hidden="true"><path d="M2 5h26" /></svg>}>Supply route from head office</LegendItem>
+        <LegendItem swatch={<svg className="legend__route" viewBox="0 0 30 10" aria-hidden="true"><path d="M2 5h26" /></svg>}>Supply route from <Term id="hq" inline>HQ</Term></LegendItem>
         <LegendItem swatch={<i className="legend__halo" />}>Glow = <Term id="recognition" inline>how many people know you</Term> (green at {EMPIRE.WIN_RECOGNITION})</LegendItem>
       </MapLegend>
     </div>
@@ -334,7 +334,7 @@ function CityTip({ e, c, m, at, id }: { e: EmpireState; c: City; m?: Mix; at: Pt
       <b className="maptip__name">{c.name}</b> <span className="maptip__where">{c.country} · {region?.name}</span>
       <div className="maptip__row">{total ? <>{plural(total, "shop")}: {mixWords(m)}</> : c.exited ? "Forced out" : c.entered ? "No shops yet" : <>Not entered · costs <MoneyText pence={cityEntryCost(e, c)} whole /></>}{m?.building ? ` · ${m.building} being built` : ""}</div>
       <div className="maptip__row">Rent {rent.signs} <span className="maptip__soft">({rent.word})</span> · known in {region?.name ?? "the region"}: <b>{rec}</b></div>
-      {c.id === e.hq.homeCityId && <div className="maptip__row maptip__soft">Your head office is here</div>}
+      {c.id === e.hq.homeCityId && <div className="maptip__row maptip__soft">Your head office (HQ) is here</div>}
     </div>
   );
 }
@@ -424,7 +424,7 @@ export function CityMap({ e, city, onBack, onOpenHere }: { e: EmpireState; city:
         <button ref={backRef} type="button" className="btn btn--sm btn--ghost btn--tap citymap__back" onClick={onBack}><Icon name="back" size={18} /> World map</button>
         <div className="citymap__title">
           <h3>{city.name}</h3>
-          <span className="citymap__where">{city.country} · {region?.name}{city.id === e.hq.homeCityId ? " · head office" : ""}</span>
+          <span className="citymap__where">{city.country} · {region?.name}{city.id === e.hq.homeCityId ? <> · <Term id="hq" inline>HQ</Term></> : ""}</span>
         </div>
         <ul className="citymap__chips" aria-label={`${city.name} at a glance`}>
           <li className="mapchip">{plural(total, "shop")}{m?.building ? ` · ${m.building} building` : ""}</li>

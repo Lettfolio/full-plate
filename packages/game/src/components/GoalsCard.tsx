@@ -12,6 +12,8 @@ interface Props {
   collapsible?: boolean;
   /** Draw the eye: first run, empty menu. */
   spotlight?: boolean;
+  /** Round 11b: past the first week (lib/goals goalsQuiet): no spotlight, no flash; "Show me" stays. */
+  quiet?: boolean;
   /** "Show me" on a goal: jump to the planning tab its hint is about. */
   onShow?: (goal: Goal) => void;
 }
@@ -28,7 +30,7 @@ function Reward({ g }: { g: Goal }) {
 }
 
 /** Guided objectives. Hidden entirely until sim-core provides goals. */
-export function GoalsCard({ goals, justDone = [], collapsible = false, spotlight = false, onShow }: Props) {
+export function GoalsCard({ goals, justDone = [], collapsible = false, spotlight = false, quiet = false, onShow }: Props) {
   const [open, setOpen] = useState(!collapsible);
   const { open: todo, done } = visibleGoals(goals, justDone);
   if (!todo.length && !done.length) return null;
@@ -59,7 +61,7 @@ export function GoalsCard({ goals, justDone = [], collapsible = false, spotlight
     </ul>
   );
   return (
-    <section className={`card goals ${spotlight ? "goals--spotlight" : ""} ${collapsible ? "goals--compact" : ""}`} aria-labelledby="goals-title">
+    <section className={`card goals ${spotlight && !quiet ? "goals--spotlight" : ""} ${quiet ? "goals--quiet" : ""} ${collapsible ? "goals--compact" : ""}`} aria-labelledby="goals-title">
       {collapsible ? (
         <button className="goals__toggle" aria-expanded={open} aria-controls="goals-body" onClick={() => setOpen(!open)}>
           <Icon name="target" size={20} className="goals__icon" />

@@ -16,6 +16,7 @@ import { formatPence, formatPounds } from "../lib/format";
 import { DEFAULT_SETTINGS, getSettings, resetSettingsCache, SETTINGS_KEY, startSpeed } from "../lib/settings";
 import { NARROW_QUERY, pointWord } from "../lib/layout";
 import { Term } from "../components/Term";
+import { termParts } from "../components/TermText";
 import { WordsSheet, wordsOnScreen } from "../components/WordsSheet";
 import { focusMainAction } from "../App";
 import { Service } from "../screens/Service";
@@ -28,13 +29,30 @@ import { empireGame, withMeeting } from "./fixtures/empire";
 
 const CSS = readFileSync(join(__dirname, "..", "theme.css"), "utf8");
 const noop = () => {};
-/** Visible words only: tooltips (and the small real-word line under a block Term) are where trade words may live. */
-const plainText = (el: Element) => {
+/**
+ * Round 11b (the player is 14): trade words are back on screen, each inside a glossary term. The check is now "every
+ * trade word on screen is a term": take every `.term` out and no trade word may be left; and every term carries its tip.
+ */
+const outsideTerms = (el: Element) => {
   const c = el.cloneNode(true) as Element;
-  c.querySelectorAll(".term__tip, .term__real").forEach((t) => t.remove());
+  c.querySelectorAll(".term").forEach((t) => t.remove());
   return (c.textContent ?? "").replace(/\s+/g, " ");
 };
-const JARGON = /\b(86|86'd|footfall|covers|segments?|wholesalers?|royalt(y|ies)|VAT|HMRC|call-out|tronc|sommeliers?|satellites?|comp this)\b/i;
+/** Visible words (tooltips out): what a sighted player reads. */
+const plainText = (el: Element) => {
+  const c = el.cloneNode(true) as Element;
+  c.querySelectorAll(".term__tip").forEach((t) => t.remove());
+  return (c.textContent ?? "").replace(/\s+/g, " ");
+};
+/** Bare "86" is left out: it is also a number on screen (patience 86); the 86 buttons are checked by term count. */
+const JARGON = /\b(86'd|footfall|covers|segments?|wholesalers?|royalt(y|ies)|VAT|HMRC|call-out|tronc|sommeliers?|satellites?|comp|comped|franchisees?|HQ)\b/i;
+function expectTermsExplained(el: Element) {
+  expect(outsideTerms(el)).not.toMatch(JARGON);
+  for (const t of el.querySelectorAll<HTMLElement>(".term")) {
+    const tip = t.querySelector(".term__tip");
+    expect(tip?.textContent ?? "", t.textContent ?? "").toMatch(/^[^:]+: .{10,}/);
+  }
+}
 
 function owner(seed = 11, difficulty: "cosy" | "normal" = "normal"): AppState {
   let s = appReducer(initialAppState, { type: "new", cmd: { type: "NEW_GAME", seed, districtId: content.districts[0]!.id, restaurantName: "Fit Test", difficulty } });
@@ -172,11 +190,13 @@ describe("U11: reload mid-shift", () => {
   });
 });
 
-describe("U8: No grown-up drinks", () => {
+describe("U8: Hide alcoholic drinks (off by default since Round 11b)", () => {
   afterEach(() => { syncSoftDrinks(getSettings().noGrownUpDrinks); });
 
-  it("is on by default and swaps the drinks' words, never their ids or numbers", () => {
-    expect(DEFAULT_SETTINGS.noGrownUpDrinks).toBe(true);
+  it("is off by default (real drinks), and when switched on swaps the drinks' words, never their ids or numbers", () => {
+    expect(DEFAULT_SETTINGS.noGrownUpDrinks).toBe(false);
+    syncSoftDrinks(DEFAULT_SETTINGS.noGrownUpDrinks);
+    expect(content.dishes.find((d) => d.id === "lager")!.name).toBe("Pint of lager");
     syncSoftDrinks(true);
     const lager = content.dishes.find((d) => d.id === "lager")!;
     expect(lager.name).toBe("Tall fizzy lemonade");
@@ -212,36 +232,59 @@ describe("U8: No grown-up drinks", () => {
   });
 });
 
-describe("U7: plain words on the key screens", () => {
-  it("start picker and lease: no trade words outside a tip", () => {
+describe("U7 (re-targeted in Round 11b): every trade word on screen is a glossary term", () => {
+  it("start picker and lease: footfall is on screen, tipped", () => {
     const a = render(<StartPicker content={content} onBack={noop} onOwner={noop} onCareer={noop} />);
-    expect(plainText(a.container)).not.toMatch(JARGON);
+    expectTermsExplained(a.container);
     cleanup();
     const b = render(<NewGame content={content} initialSeed={1} initialDifficulty="normal" onStart={noop} onBack={noop} />);
-    expect(plainText(b.container)).not.toMatch(JARGON);
-    expect(b.container.querySelector("[data-term='footfall']")).toBeTruthy(); // the real word is in the tip
+    expectTermsExplained(b.container);
+    const ff = b.container.querySelector("[data-term-id='footfall']")!;
+    expect(plainText(ff)).toBe("Footfall");
   });
 
-  it("service: 'Take off tonight', 'Make their meal free', and no 86 on a button", () => {
+  it("service: '86' on the list and its buttons (named for screen readers), the log's 86'd tipped", () => {
     const s = owner(5);
-    const { container } = render(<Service game={s.game!} app={s} send={noop} runTicks={noop} onSkip={noop} onJumpIn={noop} />);
-    const text = plainText(container);
-    expect(text).not.toMatch(JARGON);
-    expect(text).toContain("Take off tonight");
-    expect(screen.getAllByRole("button", { name: /^Take .* off tonight$/ }).length).toBeGreaterThan(0);
+    const { container } = render(<Service game={s.game!} app={{ ...s, ticker: [...s.ticker, { day: 0, tick: 30, kind: "bad", text: "Cheeseburger has run out — 86'd for today." }] }} send={noop} runTicks={noop} onSkip={noop} onJumpIn={noop} />);
+    expectTermsExplained(container);
+    expect(plainText(container)).toContain("86 a dish for the rest of today");
+    expect(container.querySelectorAll("[data-term-id='eightySix']").length).toBeGreaterThan(2);
+    expect(screen.getAllByRole("button", { name: /^86 .* \(take it off for today\)$/ }).length).toBeGreaterThan(0);
   });
 
-  it("the board meeting and the Stars tab: head office, sister restaurants, a share of their takings", () => {
+  it("the board meeting and the Stars tab: HQ, royalties, satellites — each tipped", () => {
     const s = withMeeting(empireGame());
     const b = render(<BoardMeeting empire={s.meta.empire!} meeting={s.meta.empire!.boardMeeting!} send={noop} />);
-    const board = plainText(b.container);
-    expect(board).not.toMatch(JARGON);
-    expect(board).not.toMatch(/\bHQ\b/);
-    expect(board).toMatch(/Head office (made|lost)/);
+    expectTermsExplained(b.container);
+    expect(plainText(b.container)).toMatch(/HQ (made|lost)/);
+    expect(b.container.querySelector("[data-term-id='hq']")).toBeTruthy();
     cleanup();
     const st = appReducer({ ...empireGame(), meta: { ...empireGame().meta, empire: undefined, fork: { offered: true } } }, { type: "fork", choice: "stars" });
     const t = render(<StarsTab game={st.game!} meta={st.meta} stars={st.meta.stars!} send={noop} onTastingMenu={noop} />);
-    expect(plainText(t.container)).not.toMatch(JARGON);
+    expectTermsExplained(t.container);
+  });
+
+  it("TermText tips the trade words in sim and content lines, and leaves look-alikes alone", () => {
+    const parts = (t: string) => termParts(t).filter((p) => typeof p !== "string").map((p) => (p as { word: string; id: string }).id);
+    expect(parts("No stock for Fish — 86'd for today.")).toEqual(["eightySix"]);
+    expect(parts("HQ gives up about £2,000. Priya asks for a royalty holiday.")).toEqual(["hq", "feeHoliday"]);
+    expect(parts("A brown envelope from HMRC: you overpaid VAT.")).toEqual(["hmrc", "vat"]);
+    expect(parts("Comped a party of 4. The sommelier sighs; the call-out fee stings; your share of the tronc.")).toEqual(["comp", "sommelier", "callOutFee", "tronc"]);
+    expect(parts("A satellite closes. Franchisees form an association. You buy from the wholesaler.")).toEqual(["satellite", "franchisee", "wholesaler"]);
+    expect(parts("86 guests, a company car, a vat of stock, competition, HQs")).toEqual([]);
+  });
+
+  it("a term inside a button: a tap shows its tip and does not press the button; the button's name is its label", () => {
+    let pressed = 0;
+    render(<button onClick={() => pressed++}><Term id="comp" inline inButton>Comp</Term> this table</button>);
+    const btn = screen.getByRole("button", { name: "Comp this table" });
+    const word = btn.querySelector(".term") as HTMLElement;
+    expect(word.hasAttribute("tabindex")).toBe(false);
+    fireEvent.click(word);
+    expect(pressed).toBe(0);
+    expect(word.hasAttribute("data-open")).toBe(true);
+    fireEvent.click(btn);
+    expect(pressed).toBe(1);
   });
 });
 

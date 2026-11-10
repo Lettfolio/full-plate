@@ -39,7 +39,7 @@ export function districtIcon(d: DistrictDef): string {
 export function NewGame({ content, initialSeed, onStart, onBack, initialDistrictId, initialDifficulty }: Props) {
   const [districtId, setDistrictId] = useState(initialDistrictId ?? content.districts[0]?.id ?? "");
   const [name, setName] = useState("");
-  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty ?? "cosy");
+  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty ?? "normal");
   // R7 review (C's P3): the start picker already asked; here it's a one-line reminder with Change.
   const [askDifficulty, setAskDifficulty] = useState(initialDifficulty === undefined);
   const chosen = DIFFICULTY_CHOICES.find((d) => d.id === difficulty);
@@ -82,7 +82,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
                       <div className="fact__v"><MoneyText pence={d.monthlyRent} whole /> <span className="faint small">/ month</span></div>
                     </div>
                     <div>
-                      <div className="fact__k"><Term id="footfall" inline /></div>
+                      <div className="fact__k"><Term id="footfall" inline>Footfall</Term></div>
                       <div className="fact__v">{d.footfall.toLocaleString("en-GB")} <span className="faint small">/ day</span></div>
                       <Bar value={d.footfall} max={maxFootfall} tone="sky" size="sm" />
                     </div>

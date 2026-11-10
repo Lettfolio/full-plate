@@ -13,6 +13,7 @@ import type { PathMeta } from "../../state/paths";
 import { Term } from "../../components/Term";
 import { guideYear, nightStrip } from "../../lib/starsStrip";
 import { StarsMap } from "./StarsMap";
+import { TermText } from "../../components/TermText";
 
 interface Props {
   game: GameState;
@@ -101,14 +102,14 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           ) : (
             <ol className="starhints">
               {hints.slice(0, 2).map((h) => (
-                <li key={h.criterion}><span className="pill pill--puzzle">{h.label}</span><span className="small">{h.text}</span></li>
+                <li key={h.criterion}><span className="pill pill--puzzle">{h.label}</span><span className="small"><TermText text={h.text} /></span></li>
               ))}
             </ol>
           )}
           {hints.length > 2 && (
             <details className="xs">
               <summary>Also worth a look ({hints.length - 2})</summary>
-              <ul className="starhints">{hints.slice(2).map((h) => <li key={h.criterion}><b>{h.label}:</b> {h.text}</li>)}</ul>
+              <ul className="starhints">{hints.slice(2).map((h) => <li key={h.criterion}><b>{h.label}:</b> <TermText text={h.text} /></li>)}</ul>
             </details>
           )}
           {lastWeakest && <p className="xs muted">Last guide day, the inspectors marked your {CRITERION_LABEL[lastWeakest.k].toLowerCase()} lowest.</p>}
@@ -156,7 +157,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
                 Put a stronger chef on those nights, or close them (“Close tonight” in the morning).
               </p>
             )}
-            {v.rumours.length > 0 && <ul className="xs rumours">{v.rumours.slice(-3).map((r, i) => <li key={i}>🕵️ {dateLabel(r.day)}: {r.text}</li>)}</ul>}
+            {v.rumours.length > 0 && <ul className="xs rumours">{v.rumours.slice(-3).map((r, i) => <li key={i}>🕵️ {dateLabel(r.day)}: <TermText text={r.text} /></li>)}</ul>}
             {game.difficulty === "cosy" && v.cosyHint && <p className="xs callout">{v.cosyHint}</p>}
             {v.headChef.stress >= 70 && (
               <div className="row row--wrap">
@@ -255,7 +256,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           </div>
 
           <div className="card stack stack--sm">
-            <div className="card__title"><h3>The group</h3><span className="xs faint">sister restaurants never earn stars</span></div>
+            <div className="card__title"><h3>The group</h3><span className="xs faint"><Term id="satellite" inline>satellites</Term> never earn stars</span></div>
             {v.satellites.map((s) => (
               <div key={s.id} className="row">
                 <span className="spacer small"><b>{s.name}</b> <span className="xs muted">{s.kind} · earned <MoneyText pence={s.earned} whole /></span>{!s.headChefTrained && <span className="xs" title="Untrained head chef: costs the flagship consistency"> ⚠</span>}</span>
@@ -285,7 +286,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           {recent.length > 0 && (
             <div className="card">
               <div className="card__title"><h3>Last night</h3></div>
-              <ul className="empire__log">{recent.map((e, i) => <li key={i} className={`careerlog__line careerlog__line--${e.tone}`}>{e.text}</li>)}</ul>
+              <ul className="empire__log">{recent.map((e, i) => <li key={i} className={`careerlog__line careerlog__line--${e.tone}`}><TermText text={e.text} /></li>)}</ul>
             </div>
           )}
         </div>

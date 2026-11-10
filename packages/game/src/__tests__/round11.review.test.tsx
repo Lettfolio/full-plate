@@ -92,19 +92,23 @@ describe("B × C: a finished game is archived, never deleted; a running Empire i
   });
 });
 
-const JARGON = /\b(86|86'd|footfall|covers|segments?|wholesalers?|royalt(y|ies)|VAT|HMRC|call-out|tronc|sommeliers?|satellites?|comp this|HQ)\b/i;
-const visible = (el: Element) => { const c = el.cloneNode(true) as Element; c.querySelectorAll(".term__tip, .term__real").forEach((t) => t.remove()); return (c.textContent ?? "").replace(/\s+/g, " "); };
+// Round 11b: trade words are back on screen, each inside a glossary term ("every trade word on screen is a term").
+const JARGON = /\b(86'd|footfall|covers|segments?|wholesalers?|royalt(y|ies)|VAT|HMRC|call-out|tronc|sommeliers?|satellites?|comp|comped|franchisees?|HQ)\b/i;
+const visible = (el: Element) => { const c = el.cloneNode(true) as Element; c.querySelectorAll(".term__tip").forEach((t) => t.remove()); return (c.textContent ?? "").replace(/\s+/g, " "); };
+/** What is left once every glossary term is taken out: no trade word may remain. */
+const outsideTerms = (el: Element) => { const c = el.cloneNode(true) as Element; c.querySelectorAll(".term").forEach((t) => t.remove()); return (c.textContent ?? "").replace(/\s+/g, " "); };
 
-describe("D's plain words on B's and C's new screens", () => {
-  it("EmpireEnd (bankrupt and bust shop) says head office, never HQ", () => {
+describe("D's word check (re-targeted in Round 11b) on B's and C's new screens", () => {
+  it("EmpireEnd (bankrupt and bust shop) says HQ, always as a tipped term", () => {
     const s = empireGame();
     const e = s.meta.empire!;
     const a = render(<EmpireEnd game={s.game!} empire={{ ...e, status: "bankrupt" }} kind="bankrupt" checkpointDay={400} onRetry={noop} onNewGame={noop} onTitle={noop} />);
-    expect(visible(a.container)).not.toMatch(JARGON);
-    expect(visible(a.container)).toMatch(/Head office/);
+    expect(outsideTerms(a.container)).not.toMatch(JARGON);
+    expect(visible(a.container)).toMatch(/HQ spent more than it earned/);
+    expect(a.container.querySelector("[data-term-id='hq'] .term__tip")?.textContent).toMatch(/^HQ: headquarters/);
     cleanup();
     const b = render(<EmpireEnd game={s.game!} empire={e} kind="shopBust" onMoveOn={noop} onNewGame={noop} onTitle={noop} />);
-    expect(visible(b.container)).not.toMatch(JARGON);
+    expect(outsideTerms(b.container)).not.toMatch(JARGON);
   });
 
   it("the bank's evening card and morning banner", () => {
@@ -113,11 +117,11 @@ describe("D's plain words on B's and C's new screens", () => {
     const ev = runDay(content, g).state;
     const low = { ...ev, cash: bankStatus(content, ev).line - 50_000, distressDays: 12 };
     const a = render(<BankCard game={low} send={noop} onGoTo={noop} onAct={noop} />);
-    expect(visible(a.container)).not.toMatch(JARGON);
+    expect(outsideTerms(a.container)).not.toMatch(JARGON);
     expect(visible(a.container)).toMatch(/days? left/);
     cleanup();
     const b = render(<BankBanner game={{ ...low, phase: "planning" }} />);
-    expect(visible(b.container)).not.toMatch(JARGON);
+    expect(outsideTerms(b.container)).not.toMatch(JARGON);
   });
 
   it("B's and C's new files use the one pounds formatter", () => {

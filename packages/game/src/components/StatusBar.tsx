@@ -114,8 +114,8 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
           <span><b>{openSites(e).length}</b> site{openSites(e).length === 1 ? "" : "s"}{e.sites.some((x) => x.status === "building") ? ` (+${e.sites.filter((x) => x.status === "building").length} building)` : ""}</span>
           <span><b>{compactMeals(e.mealsServedTotal)}</b> meals served</span>
           <span><Term id="hqCash" inline>HQ</Term> <MoneyText pence={e.hq.cash} whole className={e.hq.cash < 0 ? "money--neg" : ""} /></span>
-          <span>Shop owners' mood <b>{franchised ? Math.round(avgFranchiseeMood(e)) : "—"}</b></span>
-          {e.association.active && <span className="pathstrip__warn"><Icon name="warning" size={18} />Franchisee association</span>}
+          <span><Term id="franchiseeMood" inline>Franchisee mood</Term> <b>{franchised ? Math.round(avgFranchiseeMood(e)) : "—"}</b></span>
+          {e.association.active && <span className="pathstrip__warn"><Icon name="warning" size={18} /><Term id="association" inline>Franchisee association</Term></span>}
         </div>
       )}
       {sv && (

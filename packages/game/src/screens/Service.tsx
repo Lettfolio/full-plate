@@ -24,6 +24,8 @@ import { coveringPhrase } from "../lib/staff";
 import { getSettings, setSettings, startSpeed, useSettings } from "../lib/settings";
 import { pointWord, useCoarsePointer } from "../lib/layout";
 import { Term } from "../components/Term";
+import { TermText } from "../components/TermText";
+import { goalsQuiet } from "../lib/goals";
 import { DayRhythm } from "../components/DayRhythm";
 
 /** Round 7: an hour of service in ticks (for the live summary's "this hour" trend). */
@@ -382,7 +384,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             </div>
           </div>
         )}
-        <GoalsCard goals={game.goals} justDone={app.goalsJustDone} collapsible />
+        <GoalsCard goals={game.goals} justDone={app.goalsJustDone} collapsible quiet={goalsQuiet(game.day, game.goals)} />
 
         <div className="card" style={{ padding: 12, flex: 1, display: "flex", flexDirection: "column", minHeight: 160 }}>
           <div className="row" style={{ marginBottom: 6 }}>
@@ -394,7 +396,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             {app.ticker.map((l, i) => (
               <div key={`${l.day}-${l.tick}-${i}`} className={`ticker__line ticker__line--${l.kind}`}>
                 <time>{clockLabel(l.tick)}</time>
-                <span>{l.text}</span>
+                <span><TermText text={l.text} /></span>
               </div>
             ))}
           </div>
@@ -412,7 +414,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
                 </div>
               </div>
               <button className="btn btn--primary btn--sm" disabled={!!sel.comped} onClick={() => send({ type: "COMP_TABLE", customerId: sel.id })} title="Their meal is on the house: big happiness boost, no revenue">
-                {sel.comped ? "On the house ✓" : "Make their meal free"}
+                {sel.comped ? <><Term id="comp" inline inButton>Comped</Term> ✓</> : <><Term id="comp" inline inButton>Comp</Term> this table</>}
               </button>
             </div>
           ) : (
@@ -437,7 +439,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             </ul>
           )}
           <div className="xs faint" style={{ fontWeight: 800 }}>
-            <Term id="eightySix" inline>Take off tonight</Term>
+            <Term id="eightySix" inline>86</Term> a dish for the rest of today
           </div>
           <div className="eightysix">
             {game.menu.filter((m) => m.active).map((m) => {
@@ -451,10 +453,10 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
                     className="btn btn--ghost btn--sm"
                     disabled={off}
                     onClick={() => send({ type: "EIGHTY_SIX", dishId: m.dishId })}
-                    title={off ? `${name} is off for today` : `Stop selling ${name} for the rest of tonight (back on tomorrow)`}
-                    aria-label={off ? `${name} is off tonight` : `Take ${name} off tonight`}
+                    title={off ? `${name} is 86'd for today` : `86 ${name}: stop selling it for the rest of today (back on tomorrow)`}
+                    aria-label={off ? `${name} is 86'd for today` : `86 ${name} (take it off for today)`}
                   >
-                    {off ? "Off tonight" : "Take off"}
+                    <Term id="eightySix" inline inButton="passive">{off ? "86'd" : "86"}</Term>
                   </button>
                 </div>
               );

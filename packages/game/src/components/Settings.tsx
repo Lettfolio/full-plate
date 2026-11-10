@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { startSpeed, useSettings, type TextSize } from "../lib/settings";
+import { startSpeed, useSettings, type TextSize, type UnderlineTerms } from "../lib/settings";
 import { playSfx } from "../lib/sfx";
 import { ConfirmDialog, Dialog } from "./Dialog";
 import { Icon, type IconName } from "./Icon";
@@ -80,8 +80,9 @@ export function SettingsMenu({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
           </label>
           <label className="sheet__row sheet__check">
             <input type="checkbox" className="switch" checked={s.noGrownUpDrinks} onChange={(e) => set({ noGrownUpDrinks: e.target.checked })} />
-            <span>No grown-up drinks <span className="xs muted">(soft drinks take their place on the menu, at the same prices)</span></span>
+            <span>Hide alcoholic drinks <span className="xs muted">(soft drinks take their place on the menu, at the same prices)</span></span>
           </label>
+          <Choice<UnderlineTerms> label="Underline words I can tap" value={s.underlineTerms} onChange={(v) => set({ underlineTerms: v })} options={[{ id: "first", label: "First time" }, { id: "always", label: "Always" }]} />
           <div className="sheet__game">
             <p className="small muted">Your game saves itself every morning and every evening.</p>
             {onQuit || onNewGame ? (

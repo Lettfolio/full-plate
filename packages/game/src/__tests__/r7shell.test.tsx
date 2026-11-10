@@ -32,9 +32,10 @@ describe("settings sheet", () => {
     fireEvent.click(within(sheet).getByRole("radio", { name: /Off/ }));
     fireEvent.click(within(sheet).getByRole("radio", { name: "2×" }));
     fireEvent.click(within(sheet).getByRole("checkbox", { name: /Pause when something goes wrong/ }));
-    fireEvent.click(within(sheet).getByRole("checkbox", { name: /No grown-up drinks/ }));
+    fireEvent.click(within(sheet).getByRole("checkbox", { name: /Hide alcoholic drinks/ }));
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Always" }));
     const stored = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!);
-    expect(stored).toEqual({ autoPause: false, defaultSpeed: 2, sound: false, textSize: "large", noGrownUpDrinks: false, speedPicked: true });
+    expect(stored).toEqual({ autoPause: false, defaultSpeed: 2, sound: false, textSize: "large", noGrownUpDrinks: true, speedPicked: true, underlineTerms: "always" });
     // A fresh read (as after a reload) gets the same values back.
     resetSettingsCache();
     expect(getSettings()).toEqual(stored);

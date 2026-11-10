@@ -28,9 +28,9 @@ describe("the board meeting card", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "How did Board Burgers do this month?" })).toBeTruthy();
     const money = visibleText(screen.getByLabelText("Money this month"));
-    expect(money).toMatch(new RegExp(`^Head office (made|lost) £[\\d,]+`));
+    expect(money).toMatch(new RegExp(`^HQ (made|lost) £[\\d,]+`));
     expect(money).toContain("Your own shops");
-    expect(money).toContain("Running head office");
+    expect(money).toContain("Running HQ");
     // The real words are there, in the tooltips.
     expect(container.querySelector("[data-term='HQ overheads']")).toBeTruthy();
     expect(container.querySelector("[data-term='board meeting']")).toBeTruthy();
@@ -60,7 +60,9 @@ describe("the board meeting card", () => {
     render(<BoardMeeting empire={e} meeting={m} send={() => {}} />);
     const btn = screen.getByRole("button", { name: /Buy it/ }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-    expect(btn.textContent).toMatch(/Head office can only spend £[\d,]+ right now/);
+    // Round 11b: the trade word is back, tipped; the button's name stays its label (the in-button tip is aria-hidden).
+    expect(visibleText(btn)).toMatch(/HQ can only spend £[\d,]+ right now/);
+    expect(btn.querySelector("[data-term-id='hq']")).toBeTruthy();
   });
 });
 
@@ -86,8 +88,8 @@ describe("the calendar waits for the board", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
     const lines = screen.getByLabelText("Board meetings").querySelectorAll("li");
     const last = s.meta.empire!.boardMinutes!.at(-1)!;
-    expect(lines[0]!.textContent).toContain(option.label);
-    expect(lines[0]!.textContent).toMatch(new RegExp(`head office (made|lost) £[\\d,]+$`));
+    expect(visibleText(lines[0]!)).toContain(option.label);
+    expect(visibleText(lines[0]!).trim()).toMatch(new RegExp(`HQ (made|lost) £[\\d,]+$`));
     expect(last.net).toBe(bookNet(m.income));
   });
 

@@ -11,18 +11,27 @@ export interface Settings {
   /** Round 7: "large" sets `data-text="large"` on <html>, which bumps the type scale ~12% (theme.css R7-C). */
   textSize: TextSize;
   /**
-   * Round 11 (D, red-team U8): "No grown-up drinks" — on by default. The content view swaps alcoholic drinks (and the
-   * Stars wine list) for soft drinks of the same price and shape (content `applySoftDrinks`; ids and numbers unchanged).
+   * Round 11 (D, red-team U8): "Hide alcoholic drinks" (the field keeps its R11-D name so stored prefs still load). The
+   * content view swaps alcoholic drinks (and the Stars wine list) for soft drinks of the same price and shape (content
+   * `applySoftDrinks`; ids and numbers unchanged). Round 11b: off by default (the player is 14; a parent can switch it
+   * on). A stored `true` or `false` is kept; only the default changed.
    */
   noGrownUpDrinks: boolean;
   /** Round 11 (D, U10): the player has picked a service speed (Settings or the speed deck); until then Cosy starts at 4×. */
   speedPicked: boolean;
+  /**
+   * Round 11b: glossary words get the dotted underline the first time each appears in a session ("first"), or every
+   * time ("always"). Either way every term stays tappable and keeps its tip (components/Term.tsx).
+   */
+  underlineTerms: UnderlineTerms;
 }
+
+export type UnderlineTerms = "first" | "always";
 
 export type TextSize = "normal" | "large";
 
 export const SETTINGS_KEY = "full-plate:settings:v1";
-export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: true, speedPicked: false };
+export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: false, speedPicked: false, underlineTerms: "first" };
 
 function read(): Settings {
   try {
@@ -42,6 +51,7 @@ function normalize(p: Partial<Settings>): Settings {
       textSize: p.textSize === "large" ? "large" : "normal",
       noGrownUpDrinks: typeof p.noGrownUpDrinks === "boolean" ? p.noGrownUpDrinks : DEFAULT_SETTINGS.noGrownUpDrinks,
       speedPicked: p.speedPicked === true,
+      underlineTerms: p.underlineTerms === "always" ? "always" : "first",
     };
 }
 
