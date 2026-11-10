@@ -1968,3 +1968,12 @@ kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(-
 }
 /* Settings › Animations off: everything instant, app-wide (the canvases and count-ups read the same switch) */
 :root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+
+/* ═══════════ Round 12 — review ═══════════
+   A dialog opened from the header (Settings, the save mark) lives inside the header's stacking context (z 5), so the
+   pages' pinned action dock (z 6) drew over the bottom of the sheet — "Save to a file" and the font line sat under
+   "Open for service". While one of its dialogs is open, the header is lifted above everything; closed, it is as before. */
+.status-wrap:has(.modal-back) { z-index: 60; }
+/* The evening's Postcard button (top right) overlapped the brand logo (bottom right of the same head) by ~15 px at
+   1024–1280: on a wide head it moves left of the logo's column. */
+@media (min-width: 700px) { :root[data-brand] .evening__head.beathead .postcard__open { right: 60px; } }
