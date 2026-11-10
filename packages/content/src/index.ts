@@ -50,6 +50,7 @@ import type {
 import { validateExtras } from "./extras";
 
 export * from "./extras";
+export * from "./softDrinks";
 
 const SERVICE_TICKS = 120; // mirrors sim-core SERVICE_TICKS; kept local so this file imports types only
 const COURSES = ["starter", "main", "dessert", "drink", "side"];
