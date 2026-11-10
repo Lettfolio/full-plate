@@ -6,6 +6,7 @@
  * empire's rng, so holding a meeting doesn't change what the dice do next. The board's `advice` is what a sensible
  * operator would pick (the headless "board-follower" and the card's tip).
  */
+import { formatPounds } from "@full-plate/sim-core";
 import type { ContentPack } from "@full-plate/sim-core";
 import * as K from "./constants";
 import {
@@ -26,7 +27,7 @@ import { DISTRICT_SHORT } from "./world";
 
 type Decision = BoardMeeting["decision"];
 
-const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const pounds = formatPounds;
 const pct = (x: number) => `${Math.round(x * 1000) / 10}%`;
 const first = (name: string) => name.split(" ")[0] ?? name;
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
@@ -84,7 +85,7 @@ export function boardRisk(e: EmpireState, day: number): BoardRisk {
   if (failing) return { kind: "collapse", siteId: failing.id, text: `${failing.name} sells only ${pounds(failing.revenueYear)} a year. A shop below ${pounds(line)} is in trouble.` };
   const facility = developmentFacility(e);
   if (e.hq.cash < 0 && -e.hq.cash >= 0.8 * facility)
-    return { kind: "borrowing", text: `HQ has borrowed ${pounds(-e.hq.cash)}. The bank lends about ${pounds(K.FACILITY_PER_OPEN_SITE * e.hq.priceLevel)} per shop, so it may soon say no.` };
+    return { kind: "borrowing", text: `Head office has borrowed ${pounds(-e.hq.cash)}. The bank lends about ${pounds(K.FACILITY_PER_OPEN_SITE * e.hq.priceLevel)} per shop, so it may soon say no.` };
   const n = tired(e, day).length;
   if (n > 0) return { kind: "maturity", text: `${plural(n, "shop")} ${n === 1 ? "is" : "are"} getting tired: wages and repairs cost more each year.` };
   return { kind: "none", text: "No big worries this month." };
@@ -121,7 +122,7 @@ function royalty(_c: ContentPack, e: EmpireState): Decision | undefined {
   const options: BoardOption[] = [];
   if (up > r && !e.association.active)
     options.push({ id: "raise", label: `Raise it to ${pct(up)}`, detail: "More money from every shop. Shop owners won't like it: their mood drops.", cmd: { type: "SET_CONTRACT", contract: { royaltyPct: up }, applyTo: "all" } });
-  if (down < r) options.push({ id: "lower", label: `Lower it to ${pct(down)}`, detail: "Less money for HQ. Shop owners keep more and slowly cheer up.", cmd: { type: "SET_CONTRACT", contract: { royaltyPct: down }, applyTo: "all" } });
+  if (down < r) options.push({ id: "lower", label: `Lower it to ${pct(down)}`, detail: "Less money for head office. Shop owners keep more and slowly cheer up.", cmd: { type: "SET_CONTRACT", contract: { royaltyPct: down }, applyTo: "all" } });
   options.push({ id: "keep", label: `Keep it at ${pct(r)}`, detail: "Nothing changes." });
   const wantLower = (mood < 45 || med < 0.03) && options.some((o) => o.id === "lower");
   // A sensible board squeezes only happy, well-paid owners, and never past a point above the benchmark royalty.
@@ -227,11 +228,11 @@ function feeHoliday(_c: ContentPack, e: EmpireState, day: number): Decision | un
   const name = first(fr.name);
   return decision(
     "feeHoliday",
-    `${fr.name} is finding it hard${sites.length > 1 ? ` with ${plural(sites.length, "shop")}` : ""}. They ask for a break from paying the royalty. Help them?`,
+    `${fr.name} is finding it hard${sites.length > 1 ? ` with ${plural(sites.length, "shop")}` : ""}. They ask for a break from paying you their share. Help them?`,
     [
-      { id: "long", label: "Three months off", detail: `HQ gives up about ${pounds(royaltyDay * 90)}. ${name} cheers up a lot.`, cmd: { type: "FEE_HOLIDAY", franchiseeId: fr.id, days: 90 } },
-      { id: "short", label: "One month off", detail: `HQ gives up about ${pounds(royaltyDay * 30)}. ${name} cheers up a bit.`, cmd: { type: "FEE_HOLIDAY", franchiseeId: fr.id, days: 30 } },
-      { id: "no", label: "Say no", detail: `HQ keeps the money. ${name} will be upset.` },
+      { id: "long", label: "Three months off", detail: `Head office gives up about ${pounds(royaltyDay * 90)}. ${name} cheers up a lot.`, cmd: { type: "FEE_HOLIDAY", franchiseeId: fr.id, days: 90 } },
+      { id: "short", label: "One month off", detail: `Head office gives up about ${pounds(royaltyDay * 30)}. ${name} cheers up a bit.`, cmd: { type: "FEE_HOLIDAY", franchiseeId: fr.id, days: 30 } },
+      { id: "no", label: "Say no", detail: `Head office keeps the money. ${name} will be upset.` },
     ],
     fr.margin30d < 0 ? "long" : "short",
     `${name} will feel ignored: their mood drops.`,
@@ -250,7 +251,7 @@ function driveThru(_c: ContentPack, e: EmpireState): Decision | undefined {
   const more = Math.round((K.DRIVE_THRU_COVERS - 1) * 100);
   const affordable = e.hq.cash >= cost + capexReserve(e);
   const fr = site.franchisee ? e.franchisees.find((f) => f.id === site.franchisee) : undefined;
-  const lane: BoardOption = { id: "lane", label: fr ? "HQ pays for a lane" : "Add a drive-thru", detail: `${pounds(cost)} from HQ now. Cars can order without parking: about ${more}% more guests, but the bigger plot costs more rent.${fr ? ` ${first(fr.name)} will be pleased.` : ""}`, cmd: { type: "REMODEL", siteId: site.id, hqPays: true }, cost };
+  const lane: BoardOption = { id: "lane", label: fr ? "Head office pays for a lane" : "Add a drive-thru", detail: `${pounds(cost)} from head office now. Cars can order without parking: about ${more}% more guests, but the bigger plot costs more rent.${fr ? ` ${first(fr.name)} will be pleased.` : ""}`, cmd: { type: "REMODEL", siteId: site.id, hqPays: true }, cost };
   const wait: BoardOption = { id: "wait", label: "Not now", detail: fr ? "No cost. The lane comes with the shop's next planned refit." : "No cost. The shop stays as it is." };
   if (!fr) return decision("driveThru", `${site.name} has no drive-thru lane yet. Build one?`, [lane, wait], affordable ? "lane" : "wait");
   // A franchise shop: HQ can pay, or order the owner to pay now (a forced remodel the association can block).
@@ -270,9 +271,9 @@ function supplyMarkup(_c: ContentPack, e: EmpireState): Decision | undefined {
     const up = K.SUPPLY_MARKUP_STEP;
     return decision(
       "supplyMarkup",
-      "HQ buys the food for every shop. Charge shop owners a little extra for it?",
+      "Head office buys the food for every shop. Charge shop owners a little extra for it?",
       [
-        { id: "start", label: `Add ${pct(up)}`, detail: "HQ earns a little on every bun and bag of chips. Shop owners notice: their mood drops.", cmd: { type: "SET_SUPPLY_MARKUP", pct: up } },
+        { id: "start", label: `Add ${pct(up)}`, detail: "Head office earns a little on every bun and bag of chips. Shop owners notice: their mood drops.", cmd: { type: "SET_SUPPLY_MARKUP", pct: up } },
         { id: "cost", label: "Sell it at cost", detail: "Nothing changes. Shop owners keep their food cheap." },
       ],
       mood >= 70 && med >= 0.08 ? "start" : "cost",
@@ -282,7 +283,7 @@ function supplyMarkup(_c: ContentPack, e: EmpireState): Decision | undefined {
     "supplyMarkup",
     `You add ${pct(now)} to the food you sell shop owners. Keep it?`,
     [
-      { id: "drop", label: "Drop the markup", detail: "HQ earns less. Shop owners' food gets cheaper and they slowly cheer up.", cmd: { type: "SET_SUPPLY_MARKUP", pct: 0 } },
+      { id: "drop", label: "Drop the markup", detail: "Head office earns less. Shop owners' food gets cheaper and they slowly cheer up.", cmd: { type: "SET_SUPPLY_MARKUP", pct: 0 } },
       { id: "keep", label: `Keep ${pct(now)}`, detail: "Nothing changes." },
     ],
     mood < 50 || med < 0.04 ? "drop" : "keep",
@@ -301,7 +302,7 @@ function campaign(e: EmpireState): Decision {
     `People in ${region.name} know you ${rec} out of 100. Run adverts there?`,
     [
       { id: "advertise", label: `Advertise in ${region.name}`, detail: `${pounds(budget)} for a month of adverts. More people get to know you there.`, cmd: { type: "LAUNCH_CAMPAIGN", kind: "brand", budget, regionId: region.id }, cost: budget },
-      { id: "save", label: "Save the money", detail: "HQ keeps its cash for new shops." },
+      { id: "save", label: "Save the money", detail: "Head office keeps its cash for new shops." },
     ],
     e.hq.cash >= 4 * budget && rec < K.WIN_RECOGNITION + 5 ? "advertise" : "save",
   );

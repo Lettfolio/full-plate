@@ -174,3 +174,5 @@ export {
   NO_DECOR_EFFECTS, starterItem as starterDecor, wearOf as decorWear, wearShare as decorWearShare, type DecorEffects, type DecorWear,
 } from "./decor";
 export { DECOR_CAPS, DECOR_SLOTS, DECOR_WORN_SHARE } from "./constants";
+/** [round 11] The one pounds formatter (money.ts); the game's lib/format.ts re-exports it. */
+export { formatPence, formatPounds, MINUS, type MoneyFormatOptions } from "./money";

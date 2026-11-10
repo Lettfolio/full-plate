@@ -2,6 +2,7 @@
  * Command handlers. Each validates and either returns the new state or rejects with a
  * LOG event of kind "bad" (state unchanged). Never throws on bad input.
  */
+import { formatPence, formatPounds } from "./money";
 import {
   COMP_SATISFACTION_BONUS,
   DEFAULT_ROTA,
@@ -128,7 +129,7 @@ const hire: Handler<"HIRE"> = (content, state, cmd) => {
   if (!staff) return reject(state, "No such candidate.");
   const fee = recruitmentFeeOf(state);
   const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
-  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
+  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need ${formatPounds(needed)}).`);
   const next: GameState = {
     ...state,
     cash: state.cash - fee,
@@ -173,7 +174,7 @@ const hireStaff: Handler<"HIRE_STAFF"> = (_c, state, cmd) => {
   };
   const fee = recruitmentFeeOf(state);
   const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
-  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
+  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need ${formatPounds(needed)}).`);
   return ok({ ...state, cash: state.cash - fee, staff: [...state.staff, staff] }, `Hired ${staff.name} (${staff.role}).`, "good");
 };
 
@@ -213,7 +214,7 @@ const orderStock: Handler<"ORDER_STOCK"> = (content, state, cmd) => {
     cash: state.cash - cost,
     orders: [...state.orders, { ingredientId: ing.id, qty: cmd.qty, cost }],
   };
-  return ok(next, `Ordered ${cmd.qty} × ${ing.name} for £${(cost / 100).toFixed(2)} (arrives tomorrow).`, "money");
+  return ok(next, `Ordered ${cmd.qty} × ${ing.name} for ${formatPence(cost)} (arrives tomorrow).`, "money");
 };
 
 /**
@@ -242,7 +243,7 @@ const cancelOrder: Handler<"CANCEL_ORDER"> = (content, state, cmd) => {
     if (cut < o.qty) orders.unshift({ ...o, qty: o.qty - cut, cost: o.cost - back });
   }
   const n = Math.min(cmd.qty, pending);
-  return ok({ ...state, cash: state.cash + refund, orders }, `Cancelled ${n} × ${ing.name} (£${(refund / 100).toFixed(2)} back).`, "money");
+  return ok({ ...state, cash: state.cash + refund, orders }, `Cancelled ${n} × ${ing.name} (${formatPence(refund)} back).`, "money");
 };
 
 const buyTable: Handler<"BUY_TABLE"> = (content, state) => {
@@ -280,10 +281,10 @@ const eightySix: Handler<"EIGHTY_SIX"> = (content, state, cmd) => {
   const bad = requirePhase(state, ["planning", "service"], "86 a dish");
   if (bad) return bad;
   if (!state.menu.some((m) => m.dishId === cmd.dishId)) return reject(state, "That dish isn't on the menu.");
-  if ((state.eightySixed ?? []).includes(cmd.dishId)) return reject(state, "That dish is already 86'd.");
+  if ((state.eightySixed ?? []).includes(cmd.dishId)) return reject(state, "That dish is already off tonight.");
   let next: GameState = { ...state, eightySixed: [...(state.eightySixed ?? []), cmd.dishId] };
   if (state.phase === "service") next = { ...next, service: { ...tallyOf(next), arrivals: planArrivals(content, next) } };
-  return ok(next, `${findDish(content, cmd.dishId)?.name ?? cmd.dishId} is 86'd for today.`);
+  return ok(next, `${findDish(content, cmd.dishId)?.name ?? cmd.dishId} is taken off tonight.`);
 };
 
 const endDay: Handler<"END_DAY"> = (content, state) => {
@@ -335,7 +336,7 @@ const train: Handler<"TRAIN"> = (_c, state, cmd) => {
   if (who.trainingDay === state.day) return reject(state, `${who.name} is already on a course today.`);
   if (cmd.track !== undefined) return trainTrack(state, who, cmd.track);
   if (who.skill >= who.potential) return reject(state, `${who.name} has learned all a course can teach them.`);
-  if (state.cash < TRAINING_FEE) return reject(state, `Not enough cash for a course (£${Math.round(TRAINING_FEE / 100)}).`);
+  if (state.cash < TRAINING_FEE) return reject(state, `Not enough cash for a course (${formatPounds(TRAINING_FEE)}).`);
   const rng = Rng.fromSeed(hashSeed(state.seed, state.day, TRAIN_SALT, state.staff.indexOf(who)));
   const gain = rng.int(TRAINING_SKILL_GAIN[0], TRAINING_SKILL_GAIN[1]);
   const skill = round2(Math.min(who.potential, who.skill + gain));
@@ -355,7 +356,7 @@ function trainTrack(state: GameState, who: Staff, trackId: string): StepResult {
   if (!t.roles.includes(who.role)) return reject(state, `${t.name} isn't a course for a ${who.role}.`);
   const fee = nextTrackFee(who, t);
   if (fee === undefined) return reject(state, `${who.name} has finished every level of ${t.name}.`);
-  if (state.cash < fee) return reject(state, `Not enough cash for ${t.name} (£${Math.round(fee / 100)}).`);
+  if (state.cash < fee) return reject(state, `Not enough cash for ${t.name} (${formatPounds(fee)}).`);
   const level = trackLevel(who, t.id) + 1;
   const raised: Partial<Staff> = {};
   if (t.stat) {
@@ -476,7 +477,7 @@ const playerDropped: Handler<"PLAYER_DROPPED"> = (content, state, cmd) => {
   });
   // The cost is real money now (a re-cook, breakage): cash, today's food cost and the plate-waste line.
   tally = { ...tally, plateWaste: tally.plateWaste + cost, foodCost: (tally.foodCost ?? 0) + cost };
-  return ok({ ...state, cash: state.cash - cost, tickets, service: tally }, cost ? `Dropped! That cost £${(cost / 100).toFixed(2)}.` : undefined, "money");
+  return ok({ ...state, cash: state.cash - cost, tickets, service: tally }, cost ? `Dropped! That cost ${formatPence(cost)}.` : undefined, "money");
 };
 
 /**
@@ -549,7 +550,7 @@ const setSetMenu: Handler<"SET_SET_MENU"> = (content, state, cmd) => {
   if (cmd.dishIds.some((id) => !findDish(content, id))) return reject(state, "Unknown dish.");
   if (!validPrice(cmd.price)) return reject(state, "Prices must be whole pence between £0 and £1,000.");
   const setMenu = { dishIds: cmd.dishIds.slice(), price: cmd.price, active: !!cmd.active };
-  return ok({ ...state, setMenu }, setMenu.active ? `Set menu on: ${setMenu.dishIds.length} courses for £${(setMenu.price / 100).toFixed(2)}.` : "Set menu saved (off).");
+  return ok({ ...state, setMenu }, setMenu.active ? `Set menu on: ${setMenu.dishIds.length} courses for ${formatPence(setMenu.price)}.` : "Set menu saved (off).");
 };
 
 const setOwnerProfile: Handler<"SET_OWNER_PROFILE"> = (_c, state, cmd) => {
@@ -562,7 +563,7 @@ const setOwnerProfile: Handler<"SET_OWNER_PROFILE"> = (_c, state, cmd) => {
 
 // ── round 10: decorating ──
 const DECOR_PHASES: readonly Phase[] = ["planning", "evening"];
-const pounds = (p: number) => `£${(p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
+const pounds = (p: number) => formatPence(p, { trim: true });
 
 const buyDecor: Handler<"BUY_DECOR"> = (content, state, cmd) => {
   const bad = requirePhase(state, DECOR_PHASES, "decorate");

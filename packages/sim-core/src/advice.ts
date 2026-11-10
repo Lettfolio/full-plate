@@ -13,6 +13,7 @@
  * `learner-*` owners read. Thresholds and words come from the content pack (`ContentPack.adviceText`), with the
  * defaults below. Everything here is pure.
  */
+import { formatPence, formatPounds } from "./money";
 import { VAT_RATE } from "./constants";
 import { suggestedOrder } from "./forecast";
 import { shiftCost } from "./systems/finance";
@@ -112,15 +113,14 @@ export interface Advice {
   now?: true;
 }
 
-/** "£1,234" (whole pounds, en-GB grouping); negatives as "-£12". */
+/** "£1,234" (whole pounds, en-GB grouping); negatives as "−£12" (round 11: the one formatter, money.ts). */
 export function poundsText(pence: number): string {
-  const p = Math.round(Math.abs(pence) / 100);
-  return `${pence < 0 && p ? "-" : ""}£${String(p).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  return formatPounds(pence);
 }
 /** "80p" under a pound, "£1.20" above. */
 export function penceText(pence: number): string {
   const p = Math.round(pence);
-  return Math.abs(p) < 100 ? `${p}p` : `£${(p / 100).toFixed(2)}`;
+  return Math.abs(p) < 100 ? `${p}p` : formatPence(p);
 }
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

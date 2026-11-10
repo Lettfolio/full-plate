@@ -11,6 +11,7 @@
  * service, at least INCIDENT_MIN_GAP_TICKS between starts. Outcomes are mechanical (cash, chef time, FOH actions,
  * satisfaction, stock, prestige); all text comes from src/incidents/text.ts.
  */
+import { formatPence } from "../money";
 import {
   BREAK_FATIGUE_RELIEF,
   BREAK_TICKS,
@@ -65,7 +66,7 @@ import { OWNER_ID, cooksOnShift } from "./kitchen";
 import { findTable } from "./seating";
 import { effectiveCharm, effectiveSkill, refreshFloor, type SystemResult } from "./system";
 
-const money = (p: number): string => `£${(p / 100).toFixed(p % 100 === 0 ? 0 : 2)}`;
+const money = (p: number): string => formatPence(p, { trim: true });
 const tableNo = (id: string | undefined): string => (id ?? "").replace(/^T/, "");
 const isFoh = (s: Staff): boolean => s.role === "server" || s.role === "bar" || s.role === "manager";
 

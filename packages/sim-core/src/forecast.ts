@@ -9,6 +9,7 @@
  *    raised to each dish's own recent sales rate when that is higher.
  *  - suggestedOrder: per ingredient, forecast need − on hand − already ordered, rounded up to ORDER_ROUND_TO.
  */
+import { formatPounds } from "./money";
 import {
   COURSE_ORDER_CHANCE,
   DIFFICULTY,
@@ -155,5 +156,5 @@ export function buyOpeningStock(content: ContentPack, state: GameState): { state
     cost += c;
   }
   const next: GameState = { ...state, stock, cash: state.cash - cost };
-  return { state: next, events: [logEvent(state, `Opening stock delivered for £${Math.round(cost / 100)}.`, "money")] };
+  return { state: next, events: [logEvent(state, `Opening stock delivered for ${formatPounds(cost)}.`, "money")] };
 }

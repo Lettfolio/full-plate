@@ -80,7 +80,7 @@ function consistencyText(stars: StarsState, state: GameState, steady: number): s
   if ((hc.disruptedUntil ?? -1) > state.day) return "The kitchen is still finding its feet after losing its head chef. Keep the same brigade on every night until it settles.";
   if (hc.stress > STRESS_CONSISTENCY_FROM) return `Your head chef is stressed (${round(hc.stress)}/100) and the cooking wobbles. Stagiaires, a quieter week or a relaunch would help.`;
   const untrained = stars.satellites.filter((s) => !s.headChefTrained).length;
-  if (untrained) return `${untrained === 1 ? "A satellite" : `${untrained} satellites`} without a trained head chef ${untrained === 1 ? "pulls" : "pull"} your cooks thin. Train a head chef for ${untrained === 1 ? "it" : "them"}.`;
+  if (untrained) return `${untrained === 1 ? "A sister restaurant" : `${untrained} sister restaurants`} without a trained head chef ${untrained === 1 ? "pulls" : "pull"} your cooks thin. Train a head chef for ${untrained === 1 ? "it" : "them"}.`;
   return `Steadiness is ${round(steady)}: the guide wants every night to taste the same. Restock every evening and keep your best chefs on the rota.`;
 }
 
@@ -123,7 +123,7 @@ function personalityText(content: ContentPack, stars: StarsState, state: GameSta
 
 function ingredientsText(content: ContentPack, stars: StarsState, inputs: DayInputs): string {
   const p = produceShares(content, stars, inputs);
-  if (!stars.sourcing.length) return "You buy everything from the wholesaler. Sign a local farm or boat under Sourcing: the guide notices where the produce comes from.";
+  if (!stars.sourcing.length) return "You buy everything from the big supplier. Sign a local farm or boat under Sourcing: the guide notices where the produce comes from.";
   const unsigned = SUPPLIERS.length - stars.sourcing.length;
   const rel = stars.sourcing.reduce((a, s) => a + s.relationship, 0) / stars.sourcing.length;
   if (p.season < 0.5) return `Only about ${round(p.season * 100)}% of your fresh produce is in season this month. Cook with the season (a tasting menu that's in season is the quick way).`;

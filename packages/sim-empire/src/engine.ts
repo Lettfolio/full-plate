@@ -8,6 +8,7 @@
  *   random events (scandal, supplier outage, forced exit, ideas, applicants) → association → HQ overheads,
  *   mortgages, inflation, solvency → meals, win check, monthly snapshot.
  */
+import { formatPounds } from "@full-plate/sim-core";
 import { applyCommand, forecastNeeds, newGame, setFootfallMod, type ContentPack, type GameState, type Staff, type Stock } from "@full-plate/sim-core";
 import * as K from "./constants";
 import {
@@ -404,7 +405,7 @@ function finish(x: Ctx): EmpireStepResult {
   return { empire: e, events: x.events };
 }
 
-const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const pounds = formatPounds;
 
 function newId(e: EmpireState, prefix: string): string {
   return `${prefix}${e.nextId++}`;
@@ -730,7 +731,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   const median = medianFranchiseeMargin(e) ?? 0;
   if (!e.association.active && active.length >= K.ASSOCIATION_MIN_FRANCHISEES && moodNow < K.ASSOCIATION_MOOD && median < K.ASSOCIATION_LOSS_MARGIN) {
     e.association = { active: true, formedDay: day };
-    emit(x, "association", `Franchisees form an association (mood ${moodNow.toFixed(0)}; the typical owner is losing money). Royalty rises, forced remodels and discount campaigns are blocked until they make money again.`, "bad");
+    emit(x, "association", `Franchisees form an association (mood ${moodNow.toFixed(0)}; the typical owner is losing money). Your share rises, forced remodels and discount campaigns are blocked until they make money again.`, "bad");
   } else if (e.association.active && (moodNow >= K.ASSOCIATION_DISSOLVE_MOOD || median >= K.ASSOCIATION_DISSOLVE_MARGIN || active.length < K.ASSOCIATION_MIN_FRANCHISEES)) {
     e.association = { active: false };
     emit(x, "association", "The franchisee association stands down: owners are happy enough again.", "good");
@@ -766,7 +767,7 @@ export function stepEmpireDay(content: ContentPack, empire: EmpireState, focused
   e.hq.priceLevel *= (1 + K.INFLATION) ** (1 / K.DAYS_PER_YEAR);
   if (e.hq.cash < -K.HQ_CREDIT_LINE * e.hq.priceLevel) {
     e.status = "bankrupt";
-    emit(x, "bankrupt", `HQ is out of credit (${pounds(e.hq.cash)}). The banks call in the loans.`, "bad");
+    emit(x, "bankrupt", `Head office is out of credit (${pounds(e.hq.cash)}). The banks call in the loans.`, "bad");
   }
 
   // ── meals, win, history ──
@@ -872,7 +873,7 @@ function handBackKeys(x: Ctx, s: SiteSummary, fr: Franchisee, why: string): void
   if (e.hq.cash > K.TAKEOVER_CASH_PER_SITE && s.revenueYear >= K.COLLAPSE_REVENUE_YEAR * e.hq.priceLevel * 0.8) {
     s.ownership = "company";
     if (s.land === "thirdParty") s.land = "hqLease";
-    emit(x, "bought_back", `${fr.name} hands back the keys to ${s.name} (${why}); HQ runs it now.`, "bad", { siteId: s.id });
+    emit(x, "bought_back", `${fr.name} hands back the keys to ${s.name} (${why}); head office runs it now.`, "bad", { siteId: s.id });
   } else {
     if (s.land === "thirdParty") s.land = "hqLease"; // the guarantee falls on HQ
     closeSite(x, s, `${fr.name} handed back the keys: ${why}`);
@@ -910,7 +911,7 @@ function doRemodel(x: Ctx, s: SiteSummary, forced: boolean, hqPays = false): voi
     // The lane needs the bigger corner plot: the rent moves to the drive-thru plot's (round 5).
     s.rent = Math.max(s.rent, marketRent(x.content, city, s.districtId, e.hq.priceLevel, plotRentMult(true)));
   }
-  emit(x, "remodel", `${s.name} remodelled for ${pounds(cost)}${fr ? (hqPays ? " (paid by HQ)" : ` (paid by ${fr.name}${forced ? ", forced" : ""})`) : ""}${addDrive ? ", now with a drive-thru" : ""}.`, forced ? "bad" : "money", { siteId: s.id });
+  emit(x, "remodel", `${s.name} remodelled for ${pounds(cost)}${fr ? (hqPays ? " (paid by head office)" : ` (paid by ${fr.name}${forced ? ", forced" : ""})`) : ""}${addDrive ? ", now with a drive-thru" : ""}.`, forced ? "bad" : "money", { siteId: s.id });
 }
 
 function inspect(x: Ctx, s: SiteSummary): void {
@@ -1079,7 +1080,7 @@ function holdBoardMeeting(x: Ctx, day: number): void {
   e.boardMeeting = m;
   e.boardDistrictSales = districtSales(e);
   e.monthBook = emptyBook();
-  emit(x, "boardMeeting", `Board meeting: HQ made ${pounds(bookNet(m.income))} this month. ${m.decision.question}`, "info", { day });
+  emit(x, "boardMeeting", `Board meeting: head office made ${pounds(bookNet(m.income))} this month. ${m.decision.question}`, "info", { day });
 }
 
 /** What a skipped (or refused) question costs: an ignored franchisee sulks; owners who hoped for a lower royalty grumble. */
@@ -1142,7 +1143,7 @@ export function associationBlocks(e: EmpireState, cmd: EmpireCommand): string | 
 }
 
 export function applyEmpireCommand(content: ContentPack, empire: EmpireState, cmd: EmpireCommand): EmpireStepResult {
-  if (empire.status === "bankrupt") return reject(empire, "HQ is bankrupt.");
+  if (empire.status === "bankrupt") return reject(empire, "Head office is bankrupt.");
   const blocked = associationBlocks(empire, cmd);
   if (blocked) return reject(empire, blocked);
   const e = draft(empire);
@@ -1231,12 +1232,12 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       mealsServed: 0,
     };
     if (cmd.ownership === "company") {
-      if (spendable(e) < build) return `Building a site in ${city.name} costs ${pounds(build)}; HQ can spend ${pounds(spendable(e))}.`;
+      if (spendable(e) < build) return `Building a site in ${city.name} costs ${pounds(build)}; head office can spend ${pounds(spendable(e))}.`;
       e.hq.cash -= build;
     } else {
       if (cmd.ownership === "licence") {
         const setup = Math.round(K.LICENCE_SETUP_COST * city.costIndex * e.hq.priceLevel);
-        if (spendable(e) < setup) return `A licence costs HQ ${pounds(setup)} to set up.`;
+        if (spendable(e) < setup) return `A licence costs head office ${pounds(setup)} to set up.`;
         e.hq.cash -= setup;
       }
       const fr = takeFranchisee(x, cmd.applicantId, cmd.franchiseeId);
@@ -1253,7 +1254,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       s.franchisee = fr.id;
       s.contract = siteContract(e.contract, e.hq.day, cmd.ownership);
       fr.sites.push(id);
-      emit(x, "franchise_sold", `${fr.name} signs for ${s.name}: ${pounds(fee)} fee to HQ.`, "money", { siteId: id });
+      emit(x, "franchise_sold", `${fr.name} signs for ${s.name}: ${pounds(fee)} fee to head office.`, "money", { siteId: id });
     }
     e.sites.push(s);
     x.site.set(id, s);
@@ -1395,7 +1396,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   LAUNCH_CAMPAIGN: (x, cmd) => {
     const e = x.e;
     if (!(cmd.budget > 0)) return "A campaign needs a budget.";
-    if (spendable(e) < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} campaign.`;
+    if (spendable(e) < cmd.budget) return `Head office can't fund a ${pounds(cmd.budget)} campaign.`;
     if (cmd.regionId && !e.regions.some((r) => r.id === cmd.regionId)) return "No such region.";
     e.hq.cash -= Math.round(cmd.budget);
     const day = e.hq.day;
@@ -1450,7 +1451,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   LAUNCH_PRODUCT: (x, cmd) => {
     const e = x.e;
     if (!(cmd.budget > 0)) return "A launch needs a budget.";
-    if (spendable(e) < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} launch.`;
+    if (spendable(e) < cmd.budget) return `Head office can't fund a ${pounds(cmd.budget)} launch.`;
     if (cmd.fit === "franchiseeIdea" && !e.pendingIdea) return "No franchisee idea is waiting.";
     e.hq.cash -= Math.round(cmd.budget);
     const p = clamp(K.PRODUCT_SUCCESS[cmd.fit] + Math.min(0.15, (cmd.budget / K.PRODUCT_BUDGET_REF) * 0.1), 0.05, 0.9);
@@ -1482,7 +1483,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       x.e.hq.cash -= s.operatorLoan?.remaining ?? 0;
       if (fr) for (const o of x.e.franchisees) if (o.sites.length) o.mood = clamp(o.mood - (o === fr ? 15 : 3), 0, 100);
     }
-    closeSite(x, s, "HQ decision");
+    closeSite(x, s, "head office decision");
     return undefined;
   },
 
@@ -1511,7 +1512,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     s.brandConsistency = clamp(s.brandConsistency + K.REFURB_CONSISTENCY_BONUS, 0, 100);
     const fr = s.franchisee ? x.fr.get(s.franchisee) : undefined;
     if (fr) fr.mood = clamp(fr.mood + K.MOOD_HQ_INVESTS, 0, 100);
-    emit(x, "refurb", `${s.name} refurbished for ${pounds(cost)}${fr ? " (paid by HQ)" : ""}: it feels new again.`, "money", { siteId: s.id });
+    emit(x, "refurb", `${s.name} refurbished for ${pounds(cost)}${fr ? " (paid by head office)" : ""}: it feels new again.`, "money", { siteId: s.id });
     return undefined;
   },
 
@@ -1519,11 +1520,11 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const e = x.e;
     const fr = x.fr.get(cmd.franchiseeId);
     if (!fr || !fr.sites.length) return "No such franchisee.";
-    if (fr.feeHolidayUntil !== undefined && fr.feeHolidayUntil > e.hq.day) return `${fr.name} already has a royalty holiday.`;
+    if (fr.feeHolidayUntil !== undefined && fr.feeHolidayUntil > e.hq.day) return `${fr.name} already has a break from paying their share.`;
     const days = Math.round(clamp(cmd.days, ...K.FEE_HOLIDAY_DAYS));
     fr.feeHolidayUntil = e.hq.day + days;
     fr.mood = clamp(fr.mood + K.MOOD_FEE_HOLIDAY_BASE + (K.MOOD_FEE_HOLIDAY_PER_MONTH * days) / 30, 0, 100);
-    emit(x, "fee_holiday", `${fr.name} pays no royalty for ${days} days.`, "money");
+    emit(x, "fee_holiday", `${fr.name} pays you no share for ${days} days.`, "money");
     return undefined;
   },
 
@@ -1536,7 +1537,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (risePp > 0) for (const fr of e.franchisees) if (fr.sites.length) fr.mood = clamp(fr.mood - risePp * K.MOOD_SUPPLY_MARKUP_SHOCK, 0, 100);
     if (pct > 0) e.supplyMarkupPct = pct;
     else delete e.supplyMarkupPct;
-    emit(x, "supply_markup", pct > 0 ? `HQ now adds ${(pct * 100).toFixed(0)}% to the food it sells franchisees.` : "HQ sells franchisees their food at cost again.", "info");
+    emit(x, "supply_markup", pct > 0 ? `Head office now adds ${(pct * 100).toFixed(0)}% to the food it sells franchisees.` : "Head office sells franchisees their food at cost again.", "info");
     return undefined;
   },
 
@@ -1580,7 +1581,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   TRANSFER_FROM_FOCUSED: (x, cmd) => {
     if (!(cmd.amount > 0)) return "Transfer a positive amount.";
     x.e.hq.cash += Math.round(cmd.amount);
-    emit(x, "transfer", `${pounds(cmd.amount)} moved from the flagship's till to HQ.`, "money");
+    emit(x, "transfer", `${pounds(cmd.amount)} moved from the flagship's till to head office.`, "money");
     return undefined;
   },
 

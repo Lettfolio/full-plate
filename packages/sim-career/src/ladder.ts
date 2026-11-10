@@ -1,12 +1,13 @@
 /** The rung ladder: track stats, rung lookups, wages and the visible promotion checklist. */
+import { formatPence, formatPounds } from "@full-plate/sim-core";
 import type { Staff, StaffRole } from "@full-plate/sim-core";
 import { LADDER, NLW, OWNERS, PROMOTION_ASK_COOLDOWN, REVIEWS_FOR_AVG, START_STATS } from "./constants";
 import type { CareerState, CareerTrack, ChecklistItem, PlayerStats, PromotionChecklist, PromotionCriteria, RungDef } from "./types";
 
 export const clamp = (x: number, lo: number, hi: number): number => (x < lo ? lo : x > hi ? hi : x);
 export const round2 = (x: number): number => Math.round(x * 100) / 100;
-export const pounds = (p: number): string => `${p < 0 ? "−" : ""}£${Math.round(Math.abs(p) / 100).toLocaleString("en-GB")}`;
-export const perHour = (p: number): string => `£${(p / 100).toFixed(2)}/h`;
+export const pounds = (p: number): string => formatPounds(p);
+export const perHour = (p: number): string => `${formatPence(p)}/h`;
 
 export function rungsOf(track: CareerTrack): readonly RungDef[] {
   return LADDER[track];

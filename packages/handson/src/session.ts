@@ -5,6 +5,7 @@
  * randomness (chop-mark jitter, where the green band sits) comes from sim-core's xoshiro Rng whose state lives in the
  * session. The same session + state + input/dt sequence always gives identical sessions and results.
  */
+import { formatPence } from "@full-plate/sim-core";
 import { PLAYER_COOK_ID, weekdayOf, type ContentPack, type Customer, type GameState, type KitchenTicket, type TableId } from "@full-plate/sim-core";
 import { buildLayout, dishProfiles, isBlocked, profileFor, SPAWN } from "./layout";
 import { Rng, hashSeed } from "./rng";
@@ -545,7 +546,7 @@ function dropCarried(s: HandsOnSession, results: HandsOnResult[], why: string) {
   s.score.drops++;
   s.score.dropCost += cost;
   addPoints(s.score, POINTS.drop);
-  toast(s, `${why} −£${(cost / 100).toFixed(2)}`, "bad");
+  toast(s, `${why} ${formatPence(-cost)}`, "bad");
 }
 
 // ───────────────────────── housekeeping ─────────────────────────
@@ -806,7 +807,7 @@ export function updateSession(session: HandsOnSession, state: GameState, input: 
         const cost = Math.round(profile(s, a.dishId ?? "").cost * 0.5);
         results.push({ type: "DROPPED", cost, item: "plates" });
         s.score.drops++; s.score.dropCost += cost; addPoints(s.score, POINTS.drop);
-        toast(s, `Overflow! −£${(cost / 100).toFixed(2)}`, "bad", stationCentre(s, a.stationId));
+        toast(s, `Overflow! ${formatPence(-cost)}`, "bad", stationCentre(s, a.stationId));
       }
     } else if (a.verb === "clear") {
       if (pressed) a.taps = (a.taps ?? 0) + 1;

@@ -2,6 +2,7 @@
  * applyStarsCommand — the Stars path's player decisions. Pure. Costs go through the ledger (`pendingCash`), so the
  * game pays them at the next applyStarsEffects; affordability is checked against `ctx.cash` minus what's already owed.
  */
+import { formatPounds } from "@full-plate/sim-core";
 import type { ContentPack, GameState } from "@full-plate/sim-core";
 import {
   BACK_HEAD_CHEF_COST,
@@ -49,7 +50,7 @@ function spend(stars: StarsState, ctx: CommandContext, cost: number): StarsState
   return { ...stars, ledger: { ...stars.ledger, pendingCash: stars.ledger.pendingCash - cost } };
 }
 
-const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const pounds = formatPounds;
 
 /** Supplier catalogue limited to ingredients the content pack actually has. */
 export function supplierCatalogue(content: ContentPack): { id: string; name: string; ingredientIds: string[] }[] {
@@ -89,7 +90,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       return { stars: { ...s, testKitchen: { ...tk, inProgress: { dishId: dish.id, daysLeft } } }, events: [log(`The test kitchen starts on ${dish.name} (${daysLeft} days).`)] };
     }
     case "OPEN_SATELLITE": {
-      if (stars.satellites.length >= MAX_SATELLITES) return reject(stars, `The group is already ${MAX_SATELLITES} satellites wide.`);
+      if (stars.satellites.length >= MAX_SATELLITES) return reject(stars, `The group is already ${MAX_SATELLITES} sister restaurants big.`);
       const cost = satelliteCost(stars, cmd.kind);
       const s = spend(stars, ctx, cost);
       if (!s) return reject(stars, `Opening a ${SATELLITES[cmd.kind].label.toLowerCase()} costs ${pounds(cost)}.`);
@@ -109,7 +110,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
     }
     case "TRAIN_SATELLITE_CHEF": {
       const sat = stars.satellites.find((x) => x.id === cmd.satelliteId);
-      if (!sat) return reject(stars, "No such satellite.");
+      if (!sat) return reject(stars, "No such sister restaurant.");
       if (sat.headChefTrained || sat.trainingDaysLeft !== undefined) return reject(stars, "That kitchen already has (or is training) its own head chef.");
       const s = spend(stars, ctx, SATELLITE_TRAINING_COST);
       if (!s) return reject(stars, `Training a head chef costs ${pounds(SATELLITE_TRAINING_COST)}.`);
@@ -119,8 +120,8 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       };
     }
     case "CLOSE_SATELLITE": {
-      if (!stars.satellites.some((x) => x.id === cmd.satelliteId)) return reject(stars, "No such satellite.");
-      return { stars: { ...stars, satellites: stars.satellites.filter((x) => x.id !== cmd.satelliteId) }, events: [log("A satellite closes. The group is smaller and the flagship steadier.")] };
+      if (!stars.satellites.some((x) => x.id === cmd.satelliteId)) return reject(stars, "No such sister restaurant.");
+      return { stars: { ...stars, satellites: stars.satellites.filter((x) => x.id !== cmd.satelliteId) }, events: [log("A sister restaurant closes. The group is smaller and the flagship steadier.")] };
     }
     case "UNLOCK_TICKETING": {
       if (stars.ticketing.unlocked) return reject(stars, "Ticketing is already set up.");
