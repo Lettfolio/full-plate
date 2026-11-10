@@ -59,7 +59,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
       <div className="status">
         <div className="status__who">
           <div className="status__name">
-            {game.restaurantName}
+            <span className="status__logo" aria-hidden="true" /><span className="brandname">{game.restaurantName}</span>
             {badges.map((b) => <span key={b.id} className={`pathbadge pathbadge--${b.tone}`}>{b.label}</span>)}
             {style && <span className={`pathbadge pathbadge--style pathbadge--style-${style.tag}`} title="Your restaurant's style">{style.name}</span>}
           </div>

@@ -1,7 +1,8 @@
 import { lazy, Suspense, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { MoneyText } from "../components/MoneyText";
-import { Shopfront } from "../components/Shopfront";
+// Round 12 (B): the shopfront picture is its own chunk (it is also the brand kit's preview); the main chunk was full.
+const Shopfront = lazy(() => import("../components/Shopfront").then((m) => ({ default: m.Shopfront })));
 // Round 11 (D): "How do I win?" (pictures and all) loads when opened (main-chunk budget).
 const GoalExplainer = lazy(() => import("../components/GoalExplainer").then((m) => ({ default: m.GoalExplainer })));
 import { ConfirmDialog } from "../components/Dialog";
@@ -63,7 +64,7 @@ export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, save
     <div className="title">
       <div className="title__inner">
         <div className="title__art">
-          <Shopfront className="title__shop" />
+          <Suspense fallback={<svg className="title__shop" viewBox="0 0 480 420" aria-hidden="true" />}><Shopfront className="title__shop" /></Suspense>
         </div>
         <div className="title__side">
           <h1 className="title__logo">Full <span>Plate</span></h1>

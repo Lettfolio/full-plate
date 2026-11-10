@@ -18,6 +18,7 @@ import { starsGuideResult, starsVisit, validateStarsState } from "@full-plate/si
 import { deserialize, serialize } from "../sim";
 import { decodeSave, type Loaded } from "./save";
 import type { PathMeta } from "./paths";
+import { BRAND_RE } from "../lib/brandCode";
 import { CHUNK_SIZE, MAX_CHUNKS, MAX_PACKED, type CloudHeader } from "./saveStore";
 
 export { SchemaError };
@@ -56,6 +57,8 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   })),
   lastPathDay: day,
   morningDay: opt(day),
+  // Round 12 (B): the brand code; a malformed one is dropped below (the name's default brand shows instead).
+  brand: opt(str(80)),
 }, false);
 
 /** A decoded save, checked and cleaned. Throws a SchemaError naming the first bad field. */
@@ -63,6 +66,7 @@ export function validateLoaded(l: Loaded): Loaded {
   const game = validateGameState(l.game);
   const { career, empire, stars, ...rest } = l.meta;
   const meta = metaSchema(rest, "meta") as PathMeta;
+  if (meta.brand !== undefined && !BRAND_RE.test(meta.brand)) delete meta.brand;
   if (career) meta.career = validateCareerState(career);
   if (empire) meta.empire = validateEmpireState(empire);
   if (stars) meta.stars = validateStarsState(stars);
@@ -107,6 +111,7 @@ const headerSchema = obj<CloudHeader>({
   hw: opt(int(0, MAX_CHUNKS)),
   backupOf: opt(id),
   archived: opt(bool),
+  brand: opt(str(80)),
 }, false);
 
 /**

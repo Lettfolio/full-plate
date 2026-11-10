@@ -26,6 +26,7 @@ import { art, C, D, loadDecorArt, motion, PLAIN, setFrame, setPalette } from "./
 import { aislePath, clamp, computeLayout, dist, lerp, type Layout, type Pt, type TableSlot } from "./layout";
 import { L_PERSON_STAFF, SEATED, staffLook, type Floaty, type Sprite, type StaffSprite } from "./people";
 import { pickTable } from "./interaction";
+import { brandLook, canvasBrand, type CanvasBrand } from "./brand";
 import { alpha, label, menu, moodFace, patienceColour, plate, radial, roundRect, setting, tableTop } from "./paint";
 import { paintFloor, paintFurniture, paintLight } from "./scene";
 
@@ -62,6 +63,8 @@ export interface RenderOptions {
   preview?: boolean;
   /** Round 10 review: the career player (staff id) wears the look they picked (sim-core `playerAvatar`), as on My shift. */
   playerLook?: { id: string; skin: string; hair: string };
+  /** Round 12 (B): the house uniform; omitted = the page's brand (canvas/brand.ts), null = none. */
+  brand?: CanvasBrand | null;
 }
 
 export class RestaurantView {
@@ -656,7 +659,7 @@ export class RestaurantView {
   private drawStaffMarker(s: Staff, x: number, y: number, sp: StaffSprite, opts: RenderOptions, carrying: boolean, bill = false, tagBeside = false) {
     const ctx = this.ctx;
     const r = clamp(L_PERSON_STAFF * (this.layout?.person ?? 8), 7, 11);
-    const look = staffLook(s, opts.playerLook?.id === s.id ? opts.playerLook : undefined);
+    const look = brandLook(staffLook(s, opts.playerLook?.id === s.id ? opts.playerLook : undefined), s.role, opts.brand === undefined ? canvasBrand() : opts.brand);
     const walking = sp.moving && !!motion;
     const hy = this.people.draw(ctx, x, y, r, look, { facing: sp.facing, moving: walking, phase: walking ? opts.now / 85 : 0, carrying: carrying || bill, outline: C.outline, shadow: C.shadow }, this.dpr);
     if (carrying || bill) {
