@@ -106,6 +106,11 @@ export function SettingsMenu({ onQuit, onNewGame, saveName, onSave, onSaveFile }
               <p className="small">Finish tonight's service first, then you can leave or start again from here.</p>
             )}
           </div>
+          {/* Round 11 — E (red-team S13): font credit. Keep this the last thing in the sheet. */}
+          <p className="small muted sheet__about">
+            About: the letters are Fredoka and Nunito, free fonts shared under the SIL Open Font License.{" "}
+            <a className="btn btn--ghost btn--tap" href="fonts-licence/OFL.txt" target="_blank" rel="noopener">Font licence</a>
+          </p>
         </Dialog>
       )}
       {confirm === "new" && onNewGame && (
