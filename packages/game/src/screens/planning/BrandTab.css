@@ -1,0 +1,78 @@
+/* Round 12 (B): the brand card (Restaurant tab), the brand kit sheet and the postcard sheet. */
+.brandcard { grid-column: 1 / -1; }
+.brandcard__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 20px; align-items: center; }
+.brandcard__mark { display: flex; gap: 16px; align-items: center; }
+.brandcard__name { display: block; font-size: 30px; line-height: 1.1; margin-bottom: 4px; overflow-wrap: anywhere; }
+.brandcard__shop { width: 100%; height: auto; max-height: 220px; }
+.brandcard__buttons { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.brandcard__buttons p { margin: 0; flex: 1 1 260px; }
+.brandlogo { display: block; flex: none; }
+.wordmark { color: var(--ink); }
+
+.brandsheet.modal, .postcard.modal { display: flex; flex-direction: column; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); }
+.brandsheet.modal { width: min(1100px, 100%); }
+.brandsheet .modal__body, .postcard .modal__body { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.brandsheet__grid { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.brandsheet__preview {
+  position: sticky; top: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px;
+  background: var(--surface-inset, #f7eedc); border: 2px solid var(--border-subtle, #e4d6bd); border-radius: var(--radius-md, 14px);
+}
+.brandprev__head { display: flex; gap: 12px; align-items: center; }
+.brandprev__name { font-size: 26px; line-height: 1.1; overflow-wrap: anywhere; }
+.brandprev__shop { width: 100%; height: auto; }
+.brandprev__menu { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px; font-size: 20px; border-radius: 14px; }
+.brandprev__menu--classic { background: var(--paper); border-top: 4px double var(--brand-primary); border-bottom: 4px double var(--brand-primary); border-radius: 0; }
+.brandprev__menu--classic .wordmark { color: var(--ink); }
+.brandprev__menu--modern { background: var(--brand-primary); box-shadow: inset 0 -5px 0 var(--brand-accent); }
+.brandprev__menu--modern .wordmark { color: var(--on-brand-primary); }
+.brandprev__menu--chalkboard { background: #26302b; border: 4px solid #8a5a35; box-shadow: inset 0 -3px 0 var(--brand-accent); }
+.brandprev__menu--chalkboard .wordmark { color: #f7f3ea; }
+.brandprev__crew { display: flex; gap: 10px; flex-wrap: wrap; }
+.brandprev__crew figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+.brandsheet__controls { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.brandset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.brandset legend { font-family: var(--font-display); font-weight: 600; font-size: 18px; padding: 0; margin-bottom: 6px; }
+.brandset__row { display: flex; flex-wrap: wrap; gap: 8px; }
+.brandopt {
+  min-width: 56px; min-height: 56px; padding: 6px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper); border: 2px solid var(--border-subtle, #e4d6bd); border-radius: 12px; cursor: pointer; color: var(--ink); font: inherit; font-weight: 800;
+}
+.brandopt--wide { padding: 6px 16px; font-size: 18px; }
+.brandopt:hover { border-color: var(--ink); }
+.brandopt[aria-checked="true"] { border-color: var(--ink); box-shadow: 0 0 0 3px var(--ink) inset, 0 3px 0 var(--ink); background: var(--cheer, #fdf0c9); }
+.brandopt:focus-visible, .brandsw__chip:focus-visible { outline: 3px solid var(--focus-ring, #2f6f9f); outline-offset: 2px; }
+
+.brandsw { display: flex; flex-direction: column; gap: 8px; }
+.brandsw__row { display: flex; flex-wrap: wrap; gap: 6px; }
+.brandsw__chip {
+  width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--ink); cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brandsw__chip[aria-checked="true"] { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink); }
+.brandsw__hex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brandsw__dot { width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--ink); flex: none; }
+.brandsw__hex input {
+  min-height: var(--control-h, 44px); width: 130px; padding: 6px 10px; font: inherit; font-size: 16px; font-weight: 700;
+  border: 2px solid var(--ink); border-radius: 10px; background: var(--paper); color: var(--ink); text-transform: lowercase;
+}
+.brandsheet__buttons {
+  position: sticky; bottom: -24px; z-index: 1; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin: 0 -24px -24px; padding: 14px 24px 16px; background: var(--paper); border-top: 2px dashed var(--line, #e4d6bd);
+}
+
+.postcard.modal { width: min(900px, 100%); }
+.postcard__bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.postcard__preview { display: flex; justify-content: center; align-items: center; min-height: 200px; background: var(--surface-inset, #f7eedc); border-radius: 14px; padding: 12px; }
+.postcard__preview img { display: block; max-width: 100%; max-height: 56vh; height: auto; border-radius: 6px; box-shadow: 0 6px 18px rgba(52, 32, 14, 0.25); }
+.postcard__wait { padding: 40px; }
+.postcard__buttons { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.postcard__buttons [role="status"] { flex: 1 1 auto; }
+
+@media (max-width: 760px) {
+  .brandcard__body, .brandsheet__grid { grid-template-columns: minmax(0, 1fr); }
+  .brandsheet__preview { position: static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brandopt, .brandsw__chip { transition: none; }
+}

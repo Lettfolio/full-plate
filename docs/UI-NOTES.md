@@ -1094,3 +1094,118 @@ main chunk is **180.2 kB**; Evening is 23.3 kB, music 6.8 kB.
   is empty. 0 page errors.
 - Pre-existing, not changed: the header's Settings sheet sits under the Evening's pinned action dock (header z 5,
   dock z 6). Raising the header fixes it but moves the probe's covered counts, so it's left for a layout pass.
+
+## Round 12 — B: brand kit and postcard
+
+The restaurant is visibly hers: a logo, house colours, lettering, a staff uniform and a menu style, all picked in one
+sheet and then worn everywhere; and a postcard of any night, saved as a PNG. Game-side only — the sim never sees it.
+
+### On screen
+
+- **Restaurant tab › Your brand** (a full-width card under the dining room): the logo, the name in the brand's lettering,
+  a line naming the parts ("Shield · Chilli · Chalkboard menu · staff in waistcoats"), the shopfront picture in the house
+  colours with the logo on the corner, and **Edit brand** / **Postcard**. A brand nobody has edited says "Made from your
+  restaurant's name — make it yours".
+- **Brand kit** (the editor sheet, wide dialog that scrolls inside the viewport, its buttons pinned at the bottom): a sticky
+  live preview on the left (logo + wordmark, the shopfront, the menu header in the chosen style, four staff portraits in
+  the uniform — her own staff where she has them) and the choices on the right, each a radiogroup of ≥ 44 px buttons:
+  - **Logo shape** (8): circle, shield, rosette, plate, tile, ribbon, hexagon, arch — each button draws the real logo.
+  - **Picture** (14): knife and fork, chef's hat, flame, leaf, star, fish, coffee cup, chilli, noodle bowl, glass, whisk,
+    pizza slice, cupcake, loaf. All drawn for this round as path data in `lib/brand.ts` (no outside art, no brand marks).
+  - **Lettering** (4, the two bundled families only): Rounded (Fredoka 600), Strong (Nunito 800), Sign caps (Nunito 800,
+    capitals, tracked), Slanted (Nunito 700 italic).
+  - **House colour** and **Accent colour**: 18 curated swatches each plus **Or any colour** (a hex field; a bad code gets a
+    one-line hint and changes nothing).
+  - **Uniform**: Apron, T-shirt, Shirt, Waistcoat, and a colour (swatches + hex).
+  - **Menu and sign style**: Classic, Modern, Chalkboard.
+  - **Randomise** (a fresh decent brand from the game's seed and the click count: same clicks, same result), Cancel,
+    **Save brand**.
+- **Where the brand shows**: the header (a logo chip before the name, the name in the lettering; the awning stripe over
+  the header in the two house colours), the Menu tab's "Today's menu" header in the menu style (classic: double rules;
+  modern: a house-colour band; chalkboard: a board in a wooden frame), the Evening's header (a house-colour rule and the
+  logo), the floor canvas (staff in uniform, the shop's awning in the house colours), the Staff tab's cards (portraits in
+  uniform), the Empire strip (logo before the brand name: every shop flies it), the Stars guide envelope (the group logo
+  on its banner), Your games (each game's logo; greyed when lost), the win picture (logo and house-colour stripe).
+- **Postcard** (Evening header, and the brand card): a sheet with a **Wide** (1200×630) / **Tall** (1080×1350) switch,
+  a preview, and **Save postcard**. The card: logo, name in the lettering, district · day · date, the room as the floor
+  canvas draws it (staff in uniform), a headline, three numbers (guests fed, takings, rating — or tables / seats / dishes
+  before the first night), the night's best review with its stars, and "Full Plate" small. Three layouts follow the menu
+  style. It says under the preview: "Just the restaurant: its name, logo, room and the day's numbers. Nothing about you."
+  No player name, no career name, no account anything.
+
+### Rules
+
+- **Contrast.** Brand colours are only ever fills, borders and stripes. Text on them is `--on-brand-*`: cream or ink,
+  whichever reads better, or pure white/black if neither reaches 4.5:1 — the better of those is ≥ 4.58:1 for every colour,
+  so any hex she types keeps the audit at zero (a test sweeps the palette and a 16×16×6 grid of hexes). The logo's motif
+  falls back to the readable text colour if the accent nearly vanishes on the shape (< 1.6:1).
+- **Default brand.** `defaultBrand(name)` hashes the name into every part; a word in the name picks the motif (Noodle →
+  bowl, Fish/Chips → fish, Café/Coffee → cup, Pizza, Grill → flame, Bakery → loaf…). So every existing restaurant —
+  all 29 corpus saves — looks branded on first load, no sheet. An Empire's default comes from the Empire brand's name so
+  every shop matches (a game that never edited its brand gets a new default look at the fork, when she names the brand).
+- **Career.** An employee wears the employer's default brand, read-only (stored codes are ignored until the handover);
+  the brand card, if reached, says "This is X's brand. You can design your own once you run the place." After "Open my
+  own place" the kit is hers.
+- No new motion, no sound: nothing to switch. The sheet's buttons drop their transitions under reduced motion.
+
+### Where the code lives
+
+| File | What |
+| --- | --- |
+| `lib/brandCode.ts` | The `Brand` type, the option lists, the save code `1.<shape>.<motif>.<letter>.<primary>.<accent>.<uniform>.<uniformColour>.<menu>` (`encodeBrand` / `parseBrand` / `BRAND_RE`), `uniformPatch` + `dress`. No React/DOM/CSS: the save check and the canvas import it. |
+| `lib/brand.ts` (+ `brand.css`) | Palette, names, contrast (`onColour`), `defaultBrand`, `resolveBrand`, `randomBrand`, `logoSvg` / `logoDataUrl`, `lettering`, `brandVars`, `applyBrand` (CSS variables + `data-brand` / `data-menu-style` on `<html>` + the canvas uniform), `useBrand`, `avatarUniform`. Lazy chunk. `brand.css` holds every page tint, keyed on `:root[data-brand]`. |
+| `lib/brandHook.ts` | Main chunk, a few lines: `useBrandStyle(game, meta)` in App imports `lib/brand` and applies the resolved brand (null on the title). |
+| `canvas/brand.ts` | `setCanvasBrand` / `brandLook`. `RestaurantView` has one new optional `RenderOptions.brand` (omitted = the page's brand, `null` = none) and dresses staff in `drawStaffMarker`; nothing else in canvas changed. The canvas awning comes from `--awning`, which `applyBrand` sets (handson's `awningColours` already read it). |
+| `screens/planning/BrandTab.tsx` (+ `.css`) | `BrandCard`, `BrandSheet`, `Wordmark`, `Logo`. Lazy from RestaurantTab. |
+| `components/PostcardDialog.tsx` | `PostcardDialog`, `PostcardButton`. Lazy from Evening; BrandTab imports it. |
+| `lib/postcard.ts` | `postcardInfo`, `drawPostcard`, `roomPicture` (a hidden on-page canvas for a moment, so the theme and brand awning resolve), `makePostcard`, `offerPng`, `saveWinPicture` (WinScreen's old `savePicture`, moved). PNGs go out through `saveFiles.offerFile`, which now takes a Blob too (the `downloads` capability inside claude.ai, else `<a download>`). |
+| `components/Avatar.tsx` | Optional `uniform` prop, spread over the spec. |
+| `components/Shopfront.tsx` | Awning and name board read `--brand-primary/-accent/--on-brand-primary` (theme fallbacks), optional `logo`. Now lazy on the title screen too (main-chunk relief, below). |
+| Saves | `PathMeta.brand?: string` (absent = default). `saveCheck.ts`: `brand: opt(str(80))`, then dropped if it fails `BRAND_RE` (a bad code shows the default, the save still loads). `SlotSummary.brand` (cleaned in `pickSummary`, `opt(str(80))` in the account header schema) for Your games. `autosaveKey` includes it, so saving a brand saves the game. Reducer action `{ type: "brand", code }`. Corpus: `r12-owner-branded-d40.json.gz` (an r11 owner save with a brand set through the reducer); `corpus.test.ts` treats `r1N-` files as generated. |
+
+### Left out, and why
+
+- **Hands-on kitchen sprites** don't wear the uniform: that canvas is the `handson` package (a sim package, and another
+  builder's ground); its awning does follow `--awning`.
+- **MyShift** (career) shows no brand card: the header already wears the employer's logo; a read-only card there would
+  be a second place to say "not yours yet".
+- **Empire per-shop logos on the world map**: the strip and every shop share one brand; drawing it on map pins would need
+  the Empire tab's map code (not B's).
+- A dedicated **receipt**: the postcard is the receipt-like keepsake; the Evening's sums table keeps the theme look.
+- Picking a postcard layout separate from the menu style (it follows the brand, one less choice).
+
+### Merge notes
+
+Touched files others may also touch: `App.tsx` (one hook line, one `onBrand` prop), `screens/Planning.tsx` (prop
+thread), `screens/planning/RestaurantTab.tsx` (props + one lazy card at the end — E adds a card too),
+`screens/Evening.tsx` (one lazy `PostcardButton` in the head — A animates this file, E adds a mount point),
+`screens/TitleScreen.tsx` (Shopfront import → lazy; C/G add buttons), `screens/planning/MenuTab.tsx` is **not** edited
+(the header is styled by CSS on its existing structure: `.menu-layout > .stack--sm > .row:first-child`; if F changes that
+row's position the style follows the first row), `canvas/RestaurantView.ts` (import + one option + one line in
+`drawStaffMarker` — A owns canvas), `state/saveCheck.ts` (two schema lines + one cleanup — F adds custom dishes),
+`state/saveStore.ts`, `state/useSaves.ts` (autosave key gains `:${m.brand}` at the end), `corpus.test.ts` (legacy filter).
+
+### Checks (built dist)
+
+- **Main JS 199.18 → 196.71 kB** (budget 200). The brand added ≈ 1.7 kB to the main chunk (the hook, two lazy mounts,
+  the prop threads, the save fields); the title screen's Shopfront picture (4.5 kB) moved to its own chunk to pay for it
+  (a same-size empty `<svg>` holds its place for the frame it takes to load). New lazy chunks: `brand` 8.87 kB (+ CSS
+  2.7 kB), `BrandTab` 7.73, `postcard` 9.42, `PostcardDialog` 2.65 (+ CSS 4.6), `Shopfront` 4.59, `brandCode` 1.35.
+  Changed: `RestaurantView` 38.57 → 38.69, `StaffTab` 14.29 → 14.44, `SlotPicker` 9.37 → 9.64, `WinScreen` 6.29 → 5.56
+  (the picture code moved out), `saveCore` 9.28 → 7.10 + a 2.43 kB `saveCheck` module chunk (the cleaned schema now
+  shares `brandCode` with the brand chunk), `saveFiles` 3.87 → 3.92.
+- Tests: game 536 → 556 (`round12.brand.test.tsx`, 20); all packages pass.
+- Type audit normal and Bigger: 117 screens each, 0 text < 13 px, 0 errors. (The first run found 4 runs < 13 px on the
+  Restaurant tab: the shopfront's "Open" / "Today you're the boss" drawn at 300 px wide; `<Shopfront small>` leaves them off.)
+- Probe within the baseline, no baseline change: the first run counted more `covered` / `underBar` (the header logo chip
+  and a flex name row made the header taller, the menu header and evening stripe added height). The chip now sits inside
+  the name's line box, the menu header's 6 px frame is taken back by a −6 px margin, and the evening stripe is a
+  box-shadow with the Postcard button at the head's top right, so nothing on any screen moves down. Checked per screen
+  against master's own probe at 768×1024 (the run that was one over): identical.
+- Headless balance unchanged: typical 180/200 (90.0 %), cheap 136/200 (68.0 %), nohire 0/200 (0 %); no sim package touched.
+- Playtest 1024×768 touch, built dist (shots `scratchpad/shots/r12/B/`, 18 + two downloaded PNGs): new game "Rosa's
+  Kitchen" → its derived brand → Brand kit: Shield, Chilli, Sign caps, Navy / Butter (also typed as a hex), Waistcoat in
+  Cherry, Chalkboard → saved → header chip, card and shopfront, chalkboard menu header, a server's card in the waistcoat,
+  service with the server in the waistcoat and the awning in navy/butter → Evening → Postcard: Wide and Tall saved
+  through the download path → reload → Continue: the brand is back → Your games shows the logo → a round-7 corpus save
+  ("Rosie's") shows its derived brand (Shield · Cupcake · Modern). 0 controls under 44 px in the kit; 0 page errors.

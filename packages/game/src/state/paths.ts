@@ -151,6 +151,8 @@ export interface PathMeta {
   lastPathDay: number;
   /** Sim day the morning hooks (career owner planning, Stars refit) last ran for. */
   morningDay?: number | undefined;
+  /** Round 12 (B): her brand kit as a code (lib/brandCode.ts); absent = the default derived from the name. */
+  brand?: string | undefined;
 }
 
 export const initialMeta = (mode: GameMode = "owner"): PathMeta => ({

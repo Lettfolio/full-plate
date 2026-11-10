@@ -16,6 +16,7 @@ import { isTrainingToday, moodFace, moodWord, onFloorToday, ROLE_LABEL, SHIFT_HO
 import { useSpendGuard } from "../../components/SpendGuard";
 import { StarterLoanTip } from "../../components/BankCards";
 import "./staffRoom.css";
+import { avatarUniform, useBrand } from "../../lib/brand";
 
 /**
  * Round 10 (B): the staff room. Everyone is a person: a portrait (sim-core `avatarFor`, components/Avatar), a mood
@@ -187,10 +188,11 @@ function MoodLine({ s }: { s: Staff }) {
 function PersonCard({ s, game, today, send }: { s: Staff; game: GameState; today: number; send: Props["send"] }) {
   const [confirm, setConfirm] = useState(false);
   const shifts = s.rota.filter(Boolean).length;
+  const brand = useBrand(); // R12-B: staff wear the house uniform
   return (
     <article className="person person--room" aria-label={s.name}>
       <div className="person__top">
-        <Avatar person={s} size={96} mood={s.mood} />
+        <Avatar person={s} size={96} mood={s.mood} uniform={avatarUniform(brand, s.role)} />
         <div className="spacer stack stack--xs">
           <div className="person__name">{s.name}</div>
           <div className="person__role">{ROLE_LABEL[s.role]} · <MoneyText pence={s.wage} />/h</div>

@@ -1,11 +1,16 @@
+import { lazy, Suspense } from "react";
 import type { Command, GameState } from "@full-plate/sim-core";
+import type { PathMeta } from "../../state/paths";
 import { content, TABLE_COST } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { useSpendGuard } from "../../components/SpendGuard";
 
-interface Props { game: GameState; send: (cmd: Command) => void }
+// Round 12 (B): the brand kit card (and its editor sheet and the postcard) is its own chunk.
+const BrandCard = lazy(() => import("./BrandTab").then((m) => ({ default: m.BrandCard })));
 
-export function RestaurantTab({ game, send }: Props) {
+interface Props { game: GameState; send: (cmd: Command) => void; meta?: PathMeta | undefined; onBrand?: ((code: string) => void) | undefined }
+
+export function RestaurantTab({ game, send, meta, onBrand }: Props) {
   const max = content.balance.maxTables;
   const seats = game.tables.reduce((a, t) => a + t.seats, 0);
   const roomLeft = game.tables.length < max;
@@ -41,6 +46,7 @@ export function RestaurantTab({ game, send }: Props) {
         </button>
         {dialog}
       </aside>
+      {meta && <Suspense fallback={null}><BrandCard game={game} meta={meta} onBrand={onBrand} /></Suspense>}
     </div>
   );
 }

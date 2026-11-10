@@ -27,7 +27,7 @@ async function rawOf(e: Entry): Promise<string> {
 
 describe("save corpus (round 11)", () => {
   it("is the distinct set the red-team counted, plus this round's saves, and stays small", () => {
-    const legacy = files.filter((f) => !f.file.startsWith("r11-"));
+    const legacy = files.filter((f) => !/^r1\d-/.test(f.file)); // round 12: generated files are r11-, r12-…
     expect(legacy.filter((f) => f.kind === "envelope")).toHaveLength(17);
     expect(files.filter((f) => f.file.startsWith("r11-career-")).length).toBeGreaterThanOrEqual(3);
     const bytes = files.reduce((a, f) => a + readFileSync(join(DIR, f.file)).length, 0);
@@ -38,7 +38,7 @@ describe("save corpus (round 11)", () => {
     const raw = await rawOf(e);
     const loaded = decodeSave(raw);
     const once = encodeSave(loaded.game, loaded.meta);
-    if (e.file.startsWith("r11-")) expect(once).toBe(raw);
+    if (/^r1\d-/.test(e.file)) expect(once).toBe(raw);
     const again = decodeSave(once);
     expect(encodeSave(again.game, again.meta)).toBe(once);
 

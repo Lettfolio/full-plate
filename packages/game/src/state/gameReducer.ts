@@ -73,6 +73,7 @@ export type AppAction =
   | { type: "openGuide" }
   | { type: "dismissWin" }
   | { type: "seenHandover" }
+  | { type: "brand"; code: string }
   | { type: "nextDay" }
   /** Round 6 review: queue the evening tip's commands for tomorrow morning (the caller then moves the day on). */
   | { type: "actTomorrow"; commands: Command[]; done: string }
@@ -456,6 +457,8 @@ function reduce(s: AppState, a: AppAction): AppState {
       return s.meta.win ? { ...s, meta: { ...s.meta, win: { ...s.meta.win, dismissed: true } } } : s;
     case "seenHandover":
       return { ...s, meta: { ...s.meta, handoverSeen: true } };
+    case "brand":
+      return { ...s, meta: { ...s.meta, brand: a.code } };
   }
 }
 

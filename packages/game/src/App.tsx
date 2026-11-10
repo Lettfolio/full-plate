@@ -19,6 +19,8 @@ import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
 import { RotateCard } from "./components/RotateCard";
 
+import { useBrandStyle } from "./lib/brandHook";
+
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
 import { Skeleton } from "./components/Skeleton";
@@ -105,6 +107,7 @@ export function App() {
   }, [store]);
   useEffect(() => { prefetchStartScreens(); }, []);
   useSlotAutosave(store, slotId, game, meta);
+  useBrandStyle(shell.view === "game" ? game : null, meta); // R12-B
   const slotRef = useRef(slotId);
   slotRef.current = slotId;
 
@@ -344,6 +347,7 @@ export function App() {
             sendStars={sendStars}
             onFocusSite={(siteId) => dispatch({ type: "focusSite", siteId })}
             onTastingMenu={(menuId) => dispatch({ type: "tastingMenu", menuId })}
+            onBrand={(code) => dispatch({ type: "brand", code })}
           />
         )}
         {inService && meta.handsOn && (

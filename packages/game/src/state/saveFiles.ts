@@ -63,12 +63,15 @@ export async function decodeSaveFile(text: string): Promise<{ raw: string; loade
   return { raw, loaded, ...(name ? { name } : {}) };
 }
 
-/** Offers a file: the `downloads` capability inside claude.ai (the viewer confirms), else an `<a download>` link. */
-export async function offerFile(filename: string, text: string): Promise<"saved" | "declined" | "failed"> {
+/**
+ * Offers a file: the `downloads` capability inside claude.ai (the viewer confirms), else an `<a download>` link.
+ * Round 12 (B): also a Blob (a postcard PNG); the capability takes its type from the extension.
+ */
+export async function offerFile(filename: string, text: string | Blob): Promise<"saved" | "declined" | "failed"> {
   const c = runtime();
   if (c) {
     try {
-      const dl = (await c.use("downloads")) as { save(r: { filename: string; data: string }): Promise<unknown> } | null;
+      const dl = (await c.use("downloads")) as { save(r: { filename: string; data: string | Blob }): Promise<unknown> } | null;
       if (dl) {
         try { await dl.save({ filename, data: text }); return "saved"; } catch (e) {
           const code = (e as { code?: string })?.code;
@@ -79,7 +82,7 @@ export async function offerFile(filename: string, text: string): Promise<"saved"
     } catch { /* a plain link below */ }
   }
   try {
-    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+    const url = URL.createObjectURL((typeof text === "string" ? new Blob([text], { type: "application/json" }) : text));
     const a = Object.assign(document.createElement("a"), { href: url, download: filename, rel: "noopener" });
     a.style.display = "none";
     document.body.appendChild(a); a.click(); a.remove();

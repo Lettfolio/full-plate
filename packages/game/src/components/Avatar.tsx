@@ -27,6 +27,8 @@ export interface AvatarProps {
   /** Accessible name; omitted = decorative. */
   title?: string;
   className?: string;
+  /** Round 12 (B): the house uniform (lib/brandCode.ts uniformPatch) over the person's own clothes. */
+  uniform?: Partial<Pick<AvatarSpec, "body" | "apron" | "shirt" | "trim" | "hatColour">> | undefined;
 }
 
 function hairBack(s: AvatarSpec, fx: number, fy: number, rx: number, ry: number) {
@@ -87,9 +89,10 @@ function mouth(mood: number | undefined, fx: number, my: number) {
   return <path d={`M${fx - 6} ${my + 4} Q${fx} ${my - 2} ${fx + 6} ${my + 4}`} fill="none" stroke={OUT} strokeWidth={2.8} strokeLinecap="round" />;
 }
 
-function AvatarImpl({ spec, person, size = 48, mood, title, className }: AvatarProps) {
+function AvatarImpl({ spec, person, size = 48, mood, title, className, uniform }: AvatarProps) {
   const uid = useId();
-  const s = spec ?? (person ? avatarFor(person) : undefined);
+  const base = spec ?? (person ? avatarFor(person) : undefined);
+  const s = base && uniform ? { ...base, ...uniform } : base;
   if (!s) return null;
   const cx = 50, by = 103; // shoulders centre
   const fx = 50, fy = 57;

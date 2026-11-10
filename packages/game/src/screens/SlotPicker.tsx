@@ -11,6 +11,7 @@ import { MAX_FILE_BYTES, MAX_SLOTS, type SaveStore, type SlotSummary, type SlotV
 import { useSaves } from "../state/useSaves";
 import { PATH_LABEL } from "./TitleScreen";
 import "./slots.css";
+import { logoDataUrl, resolveBrand } from "../lib/brand";
 
 /** The picker's own icons, drawn like components/Icon.tsx (24 px grid, 1.75 stroke) but kept in this lazy chunk. */
 const PICK = {
@@ -149,6 +150,8 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy, on
           return (
             <li key={s.slotId} className={`slot${fresh === s.slotId ? " slot--fresh" : ""}${s.archived ? " slot--lost" : ""}`} aria-label={s.archived ? `${s.name}, lost on day ${s.day + 1}` : s.name}>
               <div className="slot__head">
+                {/* R12-B: the game's logo (the stored brand, else the name's default) */}
+                <img className="slot__logo" src={logoDataUrl(resolveBrand(s.brand, s.restaurantName, s.path === "career"))} width={40} height={40} alt="" aria-hidden="true" />
                 {isRenaming ? (
                   <form className="slot__rename" onSubmit={(e) => { e.preventDefault(); void saveName(s); }}>
                     <label className="sr-only" htmlFor={`rn-${s.slotId}`}>New name for {s.name}</label>

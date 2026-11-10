@@ -64,6 +64,8 @@ export interface SlotSummary {
   backupOf?: string;
   /** Round 11: the game has ended (the bank closed it). Kept, greyed, as "Lost — day N"; absent = still playing. */
   archived?: boolean;
+  /** Round 12 (B): the brand code, for the logo in Your games (absent = derived from the name). */
+  brand?: string;
 }
 
 /** The header document `data/users/<id>/save-<slotId>`. Written after its chunks, so a half-written save never lists. */
@@ -178,7 +180,7 @@ export function defaultSlotName(game: GameState, meta: PathMeta): string {
 }
 export function summarize(slotId: string, name: string, game: GameState, meta: PathMeta, updatedAt: string): SlotSummary {
   const path = slotPath(meta);
-  return pickSummary({ slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt, ...(isLost(game, meta) ? { archived: true } : {}) });
+  return pickSummary({ slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt, ...(isLost(game, meta) ? { archived: true } : {}), ...(meta.brand ? { brand: meta.brand } : {}) });
 }
 // eslint-disable-next-line no-control-regex
 const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b\u200c\u200e\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g;
@@ -198,6 +200,7 @@ export const pickSummary = (s: SlotSummary): SlotSummary => ({
   updatedAt: typeof s.updatedAt === "string" ? s.updatedAt.slice(0, 40) : "",
   ...(typeof s.backupOf === "string" ? { backupOf: s.backupOf.slice(0, 80) } : {}),
   ...(s.archived === true ? { archived: true } : {}),
+  ...(typeof s.brand === "string" && /^[a-z0-9.]{1,80}$/.test(s.brand) ? { brand: s.brand } : {}),
 });
 /** Round 11 (S5): the device's last account, as a hash (null outside an account). */
 export function lastOwner(storage: StorageLike | null): string | null {
