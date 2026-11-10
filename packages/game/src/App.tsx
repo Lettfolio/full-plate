@@ -11,13 +11,11 @@ import { saveNote, useSaves, useSlotAutosave } from "./state/useSaves";
 import { SaveIndicator } from "./components/SaveIndicator";
 import { content, HOOKS } from "./sim";
 import { TitleScreen } from "./screens/TitleScreen";
-import { NewGame } from "./screens/NewGame";
-import { StartPicker, type CareerStartOptions } from "./screens/StartPicker";
+import type { CareerStartOptions } from "./screens/StartPicker";
 import { Planning, type PlanningTab } from "./screens/Planning";
 import { Service } from "./screens/Service";
 import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
-import { GameOver } from "./screens/GameOver";
 import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
 
@@ -40,6 +38,19 @@ const SlotPicker = lazy(() => import("./screens/SlotPicker").then((m) => ({ defa
 const ConflictDialog = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.ConflictDialog })));
 // Round 7 (A): lazy chunks show a page-shaped skeleton, not a bare line.
 const Loading = () => <Skeleton />;
+// R11 review (bundle): the start picker, the lease screen and the game-over screen are their own chunks (the main
+// chunk was 207 kB after the five branches, budget 200). The title fetches the first two while it idles.
+const loadStart = () => import("./screens/StartPicker");
+const loadNewGame = () => import("./screens/NewGame");
+const StartPicker = lazy(() => loadStart().then((m) => ({ default: m.StartPicker })));
+const NewGame = lazy(() => loadNewGame().then((m) => ({ default: m.NewGame })));
+const GameOver = lazy(() => import("./screens/GameOver").then((m) => ({ default: m.GameOver })));
+/** Warm the new-game screens' chunks once the title has painted (a tablet shouldn't wait on "New game"). */
+function prefetchStartScreens(): void {
+  const go = () => { void loadStart().catch(() => {}); void loadNewGame().catch(() => {}); };
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+  if (w.requestIdleCallback) w.requestIdleCallback(go, { timeout: 3000 }); else setTimeout(go, 1500);
+}
 import { Toast } from "./components/Toast";
 import { noteSlot } from "./components/CrashGuard";
 import { handsOnRoleFor } from "./state/paths";
@@ -88,6 +99,7 @@ export function App() {
     const raf = requestAnimationFrame(() => { t = setTimeout(() => void store.connect(), 0); });
     return () => { cancelAnimationFrame(raf); if (t) clearTimeout(t); };
   }, [store]);
+  useEffect(() => { prefetchStartScreens(); }, []);
   useSlotAutosave(store, slotId, game, meta);
   const slotRef = useRef(slotId);
   slotRef.current = slotId;
@@ -215,17 +227,20 @@ export function App() {
 
   if (shell.view === "pick") {
     return (
+      <Suspense fallback={<Loading />}>
       <StartPicker
         content={content}
         onBack={() => setShell({ view: "title" })}
         onOwner={(difficulty, districtId) => setShell({ view: "newgame", difficulty, districtId })}
         onCareer={startCareer}
       />
+      </Suspense>
     );
   }
 
   if (shell.view === "newgame") {
     return (
+      <Suspense fallback={<Loading />}>
       <NewGame
         content={content}
         initialSeed={shell.seed ?? randomSeed()}
@@ -234,6 +249,7 @@ export function App() {
         onStart={start}
         onBack={() => setShell({ view: "pick" })}
       />
+      </Suspense>
     );
   }
 
@@ -264,6 +280,7 @@ export function App() {
 
   if (game.phase === "gameover" && !career) {
     return (
+      <Suspense fallback={<Loading />}>
       <GameOver
         game={game}
         reason={game.gameOverReason ?? null}
@@ -271,6 +288,7 @@ export function App() {
         onNewSeed={() => setShell({ view: "newgame", seed: randomSeed() })}
         onTitle={quitToTitle}
       />
+      </Suspense>
     );
   }
 
