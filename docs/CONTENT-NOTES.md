@@ -458,3 +458,9 @@ import { content, fullContent, extras, dishTags, formulas, tastingMenus, wineLis
   this is the hook.
 - `cities.json` duplicates sim-empire's numbers until the swap happens. The mirror test will fail if either side
   changes alone.
+
+## Round 10 — B: `staffQuotes.json` (ContentPack.staffText)
+- `quotes`: one-line "why me" lines a candidate says on the hiring sheet, keyed by `staffArchetypes` id (a role id also works as a fallback). Five per archetype, ≤ 70 characters, friendly, readable by a 10-year-old. Picked deterministically per person (`quoteFor`).
+- `likes` / `dislikes`: labels for sim-core's `LIKE_IDS` / `DISLIKE_IDS`; every id must be present (the content package keeps a local copy of the id lists — `STAFF_LIKE_IDS` / `STAFF_DISLIKE_IDS` — and a test checks they equal sim-core's).
+- Validation: unknown archetype/role keys, empty or over-long quotes, missing or unknown like/dislike ids. `content/test/round10.staffText.test.ts` (4).
+- Traits are unchanged (18 in `traits.json`); their effects are summarised for the player in the staff room's chip tips.

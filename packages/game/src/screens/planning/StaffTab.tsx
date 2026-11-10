@@ -333,8 +333,8 @@ export function StaffTab({ game, send, wantRole, known = [] }: Props) {
 
   return (
     <div className="stack staffroom">
-      {game.staff.length > 0 && <RotaWeek game={game} today={today} />}
       {open ? <HireSheet game={game} send={send} known={known} onClose={() => setHiring(false)} {...(wantRole ? { wantRole } : {})} /> : null}
+      {game.staff.length > 0 && <RotaWeek game={game} today={today} />}
       <div className="stack">
         <div className="row row--wrap">
           <h3 className="spacer">Your team</h3>

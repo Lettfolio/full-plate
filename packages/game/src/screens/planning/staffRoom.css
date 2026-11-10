@@ -3,7 +3,8 @@
 
 
 /* person cards */
-.staffroom .roster { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.staffroom .roster { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+.person--room .rota__day { flex: 1; min-width: 44px; }
 .person--room { gap: 12px; }
 .person--room .person__role { text-transform: none; }
 .person--room .person__top { align-items: flex-start; gap: 14px; }
