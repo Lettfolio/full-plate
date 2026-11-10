@@ -17,40 +17,41 @@
 
 /* ── the menu card header (Menu tab), in the three menu styles ── */
 :root[data-brand] .menu-layout > .stack--sm > .row:first-child {
-  padding: 4px 12px; border-radius: var(--radius-md);
+  /* 6 px of padding (or border + padding) each side, taken back by a -6 px margin: the menu doesn't move down */
+  padding: 6px 12px; margin: -6px 0; border-radius: var(--radius-md);
 }
 :root[data-brand] .menu-layout > .stack--sm > .row:first-child h3 {
   font-family: var(--brand-font); font-weight: var(--brand-weight); font-style: var(--brand-style);
   text-transform: var(--brand-transform); letter-spacing: var(--brand-spacing);
 }
 :root[data-brand] .menu-layout > .stack--sm > .row:first-child::before {
-  content: ""; width: 30px; height: 30px; margin: -2px 0; flex: none; background: var(--brand-logo) center / contain no-repeat;
+  content: ""; width: 28px; height: 28px; margin: -6px 0; flex: none; background: var(--brand-logo) center / contain no-repeat;
 }
 :root[data-menu-style="classic"] .menu-layout > .stack--sm > .row:first-child {
   background: var(--paper); border-top: 4px double var(--brand-primary); border-bottom: 4px double var(--brand-primary);
-  border-radius: 0; padding-top: 0; padding-bottom: 0;
+  border-radius: 0; padding-top: 2px; padding-bottom: 2px;
 }
 :root[data-menu-style="modern"] .menu-layout > .stack--sm > .row:first-child {
   background: var(--brand-primary); color: var(--on-brand-primary); box-shadow: inset 0 -5px 0 var(--brand-accent);
 }
 :root[data-menu-style="modern"] .menu-layout > .stack--sm > .row:first-child .muted { color: inherit; opacity: 1; }
 :root[data-menu-style="chalkboard"] .menu-layout > .stack--sm > .row:first-child {
-  background: #26302b; color: #f7f3ea; border: 3px solid #8a5a35; padding-top: 1px; padding-bottom: 1px; box-shadow: inset 0 -3px 0 var(--brand-accent);
+  background: #26302b; color: #f7f3ea; border: 3px solid #8a5a35; padding-top: 3px; padding-bottom: 3px; box-shadow: inset 0 -3px 0 var(--brand-accent);
 }
 :root[data-menu-style="chalkboard"] .menu-layout > .stack--sm > .row:first-child .muted { color: #e9e3d6; opacity: 1; }
 
 /* ── the evening report header: a house-colour stripe and the logo ── */
 :root[data-brand] .evening__head {
   /* the stripe is a shadow and the space is a right padding only: the head is exactly as tall as before */
-  position: relative; padding-right: 196px; box-shadow: 0 5px 0 var(--brand-primary), 0 8px 0 var(--brand-accent);
+  position: relative; padding-right: 64px; box-shadow: 0 5px 0 var(--brand-primary), 0 8px 0 var(--brand-accent);
 }
 :root[data-brand] .evening__head::after {
   content: ""; position: absolute; right: 4px; bottom: 0; width: 48px; height: 48px;
   background: var(--brand-logo) center / contain no-repeat;
 }
 
-/* the Postcard button sits beside the logo, in the space the padding keeps, not on a row of its own */
-:root[data-brand] .evening__head .postcard__open { position: absolute; right: 64px; bottom: 2px; }
+/* the Postcard button sits at the top right, level with the day strip (which never reaches it), not on a row of its own */
+:root[data-brand] .evening__head .postcard__open { position: absolute; right: 0; top: 0; }
 
 /* ── Empire: every shop flies the brand (the strip), Stars: the group logo on the guide envelope ── */
 :root[data-brand] .pathstrip--empire .pathstrip__brand::before {
