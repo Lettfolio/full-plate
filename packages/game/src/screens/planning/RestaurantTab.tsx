@@ -2,6 +2,10 @@ import type { Command, GameState } from "@full-plate/sim-core";
 import { content, TABLE_COST } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { useSpendGuard } from "../../components/SpendGuard";
+import { lazy, Suspense } from "react";
+import { loadFriends } from "../../lib/coop/flag";
+// Round 12 (G): share this restaurant, its visitors, and the co-op invite (lazy).
+const VisitShareCard = lazy(() => loadFriends().then((m) => ({ default: m.VisitShareCard })));
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
@@ -41,6 +45,7 @@ export function RestaurantTab({ game, send }: Props) {
         </button>
         {dialog}
       </aside>
+      <Suspense fallback={null}><VisitShareCard game={game} /></Suspense>
     </div>
   );
 }

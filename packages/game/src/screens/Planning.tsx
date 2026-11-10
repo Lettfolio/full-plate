@@ -18,7 +18,8 @@ const EmpireTab = lazy(() => import("./paths/EmpireTab").then((m) => ({ default:
 const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
 // Round 10: the Decorate tab (catalogue, live room preview) loads on first open too.
 const DecorateTab = lazy(() => import("./planning/DecorateTab").then((m) => ({ default: m.DecorateTab })));
-import { StockTab } from "./planning/StockTab";
+// Round 12 (G): the Stock tab loads on first open too (main-chunk budget: room for the Friends entry points).
+const StockTab = lazy(() => import("./planning/StockTab").then((m) => ({ default: m.StockTab })));
 import { RestaurantTab } from "./planning/RestaurantTab";
 import { tiredSlots, tiredText } from "../lib/decor";
 import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
@@ -186,7 +187,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
           {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
-          {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
+          {tab === "stock" && <Suspense fallback={<div className="empty small muted">Opening the store room…</div>}><StockTab game={game} send={send} needs={needs} opening={opening} /></Suspense>}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
           <Suspense fallback={<div className="empty small muted">Loading…</div>}>
             {tab === "decorate" && <DecorateTab game={game} send={send} />}

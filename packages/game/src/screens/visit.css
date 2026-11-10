@@ -1,0 +1,73 @@
+/* Round 12 (G): visit a friend, the Friends card, and the co-op day. Loaded with those lazy chunks only. */
+
+/* ── the Friends card (Restaurant tab) ── */
+.visitcard { max-width: 520px; }
+.visitcard h4 { font-size: var(--fs-label); }
+.visitcard__btns { flex-wrap: wrap; }
+.visitcard__note { color: var(--ink-soft); }
+.visitcode {
+  font-family: var(--font-display); font-weight: 600; font-size: 30px; letter-spacing: 0.12em; font-variant-numeric: tabular-nums;
+  background: var(--cream-deep); border: 2px dashed var(--line-strong); border-radius: var(--r-sm); padding: 10px 14px; text-align: center; user-select: all;
+}
+.visitcode--sm { font-size: 24px; padding: 8px 10px; }
+.visitors { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+.visitors__item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); }
+.visitors__picks { flex-basis: 100%; color: var(--ink-soft); }
+
+/* ── Visit a friend (title) ── */
+.visitfriend { display: grid; place-items: start center; }
+.visitfriend__card { width: min(520px, 100%); }
+.visitfriend__code { letter-spacing: 0.1em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+
+/* ── a visit ── */
+.visit__head h2 { margin-top: 2px; }
+.visit__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap); align-items: start; }
+.visit__roomcard { grid-column: 1 / -1; }
+.visitroom { position: relative; width: 100%; height: clamp(260px, 42vh, 420px); border-radius: var(--r-sm); overflow: hidden; border: 1.5px solid var(--line); background: var(--cream-deep); }
+.visitroom__canvas { display: block; width: 100%; height: 100%; }
+.visitnums { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 0; }
+.visitnums > div { background: var(--cream); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 10px; }
+.visitnums dt { font-size: var(--fs-xs); color: var(--ink-soft); font-weight: 700; }
+.visitnums dd { margin: 2px 0 0; font-weight: 800; font-size: 18px; }
+.visitlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.visitlist__row { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.visitreview { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 6px; border-bottom: 1px dashed var(--line); }
+.visitstars { display: flex; gap: 4px; }
+.visitstars__btn {
+  min-width: 44px; min-height: 44px; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--paper); cursor: pointer;
+  font-size: 22px; line-height: 1; color: var(--star-empty); -webkit-text-stroke: 1px var(--star-edge);
+}
+.visitstars__btn.is-on { color: var(--star); border-color: var(--star-edge); }
+.visitstars__btn:focus-visible, .emotes__btn:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: 2px; }
+.visitpicks { display: flex; flex-wrap: wrap; gap: 8px; }
+.visitpicks__btn { font-size: var(--fs-sm); box-shadow: none; border-color: var(--line-strong); }
+.visitpicks__btn[aria-pressed="true"] { background: var(--basil); border-color: var(--basil-deep); color: #fff; }
+
+/* ── co-op: emotes ── */
+.emotes { display: flex; flex-wrap: wrap; gap: 6px; }
+.emotes__btn { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--paper); cursor: pointer; font-size: 22px; line-height: 1; display: grid; place-items: center; }
+.emotes__btn:hover:not(:disabled) { border-color: var(--ink); }
+.emotes__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.emoteheard { min-height: 32px; margin: 0; display: flex; align-items: center; gap: 8px; }
+.emoteheard__glyph { font-size: 26px; line-height: 1; }
+
+/* ── co-op: the host's dock ── */
+/* above the planning/evening action dock (pinned bottom, ~80 px) so its hints and primary stay clear */
+.coopdock { position: fixed; left: 12px; bottom: 96px; z-index: 40; width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 210px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.coopdock--pill { width: auto; padding: 0; background: none; border: 0; box-shadow: none; gap: 4px; }
+.coopdock--pill .emoteheard:not(:empty) { background: var(--paper); border: 1.5px solid var(--line); border-radius: 999px; padding: 4px 12px; box-shadow: var(--shadow); align-self: flex-start; }
+.coopdock__pill { box-shadow: var(--shadow); }
+.coopdock__title { font-size: var(--fs-h3); }
+.coopplan { background: var(--amber-wash); border: 1px solid var(--amber); border-radius: var(--r-sm); padding: 10px; }
+.coopplan__list { margin: 0; padding-left: 18px; }
+
+/* ── co-op: the guest ── */
+.coopguest__head h2 .muted { font-size: var(--fs-h3); }
+.coopguest__emotes { flex-wrap: wrap; justify-content: space-between; }
+.coopguest__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--gap); }
+.coopguest__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.coopguest__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+.coopguest__toggle { box-shadow: none; border-color: var(--line-strong); justify-content: flex-start; white-space: normal; text-align: left; flex: 1 1 160px; }
+.coopguest__toggle[aria-pressed="true"] { background: var(--basil-wash); border-color: var(--basil); }
+.coopguest__toggle[aria-pressed="false"] { color: var(--ink-soft); text-decoration: line-through; }
+.coopguest__send { flex-wrap: wrap; }

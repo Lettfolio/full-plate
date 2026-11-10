@@ -45,6 +45,10 @@ const loadNewGame = () => import("./screens/NewGame");
 const StartPicker = lazy(() => loadStart().then((m) => ({ default: m.StartPicker })));
 const NewGame = lazy(() => loadNewGame().then((m) => ({ default: m.NewGame })));
 const GameOver = lazy(() => import("./screens/GameOver").then((m) => ({ default: m.GameOver })));
+// Round 12 (G): Visit a friend (a shared restaurant or a co-op day), and the host's co-op panel.
+const VisitFriend = lazy(() => loadFriends().then((m) => ({ default: m.VisitFriend })));
+const CoopShiftDock = lazy(() => loadFriends().then((m) => ({ default: m.CoopShiftDock })));
+import { loadFriends, useHostOn } from "./lib/coop/flag";
 /** Warm the new-game screens' chunks once the title has painted (a tablet shouldn't wait on "New game"). */
 function prefetchStartScreens(): void {
   const go = () => { void loadStart().catch(() => {}); void loadNewGame().catch(() => {}); };
@@ -65,7 +69,8 @@ export type Shell =
   | { view: "title" }
   | { view: "pick" }
   | { view: "newgame"; seed?: number; districtId?: string; difficulty?: Difficulty }
-  | { view: "game" };
+  | { view: "game" }
+  | { view: "friend" };
 
 /**
  * Round 11 (G2): new owner games *could* open with a starter chef (sim-core NEW_GAME.starterChef). Off: the balancer
@@ -81,6 +86,7 @@ export function randomSeed(): number {
 export function App() {
   const [app, dispatch] = useReducer(appReducer, initialAppState);
   const [shell, setShell] = useState<Shell>({ view: "title" });
+  const coop = useHostOn();
   const game = app.game;
   const meta = app.meta;
 
@@ -206,6 +212,7 @@ export function App() {
           onNew={newGame}
           onYourGames={() => { setTitleNote(null); setPicker("browse"); }}
           onContinue={() => { const s0 = slots.find((x) => !x.archived); if (s0) void continueSlot(s0.slotId); }}
+          onVisit={() => setShell({ view: "friend" })}
         />
         <Suspense fallback={null}>
           {picker && !conflict && (
@@ -224,6 +231,8 @@ export function App() {
       </>
     );
   }
+
+  if (shell.view === "friend") return <Suspense fallback={<Loading />}><VisitFriend onBack={() => setShell({ view: "title" })} /></Suspense>;
 
   if (shell.view === "pick") {
     return (
@@ -415,6 +424,7 @@ export function App() {
         )}
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
+      {coop && !career && <Suspense fallback={null}><CoopShiftDock game={game} send={send} /></Suspense>}
       <Toast toast={app.toast} onDismiss={dismissToast} />
       <WordsSheet />
     </div>

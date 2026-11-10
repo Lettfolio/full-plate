@@ -23,6 +23,8 @@ interface Props {
   note?: string | null;
   /** Round 9: Continue is opening the save. */
   busy?: boolean;
+  /** Round 12 (G): "Visit a friend" — a friend's code opens their restaurant or their co-op day. */
+  onVisit?: () => void;
 }
 
 export const PATH_LABEL = { owner: "Owner", career: "Career", empire: "Empire", stars: "Stars" } as const;
@@ -51,7 +53,7 @@ function slotCard(s: SlotView): Card {
   return { name: s.name, sub, day: s.day, cash: s.cash };
 }
 
-export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, saveNote, note, busy }: Props) {
+export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, saveNote, note, busy, onVisit }: Props) {
   const [goals, setGoals] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
   // Round 9: the career save is one of the slots now (no separate "Continue career").
@@ -82,6 +84,7 @@ export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, save
             {slots && slots.length === 0 && onYourGames && (
               <button className="btn btn--ghost btn--tap" onClick={onYourGames}><Icon name="folder" size={20} />Load a save file</button>
             )}
+            {onVisit && <button className="btn btn--ghost btn--tap" onClick={onVisit}><Icon name="people" size={20} />Visit a friend</button>}
             <button className="btn btn--ghost btn--tap title__goal" onClick={() => setGoals(true)}>
               <Icon name="trophy" size={20} />How do I win?
             </button>
