@@ -946,3 +946,100 @@ not childish), "What a night!", "Let's cook!", promotion/win exclamations (earne
 - Playtest 1024×768 touch (shots `scratchpad/shots/r11b/`): Normal pre-picked; lease "Footfall" tap → tip; day 1 menu
   shows Pint of lager / Glass of house wine; Service "86" header tap → tip, 8 "86" buttons; Skip to evening; day 2;
   Settings drinks switch off; flipped → "Tall fizzy lemonade" on the menu and in the larder line at once; 0 errors.
+
+## Round 12 — A: juice, animation and a soundtrack
+
+The watching part of the day moves now, in a Two Point / Dave the Diver register: small, quick, dry. All cosmetic —
+nothing reads into or changes the sim (headless balance unchanged), nothing is in GameState or the save.
+
+### On screen
+
+**Service floor** (`canvas/juice.ts`, wired in `canvas/RestaurantView.ts`; the RestaurantView chunk is lazy):
+- Busy pans sizzle (hot specks) and steam; food waiting on the pass steams under the heat lamps (more while the rest
+  of the ticket is still cooking).
+- A server carrying food from the pass carries the party's plates — one in hand, up to two more up the arm.
+- **Paid beat**: when a party settles, a gold coin rises off its table and turns as it fades (400 ms); the "+£" note
+  follows 250 ms later.
+- **Five-star glow**: a party that paid with a 5 leaves a warm gold ring on its table that swells a little and fades (1.8 s).
+- **The queue shuffles**: when the line moves up, people step up front to back, ~140 ms apart (÷ speed), instead of the
+  whole line sliding at once.
+- **Idle staff**: everyone standing still breathes (under a pixel), and a server waiting at the pass or a chef with
+  nothing on looks about every couple of seconds. The existing walk interpolation is unchanged.
+
+**Service panel** (`screens/Service.tsx`):
+- "What's happening" lines slide in from the left (220 ms). Lines are now keyed by day/tick/order-in-that-tick, so when
+  the log trims its oldest line nothing else re-mounts (before, every line re-animated once the log was full).
+- The Served tile counts up; Takings already did (R7).
+- **Rush**: 3+ parties queueing or 5+ tickets on the rail (one per party, as the pass draws them) (ends below 2 and 4, so it doesn't flicker). The header band warms
+  (an inset tomato wash, 400 ms transition), and a worded "Rush on" chip appears by
+  the weekday (so it isn't colour alone). The music speeds up and adds a hat line. No pulsing.
+- Sounds: the pass bell when a plate is up (at most one every 0.7 s), the till when a table pays, a soft rising
+  three-note for a five-star table, two falling notes when you 86 a dish, a rising/falling pair as a rush starts/ends.
+
+**Evening** (`screens/Evening.tsx`, now its own lazy chunk — see Bundle):
+- Tonight's money counted up already (R7, 650 ms); covers and the average score now count up too (600 ms), and every
+  star row on the screen fills one star after another (90 ms apart).
+- **"Best night so far"**: a new line under the big figure when tonight made money and beat every earlier night (at
+  least two of them). Its one flourish: a single light sweep across the pill and a small nod of the trophy. Once.
+- **Day-over transitions**: each screen fades in over 180 ms (`.screen > *`), so planning → service → evening reads as
+  a cross-fade on the cream page rather than a cut.
+
+**Soundtrack** (`lib/music.ts`, lazy, 6.8 kB): three looping 16-bar pieces, all synthesised (oscillators + one noise
+buffer; no audio files, no licensed music): planning (calm, F major, 84 bpm, keys arpeggio), service (brisk, A minor,
+112 bpm, bass + off-beat stabs + kick/backbeat; a rush eases it to 124 bpm with sixteenth hats and an extra kick),
+evening (warm, E-flat, 72 bpm, held chords). The title plays the planning piece. The Music decor item picks the
+instrument palette, so decorating is audible: Quiet room = clean keys, straight; Kitchen radio = tinny (band-passed)
+square waves; Jazz speakers = soft detuned keys, swing, brushes; Jukebox = organ, the hardest swing, full kit; Grand
+piano = plucked keys, no drums. The tune is a fixed-seed walk over chord tones (the same every loop).
+
+### Settings (rows added at the end of the list, each marked `{/* R12-A */}`)
+- **Animations** switch (on by default). Off sets `data-motion="off"` on `<html>`; with it — or the OS's
+  prefers-reduced-motion — every count-up is instant (`lib/motion.tsx` `motionOk()`, shared by MoneyText), CSS
+  animations and transitions are off app-wide, and the floor draws its still frames (no steam, no coin, no shuffle
+  delay, no breathing; the five-star ring shows still). Music still plays.
+- **Music** and **Sound effects** volume sliders (`components/VolumeSlider.tsx`): native range inputs, 44 px tall,
+  arrow keys / Page Up/Down / Home / End, `aria-valuetext` "40%" / "Off". Defaults 40 % and 80 %. The existing **Sound**
+  switch is the master: off silences both. Releasing the Sound effects slider plays the bell as a sample.
+- Stored in the same settings record (`lib/settings.ts`: `animations`, `musicVolume`, `sfxVolume`); old stored
+  settings load with the defaults; volumes are clamped to 0..1.
+
+### How the audio is wired
+`lib/sfx.ts` (main chunk, small) is the front door: `playSfx(kind)`, `setSoundtrack(scene, palette)` (App, from the
+phase and `game.decor.slots.music`), `setRush(on)` (Service). The AudioContext is created on the first pointerdown /
+keydown (autoplay rules; resumed on later gestures) and only then is `music.ts` imported. Where Web Audio is missing
+every call is a no-op and nothing throws. At music volume 0 (or Sound off) the bus ramps to exactly 0 and the
+scheduler stops, so nothing is scheduled. Playtest read-out: `window.__fpMusic()` with the dev switch
+(`full-plate:dev`), giving scene, palette, bpm, rush, running, notes scheduled and the bus gain.
+
+### Bundle
+The main chunk was 199.2 kB of 200 before this round; this work would have taken it to 203.2. The Evening screen is now
+a lazy chunk (`App.tsx`: `lazy(() => import("./screens/Evening"))`, prefetched as soon as service starts), so the
+main chunk is **180.2 kB**; Evening is 23.3 kB, music 6.8 kB.
+
+### Left out, and why
+- No confetti, no screen shake, no pulsing rush (brief, and the audience is 14).
+- No per-dish plate art when carrying (plates use three fixed food colours, as on the tables).
+- Music has no separate title piece (the planning piece plays on the title) and no crossfade between pieces — the old
+  piece stops and the new one starts on its first bar with a 0.6 s fade-in.
+- The hands-on canvas (HandsOnShift) is unchanged: its juice is its own.
+
+### Numbers and checks (R12-A)
+- Tests: workspace 1,241 → **1,259** (game 535 → 553: +18 in `round12.juice.test.tsx`; `r7shell` updated for the three
+  new settings fields, nothing deleted). Headless balance (200 seeds × 365 days, normal) typical / cheap / nohire **90.0 / 68.0 / 0.0** —
+  no sim file changed.
+- Chunks: main `index` 199.2 → **180.2 kB** (Evening lazy); Evening 23.3, music 6.8, RestaurantView 38.6 → 41.5 kB;
+  main CSS 135.7 → 139.3 kB.
+- Floor cost: canvas calls per frame on a busy lunchtime at 4× (stubbed context, 300 frames) 751 → 792 (+5 %). The
+  R8.6 Playwright method (4× CPU throttle, 5 s of rAF intervals at 4×) was run base/after on this machine but the
+  machine was saturated by parallel builds (load 17–60): both builds dropped most frames (avg 35–150 ms) and the
+  run-to-run spread swamped any difference. Re-measure on a quiet machine before trusting either.
+- Type audit normal / large: 0 runs under 13 px, 0 errors. Probe: within noise of the baseline — the only rises were
+  the live 4× service screen (whether an incident card has scrolled the side panel when the speed deck is measured),
+  and the base build on the same machine shows the same rise (1280 large covered 12 vs baseline 8); not re-baselined.
+- Playtest (built dist, 1024×768 touch, `scratchpad/shots/r12/A/`): new game → starter menu → day 1 and day 2 service
+  at 2×/4× → evenings; paid coin caught on the floor (`21`–`24`), rush tint (`04`, `08`), evening count-up mid-way
+  (`06`: £139 of £151), Settings rows (`11`), Animations off + Music 0 (`12`): `__fpMusic()` gain 0, scheduler stopped,
+  notes 839 → 839 over 1.5 s; with Animations off the evening figure is final 60 ms in and `document.getAnimations()`
+  is empty. 0 page errors.
+- Pre-existing, not changed: the header's Settings sheet sits under the Evening's pinned action dock (header z 5,
+  dock z 6). Raising the header fixes it but moves the probe's covered counts, so it's left for a layout pass.
