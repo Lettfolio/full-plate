@@ -16,6 +16,13 @@ export type GameMode = "owner" | "career";
 // ── the fork ──
 /** Year 2 starts here (the brief: "at the start of in-game year 2"). */
 export const FORK_DAY = 365;
+/**
+ * Round 12 (C): a Quick-year game (new-game option) offers the fork from day 120 instead (PathMeta.forkDay). The fork
+ * is game-side state, so nothing in the sims changes: unset, every rule below reads 365 exactly as before.
+ */
+export const QUICK_FORK_DAY = 120;
+/** The first day the fork can be offered in this game. */
+export const forkDayOf = (meta: { forkDay?: number | undefined }): number => meta.forkDay ?? FORK_DAY;
 export const FORK_POPULARITY = 60;
 export const FORK_PROFIT_DAYS = 90;
 /** "Think about it" brings the card back a week later. */
@@ -42,24 +49,26 @@ export const FORK_RECENT_DAYS = 28;
  * (round 3 review: every surviving owner cleared the old bar by day 365, including one with £83 in the bank who was
  * then told "your numbers are good"). `missing` says what to work on, for the evening hint.
  */
-export function forkMilestone(game: GameState): { met: boolean; popularity: number; profitDays: number; recentProfit: number; missing?: string } {
+export function forkMilestone(game: GameState, forkDay: number = FORK_DAY): { met: boolean; popularity: number; profitDays: number; recentProfit: number; missing?: string } {
   const popularity = game.reputation.popularity;
   const profitDays = profitableDays(game.history);
   const recentProfit = game.history.slice(-FORK_RECENT_DAYS).reduce((a, d) => a + d.profit, 0);
-  const known = popularity >= FORK_POPULARITY || profitDays >= FORK_PROFIT_DAYS;
+  // Round 12 (C): a quick year asks for the same share of profitable days (90 of 365 → 30 of 120).
+  const needDays = Math.round((FORK_PROFIT_DAYS * forkDay) / FORK_DAY);
+  const known = popularity >= FORK_POPULARITY || profitDays >= needDays;
   const met = known && recentProfit > 0;
   const missing = met ? undefined
-    : !known ? `get popularity to ${FORK_POPULARITY} (now ${Math.round(popularity)}) or reach ${FORK_PROFIT_DAYS} profitable days (now ${profitDays})`
+    : !known ? `get popularity to ${FORK_POPULARITY} (now ${Math.round(popularity)}) or reach ${needDays} profitable days (now ${profitDays})`
     : "make a profit over the last four weeks";
   return { met, popularity, profitDays, recentProfit, ...(missing ? { missing } : {}) };
 }
 
 /** Should tonight's evening show the fork story card? (`game` is the evening state; game.day is the day just played.) */
-export function forkDue(game: GameState, fork: ForkMeta, mode: GameMode): boolean {
+export function forkDue(game: GameState, fork: ForkMeta, mode: GameMode, forkDay: number = FORK_DAY): boolean {
   if (mode !== "owner" || fork.chosen || game.phase === "gameover") return false;
-  if (game.day < FORK_DAY) return false;
+  if (game.day < forkDay) return false;
   if (fork.snoozeUntil !== undefined && game.day < fork.snoozeUntil) return false;
-  return forkMilestone(game).met;
+  return forkMilestone(game, forkDay).met;
 }
 
 // ── endings ──
@@ -153,6 +162,36 @@ export interface PathMeta {
   morningDay?: number | undefined;
   /** Round 12 (B): her brand kit as a code (lib/brandCode.ts); absent = the default derived from the name. */
   brand?: string | undefined;
+  /** Round 12 (C): Quick year — the fork comes from this day (QUICK_FORK_DAY). Unset = FORK_DAY (365). */
+  forkDay?: number | undefined;
+  /** Round 12 (C): the last chapter card (30-day month of year 1) the player dismissed. */
+  chapterSeen?: number | undefined;
+  /** Round 12 (C): this game is a daily challenge (its own save, lib/challenge.ts), not one of the six slots. */
+  challenge?: ChallengeMeta | undefined;
+}
+
+/** Round 12 (C): what the score screen needs to know about where a daily challenge started. */
+export interface ChallengeMeta {
+  /** UTC date of the challenge, YYYY-MM-DD (the template and the goal come from it). */
+  date: string;
+  /** First day of the five. The run ends after the evening of startDay + 4. */
+  startDay: number;
+  startCash: number;
+  startPopularity: number;
+  /** The goal's number, fixed from the restaurant's last week when the scenario was built (lib/challenge.ts). */
+  target: number;
+}
+
+/** Round 12 (C): days in a daily challenge. */
+export const CHALLENGE_DAYS = 5;
+
+/** Round 12 (C): year 1 is told as chapters of one 30-day month each (12, or 4 in a quick year). Presentation only. */
+export const CHAPTER_DAYS = 30;
+/** The chapter that ends tonight and hasn't been dismissed (an owner's first year, before the fork), else 0. */
+export function chapterDue(game: GameState, meta: PathMeta): number {
+  const n = (game.day + 1) / CHAPTER_DAYS;
+  const on = meta.mode === "owner" && !meta.challenge && !meta.fork.chosen && (game.phase === "evening" || game.phase === "event");
+  return on && Number.isInteger(n) && n <= Math.floor(forkDayOf(meta) / CHAPTER_DAYS) && n > (meta.chapterSeen ?? 0) ? n : 0;
 }
 
 export const initialMeta = (mode: GameMode = "owner"): PathMeta => ({

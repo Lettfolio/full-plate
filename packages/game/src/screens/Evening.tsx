@@ -22,7 +22,7 @@ import { moodFace } from "../lib/staff";
 import { Avatar } from "../components/Avatar";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { ShiftSummary } from "@full-plate/handson";
-import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
+import { forkDayOf, forkMilestone, type PathMeta } from "../state/paths";
 import { tillSweepable } from "../state/pathEngine";
 import { compactMeals } from "../components/StatusBar";
 import { inSeason } from "@full-plate/sim-stars";
@@ -137,7 +137,7 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
   const topUp = e ? meta?.empireEvents.filter((x) => x.kind === "topUp" && x.day === e.hq.day && x.text.startsWith("HQ topped up")).at(-1) : undefined;
   // Year 2 has started but nobody has come calling yet: say what's missing (once a week, on Sundays).
   const fork = meta?.fork;
-  const forkHint = meta && meta.mode === "owner" && fork && !fork.chosen && !fork.offered && game.day >= FORK_DAY && weekdayIndex(game.day) === 6 ? forkMilestone(game).missing : undefined;
+  const forkHint = meta && meta.mode === "owner" && fork && !fork.chosen && !fork.offered && game.day >= forkDayOf(meta) && weekdayIndex(game.day) === 6 ? forkMilestone(game, forkDayOf(meta)).missing : undefined;
   return (
     <>
       {forkHint && (

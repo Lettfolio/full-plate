@@ -38,6 +38,8 @@ export const inLibrary = contentInLibrary;
 export const tagsOf = contentTagsOf;
 
 export const { newGame, applyCommand, tick, runDay, candidates, classifyMenu, serialize, deserialize } = sim;
+// Round 12 (C): the daily challenge builds its scenario with a scripted owner (lib/challenge.ts, lazy).
+export const { runStrategyDay, STRATEGIES } = sim;
 
 export const {
   SERVICE_TICKS,

@@ -5,7 +5,7 @@ import type { StarsCommand } from "@full-plate/sim-stars";
 import { applyCommand, asCommand, content, HOOKS, newGame, tick } from "../sim";
 import { formatPence } from "../lib/format";
 import { clockLabel } from "../lib/calendar";
-import { FORK_DAY, forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
+import { forkDayOf, forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
 import {
   careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
   hqBacksTill, moveOnFromBust, ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
@@ -58,7 +58,8 @@ export interface AppState {
 }
 
 export type AppAction =
-  | { type: "new"; cmd: Extract<Command, { type: "NEW_GAME" }> }
+  /** Round 12 (C): `forkDay` = a Quick-year game (paths.ts QUICK_FORK_DAY). */
+  | { type: "new"; cmd: Extract<Command, { type: "NEW_GAME" }>; forkDay?: number }
   | { type: "load"; game: GameState; meta?: PathMeta }
   | { type: "newCareer"; seed: number; track: CareerTrack; strategy: OwnerStrategy; playerName: string; difficulty: GameState["difficulty"]; districtId?: string; /** [round 10] portrait look 0-5 */ look?: number }
   | { type: "career"; cmd: CareerCommand }
@@ -74,6 +75,8 @@ export type AppAction =
   | { type: "dismissWin" }
   | { type: "seenHandover" }
   | { type: "brand"; code: string }
+  /** Round 12 (C): the chapter card for chapter `n` was dismissed. */
+  | { type: "chapterSeen"; n: number }
   | { type: "nextDay" }
   /** Round 6 review: queue the evening tip's commands for tomorrow morning (the caller then moves the day on). */
   | { type: "actTomorrow"; commands: Command[]; done: string }
@@ -182,7 +185,7 @@ function settle(s: AppState): AppState {
   let meta = s.meta;
   if (game.phase === "evening" || game.phase === "event" || game.phase === "gameover") {
     ({ game, meta } = eveningHooks(game, meta));
-    if (!meta.fork.offered && forkDue(game, meta.fork, meta.mode === "career" && meta.career?.handover ? "owner" : meta.mode)) {
+    if (!meta.fork.offered && forkDue(game, meta.fork, meta.mode === "career" && meta.career?.handover ? "owner" : meta.mode, forkDayOf(meta))) {
       meta = { ...meta, fork: { ...meta.fork, offered: true, firstOfferDay: meta.fork.firstOfferDay ?? game.day } };
     }
     if (meta.handsOn || meta.handsOnResume) meta = { ...meta, handsOn: undefined, handsOnResume: undefined };
@@ -244,7 +247,7 @@ function reduce(s: AppState, a: AppAction): AppState {
   const pack: ContentPack = packFor(s.meta);
   switch (a.type) {
     case "new":
-      return { ...initialAppState, game: newGame(content, a.cmd), meta: initialMeta("owner") };
+      return { ...initialAppState, game: newGame(content, a.cmd), meta: { ...initialMeta("owner"), ...(a.forkDay ? { forkDay: a.forkDay } : {}) } };
     case "newCareer": {
       const r = startCareer(a);
       return { ...initialAppState, game: r.game, meta: r.meta };
@@ -445,7 +448,7 @@ function reduce(s: AppState, a: AppAction): AppState {
       // on — never a second Empire/Stars on top of the first. Snoozing needs the card to be showing.
       const f = s.meta.fork;
       const ownerish = s.meta.mode === "owner" || !!s.meta.career?.handover;
-      if (f.chosen || !ownerish || s.meta.empire || s.meta.stars || s.game.day < FORK_DAY || s.game.phase === "gameover") return s;
+      if (f.chosen || !ownerish || s.meta.empire || s.meta.stars || s.game.day < forkDayOf(s.meta) || s.game.phase === "gameover") return s;
       if (a.choice === "snooze" ? !f.offered : a.choice !== "empire" && a.choice !== "stars") return s;
       if (a.brandName !== undefined && typeof a.brandName !== "string") return s;
       const meta = a.choice === "snooze" ? snoozeFork(s.game, s.meta) : a.choice === "empire" ? chooseEmpire(s.game, s.meta, a.brandName) : chooseStars(s.game, s.meta);
@@ -459,6 +462,8 @@ function reduce(s: AppState, a: AppAction): AppState {
       return { ...s, meta: { ...s.meta, handoverSeen: true } };
     case "brand":
       return { ...s, meta: { ...s.meta, brand: a.code } };
+    case "chapterSeen":
+      return { ...s, meta: { ...s.meta, chapterSeen: Math.max(s.meta.chapterSeen ?? 0, a.n) } };
   }
 }
 

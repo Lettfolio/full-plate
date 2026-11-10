@@ -6,11 +6,13 @@ import { MoneyText } from "../components/MoneyText";
 import { segmentName } from "../lib/content";
 import { Term } from "../components/Term";
 import { DIFFICULTY_CHOICES, DifficultyPicker } from "../components/DifficultyPicker";
+import { QUICK_FORK_DAY } from "../state/paths";
 
 interface Props {
   content: ContentPack;
   initialSeed: number;
-  onStart: (seed: number, districtId: string, name: string, difficulty: Difficulty) => void;
+  /** Round 12 (C): `forkDay` = Quick year, the fork from day 120 (paths.ts QUICK_FORK_DAY) instead of 365. */
+  onStart: (seed: number, districtId: string, name: string, difficulty: Difficulty, forkDay?: number) => void;
   onBack: () => void;
   /** Preselected by the start picker. */
   initialDistrictId?: string;
@@ -44,6 +46,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
   const [askDifficulty, setAskDifficulty] = useState(initialDifficulty === undefined);
   const chosen = DIFFICULTY_CHOICES.find((d) => d.id === difficulty);
   const [seedText, setSeedText] = useState(String(initialSeed));
+  const [quick, setQuick] = useState(false);
   const placeholder = useMemo(() => NAME_IDEAS[initialSeed % NAME_IDEAS.length]!, [initialSeed]);
   const seed = Number.parseInt(seedText, 10);
   const seedOk = Number.isFinite(seed) && seed >= 0 && seed <= 0xffffffff;
@@ -140,7 +143,13 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
             <b><MoneyText pence={content.balance.loanPrincipal} whole /></b> bank loan over {Math.round(content.balance.loanTermDays / 365 * 10) / 10} years.
           </div>
 
-          <button className="btn btn--primary btn--xl" disabled={!districtId || !seedOk} onClick={() => onStart(seed, districtId, name.trim() || placeholder, difficulty)}>
+          {/* Round 12 (C): Quick year, off by default. */}
+          <label className="sheet__row sheet__check newgame__quick">
+            <input type="checkbox" className="switch" checked={quick} onChange={(e) => setQuick(e.target.checked)} />
+            <span><b>Quick year</b> <span className="xs muted">The big choice comes on day {QUICK_FORK_DAY}, not day 365: four chapters instead of twelve.</span></span>
+          </label>
+
+          <button className="btn btn--primary btn--xl" disabled={!districtId || !seedOk} onClick={() => onStart(seed, districtId, name.trim() || placeholder, difficulty, quick ? QUICK_FORK_DAY : undefined)}>
             Sign the lease →
           </button>
         </aside>

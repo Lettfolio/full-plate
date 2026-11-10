@@ -88,12 +88,19 @@ export function GoalExplainer({ onClose, atFork = false }: { onClose: () => void
           </section>
         ))}
       </div>
-      {/* Round 11 (D, U10): the honest length, so nobody expects the fork after one evening. */}
+      {/* Round 11 (D, U10): the honest length, so nobody expects the fork after one evening. Round 12 (C): chapters,
+          Quick year and the daily challenge. */}
       <p className="small goals-explain__time">
-        <b>How long does it take?</b> The first year is 365 days in the game. A day takes about a minute if you play
-        at 4× or tap Skip to evening, so the big choice comes after about 3 to 6 hours of playing in all (nearer ten
-        if you watch every service at 1×; the speed you pick is remembered). Short sessions are fine: your game saves
-        itself every morning and evening.
+        <b>How long does it take?</b> The first year is 365 days in the game, told as twelve chapters of a month each:
+        at the end of every chapter a card scores the month out of five stars and says what to work on next. A day
+        takes about a minute if you play at 4× or tap Skip to evening, so the big choice comes after about 3 to 6 hours
+        of playing in all (nearer ten if you watch every service at 1×; the speed you pick is remembered). Your game
+        saves itself every morning and evening.
+      </p>
+      <p className="small goals-explain__time">
+        <b>Less time?</b> Switch on <b>Quick year</b> when you sign the lease: four chapters, and the big choice comes on
+        day 120 (about an hour or two). Or try <b>Today's challenge</b> from the title screen: five days in a restaurant
+        with a problem, the same one for everyone today, and a score code to compare.
       </p>
       <button className="btn btn--primary btn--tap goals-explain__ok" data-autofocus onClick={onClose}>Got it</button>
     </Dialog>

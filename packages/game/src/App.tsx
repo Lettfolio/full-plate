@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type { Command, Difficulty } from "@full-plate/sim-core";
+import type { Command, Difficulty, GameState } from "@full-plate/sim-core";
 import { playerAvatar } from "@full-plate/sim-core";
 import type { CareerCommand } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
@@ -14,11 +14,9 @@ import { TitleScreen } from "./screens/TitleScreen";
 import type { CareerStartOptions } from "./screens/StartPicker";
 import { Planning, type PlanningTab } from "./screens/Planning";
 import { Service } from "./screens/Service";
-import { EventModal } from "./screens/EventModal";
 import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
 import { RotateCard } from "./components/RotateCard";
-
 import { useBrandStyle } from "./lib/brandHook";
 
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
@@ -50,6 +48,14 @@ const GameOver = lazy(() => import("./screens/GameOver").then((m) => ({ default:
 // Round 12 (D, bundle relief): the owner's Evening is its own chunk, fetched while service runs (see the effect below).
 const loadEvening = () => import("./screens/Evening");
 const Evening = lazy(() => loadEvening().then((m) => ({ default: m.Evening })));
+// Round 12 (C): today's challenge (intro, the bar above the game, the score screen) and the chapter card.
+const Challenge = lazy(() => import("./screens/Challenge").then((m) => ({ default: m.Challenge })));
+const ChallengeHud = lazy(() => import("./screens/Challenge").then((m) => ({ default: m.ChallengeHud })));
+const ChallengeScore = lazy(() => import("./screens/ChallengeScore").then((m) => ({ default: m.ChallengeScore })));
+const ChapterCard = lazy(() => import("./screens/ChapterCard").then((m) => ({ default: m.ChapterCard })));
+// Round 12 (C, bundle): the morning post is its own chunk, fetched as soon as an event evening starts.
+const loadEvent = () => import("./screens/EventModal");
+const EventModal = lazy(() => loadEvent().then((m) => ({ default: m.EventModal })));
 /** Warm the new-game screens' chunks once the title has painted (a tablet shouldn't wait on "New game"). */
 function prefetchStartScreens(): void {
   const go = () => { void loadStart().catch(() => {}); void loadNewGame().catch(() => {}); };
@@ -58,7 +64,7 @@ function prefetchStartScreens(): void {
 }
 import { Toast } from "./components/Toast";
 import { noteSlot } from "./components/CrashGuard";
-import { handsOnRoleFor } from "./state/paths";
+import { chapterDue, CHAPTER_DAYS, forkDayOf, handsOnRoleFor, type PathMeta } from "./state/paths";
 import { weekdayIndex } from "./lib/calendar";
 import { PLAYER_ID } from "@full-plate/sim-career";
 import { setSoundtrack } from "./lib/sfx";
@@ -70,6 +76,7 @@ import { setSoundtrack } from "./lib/sfx";
 export type Shell =
   | { view: "title" }
   | { view: "pick" }
+  | { view: "challenge" }
   | { view: "newgame"; seed?: number; districtId?: string; difficulty?: Difficulty }
   | { view: "game" };
 
@@ -114,7 +121,7 @@ export function App() {
   // On event days the evening P&L is shown first; "Next day" then opens the morning post.
   const [eventOpen, setEventOpen] = useState(false);
   const phase = game?.phase;
-  useEffect(() => { if (phase !== "event") setEventOpen(false); }, [phase]);
+  useEffect(() => { if (phase !== "event") setEventOpen(false); else void loadEvent().catch(() => {}); }, [phase]);
   // Round 12 (D): warm the Evening's chunk once a day is under way, so the evening never waits on the network.
   useEffect(() => { if (phase === "planning" || phase === "service") void loadEvening().catch(() => {}); }, [phase]);
   // R12-A: the soundtrack follows the day; the room's Music decor item picks the instruments.
@@ -140,11 +147,11 @@ export function App() {
     noteSlot(id);
     setSlotId(id); setNewSlot(null);
   };
-  const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty, into?: string) => {
+  const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty, into?: string, forkDay?: number) => {
     claimSlot(into);
     setPlanTab("menu");
-    // Round 11 (G2): the starter chef is wired but off (STARTER_CHEF above).
-    dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty, ...(STARTER_CHEF ? { starterChef: true } : {}) } });
+    // Round 11 (G2): the starter chef is wired but off (STARTER_CHEF above). Round 12 (C): forkDay = Quick year.
+    dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty, ...(STARTER_CHEF ? { starterChef: true } : {}) }, forkDay });
     setShell({ view: "game" });
   };
   /** Round 11 (U3): a lost game in Your games starts over with the same restaurant (seed, street, name, difficulty), in its slot. */
@@ -155,7 +162,7 @@ export function App() {
     if (!r) { setTitleNote("Sorry, that game couldn't be opened. Try again, or load it from a save file."); return; }
     setPicker(null);
     const g = r.loaded.game;
-    start(g.seed, g.districtId, g.restaurantName, g.difficulty, id);
+    start(g.seed, g.districtId, g.restaurantName, g.difficulty, id, r.loaded.meta.forkDay);
   };
   const startCareer = (o: CareerStartOptions) => {
     claimSlot();
@@ -164,6 +171,7 @@ export function App() {
     setShell({ view: "game" });
   };
   const quitToTitle = () => {
+    setChOver(false);
     noteSlot(null);
     if (slotId) void store.flush(slotId);
     setSlotId(null);
@@ -188,6 +196,14 @@ export function App() {
     setShell({ view: "game" });
     if (r.backupSlotId) dispatch({ type: "toast", text: `The other copy is kept in Your games as “Backup of ${r.summary.name}”.`, tone: "info" });
   };
+  // Round 12 (C): a daily challenge plays in the normal game view, saved in its own place (never a slot).
+  const [chOver, setChOver] = useState(false);
+  const playChallenge = (g: GameState, m: PathMeta) => {
+    noteSlot(null); setSlotId(null); setChOver(false); setPlanTab("menu");
+    dispatch({ type: "load", game: g, meta: m });
+    if (m.handsOnResume) dispatch({ type: "resumeHandsOn" });
+    setShell({ view: "game" });
+  };
   const saveFile = async () => {
     if (!slotId) return "Nothing to save yet.";
     const r = await store.saveToFile(slotId);
@@ -201,6 +217,8 @@ export function App() {
   const nextDay = () => {
     // Round 6: the month doesn't move on until the board meeting is answered or skipped (the reducer says so).
     if (meta.empire?.boardMeeting) { dispatch({ type: "nextDay" }); return; }
+    // Round 12 (C): after the challenge's fifth evening, "Next day" is the score.
+    if (meta.challenge && game && game.day >= meta.challenge.startDay + 4) { setChOver(true); return; }
     setLastShift(null);
     if (!career && game?.phase === "event") setEventOpen(true);
     else dispatch({ type: "nextDay" });
@@ -217,6 +235,7 @@ export function App() {
           {...(slots.length || status.cloud !== "waiting" ? { saveNote: saveNote(status) } : {})}
           onNew={newGame}
           onYourGames={() => { setTitleNote(null); setPicker("browse"); }}
+          onChallenge={() => { setTitleNote(null); setShell({ view: "challenge" }); }}
           onContinue={() => { const s0 = slots.find((x) => !x.archived); if (s0) void continueSlot(s0.slotId); }}
         />
         <Suspense fallback={null}>
@@ -235,6 +254,10 @@ export function App() {
         </Suspense>
       </>
     );
+  }
+
+  if (shell.view === "challenge") {
+    return <Suspense fallback={<Loading />}><Challenge onBack={() => setShell({ view: "title" })} onPlay={playChallenge} /></Suspense>;
   }
 
   if (shell.view === "pick") {
@@ -258,7 +281,7 @@ export function App() {
         initialSeed={shell.seed ?? randomSeed()}
         {...(shell.districtId ? { initialDistrictId: shell.districtId } : {})}
         {...(shell.difficulty ? { initialDifficulty: shell.difficulty } : {})}
-        onStart={start}
+        onStart={(sd, dId, name, diff, fd) => start(sd, dId, name, diff, undefined, fd)}
         onBack={() => setShell({ view: "pick" })}
       />
       </Suspense>
@@ -266,6 +289,10 @@ export function App() {
   }
 
   if (!game) return null;
+
+  if (meta.challenge && (chOver || game.phase === "gameover")) {
+    return <Suspense fallback={<Loading />}><ChallengeScore game={game} meta={meta} onAgain={() => { quitToTitle(); setShell({ view: "challenge" }); }} onTitle={quitToTitle} /></Suspense>;
+  }
 
   if (meta.win && !meta.win.dismissed) {
     return <Suspense fallback={<Loading />}><WinScreen game={game} meta={meta} win={meta.win} onKeepPlaying={() => dispatch({ type: "dismissWin" })} onTitle={quitToTitle} /></Suspense>;
@@ -296,7 +323,7 @@ export function App() {
       <GameOver
         game={game}
         reason={game.gameOverReason ?? null}
-        onRetrySameSeed={() => start(game.seed, game.districtId, game.restaurantName, game.difficulty)}
+        onRetrySameSeed={() => start(game.seed, game.districtId, game.restaurantName, game.difficulty, undefined, meta.forkDay)}
         onNewSeed={() => setShell({ view: "newgame", seed: randomSeed() })}
         onTitle={quitToTitle}
       />
@@ -310,6 +337,7 @@ export function App() {
   const inService = game.phase === "service";
   const employerOut = career && career.employer.status !== "employed";
   const isEvening = game.phase === "evening" || game.phase === "event" || (career && game.phase === "gameover");
+  const chapter = career ? 0 : chapterDue(game, meta);
 
   return (
     <div className="app">
@@ -325,6 +353,7 @@ export function App() {
         onSaveFile={slotId ? saveFile : undefined}
         saveMark={slotId ? <SaveIndicator slotId={slotId} store={store} /> : undefined}
       />
+      {meta.challenge && <Suspense fallback={null}><ChallengeHud game={game} meta={meta} /></Suspense>}
       <main className={`screen ${inService ? "screen--fixed" : ""}`}>
         <Suspense fallback={<Loading />}>
         {game.phase === "planning" && career && !employerOut && <div className="page"><MyShift game={game} meta={meta} career={career} sendCareer={sendCareer} send={send} /></div>}
@@ -419,15 +448,16 @@ export function App() {
       </main>
       {/* Round 12 (D): an upright phone is asked to turn sideways for a hands-on shift (holds the shift meanwhile). */}
       {inService && meta.handsOn && <RotateCard />}
-      {!career && game.phase === "event" && eventOpen && <EventModal game={game} send={send} />}
+      {!career && game.phase === "event" && eventOpen && <Suspense fallback={null}><EventModal game={game} send={send} /></Suspense>}
       {isEvening && !career && meta.fork.offered && !meta.fork.chosen && (
-        <Suspense fallback={null}><ForkCard game={game} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} /></Suspense>
+        <Suspense fallback={null}><ForkCard game={game} forkDay={meta.forkDay} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} /></Suspense>
       )}
       <Suspense fallback={null}>
         {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} onClose={() => dispatch({ type: "openGuide" })} />}
         {!career && meta.empire?.boardMeeting && (game.phase === "planning" || isEvening) && !meta.fork.offered && (
           <BoardMeeting empire={meta.empire} meeting={meta.empire.boardMeeting} send={sendEmpire} />
         )}
+        {chapter > 0 && <ChapterCard game={game} n={chapter} chapters={Math.floor(forkDayOf(meta) / CHAPTER_DAYS)} onClose={() => dispatch({ type: "chapterSeen", n: chapter })} />}
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
       <Toast toast={app.toast} onDismiss={dismissToast} />
