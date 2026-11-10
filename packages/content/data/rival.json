@@ -27,7 +27,7 @@
       "id": "purist",
       "label": "The Purist",
       "bio": "Four ingredients, no sauces, strong opinions about spoons.",
-      "places": ["Pure.", "Root ({district})"],
+      "places": ["Pure", "Root ({district})"],
       "posts": {
         "theyLead": ["Reviews this week: {them} to {you}. Restraint wins. It always does, eventually.", "We removed another ingredient from the menu. The reviews went up. Think about that."],
         "youLead": ["Reviews are noise. The carrot knows. (Fine, they won this week. The carrot is upset.)", "Some people over the road put cheese on everything. The public, sadly, enjoys this."],
@@ -119,7 +119,8 @@
     "you": "You're winning on reviews: {you} to their {them}.",
     "them": "{rivalFirst} is winning on reviews: {them} to your {you}.",
     "level": "Level on reviews: {you} each.",
-    "none": "No full week of reviews yet. {rivalFirst} is watching, though."
+    "none": "No full week of reviews yet. {rivalFirst} is watching, though.",
+    "forfeit": "You were shut all last week, so {rivalFirst} wins on reviews by default ({them})."
   },
   "clippingItem": {
     "name": "Framed clipping",

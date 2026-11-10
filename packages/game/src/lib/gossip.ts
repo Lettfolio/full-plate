@@ -5,8 +5,8 @@
  * Halfway, the critic who never finishes; the council's bin lorry) say nothing about how the restaurant is doing.
  *
  * Order of precedence each morning: opening day → the framed clipping → a regular's story beat → the blogger's verdict
- * → the blogger "spotted" (her visit day) → the guide critic (Stars) → hard news (closed, 1★, hire, ran out, loan, decor)
- * → Monday's rival result → soft news on about 3 mornings in 5 (walk-outs, 5★, rush, profit, loss, quiet, best dish,
+ * → the blogger "spotted" (her visit day) → the guide critic (Stars) → hard news (closed, 1★, hire, ran out, loan, decor;
+ * soft instead when the same kind also happened the day before) → Monday's rival result → soft news on about 3 mornings in 5 (walk-outs, 5★, rush, profit, loss, quiet, best dish,
  * a sorted problem) → a running joke on its day → patter.
  */
 import type { GameState, Review } from "@full-plate/sim-core";
@@ -116,7 +116,12 @@ function lineFor(c: Ctx, day: number): GossipLine {
     if (pool.length) return say("critic", pool, { critic: critic.critic, dish: dishLabel(y?.bestDish) ?? "food", chef: game.staff.find((s) => s.role === "chef")?.name.split(" ")[0] ?? "the chef", city: districtName(game.districtId) });
   }
   const f = facts(c, day);
-  if (f.hard.length) { const [k, x] = f.hard[0]!; return say(k, g.reactions[k], x); }
+  // Hard news that also happened the day before (the same dish running out every night) is demoted to soft news, so
+  // the radio doesn't say the same thing every morning.
+  const before = new Set(facts(c, day - 1).hard.map(([k]) => k));
+  const fresh = f.hard.filter(([k]) => !before.has(k));
+  f.soft.unshift(...f.hard.filter(([k]) => before.has(k)));
+  if (fresh.length) { const [k, x] = fresh[0]!; return say(k, g.reactions[k], x); }
   const lastWeek = c.weeks.find((w) => w.start + 7 === day);
   if (lastWeek && lastWeek.result !== "level") return say("rival", lastWeek.result === "you" ? g.rival.youWon : g.rival.theyWon);
   if (f.soft.length && h32(game.seed, "gossip:soft", day) % 100 < SOFT_NEWS_PCT) {

@@ -42,7 +42,7 @@ export interface RivalData {
   surnames: string[];
   districtWords: Record<string, string>;
   personalities: RivalPersonality[];
-  winningLine: Record<"you" | "them" | "level" | "none", string>;
+  winningLine: Record<"you" | "them" | "level" | "none" | "forfeit", string>;
   clippingItem: { name: string; caption: string };
 }
 
@@ -125,6 +125,7 @@ export function validateVoices(v: Voices, dishIds: ReadonlySet<string>, district
   for (const d of districtIds) if (!isStr(r.districtWords?.[d])) p.push(`rival.districtWords: missing ${d}`);
   if (r.personalities?.length !== 8) p.push("rival.personalities: expected 8");
   const ids = new Set<string>();
+  for (const k of ["you", "them", "level", "none", "forfeit"] as const) if (!isStr(r.winningLine?.[k])) p.push(`rival.winningLine.${k}: expected a string`);
   for (const [i, x] of (r.personalities ?? []).entries()) {
     const at = `rival.personalities[${i}]`;
     if (!isStr(x.id) || ids.has(x.id)) p.push(`${at}.id: missing or repeated`);

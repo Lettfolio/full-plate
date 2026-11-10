@@ -195,7 +195,7 @@
   },
   "rival": {
     "youWon": [
-      "Reviews this week: {restaurant} beat {rivalPlace}. {rival} says the scores 'don't count in {weekday}s'. They do.",
+      "Reviews this week: {restaurant} beat {rivalPlace}. {rival} says the scores 'don't count in the first week of the month'. They do.",
       "{restaurant} out-scored {rivalPlace} on reviews last week. {rival} has posted a picture of a sunset. Subtle.",
       "The weekly reviews are in: {restaurant} ahead of {rivalPlace}. Over the road, someone is rearranging the menu angrily."
     ],

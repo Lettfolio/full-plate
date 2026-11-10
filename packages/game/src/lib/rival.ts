@@ -147,5 +147,5 @@ export function winningLine(rival: Rival, weeks: readonly WeekScore[]): string {
   const l = voices.rival.winningLine;
   if (!w) return fill(l.none, { rivalFirst: rival.first });
   const vars = { rivalFirst: rival.first, you: w.you?.toFixed(1) ?? "—", them: w.them.toFixed(1) };
-  return fill(w.result === "you" ? l.you : w.result === "level" ? l.level : l.them, vars);
+  return fill(w.you === undefined ? l.forfeit : w.result === "you" ? l.you : w.result === "level" ? l.level : l.them, vars);
 }

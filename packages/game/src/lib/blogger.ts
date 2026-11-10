@@ -37,8 +37,9 @@ export interface BloggerReview {
   signoff: string;
 }
 
-/** Her stars for a night: the real average less a quarter, less half again if more than 15% (and 3+) walked out. */
+/** Her stars for a night: the real average less a quarter, less half again if more than 15% (and 3+) walked out. Open but nobody served (no stock): 1. */
 export function bloggerRating(d: DayResult): number {
+  if (d.covers <= 0) return 1;
   const walkPenalty = d.walkouts >= 3 && d.walkouts > d.covers * 0.15 ? 0.5 : 0;
   return Math.max(1, Math.min(5, Math.round(d.averageRating - 0.25 - walkPenalty)));
 }
@@ -47,7 +48,7 @@ export function bloggerRating(d: DayResult): number {
 export function reviewOf(game: Pick<GameState, "seed" | "restaurantName">, d: DayResult): BloggerReview {
   const b = blogger();
   const signoff = pickBy(b.signoff, game.seed, "blogger:sign", d.day);
-  if (d.closed || d.covers <= 0) {
+  if (d.closed) {
     const text = fill(pickBy(b.closed, game.seed, "blogger:closed", d.day), { restaurant: game.restaurantName });
     return { day: d.day, closed: true, rating: 0, headline: `${game.restaurantName}: closed`, text, signoff };
   }

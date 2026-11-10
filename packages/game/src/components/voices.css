@@ -58,3 +58,4 @@
 .polaroid__pic { display: grid; place-items: center; height: 72px; background: var(--surface-inset); font-size: 36px; margin-bottom: 4px; }
 .polaroid__cap { font-size: var(--fs-xs); line-height: 1.25; color: var(--ink); }
 .regbook__soon { font-size: var(--fs-sm); color: var(--ink-soft); }
+.voices-row .btn { max-width: 100%; white-space: normal; }
