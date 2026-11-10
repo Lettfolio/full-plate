@@ -638,3 +638,37 @@ a line changed only that part.
 | `countries.json` | The queue is out the door! | The queue is out the door. |
 | `countries.json` | has become a holiday tradition! | has become a holiday tradition. |
 | `goalText.json` | "Goal done: {title}! Reward: {reward}." | "Goal done: {title}. Reward: {reward}." |
+
+## Round 12 — F: invented dishes
+
+`src/customDish.ts` turns a player's recipe (name, course, plate emoji, 2–5 ingredients × ¼–3) into a `DishDef`. All
+of it is derived from the **library pack's own dishes** — no new balance knobs:
+
+| Field | From |
+| --- | --- |
+| cost | Σ unit cost × quantity (the real stock price) |
+| suggestedPrice | cost ÷ the course's median food-cost share, rounded up to the next price ending 45p/95p (≥ cost × 1.25 + 5p, ≥ £1) |
+| skillRequired | mean over the ingredients of the median skill of the real dishes using each; +2 per ingredient past three (−2 for a two-ingredient plate) |
+| prepTicks | mean prep of the real dishes using each ingredient; +¼ tick per ingredient past three |
+| qualityCeiling | mean of the ingredients' dishes' ceilings, held between the course's 25th percentile and median |
+| cuisine | the cuisine whose real dishes use these ingredients most |
+| baseAppeal (per segment) | mean of (same course & cuisine, these ingredients' dishes, same course & veg-ness) × price band (above 1.25× the course's median price, cut by price sensitivity) × budget (past 1.5× the segment's budget per head, by the square) × portion (under half the course's median cost, up to half off); **capped at the course's 75th percentile**, floor 0.01 |
+
+**Calibration** (`customDish.test.ts`): run on the 34 shipped library dishes with 2–5 ingredients as if each were
+invented, the model averages +1.4 skill (it errs on the harder side), +0.4 prep ticks, 0.98× the real suggested price
+and −0.03 appeal. The shipped mushroom risotto's recipe comes out at skill 39, 3 prep ticks, £7.95 (real: 55, 4, £7.95).
+Earlier cuts were harder and cheaper: 60% hardest ingredient + 4 per ingredient past two (+9 skill), then 80/20
+mean/hardest with 5p rounding (+4.7 skill, 0.94× price), which on 100 seeds left the inventor at 82% against
+typical's 88%; recalibrated to the table above.
+The model is part of the save contract: a recipe is saved as its inputs, so changing these formulas re-derives every
+saved recipe.
+
+**Fairness** (`test/inventor.ts`, `customDish.fair.test.ts`): sim-core's typical owner who, on day 1, swaps her least
+appealing main ×2 and dessert for three invented ones (a bacon cheese stack, a garlic mushroom pasta, a strawberry
+mess, at suggested prices). 100 seeds × 365 days, Normal: **typical 88%, inventor 86%** (−2 points, inside ±3), the
+three invented dishes selling 59 plates a day between them. (This tree's headless typical is 88.0% on master `496776e` too.) An absurd plate (five luxury ingredients × 3, suggested £196)
+gets appeal ≈ 0.01–0.04, and on 8 seeds × 180 days the typical owner who puts it on the menu goes bust every time
+(the menu's spend per head scares the street off): a lesson, not a money printer.
+
+**Text:** `data/customDishText.json` › `newDish`, eight first-night review lines ({dish}, {restaurant}); a new file so
+`reviewTemplates.json` keeps its keys and sizes. The Evening picks one by a hash of seed/day/dish.

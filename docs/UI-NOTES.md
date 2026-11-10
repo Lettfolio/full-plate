@@ -946,3 +946,85 @@ not childish), "What a night!", "Let's cook!", promotion/win exclamations (earne
 - Playtest 1024×768 touch (shots `scratchpad/shots/r11b/`): Normal pre-picked; lease "Footfall" tap → tip; day 1 menu
   shows Pint of lager / Glass of house wine; Service "86" header tap → tip, 8 "86" buttons; Skip to evening; day 2;
   Settings drinks switch off; flipped → "Tall fizzy lemonade" on the menu and in the larder line at once; 0 errors.
+
+## Round 12 — F: Invent a dish
+
+Name a dish, pick its course, plate and ingredients, set the price, and watch it sell in the real economy. Tests:
+`round12.invent.test.tsx` (8, game), `content/test/customDish.test.ts` (16) and `customDish.fair.test.ts` (1).
+
+### On screen
+
+- **Menu tab › "Your cookbook"** (between today's menu and the recipe book): an **Invent a dish** button (chef's hat
+  icon) and, once she has invented something, a strip of cards — plate emoji, name, course, the day it was invented,
+  its suggested price, **plates sold all time**, and "On the menu" / "Resting" or an **Add to menu** button. Hidden in
+  a career (the employer's menu isn't hers) until the handover; the button goes at 12 recipes.
+- **The invent sheet** (a wide Dialog, scrolls inside with a sticky footer at 768 px tall): name (32 characters, live
+  count; cleaned like a restaurant name), course (Starter / Main / Dessert / Drink as a segmented control), plate (20
+  food emoji as 44 px toggles, each with a name for screen readers), ingredients (2–5 from the real list via a native
+  select, each with a quantity stepper in quarters from ¼ to 3, its unit and per-plate cost, and a remove button).
+  The right column updates as she goes: a plate preview with the cuisine it "reads as" and a vegetarian note;
+  **ingredients cost**, **suggested price**, **skill needed** (with her best chef's skill beside it, and a warning when
+  it's above), **prep time** in minutes; the **sell guess** — "Likely a favourite" / "Should sell steadily" / "A slow
+  seller" / "A hard sell" with one line saying why (price, a thin plate, or who on this street likes it); and **your
+  price** with the margin (a `<Term id="margin">`) and a note when it's over the going rate. Footer: Cancel and
+  **Put it on the menu** (or **Save to cookbook** when the menu is full), disabled with the reason until there's a
+  name and two ingredients.
+- **Menu rows** show the chosen plate emoji instead of the course icon for an invented dish; everything else (price
+  stepper, margin, Rest, ✕, the matrix, the stock forecast, the evening's tips) treats it like any dish.
+- **Evening › What people said**: the first night an invented dish sells, one extra word-of-mouth review at the top
+  names it ("Took a chance on the Midnight mushroom risotto. The chance paid off, which is more than I can say for my
+  bus fare."), stars from that night's plate quality. Display only — the sim's reviews are untouched.
+
+### Where the code lives
+
+| File | What |
+| --- | --- |
+| `packages/content/src/customDish.ts` | The content transform (`applyCustomDishes`, shaped like `applySoftDrinks`), the maths (`customDishFacts` / `deriveCustomDish`, `guessPopularity`), the recipe check (`checkCustomDish`, `cleanDishName`), and the game-side helpers kept here so they ride in the content chunk: `makeCustomDish`, `addCustomDish`, `inventInto`, `foldCookbook`, `cookbookStep`, `newDishReview` / `withNewDishReview`, `canInventIn`, `syncCustomDishes`, `customBase`. |
+| `packages/content/data/customDishText.json` | The eight first-night lines (`newDish`). |
+| `game/src/sim.ts` | `customRef` (the library pack the maths reads), `syncCustomDishes`, `cookbook` (sync + fold, once per reducer step), `cookingBase` (a fresh pack object for sim-stars' signature memo when dishes change). |
+| `game/src/state/gameReducer.ts` | `{ type: "invent", dish }`; `appReducer` calls `cookbook()` after every step. |
+| `game/src/state/paths.ts`, `saveCheck.ts`, `useSaves.ts` | `PathMeta.customDishes` / `cookbookDay`; the schema (types, ranges, name cleaning, the content recipe check, ≤ 12, no duplicate ids, every `custom:` id on the menu or set menu must be in the cookbook); autosave on a new recipe. |
+| `game/src/screens/planning/CookbookStrip.tsx`, `InventDishSheet.tsx`, `invent.css` | The strip (lazy from MenuTab) and the sheet (lazy from the strip). |
+| `MenuTab.tsx`, `Planning.tsx`, `App.tsx`, `Evening.tsx`, `lib/library.ts`, `lib/customDish.ts` | One lazy mount, the plate emoji in rows, the `onInvent` prop chain, `withNewDishReview` on the review list, `custom:` ids kept out of the recipe book, types. |
+| `sim-core/src/util.ts` | The one sim-core change: the per-pack dish index is rebuilt when the pack's `dishes` array is replaced (`idx.dishList !== content.dishes`). No rule, number or RNG draw changes. |
+
+How it hangs together: the recipe (inputs only) is saved in PathMeta, never in GameState. After every reducer step the
+owner packs (`content` and `fullContent`) get their `dishes` array replaced by shipped + derived dishes (memoised on the
+recipes array, so a tick costs one comparison); sim-core re-indexes because the array is new. The derived numbers are
+a pure function of the recipe and the library pack, so a reload, an import on another device or a replay gives the
+same dish. Ids are `custom:` + 8 base-36 characters hashed from the seed, day, count and name.
+
+### Settings
+
+None added. Motion: the sheet uses the Dialog's existing 200 ms pop (already off under reduced motion); the strip and
+the icon toggles have no transitions. No sound.
+
+### Left out, and why
+
+- **Empire:** the dishes are in the pack every shop the player runs hands-on cooks from, but the brand formula still
+  comes from the shipped presets (`extras.formulas`): putting an invented dish into a formula needs a picker in
+  EmpireTab, which is outside this round's files.
+- **Stars "refine":** skipped (time). The Stars game cooks invented dishes (signatures are memoised per pack object, so
+  `cookingBase()` hands it a fresh object when the dishes change).
+- **Editing or deleting a recipe:** not offered — a recipe's numbers are its identity, and the cookbook is a record of
+  what she made. Take it off the menu with ✕ and it stays in the book.
+- **A glossary term for "cookbook" / "signature dish":** plain words instead (main-chunk bytes).
+
+### Checks (built dist)
+
+- Main JS 199.18 → **199.97 kB** (budget 200): the strip (2.6 kB) and the sheet (8.8 kB) are lazy chunks, and the
+  logic lives in the content chunk (186.4 → 196.4 kB). The main chunk carries the reducer step, the lazy mount, the
+  plate emoji and the prop chain. Getting there meant writing those few lines without optional chaining (Babel's
+  `?.` output is long) and moving every helper into content; the next main-chunk feature still has to move
+  something out first (D's Settings split).
+- Type audit normal and Bigger: 117 screens each, 0 text < 13 px, 0 errors. Probe: every count equal to master
+  `496776e` except **768×1024 normal covered 33 → 37** (baseline raised): all four are the speed deck on the 4×
+  Service shot. The walk reaches Service from the Menu tab, which is now longer, and Playwright's scroll to the
+  off-screen "Speed 4" button lands the deck under the floor canvas. Opened from the top of the Menu, both master and
+  this branch put the speed deck at y ≈ 1097 on a 1024-tall portrait screen, below the fold — a pre-existing layout
+  issue for D's phone/portrait work, not something the cookbook adds.
+- Playtest (built dist, 1024×768, touch; shots `scratchpad/shots/r12/F/`): new owner game, starter menu; invent a
+  sensible risotto ("A slow seller": students might try it) and The Big Spender (5 luxury ingredients × 3, suggested
+  £196.45: "A hard sell"); both on the menu with their plates; two days; day 1's reviews open with the first-night line
+  for the risotto; the sim's own reviews name it on day 2; the cookbook shows 2 and 0 sold; Save to a file → a fresh
+  browser profile → Load a save file → Continue: both dishes in the cookbook and on the menu. 0 page errors.
