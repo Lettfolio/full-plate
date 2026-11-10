@@ -35,7 +35,7 @@ describe("settings sheet", () => {
     fireEvent.click(within(sheet).getByRole("checkbox", { name: /Hide alcoholic drinks/ }));
     fireEvent.click(within(sheet).getByRole("radio", { name: "Always" }));
     const stored = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!);
-    expect(stored).toEqual({ autoPause: false, defaultSpeed: 2, sound: false, textSize: "large", noGrownUpDrinks: true, speedPicked: true, underlineTerms: "always" });
+    expect(stored).toEqual({ autoPause: false, defaultSpeed: 2, sound: false, textSize: "large", noGrownUpDrinks: true, speedPicked: true, underlineTerms: "always", animations: true, musicVolume: 0.4, sfxVolume: 0.8 }); // R12-A: + animations and the two volumes
     // A fresh read (as after a reload) gets the same values back.
     resetSettingsCache();
     expect(getSettings()).toEqual(stored);

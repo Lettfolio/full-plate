@@ -14,7 +14,6 @@ import { TitleScreen } from "./screens/TitleScreen";
 import type { CareerStartOptions } from "./screens/StartPicker";
 import { Planning, type PlanningTab } from "./screens/Planning";
 import { Service } from "./screens/Service";
-import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
 import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
@@ -38,6 +37,10 @@ const SlotPicker = lazy(() => import("./screens/SlotPicker").then((m) => ({ defa
 const ConflictDialog = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.ConflictDialog })));
 // Round 7 (A): lazy chunks show a page-shaped skeleton, not a bare line.
 const Loading = () => <Skeleton />;
+// R12-A (bundle): the evening is its own chunk (the main chunk was over budget with the soundtrack's front door and the
+// count-ups); service warms it, so the evening never waits on the network.
+const loadEvening = () => import("./screens/Evening");
+const Evening = lazy(() => loadEvening().then((m) => ({ default: m.Evening })));
 // R11 review (bundle): the start picker, the lease screen and the game-over screen are their own chunks (the main
 // chunk was 207 kB after the five branches, budget 200). The title fetches the first two while it idles.
 const loadStart = () => import("./screens/StartPicker");
@@ -56,6 +59,7 @@ import { noteSlot } from "./components/CrashGuard";
 import { handsOnRoleFor } from "./state/paths";
 import { weekdayIndex } from "./lib/calendar";
 import { PLAYER_ID } from "@full-plate/sim-career";
+import { setSoundtrack } from "./lib/sfx";
 
 /**
  * Shell views. "pick" = the round-3 start picker ("Start as…"); "newgame" = the owner's lease screen.
@@ -108,6 +112,10 @@ export function App() {
   const [eventOpen, setEventOpen] = useState(false);
   const phase = game?.phase;
   useEffect(() => { if (phase !== "event") setEventOpen(false); }, [phase]);
+  // R12-A: the soundtrack follows the day; the room's Music decor item picks the instruments.
+  const musicItem = game?.decor?.slots.music?.itemId ?? "music_none";
+  useEffect(() => { if (phase === "service") void loadEvening().catch(() => {}); }, [phase]);
+  useEffect(() => { setSoundtrack(phase === "service" ? "service" : phase === "evening" || phase === "event" || phase === "gameover" ? "evening" : "planning", musicItem); }, [phase, musicItem]);
 
   const send = useCallback((cmd: Command) => dispatch({ type: "command", cmd }), []);
   const sendCareer = useCallback((cmd: CareerCommand) => dispatch({ type: "career", cmd }), []);
