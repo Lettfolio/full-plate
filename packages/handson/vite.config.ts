@@ -1,4 +1,4 @@
-/// <reference types="vitest" />
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import { fileURLToPath } from "node:url";
 
@@ -12,5 +12,6 @@ export default defineConfig({
     root: fileURLToPath(new URL(".", import.meta.url)),
     include: ["test/**/*.test.ts"],
     environment: "node",
+    testTimeout: 60_000, // round 11: vitest 4 enforces this on synchronous tests too
   },
 });

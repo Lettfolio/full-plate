@@ -243,25 +243,29 @@ describe("the sous chef's lead-in through a whole bot shift (render-side pose, r
     return { jumps, led, trips, frames };
   }
 
-  // Round 10: B re-seeded this to 1, 9, 13 because seeds 5-7 jumped once staff personalities re-rolled the warm-up, and
-  // seeds 4, 8, 10, 11, 14 already jumped on master f14f861 (sousPose drew the newest walk from the post). Round 10
-  // review fixed sous.ts (a walk sets off from where he is; late bookings ease over; the lead-in follows the first-due
-  // slip and slides with it): seeds 4 and 8 (failing on master) and 5, 6 (failing on r10-b) are back, with 1, 9, 13.
-  it.each([1, 4, 5, 6, 8, 9, 13])("seed %i: trips set off as the slip falls due, and the sous chef never jumps", (seed) => {
+  // Round 11 (red-team T2): no hand-picked seeds. Rounds 7–10 re-seeded this test (1, 9, 13 → 1, 4, 5, 6, 8, 9, 13)
+  // whenever a seed's ratio fell to 0.5 or below; the claim it guards is "most trips set off as the slip falls due",
+  // which is a property of the shift on average, not of every seed. Measured on r11 (seeds 1–16, bot skill 0.55,
+  // pace 0.5): led/trips 1.00, .53, .54, .64, .69, .63, .50, .71, .63, .60, .55, .46, .60, .60, .60, .69 — mean 0.62,
+  // pooled 141/238 = 0.59, lowest 0.46 (seed 12; the bot plates fast, so many covers come with no due slip first).
+  // Seeds 17–24, not used to set the bar, measured mean 0.68, lowest 0.50. Zero jumps on all 24, lead-in on or off.
+  // The bar: every seed ≥ 0.4 and the 16-seed mean ≥ 0.5 — the design claim with the per-seed noise allowed for.
+  const SEEDS = Array.from({ length: 16 }, (_, i) => i + 1);
+  const ratios = new Map<number, number>();
+  it.each(SEEDS)("seed %i: the sous chef never jumps, and the lead-in leads at least 40% of trips", (seed) => {
     const withLead = run(seed, true);
     expect(withLead.trips).toBeGreaterThan(2);
-    expect(withLead.led / withLead.trips).toBeGreaterThan(0.5);
     expect(withLead.jumps).toBe(0);
+    expect(withLead.led / withLead.trips).toBeGreaterThanOrEqual(0.4);
+    ratios.set(seed, withLead.led / withLead.trips);
     const old = run(seed, false);
     expect(old.led).toBe(0);
     expect(old.jumps).toBe(0);
   }, 120_000);
 
-  // Round 10 review: the snap itself on every other seed to 16 (10, 11, 14 jumped on master). Seeds 7 and 12 lead fewer
-  // than half their trips (the bot plates fast, so most covers come with no due slip first) — that ratio isn't a snap.
-  it.each([2, 3, 7, 10, 11, 12, 14, 15, 16])("seed %i: the sous chef never jumps (lead-in on)", (seed) => {
-    const withLead = run(seed, true);
-    expect(withLead.trips).toBeGreaterThan(2);
-    expect(withLead.jumps).toBe(0);
-  }, 120_000);
+  it("over seeds 1–16, trips set off as the slip falls due on average (mean led/trips ≥ 0.5)", () => {
+    expect([...ratios.keys()].sort((x, y) => x - y)).toEqual(SEEDS);
+    const mean = [...ratios.values()].reduce((x, y) => x + y, 0) / ratios.size;
+    expect(mean).toBeGreaterThanOrEqual(0.5);
+  });
 });

@@ -6,3 +6,4 @@ dist
 out/
 packages/game/scripts/.audit-saves/
 packages/game/scripts/.audit-shots/
+packages/game/scripts/.probe-out/

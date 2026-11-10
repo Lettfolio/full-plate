@@ -38,8 +38,9 @@ describe("type scale", () => {
     }
   });
 
-  it("canvas labels: RestaurantView and the hands-on renderer never ask for less than 13 px", () => {
-    const files = [join(SRC, "canvas/RestaurantView.ts"), join(SRC, "../../handson/src/render.ts")];
+  // Round 11: RestaurantView.ts was split into canvas/*.ts (scene.ts paints most labels now), so every canvas module.
+  it("canvas labels: the owner's canvas modules and the hands-on renderer never ask for less than 13 px", () => {
+    const files = [...walk(join(SRC, "canvas")).filter((p) => p.endsWith(".ts")), join(SRC, "../../handson/src/render.ts")];
     for (const p of files) {
       const text = read(p);
       for (const m of text.matchAll(/size:\s*([\d.]+)\b/g)) expect(Number(m[1]), `${p}: ${m[0]}`).toBeGreaterThanOrEqual(MIN);

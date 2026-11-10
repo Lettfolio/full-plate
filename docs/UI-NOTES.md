@@ -8,6 +8,8 @@
 | Typecheck | `pnpm --filter @full-plate/game typecheck` |
 | Tests (real sim + content) | `pnpm --filter @full-plate/game test` |
 | Static build → `packages/game/dist/` | `pnpm --filter @full-plate/game build` |
+| Dev server reachable from a tablet on the LAN | `pnpm --filter @full-plate/game dev:lan` (round 11: `dev`/`preview` are localhost-only) |
+| Layout/touch/contrast probe; type audit (own preview, baseline) | `pnpm --filter @full-plate/game probe` / `audit` / `audit:large` |
 
 Keys during service: <kbd>Space</kbd> pause/resume, <kbd>1</kbd>/<kbd>2</kbd>/<kbd>4</kbd> speed, <kbd>Esc</kbd> clear the selection.
 
@@ -855,3 +857,16 @@ gives the same cash, RNG state and history with the setting on or off).
   the words sheet, the skip link; keyboard at 1280: Tab → "Skip to main action", Enter → focus on "Open for service";
   in service the same skip link lands on "Skip to evening", which reaches the evening in ≈ 0.3 s.
 - Main JS 195.85 → 195.49 kB (−0.4 kB): the words dialog, the fork card and "How do I win?" are lazy now.
+## Round 11 — E (pipeline)
+
+Details and numbers: docs/PIPELINE.md. What UI work needs to know:
+
+- **The probe and the audit are in the repo** (`scripts/probe.mjs`, `scripts/type-audit.mjs`, shared walk in
+  `scripts/lib/harness.mjs`) and fail above `scripts/probe-baseline.json`. A new screen goes into `walkScreens`; when
+  your change lowers a count, run with `-- --update-baseline` and commit the new baseline with it.
+- The probe counts glossary `.term`s, disabled controls, switches and handler-only elements as tap targets, at
+  1280×800, 1024×768 and 768×1024 with touch. Master's honest count: 283–291 targets under 44 px per run, every one a
+  Term; all 38 screens scroll sideways by 256 px upright.
+- **Settings ends with the font credit** (`.sheet__about`, "Font licence" → `fonts-licence/OFL.txt`). Keep it last.
+- `canvas/RestaurantView.ts` is split (layout, frame, people, paint, scene, interaction); its exports are unchanged.
+
