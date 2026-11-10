@@ -161,8 +161,10 @@ export interface StarsState {
     reputation: number;        // 0-100
     tenureStart: number;
     wantsOwnPlace: boolean;
-    /** Smyth arc: decide (BACK_HEAD_CHEF / LET_HEAD_CHEF_GO) before this day or they leave for a rival. */
+    /** Smyth arc: decide (BACK_HEAD_CHEF / LET_HEAD_CHEF_GO / PAY_HEAD_CHEF_TO_STAY) before this day or they leave for a rival. */
     decisionDeadline?: number;
+    /** [round 11] After a pay rise (PAY_HEAD_CHEF_TO_STAY): no new Smyth arc before this day. */
+    staysUntil?: number;
     /** Kitchen disrupted (burnout, or the head chef just left): consistency penalty until this day. */
     disruptedUntil?: number;
     burnouts: number;
@@ -224,6 +226,8 @@ export type StarsCommand =
   | { type: "BACK_HEAD_CHEF" }
   /** Smyth arc: let them go now (they open a rival). */
   | { type: "LET_HEAD_CHEF_GO" }
+  /** [round 11] Smyth arc: a big pay rise and a share of the restaurant. They stay (PAY_RISE_COST, PAY_RISE_STAY_DAYS). */
+  | { type: "PAY_HEAD_CHEF_TO_STAY" }
   | { type: "CLOSE_FOR_REFIT"; days: number }
   /** Give the stars back. `retire: true` ends the run (a valid, non-winning ending); otherwise cook on outside the guide. */
   | { type: "HAND_BACK_STARS"; retire?: boolean }

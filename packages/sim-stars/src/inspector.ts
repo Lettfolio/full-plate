@@ -15,6 +15,7 @@ import {
   MIN_VISITS_ASSESSED,
   SEASON_DAYS,
   SEASON_VISIT_SHARE,
+  STAR_KEEP_MARGIN,
   STAR_THRESHOLDS,
   VISIT_CUTOFF_DAYS,
   VISITS_MAX,
@@ -103,7 +104,8 @@ export interface GuideDecision { after: StarCount; assessed: boolean; score?: nu
 /**
  * Guide day. Fat Duck rule first (closed too long / too few visits ⇒ not assessed ⇒ stars lapse to 0). Otherwise the
  * guide is conservative both ways: up by one star a year (two if the score clears the higher bar by
- * DOUBLE_JUMP_MARGIN over ≥ DOUBLE_JUMP_MIN_VISITS visits), down by one at most.
+ * DOUBLE_JUMP_MARGIN over ≥ DOUBLE_JUMP_MIN_VISITS visits), down by one at most — and (round 11) only when the score
+ * falls more than STAR_KEEP_MARGIN below the bar for the stars already held.
  */
 export function decideGuide(before: StarCount, visits: readonly InspectorVisit[], a: Assessment, excluded: boolean): GuideDecision {
   if (excluded) return { after: 0, assessed: false, reason: "You asked the guide to leave you out." };
@@ -120,7 +122,7 @@ export function decideGuide(before: StarCount, visits: readonly InspectorVisit[]
   if (target > before) {
     const two = before + 2 <= target && visits.length >= DOUBLE_JUMP_MIN_VISITS && score >= STAR_THRESHOLDS[before + 1]! + DOUBLE_JUMP_MARGIN;
     after = Math.min(target, before + (two ? 2 : 1)) as StarCount;
-  } else if (target < before) after = (before - 1) as StarCount;
+  } else if (target < before && score < STAR_THRESHOLDS[before - 1]! - STAR_KEEP_MARGIN) after = (before - 1) as StarCount;
   const reason =
     after > before ? `The inspectors were impressed (score ${score.toFixed(1)}).`
     : after < before ? `The inspectors found the cooking slipping (score ${score.toFixed(1)}).`

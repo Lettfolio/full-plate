@@ -5,6 +5,10 @@
 import type { ContentPack, GameState } from "@full-plate/sim-core";
 import {
   BACK_HEAD_CHEF_COST,
+  EL_BULLI_WIN_GUIDES,
+  PAY_RISE_COST,
+  PAY_RISE_STAY_DAYS,
+  PAY_RISE_STRESS,
   HAND_BACK_EXCLUDED_YEARS,
   HAND_BACK_STRESS,
   LOYALTY_DAYS,
@@ -170,6 +174,16 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
         events: [...left.events, { type: "SATELLITE_OPENED", satellite: sat }, log("You back your head chef's own restaurant. They leave as friends.", "good")],
       };
     }
+    case "PAY_HEAD_CHEF_TO_STAY": {
+      if (!stars.headChef.wantsOwnPlace) return reject(stars, "Your head chef isn't looking to leave.");
+      const s = spend(stars, ctx, PAY_RISE_COST);
+      if (!s) return reject(stars, `A pay rise and a share of the restaurant costs ${pounds(PAY_RISE_COST)}.`);
+      const { decisionDeadline: _d, ...hc } = s.headChef;
+      return {
+        stars: { ...s, headChef: { ...hc, wantsOwnPlace: false, staysUntil: day + PAY_RISE_STAY_DAYS, stress: r2(clamp(hc.stress + PAY_RISE_STRESS, 0, 100)) } },
+        events: [log("A pay rise and a share of the restaurant: your head chef stays, and the kitchen breathes out.", "good")],
+      };
+    }
     case "LET_HEAD_CHEF_GO": {
       if (!stars.headChef.wantsOwnPlace) return reject(stars, "Your head chef isn't looking to leave.");
       const rng = new Rng(stars.rngState);
@@ -223,11 +237,16 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
     case "CLOSE_AT_PEAK": {
       const m = stars.guides.michelin;
       if (m.stars < 2 || m.stars < stars.peakStars) return reject(stars, "Closing at the peak needs at least two stars — and to be at your best.");
+      // Round 11 (G4): a win only at the very top (three stars held on EL_BULLI_WIN_GUIDES guides running); earlier it
+      // is an honourable ending — the story ends well, but it isn't the dynasty-sized win.
+      const win = m.stars === 3 && m.threeStarStreak >= EL_BULLI_WIN_GUIDES;
       const ending: Ending = {
         kind: "el_bulli",
         day,
-        win: true,
-        text: `You closed with ${m.stars} stars at the height of your fame and became a foundation. Stopping can be winning.`,
+        win,
+        text: win
+          ? `You closed with three stars at the height of your fame and became a foundation. Stopping can be winning.`
+          : `You closed with ${m.stars} stars while people still queued at the door. A proud ending — the very top was still ahead.`,
       };
       return { stars: { ...stars, ending }, events: [{ type: "ENDING", ending }] };
     }
