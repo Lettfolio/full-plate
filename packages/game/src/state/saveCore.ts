@@ -4,10 +4,11 @@
  * A closure rather than a class so the minifier can shorten its names. docs/SAVES.md has the design.
  */
 import type { GameState } from "@full-plate/sim-core";
-import { decodeSave, encodeSave } from "./save";
+import { encodeSave } from "./save";
 import type { PathMeta } from "./paths";
+import { tryDecode } from "./saveCheck";
 import {
-  CLOUD_DEBOUNCE_MS, defaultSlotName, defaultStorage, fnv1a, hasCompression, INDEX_KEY, isOver, MAX_SLOTS, migrateLegacy, newSlotId, pickSummary, runtime, slotKey, summarize,
+  CLOUD_DEBOUNCE_MS, defaultSlotName, defaultStorage, fnv1a, hasCompression, INDEX_KEY, isOver, lastOwner, MAX_OWN_UNPACKED, MAX_SLOTS, migrateLegacy, newSlotId, pickSummary, runtime, slotKey, summarize, visibleTo,
   type CloudPart, type Core, type Encoding, type LoadOptions, type LoadResult, type LocalEntry, type PrefsBridge, type SaveStore, type SlotView, type StoreDeps, type StoreStatus,
 } from "./saveStore";
 
@@ -50,11 +51,11 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
       if (!v) return null;
       const i = v.indexOf(":");
       const enc = v.slice(0, i) as Encoding, data = v.slice(i + 1);
-      return enc === "json" ? data : await (await codec()).unpack(enc, data);
+      return enc === "json" ? data : await (await codec()).unpack(enc, data, MAX_OWN_UNPACKED);
     } catch { return null; }
   };
   const dropLocal = (slotId: string) => {
-    index.delete(slotId); synced.delete(slotId); writeIndex();
+    index.delete(slotId); synced.delete(slotId); core.blocked.delete(slotId); core.failed.delete(slotId); writeIndex();
     try { storage?.removeItem(slotKey(slotId)); } catch { /* ignore */ }
   };
   const serial = <T,>(key: string, fn: () => Promise<T>): Promise<T> => {
@@ -77,28 +78,35 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
   const list = (): SlotView[] => {
     const out = new Map<string, SlotView>(), hashes = new Map<string, string>();
     const localOk = !!storage && !core.st.localFailed;
-    for (const e of index.values()) { out.set(e.slotId, { ...pickSummary(e), where: "device" }); hashes.set(e.slotId, e.hash); }
+    // Round 11 (S5): another account's games on a shared browser stay hidden (and are never pushed or deleted).
+    const mine = (id: string) => visibleTo({ owner: memory.has(id) ? memory.get(id)!.owner : index.get(id)?.owner }, core.viewer);
+    for (const e of index.values()) if (mine(e.slotId)) { out.set(e.slotId, { ...pickSummary(e), where: "device" }); hashes.set(e.slotId, e.hash); }
     // This visit's saves are newer than the index (which is written after packing).
     for (const m of memory.values()) {
       const id = m.summary.slotId;
+      if (!mine(id)) continue;
       out.set(id, { ...m.summary, where: localOk || index.get(id)?.hash === m.hash ? "device" : "memory" });
       hashes.set(id, m.hash);
     }
     if (core.st.cloud === "on") core.part?.merge(out, hashes, localOk);
+    for (const id of core.blocked.keys()) { const v = out.get(id); if (v) { v.cantSync = true; if (v.where === "account") v.where = localOk ? "device" : "memory"; } }
     return [...out.values()].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
   };
   const uniqueId = () => { let id = d.newId(); while (list().some((s) => s.slotId === id)) id = d.newId(); return id; };
   const freeCount = () => Math.max(0, MAX_SLOTS - list().length);
 
-  const putRaw = (slotId: string, raw: string, game: GameState, meta: PathMeta, nameOverride?: string, updatedAt?: string): Promise<void> => {
+  const putRaw = (slotId: string, raw: string, game: GameState, meta: PathMeta, nameOverride?: string, updatedAt?: string, backupOf?: string): Promise<void> => {
     const hash = fnv1a(raw);
     const old = memory.get(slotId);
     const fresh = renameNext.has(slotId);
     const name = nameOverride ?? (fresh ? renameNext.get(slotId) : (old?.summary ?? index.get(slotId) ?? core.headers.get(slotId))?.name) ?? defaultSlotName(game, meta);
     renameNext.delete(slotId);
     if (old && old.hash === hash && old.summary.name === name) return Promise.resolve();
-    const summary = summarize(slotId, name, game, meta, updatedAt ?? iso());
-    memory.set(slotId, { raw, hash, summary });
+    const of = backupOf ?? (fresh ? undefined : (old?.summary ?? index.get(slotId))?.backupOf);
+    const summary = { ...summarize(slotId, name, game, meta, updatedAt ?? iso()), ...(of ? { backupOf: of } : {}) };
+    // Round 11 (S5): tied to the account this visit reached (else the slot's existing tie, else untied for now).
+    const owner = core.st.as ?? old?.owner ?? index.get(slotId)?.owner;
+    memory.set(slotId, { raw, hash, summary, owner });
     core.dirty.add(slotId);
     emit();
     return serial(`local:${slotId}`, async () => {
@@ -106,7 +114,8 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
       if (storage) {
         const p = await codec().then((m) => m.pack(raw, d.compress), () => ({ encoding: "json" as const, data: raw }));
         if (memory.get(slotId)?.hash !== hash) return;
-        if (writeBlob(slotId, p.encoding, p.data)) { index.set(slotId, { ...summary, hash, syncedHash: null }); writeIndex(); }
+        const hw = index.get(slotId)?.hw;
+        if (writeBlob(slotId, p.encoding, p.data)) { index.set(slotId, { ...summary, hash, syncedHash: null, ...(owner ? { owner } : {}), ...(hw ? { hw } : {}) }); writeIndex(); }
       }
       schedulePush(slotId);
       emit();
@@ -114,7 +123,7 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
   };
 
   const core: Core = {
-    d, index, memory, headers: new Map(), synced, dirty: new Set(), inflight: new Set(), stalled: new Set(), timers: new Map(),
+    d, index, memory, headers: new Map(), synced, dirty: new Set(), inflight: new Set(), stalled: new Set(), blocked: new Map(), failed: new Set(), viewer: lastOwner(storage), timers: new Map(),
     st: { cloud: "waiting", localFailed: false, prefsEarly: false }, prefs: null, part: null,
     emit, writeIndex, writeBlob, readBlob, dropLocal, serial, putRaw, markSynced, schedulePush, uniqueId, list, renameNext, connecting: null,
   };
@@ -124,9 +133,11 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
   try {
     const raw = storage?.getItem(INDEX_KEY);
     for (const e of raw ? (JSON.parse(raw) as { slots?: LocalEntry[] }).slots ?? [] : []) {
-      if (!e || typeof e.slotId !== "string") continue;
-      index.set(e.slotId, e);
-      if (e.syncedHash) synced.set(e.slotId, e.syncedHash);
+      if (!e || typeof e.slotId !== "string" || typeof e.hash !== "string") continue;
+      // Round 11 (S1): every field coerced to its type before anything renders it.
+      const syncedHash = typeof e.syncedHash === "string" ? e.syncedHash : null;
+      index.set(e.slotId, { ...pickSummary(e), hash: e.hash, syncedHash, ...(typeof e.owner === "string" ? { owner: e.owner } : {}), ...(Number.isInteger(e.hw) ? { hw: e.hw } : {}) });
+      if (syncedHash) synced.set(e.slotId, syncedHash);
     }
   } catch { /* unreadable index: start empty */ }
   const ops = () => import("./saveFiles");
@@ -149,7 +160,16 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
      * `debounceMs` of quiet, and only if the save changed. An owner game that has ended is removed (it can't continue).
      */
     save(slotId: string, game: GameState, meta: PathMeta): Promise<void> {
-      return isOver(game, meta) ? this.remove(slotId) : putRaw(slotId, encodeSave(game, meta), game, meta);
+      if (isOver(game, meta)) return this.remove(slotId);
+      // Round 11 (G10): a state that can't be packed (a NaN from a junk command) must never break autosave; the save
+      // mark says "Couldn't save" until a save works again.
+      let raw: string;
+      try { raw = encodeSave(game, meta); } catch {
+        if (!core.failed.has(slotId)) { core.failed.add(slotId); emit(); }
+        return Promise.resolve();
+      }
+      if (core.failed.delete(slotId)) emit();
+      return putRaw(slotId, raw, game, meta);
     },
 
     /** Push now (Save & quit). Resolves with where the game is now kept. */
@@ -187,7 +207,8 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
       const local = { raw: m?.raw ?? (e ? await readBlob(slotId) : null), summary: m?.summary ?? (e ? pickSummary(e) : null), from: m ? "memory" as const : "device" as const };
       if (core.part && core.st.cloud === "on") return core.part.load(slotId, local, opts);
       if (!local.raw || !local.summary) return null;
-      try { return { loaded: decodeSave(local.raw), summary: local.summary, from: local.from }; } catch { return null; }
+      const loaded = tryDecode(local.raw);
+      return loaded ? { loaded, summary: local.summary, from: local.from } : null;
     },
 
     /** Rename (saveFiles.ts; the account's header too). */
@@ -212,7 +233,11 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
   };
 
   function status(): StoreStatus {
-    return { cloud: core.st.cloud, ...(core.st.reason ? { reason: core.st.reason } : {}), local: !!storage && !core.st.localFailed, pending: [...new Set([...core.dirty, ...core.inflight])].filter((id) => !core.stalled.has(id)), stalled: [...core.stalled] };
+    return {
+      cloud: core.st.cloud, ...(core.st.reason ? { reason: core.st.reason } : {}), local: !!storage && !core.st.localFailed,
+      pending: [...new Set([...core.dirty, ...core.inflight])].filter((id) => !core.stalled.has(id) && !core.blocked.has(id)),
+      stalled: [...core.stalled], ...(core.blocked.size ? { blocked: [...core.blocked.keys()] } : {}), ...(core.failed.size ? { failed: [...core.failed] } : {}),
+    };
   }
 }
 

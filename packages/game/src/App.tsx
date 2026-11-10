@@ -37,6 +37,7 @@ const ConflictDialog = lazy(() => import("./screens/SlotPicker").then((m) => ({ 
 // Round 7 (A): lazy chunks show a page-shaped skeleton, not a bare line.
 const Loading = () => <Skeleton />;
 import { Toast } from "./components/Toast";
+import { noteSlot } from "./components/CrashGuard";
 import { handsOnRoleFor } from "./state/paths";
 import { weekdayIndex } from "./lib/calendar";
 import { PLAYER_ID } from "@full-plate/sim-career";
@@ -101,6 +102,7 @@ export function App() {
   const claimSlot = () => {
     const id = newSlot ?? slotRef.current ?? store.freeSlotId() ?? slots.at(-1)?.slotId ?? "s1";
     store.beginNew(id);
+    noteSlot(id);
     setSlotId(id); setNewSlot(null);
   };
   const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
@@ -116,6 +118,7 @@ export function App() {
     setShell({ view: "game" });
   };
   const quitToTitle = () => {
+    noteSlot(null);
     if (slotId) void store.flush(slotId);
     setSlotId(null);
     dispatch({ type: "quit" });
@@ -128,9 +131,10 @@ export function App() {
   };
   const continueSlot = async (id: string) => {
     setOpening(id); setTitleNote(null);
+    noteSlot(id); // Round 11: if opening or playing it crashes, the error page offers "Delete this game"
     const r = await store.load(id, { choose: (local, cloud) => new Promise((resolve) => setConflict({ local, cloud, resolve })) }).catch(() => null);
     setConflict(null); setOpening(null);
-    if (!r) { setTitleNote("Sorry, that game couldn't be opened. Try again, or load it from a save file."); return; }
+    if (!r) { noteSlot(null); setTitleNote("Sorry, that game couldn't be opened. Try again, or load it from a save file."); return; }
     setPicker(null);
     setSlotId(id);
     dispatch({ type: "load", game: r.loaded.game, meta: r.loaded.meta });

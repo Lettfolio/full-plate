@@ -126,6 +126,8 @@ const hire: Handler<"HIRE"> = (content, state, cmd) => {
   if (state.staff.length >= MAX_STAFF) return reject(state, `There's no room for more than ${MAX_STAFF} staff.`);
   const staff = staffFromCandidate(content, state, index);
   if (!staff) return reject(state, "No such candidate.");
+  // Round 11 (G13): ids are unique (a HIRE_STAFF may already have used this candidate's id); FIRE would take both.
+  if (state.staff.some((s) => s.id === staff.id)) return reject(state, `${staff.name} already works here.`);
   const fee = recruitmentFeeOf(state);
   const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
   if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
@@ -158,7 +160,7 @@ const hireStaff: Handler<"HIRE_STAFF"> = (_c, state, cmd) => {
   const skill = round2(clamp(p.skill, 0, 100));
   const staff = {
     id: p.id,
-    name: p.name,
+    name: p.name.slice(0, 40),
     role: p.role,
     skill,
     speed: round2(clamp(p.speed, 0, 100)),
@@ -191,7 +193,8 @@ const fire: Handler<"FIRE"> = (_c, state, cmd) => {
 const setRota: Handler<"SET_ROTA"> = (_c, state, cmd) => {
   const bad = requirePhase(state, PLANNING, "change the rota");
   if (bad) return bad;
-  if (!Array.isArray(cmd.rota) || cmd.rota.length !== 7 || !cmd.rota.every((d) => typeof d === "boolean")) {
+  // Round 11: a for loop, not every() — every() skips the holes of Array(7), which then saved as nulls.
+  if (!Array.isArray(cmd.rota) || cmd.rota.length !== 7 || !Array.from(cmd.rota).every((d) => typeof d === "boolean")) {
     return reject(state, "A rota needs exactly 7 days.");
   }
   if (!state.staff.some((s) => s.id === cmd.staffId)) return reject(state, "No such staff member.");
@@ -237,7 +240,8 @@ const cancelOrder: Handler<"CANCEL_ORDER"> = (content, state, cmd) => {
     if (o.ingredientId !== ing.id || left <= 0) { orders.unshift(o); continue; }
     const cut = Math.min(left, o.qty);
     left -= cut;
-    const back = cut === o.qty ? o.cost : Math.round((o.cost * cut) / o.qty);
+    // Round 11 (G14): round the refund down — the kept portions keep the odd penny, so order-2-cancel-1 never beats buying 1.
+    const back = cut === o.qty ? o.cost : Math.floor((o.cost * cut) / o.qty);
     refund += back;
     if (cut < o.qty) orders.unshift({ ...o, qty: o.qty - cut, cost: o.cost - back });
   }
@@ -641,7 +645,9 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
 
 export function dispatch(content: ContentPack, state: GameState, cmd: Command): StepResult {
   if (state.phase === "gameover") return reject(state, "The restaurant has closed. Start a new game.");
-  const handler = HANDLERS[cmd?.type as Command["type"]] as Handler<Command["type"]> | undefined;
+  // Round 11 (G9): own keys only — "toString", "__proto__" and friends are not commands.
+  const type = (cmd as { type?: unknown } | null | undefined)?.type;
+  const handler = typeof type === "string" && Object.hasOwn(HANDLERS, type) ? (HANDLERS[type as Command["type"]] as Handler<Command["type"]>) : undefined;
   if (!handler) return reject(state, "Unknown command.");
   const r = handler(content, state, cmd as never);
   if (rejected.has(r)) return r;

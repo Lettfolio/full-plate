@@ -664,6 +664,7 @@ export function applyCareerCommand(content: ContentPack, game: CareerGame, cmd: 
   const events: CareerEvent[] = [];
   const c = game.career;
   if (c.handover) return refuse(game, "You run your own place now.");
+  if (typeof (cmd as { type?: unknown } | null | undefined)?.type !== "string") return refuse(game, "Unknown command.");
   switch (cmd.type) {
     case "TAKE_SHIFT": {
       if (!Number.isInteger(cmd.weekday) || cmd.weekday < 0 || cmd.weekday > 6) return refuse(game, "No such day.");
@@ -747,16 +748,20 @@ export function applyCareerCommand(content: ContentPack, game: CareerGame, cmd: 
       return { game: { ...game, career: { ...c, offers: c.offers.filter((o) => o.id !== cmd.offerId) } }, events };
     }
     case "OPEN_OWN_PLACE": {
+      if (cmd.restaurantName !== undefined && typeof cmd.restaurantName !== "string") return refuse(game, "Your restaurant needs a name made of words.");
+      const opts = cmd.restaurantName !== undefined ? { ...cmd, restaurantName: cmd.restaurantName.slice(0, 40) } : cmd;
       const budget = openingBudget(content, c, cmd.districtId);
       if (!budget.rungOk) return refuse(game, `Banks want to see you've been a ${budget.rungNeeded.toLowerCase()} first.`);
       if (budget.shortfall > 0) return refuse(game, `You're ${pounds(budget.shortfall)} short of the fit-out, deposit and reserve.`);
-      const h = handoverToOwner(content, c, game.state, { ...cmd, day: c.day });
+      const h = handoverToOwner(content, c, game.state, { ...opts, day: c.day });
       events.push({ type: "OPENED_OWN_PLACE", summary: h.summary });
       let career = endJob(c, "opened_own");
       career = { ...career, employer: { ...career.employer, status: "left" }, handover: h.summary, ownerPerks: h.ownerPerks, canOpenOwn: false, offers: [] };
       career = log(career, `You've opened ${h.summary.restaurantName}!`, "good", events);
       return { game: { career, state: h.state }, events };
     }
+    default:
+      return refuse(game, "Unknown command.");
   }
 }
 

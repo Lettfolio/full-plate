@@ -10,6 +10,7 @@ export const SAVE_LOOK: Record<SaveMark, { icon: IconName; short: string; title:
   saving: { icon: "cloud", short: "Saving…", title: "Saving to your account…" },
   device: { icon: "cloudOff", short: "This device only", title: "Saved on this device only" },
   memory: { icon: "warning", short: "Not saved", title: "Not saved" },
+  failed: { icon: "warning", short: "Couldn't save", title: "This game couldn't be saved just now" },
 };
 
 /** Round 9: the small save mark in the header — synced ✓ / saving… / this device only / not saved; tap for why. */
@@ -23,7 +24,7 @@ export function SaveIndicator({ slotId, store = getSaveStore() }: { slotId: stri
       <button className={`btn btn--ghost btn--tap shellbtn savemark savemark--${mark}`} aria-label={`${look.title}. What does this mean?`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
         <Icon name={look.icon} size={20} className="shellbtn__icon" /><span className="savemark__text">{look.short}</span>
       </button>
-      {open && <Suspense fallback={null}><SaveSheet mark={mark} reason={status.reason} title={look.title} icon={look.icon} onFile={() => store.saveToFile(slotId)} onClose={() => setOpen(false)} /></Suspense>}
+      {open && <Suspense fallback={null}><SaveSheet mark={mark} reason={status.blocked?.includes(slotId) ? "slot" : status.reason} title={look.title} icon={look.icon} onFile={() => store.saveToFile(slotId)} onClose={() => setOpen(false)} /></Suspense>}
     </>
   );
 }

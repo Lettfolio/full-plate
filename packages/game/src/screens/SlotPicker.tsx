@@ -7,7 +7,7 @@ import { ConfirmDialog, Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { MoneyText } from "../components/MoneyText";
 import { dateLabel } from "../lib/calendar";
-import { MAX_SLOTS, type SaveStore, type SlotSummary, type SlotView } from "../state/saveStore";
+import { MAX_FILE_BYTES, MAX_SLOTS, type SaveStore, type SlotSummary, type SlotView } from "../state/saveStore";
 import { useSaves } from "../state/useSaves";
 import { PATH_LABEL } from "./TitleScreen";
 import "./slots.css";
@@ -78,6 +78,8 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy }: 
   };
   const fromFile = async (file: File | undefined) => {
     if (!file) return;
+    // Round 11 (S4): a file this big can't be a save; it isn't even read.
+    if (file.size > MAX_FILE_BYTES) { setMsg({ tone: "warn", text: "That file is too big to be a Full Plate save." }); if (fileRef.current) fileRef.current.value = ""; return; }
     try {
       const text = await file.text();
       const s = await store.importFile(text);
@@ -163,7 +165,7 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy }: 
                 <MoneyText pence={s.cash} whole className={s.cash < 0 ? "money--neg" : ""} />
                 <span className="slot__date">{dateLabel(s.day)}</span>
               </div>
-              <div className="slot__when"><Icon name={where.icon} size={18} />Played {playedAgo(s.updatedAt)} · {where.text}</div>
+              <div className="slot__when"><Icon name={where.icon} size={18} />Played {playedAgo(s.updatedAt)} · {s.cantSync ? "Can't go to your account (too big), kept on this device" : where.text}</div>
               <div className="slot__actions">
                 {mode === "browse" ? (
                   <button className="btn btn--primary btn--tap" onClick={() => onContinue(s.slotId)} disabled={!!busy} aria-label={`Continue ${s.name}`} {...(i === 0 ? { "data-autofocus": true } : {})}>

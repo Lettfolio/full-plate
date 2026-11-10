@@ -23,6 +23,24 @@ export const CLOUD_DEBOUNCE_MS = 3000;
 export const INDEX_KEY = "full-plate:slots:v1";
 export const MIGRATED_KEY = "full-plate:slots-migrated:v1";
 export const slotKey = (slotId: string): string => `full-plate:slot:v1:${slotId}`;
+/** Round 11 (S5): a hash of the last account seen on this device, so another account's games stay hidden from first paint. */
+export const OWNER_KEY = "full-plate:owner:v1";
+
+// ── round 11 limits (red-team S2, S4, S6, S10) ──
+/** Characters of base64 per chunk document (well under the 256 KiB document cap once wrapped in JSON). */
+export const CHUNK_SIZE = 180_000;
+/** Chunks per slot: a header saying more is damaged. */
+export const MAX_CHUNKS = 8;
+/** Packed size of one slot on the account (~1 MB): a bigger game stays on this device ("can't sync"). */
+export const MAX_PACKED = 1_000_000;
+/** Save files bigger than this are refused before they are read. */
+export const MAX_FILE_BYTES = 5_000_000;
+/** A save file inflates to at most this much (a gzip bomb stops here). */
+export const MAX_UNPACKED = 8 * 1024 * 1024;
+/** This device's and this account's own copies may be bigger (old Empire saves with many parked sites). */
+export const MAX_OWN_UNPACKED = 96 * 1024 * 1024;
+/** Backups kept per game: the two newest. */
+export const MAX_BACKUPS = 2;
 
 export type SlotPath = "owner" | "career" | "empire" | "stars";
 /** How a blob is packed: gzip then base64; plain base64 of UTF-8 (no CompressionStream); or the raw envelope (local only). */
@@ -42,6 +60,8 @@ export interface SlotSummary {
   difficulty: GameState["difficulty"];
   /** ISO wall-clock time of the last save. UI metadata only. */
   updatedAt: string;
+  /** Round 11: a "Backup of …" slot remembers which game it backs up (at most MAX_BACKUPS each). */
+  backupOf?: string;
 }
 
 /** The header document `data/users/<id>/save-<slotId>`. Written after its chunks, so a half-written save never lists. */
@@ -58,22 +78,33 @@ export interface CloudHeader extends SlotSummary {
   /** Chunk bank: chunks live at `save-<slotId>/chunks/<bank>-<n>`; each write uses the other bank. */
   bank: "a" | "b";
   appVersion: string;
+  /** Round 11 (S6): the most chunks either bank of this slot has ever been given; delete up to here (orphans). */
+  hw?: number;
 }
 
 export interface LocalEntry extends SlotSummary {
   hash: string;
   /** The hash this device and the account last agreed on (null = never synced). */
   syncedHash: string | null;
+  /** Round 11 (S5): hash of the account this game belongs to (absent = not yet tied to one: the next account claims it). */
+  owner?: string;
+  /** Round 11 (S6): most chunks this device has started writing for the slot (a push that failed half-way). */
+  hw?: number;
 }
 
 export interface SlotView extends SlotSummary {
   /** Where the newest copy is known to be. */
   where: "account" | "device" | "memory";
+  /** Round 11 (S2): the account refused this game (too big or damaged), so it stays on this device. */
+  cantSync?: true;
 }
 
 export type CloudState = "waiting" | "on" | "off";
-/** none = not inside claude.ai; signed-out = no viewer id; refused = the first call was refused; error = a later write was; full = quota. */
-export type CloudOffReason = "none" | "signed-out" | "refused" | "error" | "full";
+/**
+ * none = not inside claude.ai; signed-out = no viewer id; refused = the first call was refused; error = a later write was;
+ * full = quota; slot = (round 11, per slot) the account refused this one game, the others still sync.
+ */
+export type CloudOffReason = "none" | "signed-out" | "refused" | "error" | "full" | "slot";
 
 export interface StoreStatus {
   cloud: CloudState;
@@ -84,6 +115,10 @@ export interface StoreStatus {
   pending: string[];
   /** Slots whose last cloud write failed for now (they go up with the next save): only on this device meanwhile. */
   stalled?: string[];
+  /** Round 11 (S2): slots the account refused outright (too big / damaged): kept on this device, the rest still sync. */
+  blocked?: string[];
+  /** Round 11 (G10): slots whose last autosave couldn't be written at all (the game couldn't be packed). */
+  failed?: string[];
 }
 
 // ── the subset of the db capability the store uses (db.d.ts) ──
@@ -139,10 +174,32 @@ export function defaultSlotName(game: GameState, meta: PathMeta): string {
 }
 export function summarize(slotId: string, name: string, game: GameState, meta: PathMeta, updatedAt: string): SlotSummary {
   const path = slotPath(meta);
-  return { slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt };
+  return pickSummary({ slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt });
 }
-export const pickSummary = ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt }: SlotSummary): SlotSummary =>
-  ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt });
+// eslint-disable-next-line no-control-regex
+const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b\u200c\u200e\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g;
+/** Round 11 (S1, S12): text for the picker, whatever the index or a header holds: a string, safe characters, ≤ 40. */
+export const safeName = (v: unknown, max = 40): string => (typeof v === "string" ? v.replace(UNSAFE, "").slice(0, max) : "");
+const fin = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+/** A summary's fields, coerced to their types (round 11: a damaged index entry or header can't reach the UI as an object). */
+export const pickSummary = (s: SlotSummary): SlotSummary => ({
+  slotId: String(s.slotId),
+  name: safeName(s.name) || "My game",
+  mode: s.mode === "career" ? "career" : "owner",
+  restaurantName: safeName(s.restaurantName),
+  day: Math.max(0, Math.floor(fin(s.day))),
+  cash: fin(s.cash),
+  path: s.path === "career" || s.path === "empire" || s.path === "stars" ? s.path : "owner",
+  difficulty: s.difficulty === "cosy" || s.difficulty === "hard" ? s.difficulty : "normal",
+  updatedAt: typeof s.updatedAt === "string" ? s.updatedAt.slice(0, 40) : "",
+  ...(typeof s.backupOf === "string" ? { backupOf: s.backupOf.slice(0, 80) } : {}),
+});
+/** Round 11 (S5): the device's last account, as a hash (null outside an account). */
+export function lastOwner(storage: StorageLike | null): string | null {
+  try { return storage?.getItem(OWNER_KEY) ?? null; } catch { return null; }
+}
+/** Is this index entry visible to `viewer` (an owner hash)? Untied entries are everyone's until an account claims them. */
+export const visibleTo = (e: { owner?: string | undefined }, viewer: string | null): boolean => !viewer || !e.owner || e.owner === viewer;
 export const isOver = (game: GameState, meta: PathMeta) => game.phase === "gameover" && meta.mode === "owner";
 
 // ── the store ──
@@ -178,6 +235,8 @@ export interface PrefsBridge {
   read(): Prefs;
   /** Prefs from the account (applied without writing back). */
   adopt(p: Prefs): void;
+  /** Round 11 (S5): this device's cached prefs belonged to another account: drop them (defaults until the account's arrive). */
+  forget?(): void;
 }
 
 /** The account half (saveCloud.ts), loaded by connect(). */
@@ -185,7 +244,8 @@ export interface CloudPart {
   push(slotId: string): Promise<void>;
   load(slotId: string, local: { raw: string | null; summary: SlotSummary | null; from: "memory" | "device" }, opts: LoadOptions): Promise<LoadResult | null>;
   rename(slotId: string, name: string): Promise<void>;
-  remove(slotId: string): Promise<void>;
+  /** `hwHint`: chunks this device may have written (the local entry is gone by the time this runs). */
+  remove(slotId: string, hwHint?: number): Promise<void>;
   fetch(slotId: string): Promise<{ raw: string; header: CloudHeader } | null>;
   prefsChanged(): void;
   /** The account's side of list(): headers merged over this device's slots. */
@@ -197,16 +257,23 @@ export interface CloudPart {
 export interface Core {
   d: Required<Omit<StoreDeps, "storage" | "cloud">> & { storage: StorageLike | null; cloud: (() => Promise<CloudConn>) | undefined };
   index: Map<string, LocalEntry>;
-  /** Raw envelopes this visit (also the only copy when nothing else works). */
-  memory: Map<string, { raw: string; hash: string; summary: SlotSummary }>;
+  /** Raw envelopes this visit (also the only copy when nothing else works). `owner`: as LocalEntry.owner. */
+  memory: Map<string, { raw: string; hash: string; summary: SlotSummary; owner?: string | undefined }>;
   headers: Map<string, CloudHeader>;
   /** Per slot: the hash this device and the account last agreed on. */
   synced: Map<string, string>;
   dirty: Set<string>;
   inflight: Set<string>;
   stalled: Set<string>;
+  /** Round 11 (S2): slots the account refused outright (slot → why); the account stays on for the others. */
+  blocked: Map<string, string>;
+  /** Round 11 (G10): slots whose last autosave couldn't be packed. */
+  failed: Set<string>;
+  /** Round 11 (S5): the connected account's owner hash (or the device's last one before connect). */
+  viewer: string | null;
   timers: Map<string, ReturnType<typeof setTimeout>>;
-  st: { cloud: CloudState; reason?: CloudOffReason | undefined; localFailed: boolean; prefsEarly: boolean };
+  /** `as`: (round 11) the owner hash of the account this visit connected to; new saves are tied to it. */
+  st: { cloud: CloudState; reason?: CloudOffReason | undefined; localFailed: boolean; prefsEarly: boolean; as?: string };
   prefs: PrefsBridge | null;
   /** The account half, once connected. */
   part: CloudPart | null;
@@ -216,7 +283,7 @@ export interface Core {
   readBlob(slotId: string): Promise<string | null>;
   dropLocal(slotId: string): void;
   serial<T>(key: string, fn: () => Promise<T>): Promise<T>;
-  putRaw(slotId: string, raw: string, game: GameState, meta: PathMeta, name?: string, updatedAt?: string): Promise<void>;
+  putRaw(slotId: string, raw: string, game: GameState, meta: PathMeta, name?: string, updatedAt?: string, backupOf?: string): Promise<void>;
   markSynced(slotId: string, hash: string): void;
   schedulePush(slotId: string): void;
   uniqueId(): string;
@@ -279,7 +346,8 @@ export function migrateLegacy(storage: StorageLike | null, now: number, newId: (
 function peekSlots(storage: StorageLike | null): SlotView[] {
   try {
     const raw = storage?.getItem(INDEX_KEY);
-    const list = (raw ? (JSON.parse(raw) as { slots?: LocalEntry[] }).slots ?? [] : []).filter((e) => e && typeof e.slotId === "string");
+    const viewer = lastOwner(storage);
+    const list = (raw ? (JSON.parse(raw) as { slots?: LocalEntry[] }).slots ?? [] : []).filter((e) => e && typeof e.slotId === "string" && visibleTo(e, viewer));
     return list.map((e) => ({ ...pickSummary(e), where: "device" as const })).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   } catch { return []; }
 }
