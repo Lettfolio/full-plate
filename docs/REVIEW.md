@@ -1146,3 +1146,102 @@ JS per frame is 1–3 ms everywhere — the lazy split changed nothing here. Fla
 1. **Play-test on a real tablet** with the `?perf=1` counter on: the floor at 4× and the kitchen at dpr 2 are the two places the software-raster numbers are marginal; if a GPU tablet holds 60 fps, close it; if not, drop the floor's live light pools at 4×.
 2. **One toast anchor per screen** (R7's open item, still visible over the Staff tab) and the day-1 matrix label collision — both small, both in the first five minutes of an owner's game.
 3. **Finish the icon set** (`book`, and any remaining emoji in buttons) and add a lint-style test that no `<button>` text starts with an emoji, so B's rule holds without a reviewer.
+
+# Round 10: integration review and playtest (decorating × staff with personality)
+
+Master `2dc8a00` = r10-a (decorating) and r10-b (staff with personality) merged onto `f14f861`. This pass: `abc6ea5`, `fa128d0`, `3224719` (+ this doc). Before/after comparisons use a worktree at `f14f861`.
+
+## R10.1 What landed and how it merged
+
+- **r10-a** merged clean. **r10-b** had four hand-resolved conflicts, all "keep both": `content/src/index.ts` (decor.json + staffQuotes.json, both validators, `assembleFull` ships `decor` and `staffText`), `Icon.tsx` (A's 8 icons then B's 5), sim-core `commands.ts` imports, and the three notes files (A's section, then B's). Auto-merges checked: `Planning.tsx` (Decorate after Restaurant; Staff lazy), `Evening.tsx` (decor rows, level-up lines, portraits/mood reasons), `type-audit.mjs` (11b hiring sheet, 13b Decorate), `types.ts`, sim-core `index.ts`. Read through; nothing lost from either side.
+
+## R10.2 Fixes in this pass
+
+| Commit | What |
+|---|---|
+| `abc6ea5` | **(f) Sous-chef snap** (r10-b's flag; latent since R7). `sousPose` drew the newest walk under way from his post, so a walk that took over while he was out jumped him across the kitchen (master `f14f861` jumped on seeds 4, 8, 10, 11, 14; r10-b on 5, 6, 7). Now a walk that takes over sets off from where he is (`SousWalk.from` + a bounded `poseAt` recursion over the walks booked before it); a cover booked late goes to the slip he was waiting under (the group's first-due one); the lead-in follows the slip that fell due first, not the first due slip in rail order, and slides with it when it moves along the rail (`shownSlot`, 0.4 s). Still a pure function of (walks, time, pending). Tests: `handson/test/round10.sousSnap.test.ts` (5) and game `round7.careerUx` — the full lead-in check back on seeds 1, 4, 5, 6, 8, 9, 13, and a no-jump check on 2, 3, 7, 10, 11, 12, 14, 15, 16 (all 16 seeds: 0 jumps). |
+| `abc6ea5` | **(a) One rule for a person's colours.** `RestaurantView.staffLook` and the hands-on colleague/sous sprites take skin and hair from sim-core `avatarFor` keyed by staff id (they used `hashKey` on the id in one place and on the first name in another). The career player's picked look now dresses their sprite on the hands-on floor and in the dining room. Test: 50 staff, portrait = sprite. |
+| `abc6ea5` | **(e) Cover the pass → the hands-on sous chef.** The hands-on floor named "the first other chef on"; the sim's `passCover` picks the highest pass level. Now both pick the same person (`sousStaff`/`sousId`). Test: a level-1 chef who isn't first in the list is named and drawn; level 3 plates better than level 1 on an idle shift. |
+| `fa128d0` | **Combined balance** (R10.3): `PERSONALITY_MOOD.dislike` −2 → −1; decor `stay` only with no queue **and** at least half the tables free. |
+| `3224719` | **(d) Fitting night, hands-on:** "Jump in" drew the fitters' tables laid and empty; now under a dust sheet like the dining room (the sim already never seated them). Test in `round10.sousSnap`. |
+| `3224719` | **Decorate preview crash on unmount:** `RoomCanvas`'s ResizeObserver read `wrap.current` after React had cleared it → `TypeError: reading 'clientWidth' of null` (1 page error in the cloud playtest, leaving the Decorate tab). Holds the element now; the rerun has 0 errors. |
+
+## R10.3 Combined balance (headless, real pack, 200 seeds × 365 days, normal)
+
+| strategy | before `f14f861` | merged `2dc8a00` | **after** |
+|---|---|---|---|
+| typical | 86.5% | 88.5% | **90.0%** |
+| balanced | 99.5% | 98.0% | **98.5%** |
+| cheap | 69.5% | 63.0% ✗ | **68.0%** |
+| premium | 97.0% | 98.5% | **99.0%** |
+| nohire | 0% | 0% | **0%** |
+| learner | 98.5% | 96.0% | **98.0%** |
+| decorator | (= typical) | 86.0% | **88.0%** (2.0 under typical) |
+
+Covers/day, rating, popularity and month-12 cash per strategy are in SIM-NOTES "Round 10 — review". As merged, `cheap` was 6.5 points down (400 seeds: 7.2 — real): zeroing the like/dislike nudges restored master exactly, and halving the dislike alone brings it to −1.5. That lifted typical to 90.0% (400 seeds 90.5%) and left decorator 5 under it (400 seeds 85.8%, paired seeds 11:1); halving upkeep changed nothing, the cause was lingering that started on a quiet floor and held tables into the rush. Stay now needs half the tables free: decorator 88.0% (400 seeds 88.8%), +1.2 covers/day and +2.7 popularity over typical. **Empire** 5 seeds × 10 years `--board follow`: identical to `f14f861` row for row (franchise and company win 5/5). **Stars** script seed: trajectory moved with personalities (ends year 6 at ★★★, streak 2; was ★★, streak 0), still no 5-guide win in 6 years.
+
+## R10.4 Seams
+
+- **(b) Tab row** at 1024, normal and Bigger text: one row (Menu · Staff · Stock · Restaurant · Decorate; + Empire on that path), every tab 48 px tall, 17 px labels, no overflow — no scroller or regrouping needed.
+- **(c) A busy evening** (3 new decor items + the fitters + a level-up + goal toasts): "What happened today" lists the decor's first night and the fitters first, then incidents; "How the team feels" puts level-ups first, then mood reasons. The toast region shows one toast at a time; sampled every 0.6 s for 6 s on four evenings, no toast overlapped the pinned dock.
+- **(d) Fitting night** with the hiring sheet open at opening time → service starts (no soft lock); event cards answered at 4×; "Jump in" on the pass and on the floor work with tables closed (0 errors); now drawn under dust sheets.
+- **(e)** see R10.2. **(f)** see R10.2.
+- **(g) Saves.** All 33 old saves decode → encode with the same game keys and deep-equal games, byte-stable re-encoding, and load in the browser with 0 errors (11 that open on planning show 9 portraits in the staff room and the "Plain and simple" starter room). `round9.saves` tests pass. Cloud round-trip with the fake `window.claude` (R9's harness): a decorated (Cosy café), staffed (3 hires) day-2 game saved to the account from device A and Continued on device B — same staff, portraits and room; the save is one chunk, **4,657 chars packed (12,620 bytes raw)**, header 325 chars, 7 writes; 0 errors after the RoomCanvas fix.
+- **(h) Purity.** New sim code (`personality.ts`, `decor.ts`, `sous.ts` changes) reads no clock or `Math.random`; per-package source-scan and frozen-input tests pass; `sousPose` on frozen walks returns equal poses.
+- **(i)** Career look → My shift, hands-on sprite and score-card portrait (playtest). Legacy `TRAIN { staffId }` accepted in a career game (test).
+- **(j)** `?autopilot=0.6,1` completes two career shifts at 1280 (179 s, 188 s) and two at 1024 (200 s, 182 s) with 0 errors.
+
+## R10.5 Bundle (vite kB)
+
+| chunk | before `f14f861` | after |
+|---|---|---|
+| main `index` | 193.2 | **195.9** (≤ 200) |
+| sim-core | 113.1 | 129.9 |
+| content | 159.3 | 178.2 |
+| RestaurantView | 36.5 | 38.5 |
+| decorArt (lazy) | — | 18.8 |
+| DecorateTab (lazy) | — | 7.5 |
+| StaffTab (lazy) | — | 14.0 |
+| HandsOnShift | 110.1 | 112.5 |
+
+Main has 4 kB of headroom left; the next feature that adds to the shell should move something out (the evening's decor/level-up rows or the StartPicker look picker are candidates).
+
+## R10.6 Probe: every screen, before (`f14f861`) vs after (R7/R8 probe + Decorate; the hiring sheet opens by itself on the probe's save, so it is inside "Staff")
+
+| viewport | screens | targets < 44 | text < 13 | low contrast | sideways scroll | covered | errors |
+|---|---|---|---|---|---|---|---|
+| 1280 normal | 33 → 34 | 0 → 0 | 0 → 0 | 4 → 6 | 0 → 0 | 4 → 3 | 0 → 0 |
+| 1024 normal | 33 → 34 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 8 → 8 | 0 → 0 |
+| 1280 large | 33 → 34 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 11 → 11 | 0 → 0 |
+| 1024 large | 33 → 34 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 10 → 10 | 0 → 0 |
+
+The new Decorate screen is clean at all four. Per-screen "worse" entries are all of known kinds: the extra Decorate tab scrolled under the sticky header on the map screens (one more tab, same as its neighbours); the start picker's boss list sits one row further under its pinned Start dock at 1280 Bigger (the look picker made the card taller; it scrolls); and an incident card caught mid-fade on the career watch screen (contrast 1.20 — timing). Type audit: 37 screens, **0** text runs < 13 px, 0 page errors, normal and Bigger.
+
+## R10.7 Playtests (`vite preview` of the built dist on :5251, Chromium via Playwright; 0 page errors and 0 console errors in every run after `3224719`)
+
+Screenshots: `scratchpad/shots/r10/review/` (owner, fitting, aged, career, autopilot-1280/1024, cloud, cloud-deviceB, empire-y4, stars, stars-nights, win, tabs-normal/large).
+
+- **Owner, 7 days (Cosy, 1280).** Hired 3 from the sheet (it opens by itself on day 1 with "the chef your goal asks for" first). Bought the chalkboard, the radio and the rugs on day 1 — the rugs make day 2 a fitting night (1 table closed). Day 2: Knife skills on one chef; "Cover the pass" was correctly refused for the others ("is training today", "the only chef on today — you'd have to cover") and taken on day 3. Day-2 evening: the three decor lines and the fitters first, the level-up under the team. From day 2 the header shows the **Cosy café** style badge. Mood reasons on day 8: "had Tuesday off" for all three (true — the default rota gives everyone Monday and Tuesday; the owner covers, and their fatigue tip says so).
+- **Aged save:** the day-8 save with every item's fitting day moved back 200 days opens with a "!" on Decorate and "3 things in your room look tired" in the dock; refreshing one clears its button and keeps the badge for the other two.
+- **Fitting night** (1024): stripes bought (2 tables), next day the hiring sheet left open at "Open for service" — service starts; "Jump in · On the pass" shows tables 5 and 6 under dust sheets; reaches the evening ("The fitters were in · 2 tables were closed tonight").
+- **Career with a chosen look** (Look 3: glasses, long hair): the picker, My shift and the score card ("Superstar shift, Mia!", 18 plates) all show that face; the hands-on sprite wears the same skin and hair (test-verified; too small to judge by eye at 1280).
+- **Empire y4, Stars (both saves) and the win screen** render with 0 errors; the Empire tab row at 1024 still fits one row with six tabs.
+- **Cloud round trip:** see R10.4 (g).
+
+## R10.8 Findings
+
+Fixed: the sous-chef snap (latent since R7); three different staff-colour rules; hands-on sous ≠ "Cover the pass" chef; the career look missing from sprites; `cheap` −6.5 and decorator −5 vs typical (balance); fitting-night tables laid on the hands-on floor; a `clientWidth of null` page error leaving the Decorate tab.
+
+Open (small):
+1. The game `round7.careerUx` lead-in **ratio** (≥ half of covers set off before the slip is due) misses on seeds 7 and 12 (0.50, 0.46) — no jumps; a fast bot leaves few due slips. A ratio over 16 seeds would be a sturdier test.
+2. The cloud harness's header showed day 1 four seconds after the day-2 morning while the mark read "Saved to your account"; Save & quit then wrote day 2 and device B continued on day 2. Probably the header lags the debounced chunk write; worth a look in R11.
+3. At 1280 Bigger the start picker's boss list sits under the pinned Start dock until scrolled (the new look picker made the card taller).
+4. Main chunk 195.9 kB of 200.
+5. The default rota gives every hire Monday and Tuesday off, so a new owner covers two days a week and is "worn out" by day 8 — pre-existing, but it now shows as every person's mood reason ("had Tuesday off"). A starter rota that staggers days off would read better.
+
+## R10.9 Next round
+
+- Stagger the starter rota (finding 5) and let the hiring sheet suggest who'd cover the gaps.
+- Move 5–10 kB out of main before adding anything to the shell.
+- Decor × Stars: decor prestige is capped at 8 and end-of-year prestige saturates near 91, so posh rooms matter mainly early and on the Stars path; consider a Stars-only reason to keep a smart room fresh.
+- A child playtest of the staff room: do they read the likes/dislikes and rota around them, or only hire by skill bars?

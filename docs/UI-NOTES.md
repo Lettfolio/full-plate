@@ -716,3 +716,12 @@ RestaurantView.
 - Start picker (career): "How you look" — six portraits in the job's clothes, a radiogroup of 60 px buttons; passed to `newCareer` as `look`.
 - Icons added: `user`, `thumbsUp`, `thumbsDown`, `graduation`, `bolt` (`people` / `heart` existed).
 - Type audit: new screen `11b-planning-hire-sheet`; 36 screens, 0 text < 13 px, normal and Bigger. R8 probe: unchanged counts on every screen at 1280/1024 × normal/large (the only diff is a toast caught mid-fade on the career watch screen, timing).
+
+## Round 10 — review
+
+- **One rule for a person's colours.** Skin and hair come from sim-core `avatarFor` (keyed by staff id) everywhere: staff-room portraits, the dining room (`RestaurantView.staffLook`) and the hands-on floor (colleagues and the sous chef are keyed by staff id, not first name). The career player's chosen look (`playerAvatar(career.look, role)`) now dresses their sprite on the hands-on floor (`SessionOptions.look`, `HandsOnShift look`) and in the dining room (`RenderOptions.playerLook`), as on My shift and the score card. Owner "Jump in" keeps the old fixed "you" colours.
+- **Fitting night on the hands-on floor.** The fitters' tables (sim-core `closedTableIds`) are drawn under a dust sheet with no place settings, as the dining-room view does; the sim never seats them.
+- **The sous chef on the hands-on floor** is the on-shift chef with the highest "Cover the pass" level (as the sim's `passCover`), so the name tag, the sprite and the covering cook are one person.
+- **Planning tab row at 1024** (Menu, Staff, Stock, Restaurant, Decorate; + Empire/Stars on those paths): one row, every tab 48 px tall, 17 px labels, normal and Bigger text, no overflow — no scroller needed.
+- **Busy evening order:** What happened today (new decor's first night and the fitters first, then the day's incidents) → What people said → How the team feels (level-ups first, then each mood reason). Goal toasts queue one at a time in the toast region; sampled over 6 s on three evenings, none overlapped the pinned dock.
+- Type audit: 37 screens, 0 text < 13 px, 0 page errors, normal and Bigger.
