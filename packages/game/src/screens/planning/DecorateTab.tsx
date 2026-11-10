@@ -211,10 +211,13 @@ function RoomCanvas({ game }: { game: GameState }) {
     let view: RestaurantView;
     try { view = new RestaurantView(canvas.current!); } catch { return; } // no 2D canvas (tests, very old browsers): cards still work
     // the canvas fills the frame's content box (inside its border), so size the drawing to that, not the border box
-    const fit = () => { const el = wrap.current!; view.resize(el.clientWidth, el.clientHeight, canvasDpr()); };
+    // R10 review: hold the element itself — React clears `wrap.current` on unmount before this effect's cleanup runs, and a
+    // resize delivered in between threw "reading 'clientWidth' of null" (seen leaving the Decorate tab).
+    const el = wrap.current!;
+    const fit = () => { if (el.isConnected) view.resize(el.clientWidth, el.clientHeight, canvasDpr()); };
     fit();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : undefined;
-    ro?.observe(wrap.current!);
+    ro?.observe(el);
     let raf = 0;
     const frame = (t: number) => {
       view.render({ ...live.current, customers: [], tickets: [] }, { content, speed: 0, now: t, reducedMotion: prefersReducedMotion(), preview: true });

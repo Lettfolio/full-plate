@@ -67,3 +67,34 @@ describe("round 10 review: the sous chef never snaps", () => {
     expect(a).toEqual(b);
   });
 });
+
+describe("round 10 review: a fitting night on the hands-on floor", () => {
+  it("the fitters' tables are under dust sheets (no place settings); other nights draw the same as before", async () => {
+    const { content } = await import("@full-plate/content");
+    const { createFixture } = await import("../src/fixture");
+    const { createSession } = await import("../src/session");
+    const { render } = await import("../src/render");
+    const { LayerCache } = await import("../src/layers");
+    const { closedTableIds } = await import("@full-plate/sim-core");
+    const f = createFixture({ role: "server" });
+    const draw = (state: typeof f.state) => {
+      const calls: string[] = [];
+      const grad = { addColorStop() {} };
+      const target: Record<string, unknown> = { fillText: () => {}, measureText: (t: string) => ({ width: t.length * 7 }), createLinearGradient: () => grad, createRadialGradient: () => grad };
+      const ctx = new Proxy(target, {
+        get: (o, k: string) => (k in o ? o[k] : (...a: unknown[]) => { calls.push(k + ":" + a.map((x) => (typeof x === "number" ? x.toFixed(1) : typeof x)).join(",")); }),
+        set: (o, k: string, v) => { if (typeof v !== "function") calls.push(`${k}=${String(v)}`); o[k] = v; return true; },
+      });
+      const s = createSession(state, "server", { content });
+      render(ctx as unknown as CanvasRenderingContext2D, s, state, { width: 1280, height: 800, layers: new LayerCache(() => undefined) });
+      return calls;
+    };
+    const empty = { ...f.state, customers: [], tables: f.state.tables.map((t) => ({ ...t, occupiedBy: undefined, dirtyTicks: 0 })) };
+    const fitting = { ...empty, decor: { slots: {}, fitting: { day: empty.day, tables: 2, slots: ["walls" as const] } } };
+    expect(closedTableIds(fitting)).toHaveLength(2);
+    const plain = draw(empty), fit = draw(fitting);
+    expect(plain.filter((c) => c === "fillStyle=#efe9dc")).toHaveLength(0);
+    expect(fit.filter((c) => c === "fillStyle=#efe9dc")).toHaveLength(2);
+    expect(fit.length).toBeLessThan(plain.length); // two tables' place settings not drawn
+  });
+});

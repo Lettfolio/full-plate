@@ -11,6 +11,7 @@
  * Layout at 1024×600: an 80 px header (ticket rail + timer/score), then the 30×15-tile world at ~32 px a tile.
  */
 import type { Customer, GameState, KitchenTicket } from "@full-plate/sim-core";
+import { closedTableIds } from "@full-plate/sim-core";
 import { nextHint } from "./hints";
 import { FRONT_WALL_ROW, WORLD_H, WORLD_W } from "./layout";
 import { summarise } from "./score";
@@ -362,6 +363,16 @@ function drawTableLive(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: 
   const { cx, cy, r, person, seats } = g;
   const c = table.occupiedBy ? state.customers.find((x) => x.id === table.occupiedBy) : undefined;
   const dirty = table.dirtyTicks > 0 && !c && !s.cleared[table.id];
+  if (!c && closedTableIds(state).includes(table.id)) {
+    // Round 10 review: on a fitting night the fitters have the last tables (sim-core seating never seats them), as the
+    // dining-room view's dust sheets show: a sheet over the table, no place settings.
+    ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.beginPath(); ctx.ellipse(cx + 1.5, cy + 2.5, r * 1.18, r * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#efe9dc"; ctx.strokeStyle = C.outline; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * 1.18, r * 1.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(120,104,84,0.45)"; ctx.lineWidth = 1.2;
+    for (const k of [-0.45, 0, 0.45]) { ctx.beginPath(); ctx.moveTo(cx + k * r - r * 0.25, cy - r * 0.8); ctx.quadraticCurveTo(cx + k * r + r * 0.1, cy, cx + k * r - r * 0.15, cy + r * 0.85); ctx.stroke(); }
+    return;
+  }
   if (!c) {
     if (dirty) {
       for (let k = 0; k < Math.min(3, table.seats); k++) {
