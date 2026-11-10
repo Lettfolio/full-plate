@@ -54,28 +54,8 @@ function finalFigure(game: GameState, meta: PathMeta): { big: string; label: str
 }
 
 /** Draws the win card on a canvas and downloads it as a PNG (no library, no network). */
-function savePicture(game: GameState, win: WinMeta, figure: { big: string; label: string }, steps: JourneyStep[]) {
-  const c = document.createElement("canvas");
-  c.width = 1200; c.height = 630;
-  const x = c.getContext("2d");
-  if (!x) return;
-  const css = getComputedStyle(document.documentElement);
-  const v = (n: string, f: string) => css.getPropertyValue(n).trim() || f;
-  x.fillStyle = v("--cream", "#fbf4e6"); x.fillRect(0, 0, 1200, 630);
-  for (let i = 0; i < 1200; i += 60) { x.fillStyle = (i / 60) % 2 ? v("--paper", "#fffdf8") : v("--tomato", "#c4412b"); x.fillRect(i, 0, 60, 22); }
-  x.fillStyle = v("--ink", "#2b2622");
-  x.font = "600 64px Fredoka, sans-serif"; x.fillText(win.title, 70, 140);
-  x.font = "700 30px Nunito, sans-serif"; x.fillStyle = v("--ink-soft", "#5c534a"); x.fillText(`${game.restaurantName} · ${dateLabel(win.day)}`, 70, 190);
-  x.font = "600 96px Fredoka, sans-serif"; x.fillStyle = v("--tomato-deep", "#b93c29"); x.fillText(figure.big, 70, 320);
-  x.font = "700 30px Nunito, sans-serif"; x.fillStyle = v("--ink", "#2b2622"); x.fillText(figure.label, 70, 365);
-  x.font = "700 26px Nunito, sans-serif";
-  steps.slice(-5).forEach((st, i) => x.fillText(`Day ${st.day + 1}: ${st.text}`, 640, 270 + i * 46));
-  x.font = "600 30px Fredoka, sans-serif"; x.fillStyle = v("--ink", "#2b2622"); x.fillText("Full Plate", 70, 580);
-  const a = document.createElement("a");
-  a.href = c.toDataURL("image/png");
-  a.download = `full-plate-${game.restaurantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
-  a.click();
-}
+// Round 12 (B): the picture is drawn by lib/postcard.ts (saveWinPicture), loaded on the click, and saved through the
+// save-file path (the downloads capability inside claude.ai).
 
 /** A fixed, seed-free scatter of confetti (decorative; stops under reduced motion). */
 const CONFETTI = Array.from({ length: 28 }, (_, i) => ({ left: (i * 37) % 100, delay: ((i * 7) % 10) / 10, hue: i % 4 }));
@@ -125,7 +105,7 @@ export function WinScreen({ game, meta, win, onKeepPlaying, onTitle }: Props) {
         </div>
         <div className="gameover__buttons">
           {win.kind !== "el_bulli" && win.kind !== "handed_back" && <button className="btn btn--primary btn--tap" onClick={onKeepPlaying} autoFocus>Keep playing</button>}
-          <button className="btn btn--tap" onClick={() => { savePicture(game, win, figure, steps); setSaved(true); }}><span aria-hidden="true">📸</span> {saved ? "Picture saved" : "Save a picture"}</button>
+          <button className="btn btn--tap" onClick={() => { void import("../lib/postcard").then((m) => m.saveWinPicture(game, win, figure, steps)).then((r) => setSaved(r === "saved")); }}><span aria-hidden="true">📸</span> {saved ? "Picture saved" : "Save a picture"}</button>
           <button className="btn btn--ghost btn--tap" onClick={onTitle} autoFocus={win.kind === "el_bulli" || win.kind === "handed_back"}>Title screen</button>
         </div>
       </div>

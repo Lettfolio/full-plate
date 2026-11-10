@@ -2,7 +2,9 @@ import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
 import { content, OWNER_FATIGUE_WARNING, spendCheck, TABLE_COST } from "../sim";
 import { BankCard, bankDue, hirePromptText, loanDue, StarterLoanTip } from "../components/Bank";
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
+// Round 12 (B): the postcard button and its sheet are their own chunk.
+const PostcardButton = lazy(() => import("../components/PostcardDialog").then((m) => ({ default: m.PostcardButton })));
 import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
 import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
@@ -264,6 +266,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
         <div className="evening__head beathead">
           <DayRhythm beat="evening" weekday={WEEKDAY_NAMES[weekdayIndex(r.day)]!} />
           <h1 title={`Day ${r.day + 1} · ${dateLabel(r.day)}`}>{good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
+          {/* R12-B */}<Suspense fallback={null}><PostcardButton game={game} result={r} /></Suspense>
         </div>
         {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
         {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}

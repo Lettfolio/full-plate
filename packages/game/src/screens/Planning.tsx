@@ -53,6 +53,8 @@ interface Props {
   sendStars?: (cmd: StarsCommand) => void;
   onFocusSite?: (siteId: string) => void;
   onTastingMenu?: (menuId: string | null) => void;
+  /** Round 12 (B): save a new brand code. */
+  onBrand?: (code: string) => void;
 }
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }
@@ -62,7 +64,7 @@ function openHireGoalRole(game: GameState): StaffRole | undefined {
   return (game.goals ?? []).find((g) => !g.done && g.kind === "hire_role")?.role;
 }
 
-export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu }: Props) {
+export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu, onBrand }: Props) {
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
@@ -187,7 +189,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
           {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
-          {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
+          {tab === "restaurant" && <RestaurantTab game={game} send={send} meta={meta} onBrand={onBrand} />}
           <Suspense fallback={<div className="empty small muted">Loading…</div>}>
             {tab === "decorate" && <DecorateTab game={game} send={send} />}
             {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
