@@ -61,7 +61,8 @@ interface Props {
 }
 
 /**
- * Round 12 (A): a service rush — three or more parties queueing or five or more tickets up. It ends a little lower
+ * Round 12 (A): a service rush — three or more parties queueing or five or more tickets on the rail (one ticket a
+ * party, as the pass draws them; a party of four is one ticket, not four). It ends a little lower
  * (two parties, three tickets), so the tint and the music's tempo don't flicker on the edge.
  */
 export function rushNow(wasRush: boolean, queueParties: number, tickets: number): boolean {
@@ -297,7 +298,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const progress = Math.min(1, game.tick / SERVICE_TICKS);
   // Round 12 (A): the rush (header tint, the music's tempo and hat line, a cue in and out).
   const rushRef = useRef(false);
-  const rush = rushNow(rushRef.current, game.customers.filter((c) => c.stage === "queue").length, game.tickets.filter((x) => x.ticksRemaining > 0).length);
+  const rush = rushNow(rushRef.current, game.customers.filter((c) => c.stage === "queue").length, new Set(game.tickets.filter((x) => x.ticksRemaining > 0).map((x) => x.customerId)).size);
   useEffect(() => {
     if (rushRef.current === rush) return;
     rushRef.current = rush;

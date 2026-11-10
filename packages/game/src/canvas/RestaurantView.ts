@@ -308,6 +308,8 @@ export class RestaurantView {
       sizzle(ctx, s.x - 10, s.y, opts.now, motion, i);
       steam(ctx, s.x - 10, s.y - 6, opts.now, motion, 0.9, i);
     });
+    // Round 12 (A): no chef, but you're cooking — steam off the first hob while any ticket is on
+    if (!working.size && game.tickets.some((t) => t.ticksRemaining > 0)) steam(ctx, L.stoves[0]!.x - 10, L.stoves[0]!.y - 4, opts.now, motion, 0.7, 9);
     this.drawTickets(game, L, opts);
   }
 

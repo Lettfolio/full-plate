@@ -1929,16 +1929,18 @@ kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(-
 @keyframes r12a-nod { from { transform: rotate(0); } 40% { transform: rotate(-12deg); } to { transform: rotate(0); } }
 
 /* day-over transitions: each screen (planning → service → evening, and the lazy screens) fades in over the page */
-.screen > * { animation: r12a-in 180ms ease-out both; }
+/* (fill "backwards", not "both": a filled opacity animation would leave every screen a stacking context, and the dialogs
+   inside it would sit under the header) */
+.screen > * { animation: r12a-in 180ms ease-out backwards; }
+/* the header's Settings sheet sits over the pinned action dock (z 6), with or without the fade (it didn't, before) */
+.status-wrap { z-index: 7; }
 
 /* the "What's happening" log: each new line slides in from the left (keys are stable, so old lines stay put) */
 .ticker__line { animation: r12a-slide 220ms ease-out both; }
 
-/* the rush: the header band and the clock card warm up while it lasts; a worded chip so it isn't colour alone */
+/* the rush: the header band warms up while it lasts; a worded chip by the weekday so it isn't colour alone */
 .status { transition: box-shadow 400ms ease; }
 .app:has(.service--rush) .status { box-shadow: inset 0 0 0 100vmax rgba(196, 65, 43, 0.22), 0 3px 0 rgba(43, 38, 34, 0.12); }
-.service .clock { transition: box-shadow 400ms ease; border-radius: var(--radius-sm); }
-.service--rush .clock { box-shadow: inset 5px 0 0 var(--tomato); }
 .rushchip { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 10px; border-radius: var(--radius-pill); background: var(--tomato-wash); color: var(--tomato-deep); border: 1.5px solid var(--tomato); font-size: var(--fs-xs); font-weight: 800; vertical-align: middle; }
 
 /* the evening: stars fill one after another; the best-night line gets one shine */
@@ -1965,7 +1967,7 @@ kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(-
 
 @media (prefers-reduced-motion: reduce) {
   .screen > *, .ticker__line, .evening .stars svg, .tonight__best, .tonight__best svg { animation: none; }
-  .status, .service .clock { transition: none; }
+  .status { transition: none; }
 }
 /* Settings › Animations off: everything instant, app-wide (the canvases and count-ups read the same switch) */
 :root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { animation: none !important; transition: none !important; }
