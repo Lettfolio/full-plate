@@ -243,11 +243,11 @@ describe("the sous chef's lead-in through a whole bot shift (render-side pose, r
     return { jumps, led, trips, frames };
   }
 
-  // Round 10: seeds 1, 9, 13 (were 5, 6, 7). Staff personalities re-rolled the career warm-up and seeds 5-7 now show
-  // a sous-chef pose jump in lead-in mode. That jump is a latent handson sous.ts issue, not new: on master f14f861 the
-  // lead-in already jumps on seeds 4, 8, 10, 11 and 14 (sousPose picks the newest active walk, so a walk that starts
-  // while another is still out snaps the pose). Seeds 1, 9 and 13 pass on both. Flagged for the reviewer (SIM-NOTES R10).
-  it.each([1, 9, 13])("seed %i: trips set off as the slip falls due, and the sous chef never jumps", (seed) => {
+  // Round 10: B re-seeded this to 1, 9, 13 because seeds 5-7 jumped once staff personalities re-rolled the warm-up, and
+  // seeds 4, 8, 10, 11, 14 already jumped on master f14f861 (sousPose drew the newest walk from the post). Round 10
+  // review fixed sous.ts (a walk sets off from where he is; late bookings ease over; the lead-in follows the first-due
+  // slip and slides with it): seeds 4 and 8 (failing on master) and 5, 6 (failing on r10-b) are back, with 1, 9, 13.
+  it.each([1, 4, 5, 6, 8, 9, 13])("seed %i: trips set off as the slip falls due, and the sous chef never jumps", (seed) => {
     const withLead = run(seed, true);
     expect(withLead.trips).toBeGreaterThan(2);
     expect(withLead.led / withLead.trips).toBeGreaterThan(0.5);
@@ -255,5 +255,13 @@ describe("the sous chef's lead-in through a whole bot shift (render-side pose, r
     const old = run(seed, false);
     expect(old.led).toBe(0);
     expect(old.jumps).toBe(0);
+  }, 120_000);
+
+  // Round 10 review: the snap itself on every other seed to 16 (10, 11, 14 jumped on master). Seeds 7 and 12 lead fewer
+  // than half their trips (the bot plates fast, so most covers come with no due slip first) — that ratio isn't a snap.
+  it.each([2, 3, 7, 10, 11, 12, 14, 15, 16])("seed %i: the sous chef never jumps (lead-in on)", (seed) => {
+    const withLead = run(seed, true);
+    expect(withLead.trips).toBeGreaterThan(2);
+    expect(withLead.jumps).toBe(0);
   }, 120_000);
 });

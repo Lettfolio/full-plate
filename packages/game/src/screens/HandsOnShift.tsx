@@ -43,6 +43,8 @@ interface Props {
   station?: StationPlan;
   /** Owner "Jump in": open-ended, with a "Back to the office" button. */
   jumpIn: boolean;
+  /** Round 10 review: the career player's chosen look (skin and hair), so the sprite matches the portrait. */
+  look?: { skin: string; hair: string };
   tutorial?: boolean;
   runTicks: (n: number) => void;
   sendResults: (results: HandsOnResult[]) => void;
@@ -79,7 +81,7 @@ export function onboardTargetRect(step: OnboardStep, session: HandsOnSession, vi
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
  * its results into PLAYER_* commands, advances the sim at its own pace and draws. Mirrors handson/demo/main.ts.
  */
-export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
+export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const live = useRef({ game, runTicks, sendResults, onScore });
@@ -105,7 +107,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, tutor
     const input = createInputSource(window);
     inputRef.current = input;
     sessionRef.current = createSession(live.current.game, role, {
-      content, tutorial, ...(playerStaffId ? { playerStaffId } : {}), ...(station ? { station, sousLead: true } : {}),
+      content, tutorial, ...(playerStaffId ? { playerStaffId } : {}), ...(station ? { station, sousLead: true } : {}), ...(look ? { look } : {}),
     });
     let raf = 0;
     let last = performance.now();

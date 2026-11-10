@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { Command, Difficulty } from "@full-plate/sim-core";
+import { playerAvatar } from "@full-plate/sim-core";
 import type { CareerCommand } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
@@ -276,6 +277,7 @@ export function App() {
             {...(career ? { playerStaffId: PLAYER_ID } : {})}
             {...(meta.handsOn.station ? { station: meta.handsOn.station } : {})}
             jumpIn={meta.handsOn.jumpIn}
+            {...(career ? { look: (({ skin, hair }) => ({ skin, hair }))(playerAvatar(career.look ?? 0, career.role)) } : {})}
             tutorial={!career || career.shiftsWorked < 10}
             runTicks={runTicks}
             sendResults={sendResults}

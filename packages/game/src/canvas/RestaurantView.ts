@@ -16,7 +16,8 @@
  * `floorPalette.ts` (theme tokens read from the canvas on resize + art colours).
  */
 import type { ContentPack, Customer, CustomerId, GameState, Staff, Table, TableId } from "@full-plate/sim-core";
-import { facingFrom, guestLook, hashKey, HAIRS, SKINS, SpriteCache, type Facing, type Look } from "@full-plate/handson/sprites";
+import { facingFrom, guestLook, SpriteCache, type Facing, type Look } from "@full-plate/handson/sprites";
+import { avatarFor } from "@full-plate/sim-core";
 import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { weekdayIndex } from "../lib/calendar";
 import { FLOOR_DEFAULTS, readFloorPalette, type FloorPalette } from "./floorPalette";
@@ -175,6 +176,8 @@ export interface RenderOptions {
   reducedMotion?: boolean;
   /** Round 10: the Decorate tab's empty-room preview — no kitchen tickets, staff or "you're cooking" signs. */
   preview?: boolean;
+  /** Round 10 review: the career player (staff id) wears the look they picked (sim-core `playerAvatar`), as on My shift. */
+  playerLook?: { id: string; skin: string; hair: string };
 }
 
 /** Green (full) → amber → red (empty). */
@@ -795,7 +798,7 @@ export class RestaurantView {
   private drawStaffMarker(s: Staff, x: number, y: number, sp: StaffSprite, opts: RenderOptions, carrying: boolean, bill = false, tagBeside = false) {
     const ctx = this.ctx;
     const r = clamp(L_PERSON_STAFF * (this.layout?.person ?? 8), 7, 11);
-    const look = staffLook(s);
+    const look = staffLook(s, opts.playerLook?.id === s.id ? opts.playerLook : undefined);
     const walking = sp.moving && !!motion;
     const hy = this.people.draw(ctx, x, y, r, look, { facing: sp.facing, moving: walking, phase: walking ? opts.now / 85 : 0, carrying: carrying || bill, outline: C.outline, shadow: C.shadow }, this.dpr);
     if (carrying || bill) {
@@ -830,9 +833,10 @@ export class RestaurantView {
 /** Staff sprites are a touch bigger than guests (they're the ones you watch). */
 const L_PERSON_STAFF = 1.15;
 
-function staffLook(s: Staff): Look {
-  const h = hashKey(s.id);
-  const skin = SKINS[h % SKINS.length]!, hair = HAIRS[(h >> 3) % HAIRS.length]!;
+function staffLook(s: Staff, mine?: { skin: string; hair: string }): Look {
+  // Round 10 review: skin and hair come from sim-core's avatarFor, the one rule the staff-room portraits use too (the
+  // career player: the look they picked).
+  const { skin, hair } = mine ?? avatarFor(s);
   switch (s.role) {
     case "chef": return { body: "#fbfaf6", skin, hair, hat: "toque", hatColour: "#fffdf8", trim: C.tomato, apron: "#ece7dc" };
     case "server": return { body: "#2f3a33", skin, hair, hat: "cap", hatColour: C.basil, shirt: true, trim: C.tomato, apron: "#1f2622" };

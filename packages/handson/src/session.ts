@@ -16,7 +16,7 @@ import type {
 import { chefSpeedBonus, chopHit, cookBand, cookQuality, plateExecution, POINTS, pourQuality, serveSpeedBonus, TUNING } from "./verbs";
 import { coverDueTick, stationTickets, type StationPlan } from "./station";
 import { railCapFor } from "./pacing";
-import { bookSousWalk, standDown, walkEnd } from "./sous";
+import { bookSousWalk, freeAt, shownSlot, standDown, walkEnd } from "./sous";
 
 /** A plate whose ticket waited longer than this (seconds) "went cold" on the end-of-shift notes. */
 export const COLD_PLATE_SECS = 60;
@@ -44,6 +44,8 @@ export interface SessionOptions {
    * stamps `dueSince`) and the cover's trip carries on from the rail. Cosmetic only; the game turns it on.
    */
   sousLead?: boolean;
+  /** Round 10 review: the career player's chosen look (skin and hair colours, sim-core `playerAvatar`), so the sprite matches the portrait. */
+  look?: { skin: string; hair: string };
 }
 
 export const PLAYER_RADIUS = 0.32;
@@ -78,6 +80,7 @@ export function createSession(state: GameState, role: HandsOnRole, opts: Session
       carryLimit: role === "server" ? 3 : role === "bar" ? 2 : 1,
       ...(opts.station && role === "chef" ? { station: { ...opts.station, dishIds: [...opts.station.dishIds] } } : {}),
       ...(opts.sousLead ? { sousLead: true } : {}),
+      ...(opts.look ? { look: { skin: opts.look.skin, hair: opts.look.hair } } : {}),
     },
     lastActiveAt: 0,
     plateTimes: [],
@@ -595,11 +598,29 @@ function sync(s: HandsOnSession, state: GameState) {
 
 // ───────────────────────── round 4: the sous chef covers an idle commis ─────────────────────────
 
-/** The AI chef who covers (the first other chef on today's floor), for the nudge. */
-export function sousName(s: HandsOnSession, state: GameState): string {
+/**
+ * The AI chef who covers: the other chef on today's floor with the highest "Cover the pass" level (round 10, as the
+ * sim's `passCover` picks its sous chef), else the first other chef on.
+ */
+function sousStaff(s: HandsOnSession, state: GameState): GameState["staff"][number] | undefined {
   const pid = s.opts.playerStaffId;
-  const other = state.staff.find((x) => x.role === "chef" && x.id !== pid && x.rota[weekdayOf(state.day)]);
+  let best: GameState["staff"][number] | undefined;
+  for (const x of state.staff) {
+    if (x.role !== "chef" || x.id === pid || !x.rota[weekdayOf(state.day)]) continue;
+    if (!best || (x.tracks?.pass ?? 0) > (best.tracks?.pass ?? 0)) best = x;
+  }
+  return best;
+}
+
+/** The covering chef's first name, for the nudge and the name tag. */
+export function sousName(s: HandsOnSession, state: GameState): string {
+  const other = sousStaff(s, state);
   return other ? other.name.split(" ")[0]! : "Chef";
+}
+
+/** Round 10 review: the covering chef's staff id (the sprite is keyed by it, as the portraits are). */
+export function sousId(s: HandsOnSession, state: GameState): string | undefined {
+  return sousStaff(s, state)?.id;
 }
 
 /**
@@ -633,6 +654,21 @@ function sousChef(s: HandsOnSession, state: GameState) {
   }
 }
 
+/** Round 10 review: the due slip still on the rail that fell due first, as a lead-in (slot in the rail's party order). */
+function firstDue(s: HandsOnSession, state: GameState, rail: readonly KitchenTicket[]): { slot: number; dueSince: number } | undefined {
+  const onRail = new Map(rail.map((t) => [t.id, t]));
+  const parties = [...new Set((s.railSeen ?? []).map((x) => x.customerId))];
+  let best: { slot: number; dueSince: number } | undefined;
+  for (const x of s.railSeen ?? []) {
+    const t = onRail.get(x.id);
+    // the same filter render's sousPending draws the lead-in with
+    if (x.dueSince === undefined || !t || s.served[x.id] || coverDueTick(s, state, t) > state.tick + 1 || (best && x.dueSince >= best.dueSince)) continue;
+    best = { slot: shownSlot(x, s.time, Math.max(0, parties.indexOf(x.customerId))), dueSince: x.dueSince };
+  }
+  // As its lead-in drew it: set off when it fell due or when he was free (so pruning the finished trips can't move it).
+  return best && { slot: best.slot, dueSince: Math.max(best.dueSince, freeAt(s.sousWalks)) };
+}
+
 /** Station tickets that left the rail since the last update without the player plating them, party still in: covered. */
 function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly KitchenTicket[], idle: boolean, who: string) {
   const held = s.carrying && "ticketId" in s.carrying ? s.carrying : undefined;
@@ -641,6 +677,10 @@ function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly Kitche
   // Round 7: covers in one tick share a trip; if any of them was due he was already on his way to it.
   const dues = (s.railSeen ?? []).filter((w) => !live.has(w.id) && !s.cooked[w.id] && w.dueSince !== undefined).map((w) => w.dueSince!);
   const groupDue = dues.length ? Math.min(...dues) : undefined;
+  // Round 10 review: the trip goes to the slip he was waiting under (the group's first-due one), whichever cover is booked first.
+  const seenParties = [...new Set((s.railSeen ?? []).map((x) => x.customerId))];
+  const groupSlip = groupDue === undefined ? undefined : (s.railSeen ?? []).find((w) => !live.has(w.id) && !s.cooked[w.id] && w.dueSince === groupDue);
+  const groupSlot = groupSlip ? shownSlot(groupSlip, s.time, Math.max(0, seenParties.indexOf(groupSlip.customerId))) : undefined;
   for (const was of s.railSeen ?? []) {
     if (live.has(was.id) || s.cooked[was.id]) continue;
     if (held?.ticketId === was.id) {
@@ -660,9 +700,13 @@ function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly Kitche
     say(s, `${who}: “I've sent ${tn ? `table ${tn}'s ` : "the "}${profile(s, was.dishId).short} — grab your next ticket!”`, 3.4);
     toast(s, "Covered by the sous chef", "info", stationCentre(s, "pass"));
     // Round 6: act it out on the canvas (cosmetic; sous.ts). The slip lifts from where its party's slip hung.
-    const slot = Math.max(0, [...new Set((s.railSeen ?? []).map((x) => x.customerId))].indexOf(was.customerId));
+    const slot = s.opts.sousLead && groupSlot !== undefined ? groupSlot : Math.max(0, seenParties.indexOf(was.customerId));
     // Round 7: a slip that fell due before the tick had him walking to it already (render.ts sousPending): carry on.
-    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, ...(tn ? { table: tn } : {}) }, slot, s.time, s.opts.sousLead ? was.dueSince ?? groupDue : undefined);
+    const lead = s.opts.sousLead ? was.dueSince ?? groupDue : undefined;
+    // Round 10 review: a cover with no lead-in of its own, booked while he is out on a lead-in to another due slip (the
+    // one that fell due first, as render's sousPending picks): the trip sets off from there, not from his post.
+    const outOn = s.opts.sousLead && lead === undefined ? firstDue(s, state, rail) : undefined;
+    s.sousWalks = bookSousWalk(s.sousWalks, { ticketId: was.id, dishId: was.dishId, ...(tn ? { table: tn } : {}) }, slot, s.time, lead, outOn);
     booked.add(was.id);
   }
   // Drop finished trips — but not while a due slip waits: its lead-in starts when he was free (sous.ts freeAt).
@@ -675,6 +719,19 @@ function coveredBySim(s: HandsOnSession, state: GameState, rail: readonly Kitche
   const now = new Map(rail.map((t) => [t.id, entry(t)]));
   const inHand = s.carrying && "ticketId" in s.carrying ? live.get(s.carrying.ticketId) : undefined;
   if (inHand) now.set(inHand.id, entry(inHand));
+  // Round 10 review: stamp each due slip's rail slot (render's party order); when it moves, remember where it was drawn.
+  if (s.opts.sousLead) {
+    const parties = [...new Set(rail.map((t) => t.customerId))];
+    const prevSeen = new Map((s.railSeen ?? []).map((x) => [x.id, x]));
+    for (const e of now.values()) {
+      if (e.dueSince === undefined) continue;
+      const slot = Math.max(0, parties.indexOf(e.customerId));
+      const p = prevSeen.get(e.id);
+      if (p?.slot !== undefined && p.slot !== slot) { e.slotFrom = shownSlot(p, s.time, p.slot); e.slotAt = s.time; }
+      else if (p?.slotFrom !== undefined && p.slotAt !== undefined && s.time - p.slotAt < 1) { e.slotFrom = p.slotFrom; e.slotAt = p.slotAt; }
+      e.slot = slot;
+    }
+  }
   // Round 7: a due slip he was walking to left without a cover (she plated it first): he walks back from the rail.
   if (s.opts.sousLead) {
     const parties = [...new Set((s.railSeen ?? []).map((x) => x.customerId))];

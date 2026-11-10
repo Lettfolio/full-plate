@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import type { Command, CustomerId, GameState, Incident, TableId } from "@full-plate/sim-core";
+import { playerAvatar } from "@full-plate/sim-core";
+import { PLAYER_ID } from "@full-plate/sim-career";
 // R8 review: the floor art (RestaurantView + floorPalette + handson sprites/layers/palette) is a lazy chunk so the
 // main chunk stays under budget. The frame loop (which drives the sim clock) starts at once; drawing starts when it lands.
 import type { RestaurantView, Highlight } from "../canvas/RestaurantView";
@@ -138,8 +140,12 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const watchRef = useRef(!!watch);
   watchRef.current = !!watch;
   // latest values for the rAF loop without restarting it
-  const live = useRef({ game, speed, selected, hoverTable, runTicks, highlight });
-  live.current = { game, speed, selected, hoverTable, runTicks, highlight };
+  // Round 10 review: a career player on the floor wears the look they picked (the portrait on My shift).
+  const career = app.meta.career;
+  const mine = career ? playerAvatar(career.look ?? 0, career.role) : undefined;
+  const playerLook = mine ? { id: PLAYER_ID, skin: mine.skin, hair: mine.hair } : undefined;
+  const live = useRef({ game, speed, selected, hoverTable, runTicks, highlight, playerLook });
+  live.current = { game, speed, selected, hoverTable, runTicks, highlight, playerLook };
 
   // Incident alert: pause (1x/2x, if enabled) or a toast (4x). Fires once per INCIDENT_STARTED.
   const lastAlert = useRef(app.incidentAlert.seq);
@@ -192,7 +198,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view?.render(L.game, { content, speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() });
+      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() });
       if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
       raf = requestAnimationFrame(frame);
     };

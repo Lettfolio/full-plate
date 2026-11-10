@@ -15,9 +15,9 @@ import { nextHint } from "./hints";
 import { FRONT_WALL_ROW, WORLD_H, WORLD_W } from "./layout";
 import { summarise } from "./score";
 import { courseMarkers, helperAtWork, railView, HELPER_SUFFIX, type CourseMarker, type HelperWork, type RailEntry } from "./crew";
-import { isReady, profile, readyGroups, sousName } from "./session";
+import { isReady, profile, readyGroups, sousId, sousName } from "./session";
 import { coverDueTick, stationTickets } from "./station";
-import { sousLine, sousPose, type SousPending, type SousPose } from "./sous";
+import { shownSlot, sousLine, sousPose, type SousPending, type SousPose } from "./sous";
 import type { ActiveAction, HandsOnSession, Item, Station } from "./types";
 import { TUNING } from "./verbs";
 import { C, applyPalette, type Palette } from "./palette";
@@ -156,20 +156,27 @@ function crewView(s: HandsOnSession, state: GameState, m: ViewMetrics): CrewView
  */
 export function sousPending(s: HandsOnSession, state: GameState, rail: readonly RailEntry[]): SousPending | undefined {
   if (!s.opts.sousLead) return undefined;
-  const since = new Map((s.railSeen ?? []).map((x) => [x.id, x.dueSince]));
+  const seenBy = new Map((s.railSeen ?? []).map((x) => [x.id, x]));
   const parties: string[] = [];
   for (const e of rail) if (e.owner !== "helper" && !parties.includes(e.ticket.customerId)) parties.push(e.ticket.customerId);
-  for (const e of rail) {
-    const d = since.get(e.ticket.id);
-    if (e.owner === "helper" || d === undefined || s.served[e.ticket.id] || coverDueTick(s, state, e.ticket) > state.tick + 1) continue;
-    return { slot: Math.max(0, parties.indexOf(e.ticket.customerId)), dueSince: d };
-  }
-  // A due slip that has just left the rail in this state, before the session's next update books its cover (or stands
-  // him down): he keeps waiting under it for that frame.
+  // Round 10 review: the slip that fell due first, the one he set off for — not the first due slip in rail order, which
+  // changed under him when a newer slip to its left fell due (the sous-chef snap). A due slip that has just left the rail
+  // in this state, before the session's next update books its cover (or stands him down), wins ties: he keeps waiting
+  // under it for that frame. Slots are the session's stamps (its party order, the one the booking uses), sliding when
+  // the slip moves along the rail.
   const onRail = new Set(rail.map((e) => e.ticket.id));
   const seenParties = [...new Set((s.railSeen ?? []).map((x) => x.customerId))];
-  const gone = (s.railSeen ?? []).find((x) => x.dueSince !== undefined && !onRail.has(x.id));
-  return gone ? { slot: Math.max(0, seenParties.indexOf(gone.customerId)), dueSince: gone.dueSince! } : undefined;
+  let best: SousPending | undefined;
+  for (const x of s.railSeen ?? []) {
+    if (x.dueSince === undefined || onRail.has(x.id)) continue;
+    if (!best || x.dueSince < best.dueSince) best = { slot: shownSlot(x, s.time, Math.max(0, seenParties.indexOf(x.customerId))), dueSince: x.dueSince };
+  }
+  for (const e of rail) {
+    const seen = seenBy.get(e.ticket.id), d = seen?.dueSince;
+    if (e.owner === "helper" || !seen || d === undefined || s.served[e.ticket.id] || coverDueTick(s, state, e.ticket) > state.tick + 1) continue;
+    if (!best || d < best.dueSince) best = { slot: shownSlot(seen, s.time, Math.max(0, parties.indexOf(e.ticket.customerId))), dueSince: d };
+  }
+  return best;
 }
 
 /** Round 7: "E" in the hint lines becomes the touch button's name ("Tap USE as the slider…"). */
@@ -472,10 +479,10 @@ type StaffRole = "chef" | "server" | "bar" | "sous" | "helper";
 const STAFF_SKIN = { you: "#f1c9a5" };
 
 /** Round 8: role looks for staff sprites (the player, colleagues, the sous chef and the commis's helper). */
-export function staffLook(role: StaffRole, who: string, you = false): Look {
+export function staffLook(role: StaffRole, who: string, you = false, look?: { skin: string; hair: string }): Look {
   const h = hashKey(who);
-  const skin = you ? STAFF_SKIN.you : SKINS[h % SKINS.length]!;
-  const hair = you ? "#6b4426" : HAIRS[(h >> 3) % HAIRS.length]!;
+  const skin = look?.skin ?? (you ? STAFF_SKIN.you : SKINS[h % SKINS.length]!);
+  const hair = look?.hair ?? (you ? "#6b4426" : HAIRS[(h >> 3) % HAIRS.length]!);
   switch (role) {
     case "chef": return { body: "#fbfaf6", skin, hair, hat: "toque", hatColour: "#fffdf8", trim: you ? C.tomato : C.basil, apron: "#ece7dc" };
     case "sous": return { body: "#3b4650", skin, hair, hat: "toque", hatColour: "#fffdf8", trim: C.amber, apron: "#2f3840" };
@@ -495,7 +502,9 @@ function drawPeople(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
   const R = T * 0.33;
   const list: { y: number; draw: () => void }[] = [];
   // AI colleagues stand at their posts (cosmetic). They never block the player.
-  const named = (role: string) => state.staff.find((x) => x.role === role)?.name.split(" ")[0];
+  // Round 10 review: keyed by staff id (as RestaurantView and the staff-room portraits, sim-core avatarFor), not first name.
+  const person = (role: string) => state.staff.find((x) => x.role === role);
+  const named = (role: string) => person(role)?.name.split(" ")[0];
   const posts: { role: "chef" | "server" | "bar"; x: number; y: number; facing: Facing }[] = [];
   if (s.role !== "chef") posts.push({ role: "chef", x: 9.5, y: 2.55, facing: "up" });
   if (s.role !== "bar") posts.push({ role: "bar", x: 26.2, y: 8.6, facing: "left" });
@@ -506,7 +515,7 @@ function drawPeople(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     const nm = named(p.role);
     list.push({ y: q.y, draw: () => {
       const idle = Math.sin(now * 2.2 + p.x) * 0.8 * motion;
-      people.draw(ctx, q.x, q.y + idle, R * 0.92, staffLook(p.role, nm ?? p.role), { facing: p.facing, outline: C.outline, shadow: C.shadow }, frameDpr);
+      people.draw(ctx, q.x, q.y + idle, R * 0.92, staffLook(p.role, person(p.role)?.id ?? p.role), { facing: p.facing, outline: C.outline, shadow: C.shadow }, frameDpr);
       if (nm) nameTag(ctx, nm, q.x, q.y + T * 0.55);
     } });
   }
@@ -534,7 +543,7 @@ function drawPeople(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Gam
     list.push({ y: q.y, draw: () => {
       const pose = walkPose(now, sp.moving);
       const idle = sp.moving ? 0 : Math.sin(now * 3) * 0.8 * motion;
-      const hy = people.draw(ctx, q.x, q.y + idle, R * 0.95, staffLook("sous", crew.sousName), { facing: sp.facing, ...pose, carrying: sp.carrying, outline: C.outline, shadow: C.shadow }, frameDpr);
+      const hy = people.draw(ctx, q.x, q.y + idle, R * 0.95, staffLook("sous", sousId(s, state) ?? crew.sousName), { facing: sp.facing, ...pose, carrying: sp.carrying, outline: C.outline, shadow: C.shadow }, frameDpr);
       nameTag(ctx, crew.sousName, q.x, q.y + T * 0.55);
       if (sp.carrying) {
         // the plate (and its slip) held up in his hands
@@ -576,7 +585,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: HandsOnSession, m: ViewMet
   const bob = moving && motion ? -Math.abs(Math.sin(pose.phase)) * R * 0.16 : 0;
   const head = { x: p.x, y: p.y + bob - T * (facing === "up" && item ? 1.05 : 0.78) };
   if (item && facing === "up") carried(ctx, item, p.x, p.y + bob - R * 1.25, T, wob, now, s, head);
-  const hy = people.draw(ctx, p.x, p.y, R, staffLook(role, "you", true), pose, frameDpr);
+  const hy = people.draw(ctx, p.x, p.y, R, staffLook(role, "you", true, s.opts.look), pose, frameDpr);
   if (item && facing !== "up") carried(ctx, item, p.x + fx * R * 1.15, hy + (facing === "down" ? R * 0.05 : -R * 0.1), T, wob, now, s, head);
 }
 
