@@ -1,0 +1,128 @@
+{
+  "_note": "Round 12 (E): the chef across the road. Name, restaurant and personality come from the seed and the district (packages/game/src/lib/rival.ts); their weekly review score is a mirror (district, week, the player's popularity), not a sim. Posts are picked by what really happened: who won last week, and yesterday's night. Smug, never cruel.",
+  "_placeholders": "{rival} {rivalFirst} {rivalPlace} {restaurant} {district} {dish} {you} {them}",
+  "firstNames": ["Gavin", "Tamsin", "Rocco", "Bea", "Declan", "Marisol", "Hugo", "Priti", "Saffron", "Mick", "Odette", "Kwame", "Lorna", "Felix", "Yasmin", "Barnaby"],
+  "surnames": ["Crust", "Pepperell", "Fennimore", "Saltash", "Ladle", "Brisket", "Sorrell", "Quince", "Marrow", "Thyme-Whitley", "Gristle", "Plumtree"],
+  "districtWords": {
+    "student_quarter": "Quad",
+    "high_street": "High Street",
+    "business_park": "Park",
+    "seaside": "Pier"
+  },
+  "personalities": [
+    {
+      "id": "showman",
+      "label": "The Showman",
+      "bio": "Flames at the table, a cape on Fridays. Has never cooked anything quietly.",
+      "places": ["{rivalFirst}'s Theatre of Food", "The Big Top {district}"],
+      "posts": {
+        "theyLead": ["Another week, another standing ovation at {rivalPlace}. Not literally. Mostly literally.", "Reviews this week: us {them}, them over the road {you}. Encore!"],
+        "youLead": ["Reviews don't capture SPECTACLE. You can't give a flaming pudding a star rating. Well, you can. They did. It was low.", "Congratulations to the place over the road on their reviews. We'll be setting something on fire tonight, unrelated."],
+        "close": ["Neck and neck with {restaurant} this week. Tonight: the dessert that comes with a drum roll.", "Close race on {district}. Close races need a finale. We have sparklers."],
+        "yourBadNight": ["Heard a few people walked out over the road last night. Here, nobody leaves before the encore.", "Thoughts with the team at {restaurant} after a tough night. Anyway: tonight, juggling."],
+        "yourGoodNight": ["Big night over the road, apparently. Lovely for them. We did a magic trick with a soufflé.", "Good night for {restaurant}, I hear. We did the flaming crêpes twice. Once on purpose."]
+      }
+    },
+    {
+      "id": "purist",
+      "label": "The Purist",
+      "bio": "Four ingredients, no sauces, strong opinions about spoons.",
+      "places": ["Pure.", "Root ({district})"],
+      "posts": {
+        "theyLead": ["Reviews this week: {them} to {you}. Restraint wins. It always does, eventually.", "We removed another ingredient from the menu. The reviews went up. Think about that."],
+        "youLead": ["Reviews are noise. The carrot knows. (Fine, they won this week. The carrot is upset.)", "Some people over the road put cheese on everything. The public, sadly, enjoys this."],
+        "close": ["Level with {restaurant} this week. The difference will be the salt. It is always the salt.", "Neck and neck. We are not worried. We are calm. We are a single, perfect pea."],
+        "yourBadNight": ["Rough night over the road, I hear. Too many dishes, too many problems. Simplify.", "Long queues at {restaurant} last night. We had one guest. They were very happy."],
+        "yourGoodNight": ["The place over the road was busy. Busy is not the same as good. (It was also good. Fine.)", "Lovely night for {restaurant}. We spent ours perfecting a radish."]
+      }
+    },
+    {
+      "id": "influencer",
+      "label": "The Influencer",
+      "bio": "Plates the food for the camera first and the customer second. Has a ring light in the kitchen.",
+      "places": ["{rivalFirst} IRL", "Feed Me {district}"],
+      "posts": {
+        "theyLead": ["{them} average on reviews this week vs over the road's {you}. Not that we're counting. We're counting.", "Reviews up again. Link in bio. Also, the food is in the restaurant."],
+        "youLead": ["Just a reminder that reviews aren't everything. Followers are everything.", "Over the road won the week on reviews. Good for them. Our pudding has nine thousand likes."],
+        "close": ["Neck and neck with {restaurant}. Time for a giveaway.", "Close one this week. Like and share to help us win. That's how reviews work, right?"],
+        "yourBadNight": ["Saw the queue walking out of {restaurant} last night. We had no queue. We had content.", "Rough night over the road. Our ring light is free if they want to borrow it."],
+        "yourGoodNight": ["{restaurant} had a big night, apparently. Did they post about it? No? Then did it happen?", "Good night over the road. Our {district} story got twelve views. Different metrics."]
+      }
+    },
+    {
+      "id": "pennypincher",
+      "label": "The Penny-Pincher",
+      "bio": "Has never paid full price for anything, including the restaurant. Proud of it.",
+      "places": ["Bargain Bistro", "{rivalFirst}'s Value Kitchen"],
+      "posts": {
+        "theyLead": ["Better reviews than over the road, AND our chips are 40p cheaper. Do the maths.", "Reviews this week: {them} to {you}. Cost us nothing. Literally nothing. We didn't buy napkins."],
+        "youLead": ["Good reviews are easy when you spend money on food. Anyone can do that.", "They won the week. They also pay full price for butter. Who's really winning?"],
+        "close": ["Close race with {restaurant}. We're cutting prices again. And portion sizes. Don't tell anyone.", "Neck and neck on reviews. We've started reusing the menus. Just the menus."],
+        "yourBadNight": ["Tough night over the road, I hear. Should have been cheaper.", "Walk-outs at {restaurant}. Nobody walks out of a two-for-one."],
+        "yourGoodNight": ["Busy night at {restaurant}. Big takings. Big bills too, I bet.", "Lovely night for them over the road. We saved four pounds on teabags."]
+      }
+    },
+    {
+      "id": "oldpro",
+      "label": "The Old Pro",
+      "bio": "Thirty years at the stove, twenty-nine of them complaining about young people.",
+      "places": ["{rivalFirst}'s, Est. 1994", "The Old Range"],
+      "posts": {
+        "theyLead": ["Reviews this week: {them} to {you}. Experience. You can't buy it. You can only get old.", "Better reviews than the new lot again. I've got pans older than that restaurant."],
+        "youLead": ["Fine. The youngsters won the week. I'll be in the office, re-reading old reviews from 2003.", "Over the road beat us on reviews. In my day you had to win for a whole year before anyone noticed."],
+        "close": ["Close this week. I've seen a hundred places like {restaurant} open. Some of them were quite good, I'll admit.", "Level pegging. I'm making my gravy the long way tonight. Out of spite."],
+        "yourBadNight": ["Saw people leaving {restaurant} last night. Happened to me in 1997. You learn. Or you shut.", "Rough night over the road. Tell them from me: get the prep done by four. Always by four."],
+        "yourGoodNight": ["They were busy over the road last night. Good. Somebody's got to keep me sharp.", "Big night at {restaurant}. Reminds me of the old days. Before I got a bad knee."]
+      }
+    },
+    {
+      "id": "healthnut",
+      "label": "The Health Nut",
+      "bio": "Everything is spiralised. Has opinions about your gut.",
+      "places": ["Sprout & About", "Kale Me Maybe"],
+      "posts": {
+        "theyLead": ["Reviews: {them} to {you}. Turns out people like feeling good. Who knew? We knew.", "Up on the week. Our new beetroot latte is doing very well with people who've lost a bet."],
+        "youLead": ["They won on reviews. Comfort food is a short-term strategy. Discuss.", "Congrats over the road. We're doing a cleanse to process our feelings."],
+        "close": ["Neck and neck with {restaurant}. We're adding chia seeds to everything. Everything.", "Close week. Deep breaths. Organic ones."],
+        "yourBadNight": ["Rough night at {restaurant}. Have they tried oat milk? It solves most things. Not that, probably.", "Queue trouble over the road, I hear. Stretch while you wait, people!"],
+        "yourGoodNight": ["Busy night over the road. All that cheese. Our kale is quietly furious.", "Big night at {restaurant}. We had a quiet one, spiralising. It's very centring."]
+      }
+    },
+    {
+      "id": "grill",
+      "label": "The Grill Boss",
+      "bio": "Fire, meat, a beard you could lose a spatula in. Calls everyone 'chief'.",
+      "places": ["Flame & Fortune", "Smoke Signals {district}"],
+      "posts": {
+        "theyLead": ["Reviews: {them}. Over the road: {you}. Fire wins, chief.", "Another week ahead. The grill doesn't lie. The grill does burn the odd sausage."],
+        "youLead": ["Over the road won the week. Respect, chief. The grill and I are having a quiet word.", "Reviews down. Turning the heat up. That's the answer to most things, here."],
+        "close": ["Close one with {restaurant}. Friday's going on the grill. All of it.", "Neck and neck, chief. Bring your appetite and a fire extinguisher."],
+        "yourBadNight": ["Hear they had a rough one over the road. We've all burnt the onions, chief.", "Walk-outs at {restaurant}. Should've smelled our brisket. Would've stayed."],
+        "yourGoodNight": ["Good night over the road, chief. Good for them. Better for us next week.", "Big night at {restaurant}. Noted. Lighting the big grill."]
+      }
+    },
+    {
+      "id": "fusion",
+      "label": "The Fusion Fanatic",
+      "bio": "Will put any two cuisines in one bun. Has called a sandwich 'a journey'.",
+      "places": ["Wok This Way", "Fusion Confusion"],
+      "posts": {
+        "theyLead": ["Reviews this week: {them} vs {you}. The sushi pasty is working. We're as surprised as you.", "Ahead on reviews. Tonight's special: tikka ramen tacos. Please don't ask what's in the dip."],
+        "youLead": ["Over the road won the week with normal food. Bold. Old-fashioned, but bold.", "They beat us on reviews. We've responded by inventing a curry trifle. Nobody asked us to."],
+        "close": ["Neck and neck. We're fusing harder. Kimchi crumble drops on {district} tonight.", "Level with {restaurant}. Two cuisines? Why not five?"],
+        "yourBadNight": ["Rough night over the road, I hear. Maybe add some miso? Miso fixes most things.", "Queue walked out of {restaurant} last night. We'd have given them a bao. A fish-finger bao."],
+        "yourGoodNight": ["Big night at {restaurant}. Their {dish} is apparently great. We're fusing it with something.", "Busy over the road last night. Inspiring. We're putting their {dish} in a dumpling."]
+      }
+    }
+  ],
+  "winningLine": {
+    "you": "You're winning on reviews: {you} to their {them}.",
+    "them": "{rivalFirst} is winning on reviews: {them} to your {you}.",
+    "level": "Level on reviews: {you} each.",
+    "none": "No full week of reviews yet. {rivalFirst} is watching, though."
+  },
+  "clippingItem": {
+    "name": "Framed clipping",
+    "caption": "Gazette, page six: \"{restaurant} beats {rivalPlace} three weeks running.\" Not for sale. Not even to {rivalFirst}."
+  }
+}

@@ -17,34 +17,34 @@
   ],
   "localCritic": {
     "1": [
-      "{critic} came, saw, and waited forty minutes for a {dish}. 'I've had warmer welcomes from a fridge,' they wrote. Ouch, but fair.",
-      "'The {dish} at {restaurant} tasted like it had given up halfway,' says {critic}. Tomorrow is a new day.",
-      "{critic} gives {restaurant} one star, and that star is for the comfy chairs.",
-      "'I wanted to love it,' writes {critic}. 'The {dish} did not want to be loved.'"
+      "{critic} waited forty minutes for a {dish} at {restaurant}. 'I have had warmer welcomes from a fridge,' they write. Harsh. Not wrong.",
+      "'The {dish} at {restaurant} tasted like it had given up halfway,' says {critic}. 'So, eventually, did I.'",
+      "{critic} gives {restaurant} one star. 'The star is for the chairs. The chairs were doing their best.'",
+      "'I wanted to love it,' writes {critic}. 'The {dish} had other plans, and the plans were beige.'"
     ],
     "2": [
-      "{critic} found {restaurant} 'friendly but a bit wobbly'. The {dish} needed one more minute of care.",
-      "'Good ideas, shaky cooking,' says {critic}. 'Come back in six months and I might be cheering.'",
-      "Two stars from {critic}: the {dish} was nearly there, the service was nearly quick.",
-      "'There's a good restaurant hiding inside {restaurant},' writes {critic}. 'It just needs to come out and say hello.'"
+      "{critic} found {restaurant} 'friendly, keen and a bit wobbly'. The {dish} needed one more minute and one more idea.",
+      "'Good intentions, shaky cooking,' says {critic}. 'Come back in six months. I'll bring a cushion, just in case.'",
+      "Two stars from {critic}: 'The {dish} was nearly there. So was the service. So, frankly, was I.'",
+      "'There is a good restaurant hiding inside {restaurant},' writes {critic}. 'It should stop hiding. It's not very good at it.'"
     ],
     "3": [
-      "{critic} calls {restaurant} 'a solid, honest night out'. The {dish} won't change your life, but it will make your Tuesday.",
-      "'Three stars, and no complaints from my stomach,' says {critic}. The {dish} was the highlight.",
-      "{critic} liked it: 'Nothing wrong, a few things very right, and a {dish} I'd order again.'",
-      "'Reliable as a good umbrella,' writes {critic} of {restaurant}. That's a compliment round here."
+      "{critic} calls {restaurant} 'a solid, honest night out'. The {dish} won't change your life, but it might improve your Tuesday.",
+      "'Three stars, and no complaints from my stomach,' says {critic}. 'My stomach is notoriously hard to please.'",
+      "{critic} liked it: 'Nothing wrong, a few things very right, and a {dish} I would order again if nobody was watching.'",
+      "'Reliable as a good umbrella,' writes {critic} of {restaurant}. Round here, that's practically a love letter."
     ],
     "4": [
-      "{critic} is impressed: 'The {dish} at {restaurant} is cooked by someone who really cares.' Bookings are already picking up.",
-      "'Go now, before everyone else finds out,' writes {critic}. Too late: everyone has just found out.",
-      "Four stars from {critic}, who called the {dish} 'the kind of plate you think about on the bus home'.",
-      "'Confident, generous and properly delicious,' says {critic}. Chef {chef} is grinning in the kitchen."
+      "{critic} is impressed: 'The {dish} at {restaurant} is cooked by someone who cares, slightly too much, in the best way.'",
+      "'Go now, before everyone finds out,' writes {critic}. Everyone has now found out. Thanks, {critic}.",
+      "Four stars from {critic}, who called the {dish} 'the kind of plate you think about on the bus home, and the bus after that'.",
+      "'Confident, generous and properly delicious,' says {critic}. Chef {chef} has read it eleven times and is pretending they haven't."
     ],
     "5": [
-      "Five stars. {critic} says {restaurant} is 'the best meal in {city} this year'. The phone has not stopped ringing.",
-      "'I licked the plate. Don't tell my editor,' writes {critic} about the {dish}. Five stars.",
-      "{critic} calls chef {chef} 'a genius with a whisk'. Five stars, and a queue down the street by lunchtime.",
-      "'Book a table. Book two. Bring your granny,' says {critic}. Five stars for {restaurant}."
+      "Five stars. {critic} calls {restaurant} 'the best meal in {city} this year, and I have eaten a worrying number of meals in {city}'. Book now.",
+      "'I finished the plate and then I wiped it with bread. My editor will be appalled,' writes {critic} of the {dish}. Five stars.",
+      "{critic} calls chef {chef} 'a genius with a whisk and slightly dangerous with a blowtorch'. Five stars.",
+      "'Book a table. Book two. Bring someone you want to impress,' says {critic}. Five stars for {restaurant}."
     ]
   },
   "inspectorRumours": [
@@ -166,5 +166,73 @@
         "It's not the ending everyone expected. It's the one you chose."
       ]
     }
+  },
+  "blogger": {
+    "name": "Ruth Lessley",
+    "blog": "Plate Expectations",
+    "tagline": "Food blogger. Rude but fair. Mostly fair.",
+    "headlines": {
+      "1": [
+        "{restaurant}: I've had better meals on a ferry",
+        "Dear {restaurant}: we need to talk",
+        "The {dish} that broke me"
+      ],
+      "2": [
+        "{restaurant}: nice people, wobbly plates",
+        "Nearly, {restaurant}. Nearly.",
+        "The {dish} needs a word with itself"
+      ],
+      "3": [
+        "{restaurant}: perfectly fine, and I mean that nicely",
+        "Solid, honest, no fireworks: {restaurant}",
+        "Would I go back to {restaurant}? Probably. On a Tuesday."
+      ],
+      "4": [
+        "{restaurant} is getting good, and it knows it",
+        "I came to be rude about {restaurant}. I failed.",
+        "Go for the {dish}, stay for the {dish} again"
+      ],
+      "5": [
+        "{restaurant}: I have nothing rude to say and I'm furious about it",
+        "Five stars. Don't tell anyone. (Tell everyone.)",
+        "The {dish} at {restaurant} made me put my phone down"
+      ]
+    },
+    "reviews": {
+      "1": [
+        "The {dish} arrived late, lukewarm and slightly apologetic. So did the bill. I'll come back when they've had a word with the kitchen. Rude but fair: one star.",
+        "I spent most of the evening watching the queue. The queue spent most of the evening watching me. The {dish} did not join us. One star, and it's for effort."
+      ],
+      "2": [
+        "The staff are lovely and clearly trying. The {dish} is trying too, just not hard enough. Fix the timing and this place jumps a star. Two.",
+        "Some of it was good. Some of it was the {dish}. I'll be back, because I think they'll sort it, and because I'm nosy. Two stars."
+      ],
+      "3": [
+        "Nothing went wrong, which is rarer than you'd think. Nothing blew my socks off either. My socks remain, firmly, on. The {dish} is the one to get. Three stars.",
+        "A dependable night. The {dish} was honest cooking: seasoned properly, served hot, no nonsense. I wanted one surprise. Three stars."
+      ],
+      "4": [
+        "I arrived ready to be grumpy and left full and slightly annoyed I liked it so much. The {dish} is the real deal. Four stars.",
+        "Quick service, a warm room and a {dish} I'd cross town for. One more brave idea on the menu and it's five. Four stars, grudgingly."
+      ],
+      "5": [
+        "I have reviewed four hundred restaurants and I usually find something to moan about. I looked very hard. Nothing. The {dish} is ridiculous. Five stars.",
+        "Everything on time, everything hot, everyone smiling, including me, which my readers will find alarming. Five stars for {restaurant}."
+      ]
+    },
+    "spotted": [
+      "Food blogger Ruth Lessley was seen near {restaurant} with a notebook. Somebody tell the kitchen. Calmly.",
+      "Ruth Lessley of Plate Expectations is 'in the area'. She is never just 'in the area'.",
+      "Rumour: Ruth Lessley has a table booked somewhere on this street tonight. She never says where. Wipe the menus."
+    ],
+    "closed": [
+      "Ruth Lessley turned up at {restaurant} for her review and found the doors locked. She has written two hundred words about the door. Three stars for the door.",
+      "Ruth Lessley came to review {restaurant} but it was shut. 'I'll be back,' she wrote. It sounded like a threat. It probably was."
+    ],
+    "signoff": [
+      "Rude but fair. — R.L.",
+      "Until next time, eat better. — R.L.",
+      "See you in three weeks. Behave. — R.L."
+    ]
   }
 }
