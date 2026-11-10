@@ -51,7 +51,7 @@ export function BrandCard({ game, meta, onBrand }: { game: GameState; meta: Path
             <div className="small muted">{SHAPE_NAMES[brand.shape]} · {MOTIF_NAMES[brand.motif]} · {MENU_NAMES[brand.menu]} menu · staff in {UNIFORM_NAMES[brand.uniform].toLowerCase()}s</div>
           </div>
         </div>
-        <Shopfront className="brandcard__shop" name={brandName(game, meta)} logo={logoDataUrl(brand)} />
+        <Shopfront className="brandcard__shop" name={brandName(game, meta)} logo={logoDataUrl(brand)} small />
       </div>
       <div className="brandcard__buttons">
         {ro
@@ -122,7 +122,7 @@ export function BrandSheet({ start, name, game, onClose, onSave }: { start: Bran
             <Logo brand={b} size={88} title="Your logo" />
             <Wordmark brand={b} name={name} className="brandprev__name" />
           </div>
-          <Shopfront className="brandprev__shop" name={name} logo={logoDataUrl(b)} />
+          <Shopfront className="brandprev__shop" name={name} logo={logoDataUrl(b)} small />
           <div className={`brandprev__menu brandprev__menu--${b.menu}`}>
             <Logo brand={b} size={32} /><Wordmark brand={b} name="Today's menu" />
           </div>

@@ -6,7 +6,7 @@ const AW1 = "var(--brand-primary,var(--tomato))", AW2 = "var(--brand-accent,var(
  * window and a chalkboard on the pavement. Original art, CSS colours from the theme; decorative (aria-hidden).
  * The only motion is the steam, and it stops under prefers-reduced-motion (theme.css R7-C).
  */
-export function Shopfront({ className, name = "Full Plate", logo }: { className?: string; name?: string; logo?: string }) {
+export function Shopfront({ className, name = "Full Plate", logo, small }: { className?: string; name?: string; logo?: string; small?: boolean }) {
   const stripes = Array.from({ length: 10 }, (_, i) => i);
   return (
     <svg className={className} viewBox="0 0 480 420" aria-hidden="true">
@@ -51,7 +51,8 @@ export function Shopfront({ className, name = "Full Plate", logo }: { className?
       <circle cx="388" cy="306" r="5" fill="var(--amber)" stroke="var(--ink)" strokeWidth="2" />
       <path d="M326 252 l21 -10 l21 10" stroke="var(--ink)" strokeWidth="2" fill="none" />
       <rect x="318" y="252" width="58" height="26" rx="5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="2.5" />
-      <text x="347" y="271" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="600" fontSize="16" fill="var(--tomato-deep)">Open</text>
+      {/* R12-B: drawn smaller than 480 px wide (the brand card), the 16-unit words would fall under 13 px: left off */}
+      {!small && <text x="347" y="271" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="600" fontSize="16" fill="var(--tomato-deep)">Open</text>}
       {/* window box with basil */}
       <rect x="68" y="346" width="202" height="16" rx="4" fill="var(--tomato-deep)" stroke="var(--ink)" strokeWidth="3" />
       {[90, 120, 150, 180, 210, 240].map((x) => <path key={x} d={`M${x} 346 q-6 -14 4 -20 q8 8 -4 20z`} fill="var(--basil)" stroke="var(--ink)" strokeWidth="2" />)}
@@ -59,9 +60,13 @@ export function Shopfront({ className, name = "Full Plate", logo }: { className?
       <g transform="translate(398 290) rotate(4)">
         <path d="M-6 100 L6 0 M70 100 L58 0" stroke="var(--ink)" strokeWidth="5" strokeLinecap="round" />
         <rect x="-4" y="-4" width="72" height="72" rx="6" fill="var(--ink)" />
-        <text x="32" y="18" textAnchor="middle" fontFamily="var(--font-display)" fontSize="16" fill="var(--cream)">Today</text>
-        <text x="32" y="38" textAnchor="middle" fontFamily="var(--font-display)" fontSize="16" fill="var(--amber)">you're</text>
-        <text x="32" y="58" textAnchor="middle" fontFamily="var(--font-display)" fontSize="16" fill="var(--cream)">the boss</text>
+        {!small && (
+          <>
+            <text x="32" y="18" textAnchor="middle" fontFamily="var(--font-display)" fontSize="16" fill="var(--cream)">Today</text>
+            <text x="32" y="38" textAnchor="middle" fontFamily="var(--font-display)" fontSize="16" fill="var(--amber)">you're</text>
+            <text x="32" y="58" textAnchor="middle" fontFamily="var(--font-display)" fontSize="16" fill="var(--cream)">the boss</text>
+          </>
+        )}
       </g>
     </svg>
   );
