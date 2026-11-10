@@ -148,7 +148,8 @@ export interface ContentPack {
   /** Global balance knobs. */
   balance: BalanceDef;
   /**
-   * [sim-core addition] Optional review text templates keyed by rating "1".."5".
+   * [sim-core addition] Optional review text templates keyed by rating "1".."5" (round 11: plus "rough", a happy
+   * guest on a night of walk-outs).
    * Placeholders: {dish}, {restaurant}, {segment}. sim-core has built-in fallbacks.
    */
   reviewTemplates?: Record<string, string[]>;
@@ -613,6 +614,8 @@ export interface GameState {
   hiredCandidates?: number[];
   /** Consecutive evenings spent below the insolvency line (normal/hard). */
   distressDays?: number;
+  /** [round 11] The once-only starter loan (STARTER_LOAN) has been taken. */
+  starterLoan?: boolean;
   /** Running tallies for the current service; reset at START_SERVICE. */
   service?: ServiceTally;
   /** Recent events, for deck cooldowns. */
@@ -812,7 +815,11 @@ export interface LogEntry { day: number; tick: number; text: string; kind: "info
 
 // ───────────────────────── commands (UI → sim) ─────────────────────────
 export type Command =
-  | { type: "NEW_GAME"; seed: number; districtId: DistrictId; restaurantName: string; difficulty: Difficulty }
+  | {
+      type: "NEW_GAME"; seed: number; districtId: DistrictId; restaurantName: string; difficulty: Difficulty;
+      /** [round 11] Open with one chef already on the team (today's best-value chef candidate, no agency fee). */
+      starterChef?: boolean;
+    }
   | { type: "SET_MENU_ITEM"; dishId: DishId; price?: Pence; active?: boolean }
   | { type: "ADD_MENU_ITEM"; dishId: DishId; price: Pence }
   | { type: "REMOVE_MENU_ITEM"; dishId: DishId }
@@ -853,7 +860,9 @@ export type Command =
   /** Buy a decor item for its slot: paid now, fitted tomorrow morning (that night some tables are closed). */
   | { type: "BUY_DECOR"; slot: DecorSlot; itemId: string }
   /** Freshen up a slot's worn or tired item (its refresh cost): like new again, no fitting day. */
-  | { type: "REFRESH_DECOR"; slot: DecorSlot };
+  | { type: "REFRESH_DECOR"; slot: DecorSlot }
+  /** [round 11] Once: the bank lends a staffless Normal/Hard owner a first wage (bank.ts STARTER_LOAN). */
+  | { type: "STARTER_LOAN" };
 
 // ───────────────────────── events (sim → UI) ─────────────────────────
 export type SimEvent =
@@ -864,7 +873,11 @@ export type SimEvent =
   | { type: "CUSTOMER_PAID"; customerId: CustomerId; spend: Pence; tip: Pence; rating: number }
   | { type: "SERVICE_ENDED"; result: DayResult }
   | { type: "EVENT_TRIGGERED"; eventId: EventId }
-  | { type: "CASH_LOW"; cash: Pence }
+  /**
+   * Evening, cash below zero. Round 11: on Normal/Hard below the bank's overdraft line it also carries the line and the
+   * evenings left (`daysLeft`, 0 = tonight was the last) — the countdown the header chip shows.
+   */
+  | { type: "CASH_LOW"; cash: Pence; line?: Pence; daysLeft?: number }
   | { type: "GAME_OVER"; reason: string }
   | { type: "LOG"; entry: LogEntry }
   // round 2

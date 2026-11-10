@@ -11,6 +11,7 @@ import {
 import { seedState } from "./rng";
 import { goalsForTier } from "./systems/goals";
 import { newLoan } from "./systems/finance";
+import { candidates, staffFromCandidate } from "./staff";
 import type { Command, ContentPack, GameState, Table } from "./types";
 
 type NewGameCmd = Extract<Command, { type: "NEW_GAME" }>;
@@ -23,7 +24,27 @@ function starterTables(content: ContentPack): Table[] {
   }));
 }
 
+/**
+ * Round 11 (G2): the brief's "two staff and a bank loan" — with `starterChef` the restaurant opens with one chef already
+ * hired: day 0's best-value chef candidate ((skill + speed) per pound of wage, ties to the lower index), no agency fee.
+ * Their "Hire a chef" goal is already done (quietly: nothing to celebrate). Candidates are seeded per day, so the RNG
+ * stream is untouched.
+ */
+function withStarterChef(content: ContentPack, s: GameState): GameState {
+  const pool = candidates(content, s).map((c, i) => ({ c, i })).filter((x) => x.c.role === "chef");
+  const best = pool.sort((a, b) => (b.c.skill + b.c.speed) / b.c.wage - (a.c.skill + a.c.speed) / a.c.wage || a.i - b.i)[0];
+  const staff = best && staffFromCandidate(content, s, best.i);
+  if (!best || !staff) return s;
+  const goals = s.goals?.map((g) => (g.kind === "hire_role" && g.role === "chef" ? { ...g, progress: g.target, done: true } : g));
+  return { ...s, staff: [staff], hiredCandidates: [best.i], ...(goals ? { goals } : {}), log: [...s.log, { day: 0, tick: 0, text: `${staff.name} is your first chef.`, kind: "good" }] };
+}
+
 export function newGame(content: ContentPack, cmd: NewGameCmd): GameState {
+  const s = openingState(content, cmd);
+  return cmd.starterChef ? withStarterChef(content, s) : s;
+}
+
+function openingState(content: ContentPack, cmd: NewGameCmd): GameState {
   const district = content.districts.find((d) => d.id === cmd.districtId) ?? content.districts[0];
   if (!district) throw new Error("Content has no districts");
   const difficulty = DIFFICULTY[cmd.difficulty] ? cmd.difficulty : "normal";

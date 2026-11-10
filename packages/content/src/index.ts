@@ -61,7 +61,8 @@ const EVENT_EFFECT_KEYS = ["cash", "popularity", "prestige", "staffMood", "footf
 /** UK National Living Wage (21+) from April 2026, in pence per hour. */
 export const NATIONAL_LIVING_WAGE: number = 1271;
 const SUM_TOLERANCE = 0.01;
-const REVIEW_KEYS = ["1", "2", "3", "4", "5"];
+/** "rough" (round 11): what a happy guest writes on a night of walk-outs or low stars. */
+const REVIEW_KEYS = ["1", "2", "3", "4", "5", "rough"];
 const REVIEW_PLACEHOLDERS = ["{dish}", "{restaurant}", "{segment}"];
 
 // ───────── small guards ─────────

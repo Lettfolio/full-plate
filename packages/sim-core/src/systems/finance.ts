@@ -88,9 +88,11 @@ export function checkSolvency(content: ContentPack, state: GameState): SystemRes
     events.push(logEvent(state, "Cash ran dry — the bank has quietly topped you up to £0.", "money"));
     return { state: { ...state, cash: 0 }, events };
   }
-  if (state.cash < CASH_LOW_WARNING) events.push({ type: "CASH_LOW", cash: state.cash });
-  const below = state.cash < insolvencyLine(content, state);
+  const line = insolvencyLine(content, state);
+  const below = state.cash < line;
   const distressDays = below ? (state.distressDays ?? 0) + 1 : 0;
+  // Round 11 (U3): the countdown travels with CASH_LOW, so the UI never has to scrape the log for it.
+  if (state.cash < CASH_LOW_WARNING) events.push(below ? { type: "CASH_LOW", cash: state.cash, line, daysLeft: Math.max(0, INSOLVENCY_DAYS - distressDays) } : { type: "CASH_LOW", cash: state.cash });
   let next: GameState = { ...state, distressDays };
   if (below) {
     events.push(logEvent(state, `The bank is worried: day ${distressDays} of ${INSOLVENCY_DAYS} below the overdraft limit.`, "bad"));

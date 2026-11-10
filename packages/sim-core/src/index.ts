@@ -174,3 +174,15 @@ export {
   NO_DECOR_EFFECTS, starterItem as starterDecor, wearOf as decorWear, wearShare as decorWearShare, type DecorEffects, type DecorWear,
 } from "./decor";
 export { DECOR_CAPS, DECOR_SLOTS, DECOR_WORN_SHARE } from "./constants";
+/**
+ * [round 11] Stop silent losing (bank.ts): the bank's countdown, a day's running costs and the "are you sure?" check
+ * for big purchases, the one HIRE cash rule (Cosy may dip into the stock overdraft), and the once-only starter loan.
+ */
+export {
+  bankStatus, runningCostPerDay, spendCheck, hireNeed, starterLoanOffer,
+  SPEND_SAFETY_DAYS, STOCK_DAY_GUESS, STARTER_LOAN, STARTER_LOAN_MAX, BANK_LAST_DAYS, BANK_RED_DAYS,
+  type BankStatus, type SpendCheck, type HireNeed,
+} from "./bank";
+export { INSOLVENCY_DAYS, MAX_PRICE, STOCK_OVERDRAFT_LIMIT } from "./constants";
+/** [round 11] Review words that match the night: `roughNight` (walk-outs > guests, or < 2.5★) picks the "rough" pool. */
+export { reviewText, roughNight, ROUGH_NIGHT_RATING } from "./systems/reputation";

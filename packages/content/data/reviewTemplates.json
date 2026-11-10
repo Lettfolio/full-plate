@@ -48,5 +48,15 @@
     "I dreamed about the {dish} the night after. A very tasty dream.",
     "Friendly, fast and fabulous. {restaurant}, you've got a fan for life!",
     "The {dish} was so good we ordered another one to share. Then another. No regrets."
+  ],
+  "rough": [
+    "Our {dish} was lovely, but it was chaos in here tonight. Poor staff!",
+    "We got lucky: the {dish} was great, even though the queue went out of the door.",
+    "Good {dish} once it came. Lots of people gave up waiting, though.",
+    "I liked my {dish}! Shame so many people left before they got theirs.",
+    "Tasty food, but {restaurant} felt very busy and a bit muddled tonight.",
+    "Our table was happy. The people waiting by the door didn't look it.",
+    "The {dish} was a nice surprise on a messy night. Fingers crossed it's calmer next time!",
+    "We were lucky and got fed. The {dish} was good, but lots of people were still waiting."
   ]
 }

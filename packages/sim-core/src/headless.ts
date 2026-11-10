@@ -17,6 +17,9 @@ import type { ContentPack, Difficulty } from "./types";
 
 export * from "./strategies";
 
+/** [round 11] The headless owner opens like the game does (with or without a starter chef). */
+export const STARTER_CHEF_DEFAULT = false;
+
 // ── reporting ──
 export function percentile(xs: readonly number[], p: number): number {
   if (xs.length === 0) return NaN;
@@ -33,6 +36,12 @@ export function summarise(results: readonly RunResult[], months: number): string
   const survived = results.filter((r) => r.survived).length;
   lines.push(`survival: ${survived}/${results.length} (${((100 * survived) / results.length).toFixed(1)}%)`);
   lines.push(`avg covers/day: ${mean(results.flatMap((r) => r.covers)).toFixed(1)}   avg rating: ${mean(results.flatMap((r) => r.ratings)).toFixed(2)}   avg final popularity: ${mean(results.map((r) => r.finalPopularity)).toFixed(1)}   avg final prestige: ${mean(results.map((r) => r.finalPrestige ?? 0)).toFixed(1)}`);
+  // Round 11 (U3): the bank's warnings, so a silent 0% shows how loudly it was told.
+  const warned = results.filter((r) => r.firstBelowDay !== undefined);
+  if (warned.length) {
+    const first = warned.map((r) => r.firstBelowDay!);
+    lines.push(`bank warnings: ${warned.length}/${results.length} runs went below the overdraft line (the countdown chip), median first day ${percentile(first, 50) + 1}; ${results.filter((r) => (r.lastDaysWarnings ?? 0) > 0).length} saw the last-days banner`);
+  } else lines.push("bank warnings: no run went below the overdraft line");
   lines.push("month   p10 cash   median    p90 cash   alive");
   for (let m = 0; m < months; m++) {
     // Bankrupt runs count with their last cash so the low percentile shows the failures.
@@ -64,6 +73,8 @@ interface Args {
   content: string;
   out: string;
   workers: number;
+  /** [round 11] Open with a starter chef (NEW_GAME.starterChef). */
+  starterChef: boolean;
 }
 
 export function parseArgs(argv: readonly string[]): Args {
@@ -83,6 +94,7 @@ export function parseArgs(argv: readonly string[]): Args {
     content: get("content") ?? "fixture",
     out: get("out") ?? "out/balance.csv",
     workers: Math.max(1, Number(get("workers") ?? Math.min(8, availableParallelism()))),
+    starterChef: STARTER_CHEF_DEFAULT ? !argv.includes("--no-starter-chef") : argv.includes("--starter-chef"),
   };
 }
 
@@ -104,7 +116,7 @@ async function runJob(job: Job): Promise<RunResult[]> {
   const content = await loadContent(job.args.content);
   const strat = STRATEGIES[job.args.strategy];
   return job.seeds.map((seed) => {
-    const { final: _f, ...r } = playOne(content, seed, job.args.days, strat, job.args.difficulty);
+    const { final: _f, ...r } = playOne(content, seed, job.args.days, strat, job.args.difficulty, { starterChef: job.args.starterChef });
     return r;
   });
 }
@@ -134,7 +146,7 @@ async function main(): Promise<void> {
   const t0 = performance.now();
   const results = await runParallel(args);
   const secs = (performance.now() - t0) / 1000;
-  console.log(`Full Plate headless — ${args.seeds} seeds × ${args.days} days, strategy=${args.strategy}, difficulty=${args.difficulty}, content=${args.content}`);
+  console.log(`Full Plate headless — ${args.seeds} seeds × ${args.days} days, strategy=${args.strategy}, difficulty=${args.difficulty}, content=${args.content}${args.starterChef ? ", starter chef" : ""}`);
   console.log(summarise(results, Math.floor(args.days / DAYS_PER_MONTH)));
   const out = resolve(args.out);
   mkdirSync(dirname(out), { recursive: true });

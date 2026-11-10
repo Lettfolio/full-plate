@@ -563,3 +563,39 @@ Two levers moved, one per branch:
 2. **A: stay only on a half-empty floor** (`systems/service.ts`). After (1), typical rose to 90.0% (400 seeds 90.5%) but decorator stayed at 85.0% (400 seeds 85.8%; paired seeds 11 typical-only survivors vs 1 decorator-only). Halving every item's upkeep changed nothing (85.0%). The cause was stay: a meal's length is fixed when it starts, so the lingering that began on a quiet floor just before the rush (the queue rule only looks at that tick) still held tables through it — seed 13's first 60 days: 4,708 → 4,490 covers, walkouts 305 → 340. Now stay needs no queue **and** at least half the tables free: decorator 88.0% (400 seeds 88.8%), covers 92.2/day (typical 91.0), +2.7 final popularity. Test: `round10.decor.test.ts` "none once half the tables are taken".
 
 Empire (`sim-empire headless --years 10 --seeds 5 --board follow`): identical to f14f861 row for row (franchise and company win 5/5). Stars (`sim-stars headless`, one scripted seed): the run's trajectory moved with personalities (the kitchen's moods differ), ending year 6 at ★★★ with a 3-star streak of 2 (f14f861: ★★, streak 0); neither run reaches the 5-guide win in 6 years, as before.
+
+## Round 11 — B (stop silent losing)
+
+Red-team findings U3, U2, G2, U6 (sim side) and U12 (mood reason, review words). New file `src/bank.ts`; everything there is derived (no stored state, no RNG).
+
+### What the sim now says
+- **`bankStatus(content, state)`** → `{ canGoBust, line, below, daysBelow, daysLeft }`. `line` is the existing `insolvencyLine` (−3 months of rent + rota wages); `daysLeft = INSOLVENCY_DAYS − distressDays` while below (13 the morning after the first evening below, 1 = tonight decides), `null` when fine and always on Cosy. `BANK_RED_DAYS = 5` (chip turns red), `BANK_LAST_DAYS = 3` (morning banner).
+- **`CASH_LOW`** (was emitted but unused) now carries `line` and `daysLeft` when the evening ends below the line on Normal/Hard (`{ type, cash, line?, daysLeft? }`, optional fields). Below zero but above the line it's the old `{ type, cash }`. The log line is unchanged (saves/fixtures stay byte-stable).
+- **`runningCostPerDay`** = daily rent + the rota's wages per day + fixed bills + the loan instalment + a typical day's stock (mean food cost + prep/spoil waste of the last 7 days, `STOCK_DAY_GUESS` £100 before any history). **`spendCheck(content, state, cost)`** → `{ after, floor, risky }`, `floor = SPEND_SAFETY_DAYS (3) × runningCostPerDay`, and — with no chef on the team — at least what the cheapest chef in today's pool needs to be hired (the red-team's day-1 spree otherwise left £1,130 against a £1,213 chef).
+- **`hireNeed(state, wage)`** is the one HIRE/HIRE_STAFF cash rule (`recruitmentFeeOf` moved here; `commands.ts` re-exports it). Normal/Hard unchanged: fee + 5 shifts. **Cosy (G2):** the bank resets cash to £0 every night, so the buffer only trapped a staffless player at £0 forever; the fee may now go into the stock overdraft (`cash − fee ≥ −STOCK_OVERDRAFT_LIMIT`). The game's `hireCheck` is now this function.
+- **`STARTER_LOAN`** command (planning / evening / event): once per game (`GameState.starterLoan?: true`), Normal/Hard, nobody hired yet. `starterLoanOffer(content, state)` → the amount or null: what the cheapest chef in today's pool needs minus cash, rounded up to £100, at least `STARTER_LOAN` £1,000, at most `STARTER_LOAN_MAX` £5,000 (deeper than that the bank says no). Added to the loan's principal and remaining; the instalment is re-spread over the days left (`loanTermDays` if the loan was paid off) at `loanApr`.
+- **`NEW_GAME.starterChef?`**: opens with today's best-value chef candidate ((skill + speed) per pound, the scripted owners' own metric), no fee, the "Hire a chef" goal quietly done, RNG untouched. **Wired but off** in the game (`App.tsx STARTER_CHEF = false`) and in the headless CLI (`STARTER_CHEF_DEFAULT = false`, `--starter-chef` to try it) — see the balance below.
+- **Headless:** `RunResult.firstBelowDay` / `lastDaysWarnings`, and `summarise` prints a `bank warnings:` line, so `nohire` is no longer a silent 0 %: *"200/200 runs went below the overdraft line (the countdown chip), median first day 101; 200 saw the last-days banner"*. `playOne(…, { starterChef })`.
+- **U12:** the evening's mood reason (`moodWhy`, `staffMood.ts` `note`, exported as `moodNote` for tests) only picks reasons pointing the same way as the day's change (no "stuck on a shift with Nikhil" beside ▲ +3; nothing fits → "a good day"/"a long day"; a flat day keeps the old rule). Reviews: on a **rough night** (`roughNight`: more walk-outs than guests, or the stars average under 2.5) a 4★/5★ guest's words come from the new `reviewTemplates.rough` pool (8 lines, content; fallback in `reputation.ts`) — "Good pie once it came. Lots of people gave up waiting, though." — instead of "Five stars isn't enough!". The rating is unchanged and `rng.pick` draws once either way, so the stream and every balance number are unchanged. Content validator accepts the `rough` key.
+
+### Balance (headless, real pack, 200 seeds × 365 days, normal)
+"Before" = master 9c9061e. "After" = r11-b as shipped (no starter chef): identical row for row — nothing the scripted owners do touches the changed rules (Cosy-only hire rule, the loan they never take, words). "Starter chef" = the same with `--starter-chef` (the experiment the brief asked for).
+
+| strategy | before | after (shipped) | starter chef (not shipped) |
+|---|---|---|---|
+| typical | 90.0% · 91.0 covers · 4.26★ | 90.0% · 91.0 · 4.26★ | **88.0%** · 91.2 · 4.26★ |
+| balanced | 98.5% · 86.9 · 4.40★ | 98.5% · 86.9 · 4.40★ | 98.5% · 85.8 · 4.37★ |
+| cheap | 68.0% · 78.0 · 4.45★ | 68.0% · 78.0 · 4.45★ | **65.0%** · 77.2 · 4.43★ |
+| premium | 99.0% · 61.3 · 4.55★ | 99.0% · 61.3 · 4.55★ | — (stopped) |
+| nohire | 0% · 11.1 · 1.86★ | 0% · 11.1 · 1.86★ (+ bank warnings line) | **73.5%** · 50.5 · 3.41★ |
+| learner | 98.0% · 88.3 · 4.26★ | 98.0% · 88.3 · 4.26★ | — (stopped) |
+| decorator | 88.0% · 92.2 · 4.31★ (R10 review table) | 88.0% · 92.2 · 4.31★ | — (stopped) |
+
+**Starter chef: not adopted.** The rule was "only if typical/cheap survival improves without balanced > 99.5 %". It took typical −2.0 and cheap −3.0 points (balanced flat). The chef is exactly the one those bots hire on day 0 anyway (same value metric), so the only real differences are the saved £150 fee and the goal ladder moving a step earlier; the drop is butterfly noise from a different cash path, but it isn't an improvement. It *does* rescue the never-hire child (0 → 73.5 %), so it stays one flag away. Instead the staffless trap is closed by the Cosy hire rule, the starter loan, the "Save £X to hire a chef" prompts and the bank's countdown.
+
+Bank warnings in the shipped run (runs that ever went below the line / median first day): nohire 200/200 (day 101, all saw the last-days banner), typical 23 (287), cheap 74 (314), balanced 3, premium 2, learner 6, decorator 27. Before-run decorator was cut short by a timeout and is taken from the Round 10 review table (same code).
+
+Run: `pnpm --filter @full-plate/sim-core headless -- --content ../content/src/index.ts --days 365 --seeds 200 --strategy <s> [--starter-chef]`.
+
+### Tests
+`test/round11.bank.test.ts` (16): countdown fields and CASH_LOW payload, the Cosy quiet case, running costs and the 3-day floor (and the first-chef floor), Normal vs Cosy hire rule against HIRE, starter loan (amount, loan maths, once, save round-trip, refusals: staff, Cosy, service, too deep), broke → loan → hire, old-save byte stability, `starterChef` (who, no fee, RNG, goal, determinism), headless warnings, mood-reason sign, `roughNight`.
