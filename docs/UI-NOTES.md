@@ -1002,3 +1002,22 @@ controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-st
 - B's brand kit on the share: `ShareSnapshot.brand` is accepted and checked (plain data) but nothing fills it yet —
   `meta.brand` isn't on master and the Restaurant tab gets `game` only.
 - A word filter for nicknames (none exists for restaurant names either).
+
+### Checks (built dist)
+
+- Main JS 199.18 → **195.14 kB**. The friends entry points alone took it to 200.74 kB (each `lazy(import())` site
+  carries a preload list); after merging the three into one import site (`loadFriends` in `lib/coop/flag.ts`) and
+  moving the host flag out, 200.26 kB, so **the Stock tab became a lazy chunk** (5.68 kB, "Opening the store room…"
+  fallback, like Staff and Decorate). New chunks: `VisitFriend` 42.8 kB JS + 4.7 kB CSS (the visit, both co-op screens,
+  the Friends card, the data layer), `StockTab` 5.7 kB.
+- Tests 1,241 → 1,258 (+17, `round12.visit.test.tsx`). Type audit normal and Bigger: 117 screens each, 0 text < 13 px,
+  0 errors, within baseline. Headless typical / cheap / nohire unchanged (sim packages byte-identical to master).
+- Probe: normal runs equal to the baseline; the Bigger runs' `covered` rose 4–5, all on the live `21-service-4x` frame
+  (the speed buttons under a status popup that depends on how many ticks a loaded machine ran in 6 s; nothing here is
+  mounted there). Baseline not updated. The Friends card on `13-planning-restaurant` (off-db: one line) adds no counts.
+- Playtest (`scripts/playtest-friends.mjs`, two contexts on the mock runtime, 1024×768 touch; shots
+  `scratchpad/shots/r12/G/`): share → code; visit (room, week, menu, team, reviews) → 4★ + two compliments → the
+  owner's Visitors list; second review the same day refused; invite → join → nicknames both ways, "link N ms"; the
+  guest's plan (dish off, price up, staff toggled) → "Use it" → the host's menu changed, guest told; emotes both ways;
+  service → the guest sees "running tonight's service" → Skip to evening → the guest sees the numbers; End → the guest
+  sees it, the panel goes; no-db context: both entry points show the one line. 0 page errors.

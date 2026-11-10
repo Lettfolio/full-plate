@@ -35,7 +35,7 @@ in the host's panel and kept in `window.__fpCoopRtt`):
 
 | Where | Round trip (3 pings) | Notes |
 | --- | --- | --- |
-| Playwright, two contexts, mock runtime (`scripts/lib/mockClaude.mjs`): 30 ms per db call, 120 ms snapshot poll | RTT_MOCK | the mock's floor: 2 writes + 2 polls; says nothing about claude.ai |
+| Playwright, two contexts, mock runtime (`scripts/lib/mockClaude.mjs`): 30 ms per db call, 120 ms snapshot poll | 154 / 156 / 307 ms (median 156); a second run on a busier machine 380 / 167 / 435 ms (median 380) | the mock's floor: 2 writes + 2 polls ≈ 4 × 30 ms + up to 2 × 120 ms; says nothing about claude.ai |
 | claude.ai artifact | **not measured in this round** | no artifact session was available to the builder; the panel shows the number the first time two people use it |
 
 The real number could not be taken from inside the build sandbox, so the decision rests on the documented 30 s
