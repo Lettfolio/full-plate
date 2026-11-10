@@ -4,6 +4,7 @@
  * command and every evening (`updateGoals` is idempotent), completed goals pay their small reward once
  * and emit GOAL_COMPLETED.
  */
+import { formatPounds } from "../money";
 import { GOAL_PROFIT_WEEK_DAYS } from "../constants";
 import { goalLadderOf, goalLinesOf } from "../contentText";
 import type { GoalDef } from "../goals/text";
@@ -78,7 +79,7 @@ const isStreak = (g: Goal): boolean => g.kind === "profit_day" && g.target > 1;
 
 function rewardText(g: Goal): string {
   const parts: string[] = [];
-  if (g.reward?.cash) parts.push(`£${Math.round(g.reward.cash / 100)}`);
+  if (g.reward?.cash) parts.push(formatPounds(g.reward.cash));
   if (g.reward?.popularity) parts.push(`+${g.reward.popularity} popularity`);
   return parts.join(" and ");
 }

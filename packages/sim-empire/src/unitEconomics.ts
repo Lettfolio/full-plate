@@ -3,6 +3,7 @@
  * random events and breaks the year into a franchisee's (or a company site's) P&L. Pure: it returns numbers and
  * never touches its input. Used by the headless (`--unit`), the regression test and the docs table.
  */
+import { formatPounds } from "@full-plate/sim-core";
 import type { ContentPack } from "@full-plate/sim-core";
 import * as K from "./constants";
 import { applyEmpireCommand, remodelCost, stepEmpireDay } from "./engine";
@@ -140,7 +141,7 @@ export function probeUnitEconomics(content: ContentPack, e0: EmpireState, opts: 
 }
 
 const pct = (x: number, of: number) => `${((100 * x) / Math.max(1, of)).toFixed(1)}%`;
-const gbp = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const gbp = formatPounds;
 
 /** A printable table of one probe (headless `--unit`). */
 export function formatUnitEconomics(u: UnitEconomics, label = ""): string {

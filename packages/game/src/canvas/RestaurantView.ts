@@ -15,6 +15,7 @@
  * frame; only people, tickets, plates, flames, rings and the evening light are drawn per frame. Colours come from
  * `floorPalette.ts` (theme tokens read from the canvas on resize + art colours).
  */
+import { formatPence } from "../lib/format";
 import type { ContentPack, Customer, CustomerId, GameState, Staff, Table, TableId } from "@full-plate/sim-core";
 import { facingFrom, guestLook, SpriteCache, type Facing, type Look } from "@full-plate/handson/sprites";
 import { avatarFor } from "@full-plate/sim-core";
@@ -405,7 +406,7 @@ export class RestaurantView {
     const slot = c.tableId ? L.tables.get(c.tableId) : undefined;
     const at = slot ? { x: slot.x, y: slot.y - slot.r } : { x: L.door.x, y: L.pavement.y + 20 };
     if (c.walkedOut) this.floaties.push({ ...at, text: "Hmph!", colour: C.tomatoDeep, born: now, life: 1600 });
-    else if (c.spend > 0 || c.tip > 0) this.floaties.push({ ...at, text: `+£${((c.spend + c.tip) / 100).toFixed(2)}`, colour: C.basilDeep, born: now, life: 1400 });
+    else if (c.spend > 0 || c.tip > 0) this.floaties.push({ ...at, text: formatPence(c.spend + c.tip, { signed: true }), colour: C.basilDeep, born: now, life: 1400 });
     else this.floaties.push({ ...at, text: "Thank you!", colour: C.amberDeep, born: now, life: 1400 });
   }
 

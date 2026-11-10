@@ -27,7 +27,7 @@ export const GUARANTEED_OFFER_IDLE_DAYS = 4;
 const STRATEGIES: readonly OwnerStrategy[] = ["balanced", "cheap", "premium"];
 
 const PITCHES: Record<OwnerStrategy, string[]> = {
-  balanced: ["A friendly local place that's always busy.", "We heard good things about you from a regular.", "Steady hours, fair tronc, a team that sticks around."],
+  balanced: ["A friendly local place that's always busy.", "We heard good things about you from a regular.", "Steady hours, fair shared tips, a team that sticks around."],
   cheap: ["Long hours, but there's plenty of overtime.", "We're busy and we need hands now.", "Not fancy, but it's cash in your pocket."],
   premium: ["We want people who care about every plate.", "High standards, great tips, serious training.", "A kitchen people talk about. Come and learn."],
 };

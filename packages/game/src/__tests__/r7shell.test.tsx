@@ -31,9 +31,10 @@ describe("settings sheet", () => {
     fireEvent.click(within(sheet).getByRole("radio", { name: /Bigger/ }));
     fireEvent.click(within(sheet).getByRole("radio", { name: /Off/ }));
     fireEvent.click(within(sheet).getByRole("radio", { name: "2×" }));
-    fireEvent.click(within(sheet).getByRole("checkbox"));
+    fireEvent.click(within(sheet).getByRole("checkbox", { name: /Pause when something goes wrong/ }));
+    fireEvent.click(within(sheet).getByRole("checkbox", { name: /No grown-up drinks/ }));
     const stored = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!);
-    expect(stored).toEqual({ autoPause: false, defaultSpeed: 2, sound: false, textSize: "large" });
+    expect(stored).toEqual({ autoPause: false, defaultSpeed: 2, sound: false, textSize: "large", noGrownUpDrinks: false, speedPicked: true });
     // A fresh read (as after a reload) gets the same values back.
     resetSettingsCache();
     expect(getSettings()).toEqual(stored);
@@ -101,10 +102,10 @@ describe("settings sheet", () => {
 });
 
 describe("goal explainer", () => {
-  it("opens from the title screen with both paths and closes again", () => {
+  it("opens from the title screen with both paths and closes again", async () => {
     render(<TitleScreen saved={null} onNew={() => {}} onContinue={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: /How do I win/ }));
-    const d = screen.getByRole("dialog", { name: "How do I win?" });
+    const d = await screen.findByRole("dialog", { name: "How do I win?" });
     expect(within(d).getByRole("region", { name: "Be everywhere" }).querySelectorAll("li")).toHaveLength(3);
     expect(within(d).getByRole("region", { name: "Be the best" }).querySelectorAll("li")).toHaveLength(3);
     fireEvent.click(within(d).getByRole("button", { name: "Got it" }));

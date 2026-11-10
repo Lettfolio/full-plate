@@ -31,8 +31,8 @@ export function EmpireEnd({ game, empire: e, kind, checkpointDay, onRetry, onMov
         <div className="card gameover__card">
           <div className="gameover__icon" aria-hidden="true">🏚️</div>
           <h1>{game.restaurantName} has run out of money</h1>
-          <p className="gameover__cause">The bank closed this shop's account, and HQ had no money left to help it.</p>
-          <p className="small">Your chain is still going: {openSites(e).length} shops are open, and HQ has <MoneyText pence={e.hq.cash} whole tone />.</p>
+          <p className="gameover__cause">The bank closed this shop's account, and head office had no money left to help it.</p>
+          <p className="small">Your chain is still going: {openSites(e).length} shops are open, and head office has <MoneyText pence={e.hq.cash} whole tone />.</p>
           <div className="gameover__buttons">
             <button className="btn btn--ghost" onClick={onTitle}>Title screen</button>
             {others > 0
@@ -49,13 +49,13 @@ export function EmpireEnd({ game, empire: e, kind, checkpointDay, onRetry, onMov
         <div className="gameover__icon" aria-hidden="true">🏦</div>
         <h1>{e.brand.name} has gone bust</h1>
         <p className="gameover__cause" data-testid="empire-bust-cause">
-          HQ spent more than it earned for too long. It borrowed until the bank said stop, and then the bank asked for all its money back.
+          Head office spent more than it earned for too long. It borrowed until the bank said stop, and then the bank asked for all its money back.
         </p>
-        <p className="small">Next time, keep an eye on "HQ can spend": when it goes below zero, sell a shop to a franchisee or close one that loses money.</p>
+        <p className="small">Next time, keep an eye on "Head office can spend": when it goes below zero, sell a shop to a franchisee or close one that loses money.</p>
         <div className="gameover__stats">
           <StatTile label="Shops open" value={openSites(e).length} />
           <StatTile label="Meals served" value={compactMeals(e.mealsServedTotal)} />
-          <StatTile label="HQ owed" value={<MoneyText pence={Math.max(0, -o.hqCash)} whole />} />
+          <StatTile label="Head office owed" value={<MoneyText pence={Math.max(0, -o.hqCash)} whole />} />
         </div>
         <div className="gameover__buttons">
           <button className="btn btn--ghost" onClick={onTitle}>Title screen</button>

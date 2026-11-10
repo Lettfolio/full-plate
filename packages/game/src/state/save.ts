@@ -52,7 +52,8 @@ export function encodeSave(game: GameState, meta: PathMeta): string {
     ...(empire ? { empire: serializeEmpire(empire) } : {}),
     ...(stars ? { stars: serializeStars(stars) } : {}),
     // Transient UI bits are not saved: a live hands-on session, tonight's event lists.
-    meta: { ...rest, handsOn: undefined, careerEvents: [], starsEvents: [] },
+    // Round 11 (D, U11): a live shift is remembered as "resume hands-on" (role only); load restarts it at the saved tick.
+    meta: { ...rest, handsOn: undefined, handsOnResume: game.phase !== "service" ? undefined : meta.handsOn ? { role: meta.handsOn.role, jumpIn: meta.handsOn.jumpIn } : meta.handsOnResume, careerEvents: [], starsEvents: [] },
   };
   return JSON.stringify(env);
 }

@@ -28,6 +28,7 @@ import { weekdayIndex, WEEKDAYS, WEEKDAY_NAMES } from "../lib/calendar";
 import { DayRhythm } from "../components/DayRhythm";
 import { ArrowLabel } from "../components/Icon";
 import { unplateable } from "../lib/plateable";
+import { useNarrow } from "../lib/layout";
 import type { PathKind } from "../lib/library";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
@@ -104,6 +105,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   // and comes first in reading order, so it's what the eye lands on.
   const hasGoals = (game.goals ?? []).some((g) => !g.done) || goalsJustDone.length > 0;
   const firstRun = hasGoals && game.menu.length === 0;
+  // Round 11 (D): upright on an iPad the goals sit above the panel, folded to one line after the first run.
+  const narrow = useNarrow();
 
   const tabs: TabDef<TabId>[] = [
     { id: "menu", label: "Menu", badge: active.length },
@@ -168,6 +171,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         {hasGoals && !wide && (
           <aside className="planning__side" aria-label="Goals">
             <GoalsCard
+              key={narrow && !firstRun ? "fold" : "open"}
+              collapsible={narrow && !firstRun}
               goals={game.goals}
               justDone={goalsJustDone}
               spotlight={firstRun}

@@ -140,6 +140,11 @@ export interface PathMeta {
   win?: WinMeta;
   /** A hands-on session is live this service. */
   handsOn?: HandsOnMeta | undefined;
+  /**
+   * Round 11 (D, U11): written by the save envelope instead of `handsOn` (the live session itself isn't saved): a
+   * reload mid-shift goes back into hands-on play at the saved clock (the start of that sim-hour). Read once on load.
+   */
+  handsOnResume?: { role: HandsOnRole; jumpIn: boolean } | undefined;
   /** Score of the last hands-on shift (for the evening). */
   shiftSummary?: ShiftSummary | undefined;
   /** Last sim day the evening hooks (career / empire / stars) ran for; stops double steps. */

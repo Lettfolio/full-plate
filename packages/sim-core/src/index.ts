@@ -188,3 +188,5 @@ export {
 export { INSOLVENCY_DAYS, MAX_PRICE, STOCK_OVERDRAFT_LIMIT } from "./constants";
 /** [round 11] Review words that match the night: `roughNight` (walk-outs > guests, or < 2.5★) picks the "rough" pool. */
 export { reviewText, roughNight, ROUGH_NIGHT_RATING } from "./systems/reputation";
+/** [round 11] The one pounds formatter (money.ts); the game's lib/format.ts re-exports it. */
+export { formatPence, formatPounds, MINUS, type MoneyFormatOptions } from "./money";

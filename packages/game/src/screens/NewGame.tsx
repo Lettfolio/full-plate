@@ -82,7 +82,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
                       <div className="fact__v"><MoneyText pence={d.monthlyRent} whole /> <span className="faint small">/ month</span></div>
                     </div>
                     <div>
-                      <div className="fact__k"><Term id="footfall" /></div>
+                      <div className="fact__k"><Term id="footfall" inline /></div>
                       <div className="fact__v">{d.footfall.toLocaleString("en-GB")} <span className="faint small">/ day</span></div>
                       <Bar value={d.footfall} max={maxFootfall} tone="sky" size="sm" />
                     </div>

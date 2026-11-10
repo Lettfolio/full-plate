@@ -1,3 +1,4 @@
+import { formatPounds } from "../../lib/format";
 import { useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
 import type { GameState } from "@full-plate/sim-core";
@@ -18,7 +19,7 @@ import type { PathMeta } from "../../state/paths";
 import { handsOnRoleFor } from "../../state/paths";
 import { fill } from "@full-plate/content";
 import type { Command } from "@full-plate/sim-core";
-import { Term } from "../../components/Term";
+import { RungName, Term } from "../../components/Term";
 
 interface Props {
   game: GameState;
@@ -140,7 +141,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
       </section>
 
       <section className="card" aria-labelledby="promo-h">
-        <div className="card__title"><h3 id="promo-h">{list.nextTitle ? `Next: ${list.nextTitle}` : "Top of the ladder"}</h3>{list.ready && <span className="pill pill--star">Ready!</span>}</div>
+        <div className="card__title"><h3 id="promo-h">{list.nextTitle ? <>Next: <RungName title={list.nextTitle} /></> : "Top of the ladder"}</h3>{list.ready && <span className="pill pill--star">Ready!</span>}</div>
         {list.nextRung !== undefined && (careerTextFor(career.track, list.nextRung) ?? null)}
         {list.items.length > 0 && (
           <div className="promo-progress" aria-label="Progress to promotion">
@@ -191,7 +192,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
               <li key={o.id} className="offer">
                 <div className="spacer">
                   <b>{o.restaurantName}</b> <span className="xs muted">· {o.ownerName} · {OWNER_BLURB[o.strategy].split(":")[0]}</span>
-                  <div className="small">{rungDef(o.track, o.rung).title} on <b>{perHour(o.wage)}</b>{o.rung > career.rung ? " — a step up!" : ""}</div>
+                  <div className="small"><RungName title={rungDef(o.track, o.rung).title} /> on <b>{perHour(o.wage)}</b>{o.rung > career.rung ? " — a step up!" : ""}</div>
                   <div className="xs muted">“{o.pitch}” · until day {o.expiresDay + 1}</div>
                 </div>
                 <button className="btn btn--green btn--sm" onClick={() => sendCareer({ type: "ACCEPT_OFFER", offerId: o.id })}>Accept</button>
@@ -204,7 +205,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
 
       <section className="card" aria-labelledby="money-h">
         <div className="card__title"><h3 id="money-h">Savings</h3><span className="small muted"><MoneyText pence={career.savings} whole /></span></div>
-        <Bar label="Toward your own place" value={Math.max(0, career.savings)} max={savingsTarget} tone="basil" size="sm" title={`You need about £${Math.round(budget.savingsNeeded / 100).toLocaleString("en-GB")} saved (plus a bank loan)`} />
+        <Bar label="Toward your own place" value={Math.max(0, career.savings)} max={savingsTarget} tone="basil" size="sm" title={`You need about ${formatPounds(budget.savingsNeeded)} saved (plus a bank loan)`} />
         <p className="xs muted" style={{ marginTop: 4 }}>
           Need ≈<MoneyText pence={budget.savingsNeeded} whole /> saved (fit-out, deposit and a reserve, minus a <MoneyText pence={budget.loan} whole /> loan). {budget.rungOk ? "" : `Banks want you to be a ${budget.rungNeeded.toLowerCase()} first.`}
         </p>
@@ -234,7 +235,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
               <select className="input" value={districtId} onChange={(e) => setDistrictId(e.target.value)}>
                 {careerContent.districts.map((d) => {
                   const b = openingBudget(careerContent, career, d.id);
-                  return <option key={d.id} value={d.id} disabled={b.shortfall > 0}>{d.name}{b.shortfall > 0 ? ` (£${Math.round(b.shortfall / 100).toLocaleString("en-GB")} short)` : ""}</option>;
+                  return <option key={d.id} value={d.id} disabled={b.shortfall > 0}>{d.name}{b.shortfall > 0 ? ` (${formatPounds(b.shortfall)} short)` : ""}</option>;
                 })}
               </select>
             </label>

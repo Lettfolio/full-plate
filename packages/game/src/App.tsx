@@ -18,8 +18,8 @@ import { Service } from "./screens/Service";
 import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
 import { GameOver } from "./screens/GameOver";
-import { ForkCard } from "./screens/paths/ForkCard";
 import { StatusBar } from "./components/StatusBar";
+import { openWords, WordsSheet } from "./components/WordsSheet";
 
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
@@ -30,6 +30,8 @@ const GuideEnvelope = lazy(() => import("./screens/paths/GuideEnvelope").then((m
 const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((m) => ({ default: m.HandoverModal })));
 const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
 const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
+// Round 11 (D): the fork card (and its "How do I win?" pictures) loads when the year is up.
+const ForkCard = lazy(() => import("./screens/paths/ForkCard").then((m) => ({ default: m.ForkCard })));
 const BoardMeeting = lazy(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
 // Round 11 (G1, G8): the Empire's bankruptcy screen and the bust-shop card.
 const EmpireEnd = lazy(() => import("./screens/paths/EmpireEnd").then((m) => ({ default: m.EmpireEnd })));
@@ -158,6 +160,7 @@ export function App() {
     setPicker(null);
     setSlotId(id);
     dispatch({ type: "load", game: r.loaded.game, meta: r.loaded.meta });
+    if (r.loaded.meta.handsOnResume) dispatch({ type: "resumeHandsOn" }); // R11-D (U11): back into hands-on play
     setShell({ view: "game" });
     if (r.backupSlotId) dispatch({ type: "toast", text: `The other copy is kept in Your games as “Backup of ${r.summary.name}”.`, tone: "info" });
   };
@@ -280,6 +283,9 @@ export function App() {
 
   return (
     <div className="app">
+      {/* Round 11 (D, U9): first in the Tab order — jump to the screen's one primary, or open the words sheet. */}
+      <a className="skiplink" href="#main-action" onClick={(e) => { e.preventDefault(); focusMainAction(); }}>Skip to main action</a>
+      <a className="skiplink skiplink--words" href="#words" onClick={(e) => { e.preventDefault(); openWords(); }}>What the words mean (?)</a>
       <StatusBar
         game={game}
         meta={meta}
@@ -352,7 +358,7 @@ export function App() {
                   },
                   onSkip: () => dispatch({ type: "skipShift" }),
                 }
-              : { onJumpIn: (role: HandsOnRole) => dispatch({ type: "handsOnStart", meta: { role, jumpIn: true } }) })}
+              : { onJumpIn: (role: HandsOnRole) => dispatch({ type: "handsOnStart", meta: { role, jumpIn: true } }), onSkip: () => dispatch({ type: "skipShift" }) })}
           />
         )}
         {isEvening && career && !employerOut && (
@@ -382,7 +388,7 @@ export function App() {
       </main>
       {!career && game.phase === "event" && eventOpen && <EventModal game={game} send={send} />}
       {isEvening && !career && meta.fork.offered && !meta.fork.chosen && (
-        <ForkCard game={game} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} />
+        <Suspense fallback={null}><ForkCard game={game} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} /></Suspense>
       )}
       <Suspense fallback={null}>
         {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} onClose={() => dispatch({ type: "openGuide" })} />}
@@ -392,6 +398,18 @@ export function App() {
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
       <Toast toast={app.toast} onDismiss={dismissToast} />
+      <WordsSheet />
     </div>
   );
+}
+
+/**
+ * Round 11 (D, U9): the skip link's target — the screen's one primary (the pinned `.btn--xl`, or service's
+ * `[data-main-action]`), else the first hint that says what to do instead (e.g. "add dishes" while Open is disabled).
+ */
+export function focusMainAction(doc: Document = document): HTMLElement | null {
+  const pick = [...doc.querySelectorAll<HTMLElement>("[data-main-action], .actiondock .btn--xl, .openbar .btn--xl, .btn--xl")]
+    .find((b) => !(b as HTMLButtonElement).disabled) ?? doc.querySelector<HTMLElement>(".actiondock .hint--link, .openbar .hint--link");
+  pick?.focus();
+  return pick ?? null;
 }

@@ -59,7 +59,7 @@ describe("(b) Term tips near the right edge", () => {
     render(<p><Term id="margin" inline /></p>);
     const t = document.querySelector(".term") as HTMLElement;
     t.getBoundingClientRect = () => ({ left: 990, right: 1020, top: 0, bottom: 20, width: 30, height: 20, x: 990, y: 0, toJSON: () => ({}) });
-    expect(t.tabIndex).toBe(0);
+    expect(t.tabIndex).toBe(-1); // R11-D (U9): focusable by tap, out of the Tab order
     expect(document.getElementById(t.getAttribute("aria-describedby")!)!.getAttribute("role")).toBe("tooltip");
     fireEvent.focus(t);
     expect(t.hasAttribute("data-flip")).toBe(true);

@@ -2,6 +2,7 @@
  * Round 8 (maps): the pieces the Empire city map and the Stars map share — the map key and the tiled city board.
  * No sim-empire or sim-stars imports, so the Stars chunk doesn't pull in the Empire's code.
  */
+import { formatPounds } from "../../lib/format";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { content } from "../../sim";
 import { hash32 } from "./worldGeo";
@@ -70,7 +71,7 @@ export function CityBoard({ cityId, districts, costIndex, label, children, tileC
         <h4 className="district__name">{districtLabel(d)}</h4>
         <div className="district__hints">
           <span className="district__hint" title="How many people walk past">👣 {footfallWord(d)}</span>
-          <span className="district__hint" title={`Rent about £${Math.round(rent.monthly / 100).toLocaleString("en-GB")} a month`}>{rent.signs} {rent.word} rent</span>
+          <span className="district__hint" title={`Rent about ${formatPounds(rent.monthly)} a month`}>{rent.signs} {rent.word} rent</span>
         </div>
         {children(d)}
       </section>

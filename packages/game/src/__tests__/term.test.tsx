@@ -10,10 +10,11 @@ describe("Term", () => {
   it("block form: plain label, the real word beneath, the explanation as a tooltip", () => {
     const { container } = render(<Term id="royalty" />);
     const el = container.querySelector(".term")!;
-    expect(el.querySelector(".term__plain")!.textContent).toBe("Money the brand gets from each shop");
+    expect(el.querySelector(".term__plain")!.textContent).toBe("A share of their takings");
     expect(el.querySelector(".term__real")!.textContent).toBe("royalty");
     // Round 5 review: a real tooltip, focusable and linked for screen readers (a title never shows on focus).
-    expect(el.getAttribute("tabindex")).toBe("0");
+    // Round 11 (D, U9): focusable by tap/click but out of the Tab order (tabindex -1); "?" opens the words sheet.
+    expect(el.getAttribute("tabindex")).toBe("-1");
     const tip = document.getElementById(el.getAttribute("aria-describedby")!)!;
     expect(tip.getAttribute("role")).toBe("tooltip");
     expect(tip.textContent).toBe(`royalty: ${GLOSSARY.royalty.explain}`);
@@ -30,12 +31,12 @@ describe("Term", () => {
     render(<Term id="tronc" inline />);
     const abbr = screen.getByText("Shared tips");
     expect(abbr.tagName).toBe("ABBR");
-    expect(abbr.getAttribute("tabindex")).toBe("0");
+    expect(abbr.getAttribute("tabindex")).toBe("-1");
     expect(screen.getByRole("tooltip").textContent).toMatch(/^tronc: /);
     expect(abbr.getAttribute("aria-describedby")).toBe(screen.getByRole("tooltip").id);
   });
 
-  it("two Terms get distinct tooltip ids; keyboard focus lands on the term", () => {
+  it("two Terms get distinct tooltip ids; focus (a tap) lands on the term", () => {
     const { container } = render(<p><Term id="royalty" /><Term id="covers" inline /></p>);
     const ids = [...container.querySelectorAll("[aria-describedby]")].map((e) => e.getAttribute("aria-describedby"));
     expect(new Set(ids).size).toBe(2);

@@ -1,4 +1,5 @@
 /** Shift scoring, the end-of-shift summary and one-line coaching tips. */
+import { formatPence } from "@full-plate/sim-core";
 import type { HandsOnRole, HandsOnScore, HandsOnSession } from "./types";
 
 export function emptyScore(): HandsOnScore {
@@ -61,7 +62,7 @@ export function summarise(session: HandsOnSession): ShiftSummary {
   const speedPct = s.speedCount ? (s.speedBonus / s.speedCount) * 100 : 0;
   const bars = starBars(session);
   const stars = (s.points >= bars[2] ? 3 : s.points >= bars[1] ? 2 : s.points >= bars[0] ? 1 : 0) as 0 | 1 | 2 | 3;
-  const money = (p: number) => `£${(p / 100).toFixed(2)}`;
+  const money = (p: number) => formatPence(p);
   const lines: { label: string; value: string }[] = [];
   if (session.role === "chef") {
     lines.push({ label: "Plates cooked", value: String(s.plates) });

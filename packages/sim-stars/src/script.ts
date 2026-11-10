@@ -2,6 +2,7 @@
  * A scripted, quality-focused restaurant on sim-core's public API with the Stars layer mounted exactly as
  * docs/STARS-NOTES.md describes. Browser-safe (no node imports): the headless CLI (headless.ts) and the demo use it.
  */
+import { formatPounds } from "@full-plate/sim-core";
 import { applyCommand, candidates, newGame, tick } from "@full-plate/sim-core";
 import type { Command, ContentPack, DayResult, GameState } from "@full-plate/sim-core";
 import { applyStarsCommand } from "./commands";
@@ -379,7 +380,7 @@ export function runHeadless(content: ContentPack, opts: HeadlessOptions): Headle
   return run.result();
 }
 
-const gbp = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const gbp = formatPounds;
 const starStr = (n: number) => (n ? "★".repeat(n) : "—");
 
 export function report(run: HeadlessRun): string {

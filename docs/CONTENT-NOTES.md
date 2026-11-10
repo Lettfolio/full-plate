@@ -489,3 +489,57 @@ effect ranges, one starter per slot, 4–7 items per slot, refresh cheaper than 
 - `likes` / `dislikes`: labels for sim-core's `LIKE_IDS` / `DISLIKE_IDS`; every id must be present (the content package keeps a local copy of the id lists — `STAFF_LIKE_IDS` / `STAFF_DISLIKE_IDS` — and a test checks they equal sim-core's).
 - Validation: unknown archetype/role keys, empty or over-long quotes, missing or unknown like/dislike ids. `content/test/round10.staffText.test.ts` (4).
 - Traits are unchanged (18 in `traits.json`); their effects are summarised for the player in the staff room's chip tips.
+
+## Round 11 — D: plain words and "No grown-up drinks"
+
+Red-team U7, U8 and the U12 burnout line. Text only: no id, number, price, cost, prestige or shelf life changed, so the
+sim, balance and every save are untouched (`round11.words.test.ts` compares the pack's shape before and after).
+
+### "No grown-up drinks" (`src/softDrinks.ts`)
+
+A **content view**, not a second pack: `applySoftDrinks(roots, on)` walks the pack and extras and swaps display strings
+by exact match (and back again when switched off). The game applies it at load from Settings › "No grown-up drinks"
+(**on by default**, `lib/settings.ts noGrownUpDrinks`) and again when the setting changes (`game/src/sim.ts
+syncSoftDrinks`). Because sim-core builds its log lines from the pack at run time, "Tall fizzy lemonade added to the
+menu" follows automatically; lines already written into a save keep their old words. `ALCOHOLIC_DISH_IDS` (by id) still
+keeps those drinks away from parties with children, exactly as before. `GROWN_UP_WORDS` is the list the test checks.
+
+| Was | With the setting on | Id |
+| --- | --- | --- |
+| Pint of lager / Draught lager (pint) | Tall fizzy lemonade / Fizzy lemonade on tap (tall glass) | `lager` |
+| Pint of local ale / Local ale (pint) | Tall local dandelion & burdock / Local dandelion & burdock (tall glass) | `local_ale`, `craft_ale` |
+| Glass of house wine / House wine (175ml) | Glass of sparkling elderflower / Sparkling elderflower (175ml) | `house_wine` |
+| Glass of good red / Good red wine (175ml) | Glass of blackcurrant crush / Blackcurrant crush (175ml) | `fine_red`, `fine_wine` |
+| Glass of prosecco / Prosecco (125ml) | Glass of fizzy apple / Fizzy apple (125ml) | `prosecco` |
+| Gin & tonic | Tonic & lime | `gin_tonic` |
+| Espresso martini | Iced mocha | `espresso_martini` |
+| Steak & ale pie · Duck breast, red wine jus · Beer-battered onion rings | Steak & onion pie · Duck breast, cherry jus · Crispy battered onion rings | (cooking) |
+| Stars glasses: Downs sparkling, Loire white, Alsace Riesling, white Burgundy, Provence rosé, Rioja reserva, red Burgundy, Sauternes | Downs pressed apple, lemon & thyme cordial, apple blossom press, peach & vanilla nectar, pink lemonade, spiced cherry cordial, red grape juice, honey & pear nectar | `fd_wine_*`, `wine_*` |
+| The Stars wine list (`wineList.json`, 8 bottles) | the drinks list: same bottles, cost, price and glass dish; names, regions and notes re-worded | `bottle_*` |
+| "(Grown-ups only.)" on every blurb | dropped | |
+| critic line: "asked for the wine list twice. The wine expert is now very nervous." | "asked for the drinks list twice. The drinks expert…" | |
+| halal rules: "No alcohol on the menu." / "No pork, no alcohol…" | "No grown-up drinks on the menu." / "No pork, no grown-up drinks…" | |
+
+### Plain-words pass (always on)
+
+| Where | Was | Now |
+| --- | --- | --- |
+| `events.json` broken-dishwasher | "for a call-out fee" | "for a fee for coming out" |
+| `events.json` tax refund | "A brown envelope from HMRC" / "you overpaid VAT last quarter" | "A brown envelope from the tax office" / "you paid too much tax last quarter" |
+| `criticText.json`, `dishes.json` (fd red Burgundy), `wineList.json` | sommelier(s) | wine expert(s) |
+| `criticText.json` burnout | "sat down in the walk-in fridge and wouldn't come out" (a child copying it could be shut in) | "sat down on an upturned crate and said they couldn't do one more night" |
+
+Sim-package strings the player reads (log lines, board options, hints; text only):
+
+| Package | Was | Now |
+| --- | --- | --- |
+| sim-core (`engine`, `commands`, `systems/order`) | "… — 86'd for today." / "already 86'd" | "… — taken off tonight." / "already off tonight" |
+| sim-empire (`engine`, `board`) | HQ (every log line, refusal and board option) | head office / Head office |
+| sim-empire | "a royalty holiday", "pays no royalty", "paying the royalty", "Royalty rises" | "a break from paying their share", "pays you no share", "paying you their share", "Your share rises" |
+| sim-stars (`hints`, `commands`) | satellite(s); "the wholesaler" | sister restaurant(s); "the big supplier" |
+| sim-career (`offers`, `review`) | "fair tronc", "share of the tronc" | "fair shared tips", "share of the tips" |
+
+Kept, with a `<Term>` tip (game `lib/glossary.ts`): commis, chef de partie, sous chef (the career ladder — `RungName`),
+covers (only on the Served tile and the evening's "guests"), HQ (the Empire strip's chip), royalty / franchise fee /
+ad fund (Empire contract rows), footfall (lease screen, now an inline tip on "People walking past"), satellite,
+tronc. The game-side screens are listed in UI-NOTES "Round 11 — D".

@@ -73,7 +73,7 @@ export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v
                       </li>
                     ))}
                   </ul>
-                ) : <p className="district__empty">Room for a satellite</p>}
+                ) : <p className="district__empty">Room for a sister restaurant</p>}
               </>
             );
           }}
@@ -94,7 +94,7 @@ export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v
       </div>
       <MapLegend>
         <li className="legend__item"><span className="legend__swatch" aria-hidden="true"><span className="legend__star">★</span></span><span>Golden Plate Guide stars (only your main restaurant and a rival can win them)</span></li>
-        <li className="legend__item"><span className="legend__swatch" aria-hidden="true">🍸</span><span>Satellites: bars, bistros and ticketed rooms that earn money, never stars</span></li>
+        <li className="legend__item"><span className="legend__swatch" aria-hidden="true">🍸</span><span>Sister restaurants: bars, bistros and ticketed rooms that earn money, never stars</span></li>
         <li className="legend__item"><span className="legend__swatch" aria-hidden="true">🕵️</span><span>Purple edge = inspection season (an inspector could come any night)</span></li>
       </MapLegend>
     </section>

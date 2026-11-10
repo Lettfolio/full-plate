@@ -14,13 +14,14 @@ import {
   dailyRent, deserialize, forecastNeeds, monthlyWages, seedState,
   type ContentPack, type DayResult, type GameState, type Stock,
 } from "@full-plate/sim-core";
+import { formatPounds } from "@full-plate/sim-core";
 import * as K from "./constants";
 import { applyEmpireCommand, newGameFromSite, recalibrateFromSite, spendable } from "./engine";
 import { hqSinkingPerDay } from "./board";
 import { Rng } from "./rng";
 import type { EmpireCommand, EmpireEvent, EmpireState, SiteSummary } from "./types";
 
-const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const pounds = formatPounds; // R11 review: the one formatter (D)
 
 /** Trading days a parked site keeps: enough for recalibrateFromSite (it needs 14) and the charts. */
 export const PARKED_HISTORY_DAYS = 90;
@@ -73,7 +74,7 @@ export function openTill(content: ContentPack, e: EmpireState, g: GameState, for
     const cash = Math.max(0, can - larder);
     return { ok: true, cash, hqPays: cash + larder, float, larder, short: true };
   }
-  return { ok: false, need: float + larder, can, reason: `HQ can't open the till at ${g.restaurantName}: it needs ${pounds(float + larder)} (a week's rent and wages, and the food) and can spend ${pounds(can)}.` };
+  return { ok: false, need: float + larder, can, reason: `Head office can't open the till at ${g.restaurantName}: it needs ${pounds(float + larder)} (a week's rent and wages, and the food) and can spend ${pounds(can)}.` };
 }
 
 /** Tonight's top-up: how much of the till's overdraft HQ can cover (0 when the till is in credit or HQ can't spend). */

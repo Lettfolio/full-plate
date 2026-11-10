@@ -57,7 +57,7 @@
     "A diner asked to see the kitchen 'just out of curiosity'. The whole brigade stood up a bit straighter.",
     "Word from a friend at another restaurant: 'They've been busy round here this month.' Who's 'they'? Nobody will say.",
     "Somebody ordered the same dish two nights apart. Testing for consistency, perhaps?",
-    "A guest ate alone, slowly, and asked for the wine list twice. The sommelier is now very nervous."
+    "A guest ate alone, slowly, and asked for the wine list twice. The wine expert is now very nervous."
   ],
   "inspectionSeason": "Inspection season has begun. Every service counts from now until guide day.",
   "guideDay": {
@@ -124,7 +124,7 @@
       "Chef {chef} is running on coffee and worry. Maybe a quieter week would help?"
     ],
     "burnout": [
-      "Chef {chef} sat down in the walk-in fridge and wouldn't come out. They're going home to rest for a while. The kitchen will wobble.",
+      "Chef {chef} sat down on an upturned crate and said they couldn't do one more night. They're going home to rest for a while. The kitchen will wobble.",
       "Chef {chef} has run out of puff. Too many big nights in a row. They'll be back, but not for a few weeks."
     ],
     "wantsOwnPlace": [

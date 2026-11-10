@@ -7,6 +7,7 @@ import { lazy } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { bankStatus, BANK_LAST_DAYS, BANK_RED_DAYS, content, hireShortfall, starterLoanOffer } from "../sim";
 import { Icon } from "./Icon";
+import { formatPounds } from "../lib/format";
 
 export const BankCard = lazy(() => import("./BankCards").then((m) => ({ default: m.BankCard })));
 export const BankBanner = lazy(() => import("./BankCards").then((m) => ({ default: m.BankBanner })));
@@ -42,5 +43,5 @@ export function BankChip({ game }: { game: GameState }) {
 export function hirePromptText(game: GameState): { can: boolean; text: string } {
   const s = hireShortfall(game);
   if (!s || s.short <= 0) return { can: true, text: "Hire →" };
-  return { can: false, text: `Save £${Math.ceil(s.short / 100).toLocaleString("en-GB")} to hire a ${s.role}` };
+  return { can: false, text: `Save ${formatPounds(Math.ceil(s.short / 100) * 100)} to hire a ${s.role}` };
 }

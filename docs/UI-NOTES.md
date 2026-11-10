@@ -754,3 +754,104 @@ Red-team U3, U2, G2, U6, U4, U5 and the U12 items (mood sign, review on a bad ni
 - Type audit: 38 screens (new `32a-lost-slot`; `32-game-over` is reached through Your games → What happened), 0 text runs < 13 px, 0 page errors, normal and Bigger.
 - Tests: `__tests__/round11.losing.test.tsx` (19); `round7.dayLoop` (button name), `starsReview` (Needs £X as text) and `round9.saves` (archived, not removed) updated.
 - Playtest (built dist, 1024 × 768 touch, Playwright): the red-team's s7 Hard decor spree now buys floor/walls/lights/seats/tables and is asked at the sign ("This leaves you with £630 — are you sure?"), keeping £1,130 — enough for a chef; the no-hire child's day-31 morning shows "Save £68 to hire a chef" and the loan tip, Borrow → £1,837 → hires a chef; day 81 shows "Bank: 13 days left" and, after service, the bank card; day 92 the last-days banner; the loss is kept as "Lost — day 93" and Start over opens day 1 of the same restaurant. 0 page errors.
+## Round 11 — D (tablet and child fit)
+
+Red-team U1, U7–U11 and D's U12 items. No sim behaviour changed; content changes are words only (CONTENT-NOTES
+"Round 11 — D"). Tests: `game/src/__tests__/round11.fit.test.tsx`, `content/test/round11.words.test.ts`.
+
+### iPad portrait (U1)
+
+- **One breakpoint**, `lib/layout.ts NARROW_QUERY` = `(max-width: 1023px)`, used by the R11-D block at the end of
+  theme.css and by `useNarrow()`. `body` loses its 1024 px floor there (it still applies ≥ 1024).
+- **Header**: name/date and the save · difficulty · settings buttons on row one; cash, reputation, loan on row two.
+- **Planning**: the tab row scrolls sideways (no scrollbar) with an edge fade only on the side that has more tabs
+  (`Tabs.tsx markTabEdges` sets `data-more-left/right`); the picked tab scrolls into view. Goals sit above the panel,
+  folded to one line (`GoalsCard collapsible`) after the first run. The action dock stays pinned at the bottom: the hint
+  pills in one sideways-scrolling line, the primary on the row below. Toasts sit above the taller dock.
+- **Service**: the floor on top (≥ 300 px, 44 % of the height), the side panel below with its own scroll. Hands-on:
+  the shift bar wraps (the clock track on its own row). Evening: one column.
+- Checked on the built game at 768×1024 with touch: no sideways scroll (scrollWidth 768) on title, all five planning
+  tabs, service, hands-on, evening; "Open for service" on screen on every tab; 0 targets < 44 px; 0 text < 13 px.
+
+### Plain words (U7)
+
+`86` → **Take off tonight** (Service list header is a `<Term id="eightySix" inline>`; buttons "Take off" / "Off
+tonight"); "Comp this table" → **Make their meal free** / "On the house ✓"; HQ → **head office** in every sentence
+(the Empire strip keeps an `HQ` chip, tipped); "Royalty" contract row → **Share of their takings**; board "Royalties"
+→ "A share of franchise shops' takings"; "Franchisee mood" → "Shop owners' mood"; satellite → **sister restaurant**
+(StarsMap, StarsTab "The group"); "VAT to the taxman" → "Tax on sales, to the tax office"; tronc → "shared tips"
+(career payslip); footfall on the lease screen is an inline tip on "People walking past". Career rung titles keep
+commis / chef de partie / sous chef through `RungName` (Term.tsx), which tips them ("Apprentice chef", "Section chef",
+"Second chef"). New glossary ids: `commis`, `chefDePartie`, `sousChef`, `satellite`. Rule for later rounds: a trade word
+on screen is either gone or inside a `Term`; the key-screen test strips `.term__tip`/`.term__real` and fails on the rest.
+
+### "No grown-up drinks" (U8)
+
+Settings sheet switch, **on by default** (`Settings.noGrownUpDrinks`, stored and synced with the other preferences).
+`sim.ts syncSoftDrinks()` applies content's `applySoftDrinks` at load and on change; the menu, stock list, reviews and
+the Stars glasses read the soft names at once. Ids and numbers are identical (test: a week with the drinks on the menu
+gives the same cash, RNG state and history with the setting on or off).
+
+### Keyboard (U9)
+
+- `Term` (and the staff-room trait chips) are **`tabIndex=-1`**: still focused by a tap or click (tip shows), out of
+  the Tab order. Day-1 Menu (1280 px, starter menu) goes from 156 tab stops to 107 (the 71 terms are gone); "Open for service" is Tab, Enter from the top (was 70 Tabs).
+- **"?"** anywhere (not in a text field, not under another sheet) opens **What the words mean** (`WordsSheet.tsx`, the
+  dialog is a lazy chunk): every `.term` on screen with its tip, read from the DOM when opened.
+- Two **skip links** are the first Tab stops in a game: "Skip to main action" (`App.focusMainAction`: the screen's
+  enabled `.btn--xl`, service's `[data-main-action]`, else the first `.hint--link` that says what to do instead) and
+  "What the words mean (?)". They show on focus only.
+
+### Pacing (U10)
+
+- Owner service has **Skip to evening** (`data-main-action`, under the speed deck): the reducer's `skipShift` runs the
+  remaining ticks at once. For an owner it is exactly the ticks watching would run (problems left unanswered time out
+  the same way); the test compares the serialised end state with ticking one at a time.
+- **Remembered speed**: a speed picked on the deck (or 1/2/4 keys) is saved as Settings › Service starts at
+  (`speedPicked`). Until a speed is picked, **Cosy starts every service at 4×** (`startSpeed`).
+- "How do I win?" now says the honest length: 365 game days, about a minute a day at 4× or with Skip, so the fork comes
+  after about 3–6 hours of play. (The explainer and the fork card are now lazy chunks.)
+- **Minutes to day 30** (a child's planning + evening ≈ 45 s a day, red-team timing; service 60 s at 1×, 15 s at 4×,
+  ≈ 1 s skipped): **before** 30 × (60 + 45) s ≈ **52 min**; **after**, Cosy at 4× ≈ **30 min**, with Skip to evening
+  ≈ **23 min**. Day 365: before ≈ 10.6 h at 1× (1.8 h best case); after ≈ 6 h at 4×, ≈ 4.7 h skipping.
+
+### Reload mid-shift (U11)
+
+- The autosave key (`useSaves.autosaveKey`) adds the sim-hour and the hands-on role during service: a save every hour
+  of service and when a hands-on shift starts or stops.
+- The envelope stores `meta.handsOnResume` (`{ role, jumpIn }`) instead of the live session. On load the reducer drops
+  the sim's hands-on hold (as before); `resumeHandsOn` then re-runs `handsOnStart` — a fresh session at the saved clock, like Jump in —
+  with the toast "Back on your shift from 13:05 — the game saves every hour of service." `load` itself still drops the live session (the round-4/5 contract and its tests); App dispatches `resumeHandsOn` right after it. So a reload costs at most the
+  part of an hour since the last save, and lands in hands-on play, not the watch view.
+
+### Small things (U12, S12)
+
+- "Click a table" → **Tap** on a coarse pointer (`useCoarsePointer`, canvas label and the manager's card).
+- Stock: the order sheet lists only what the menu uses (plus anything on hand, coming or in the basket); **Show
+  everything (N more)** opens the rest. Day 1 is ~20 rows, not 100.
+- **One pounds formatter**: `formatPence` / `formatPounds` live in sim-core `money.ts` (pure); the game's
+  `lib/format.ts` re-exports them; sim-core (advice, commands, incidents, forecast, goals), sim-empire (engine, board,
+  unit economics), sim-stars, sim-career, handson (score, toasts), Empire/Board screens, the staff room, map tips and
+  the dining-room floaties all use it. One minus sign: "−£12" (was "-£12" in the evening tips and "£-12" in Empire logs).
+  `formatPence(p, { trim: true })` gives "£12" / "£12.50" (incident and command lines). Headless console tables keep
+  their own padding formatters.
+- **Playtest switches**: `?autopilot=` and `?perf=` only work in a dev build or with `localStorage["full-plate:dev"] =
+  "1"` (`lib/perfMeter.ts devSwitches`). Playwright playtests set the flag before loading (the type audit does).
+  The audit also takes `FP_AUDIT_VIEWPORT=1024x768` / `768x1024` (touch below 1024) and sets `speedPicked` so Cosy saves
+  keep its speed.
+
+### Checks (built dist, `vite preview`)
+
+- **Type audit** (37 screens): 0 text runs < 13 px, 0 page errors at 1280×800, 1024×768 and 768×1024 (touch), normal
+  and Bigger text at 1024 and 768. Two audit fixes: the "repaint the canvas layers" nudge now changes the height, not
+  the width (1023 px crossed the portrait breakpoint and measured a transient 8.3 px layout; a width change also leaves
+  layers one blit off scale), and the title's shopfront stacks above the buttons when narrow (its sign text was 10.9 px).
+- **R7 probe at 768×1024** (touch, normal + Bigger): no sideways scroll on any screen after stacking the Stars tab's two
+  columns (Bigger text pushed one 39 px past the edge); 0 targets < 44 px (the one hit is the start picker's visually
+  hidden radio input), 0 text < 13 px, 0 term tips widening the page. "Covered" hits are content scrolled under the
+  pinned dock, tabs scrolled under the edge fade, and Empire map pins under the header — all by design. Contrast hits are
+  toasts caught mid-fade and the ★ glyph (as at 1024).
+- Playtest screenshots (768×1024 touch, 1024×768 touch, 1280×800): every planning tab, service, hands-on, evening,
+  the words sheet, the skip link; keyboard at 1280: Tab → "Skip to main action", Enter → focus on "Open for service";
+  in service the same skip link lands on "Skip to evening", which reaches the evening in ≈ 0.3 s.
+- Main JS 195.85 → 195.49 kB (−0.4 kB): the words dialog, the fork card and "How do I win?" are lazy now.

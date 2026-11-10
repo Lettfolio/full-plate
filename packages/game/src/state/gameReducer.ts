@@ -4,6 +4,7 @@ import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import { applyCommand, asCommand, content, HOOKS, newGame, tick } from "../sim";
 import { formatPence } from "../lib/format";
+import { clockLabel } from "../lib/calendar";
 import { FORK_DAY, forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
 import {
   careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
@@ -80,6 +81,7 @@ export type AppAction =
   | { type: "skipShift" }
   | { type: "handsOnStart"; meta: HandsOnMeta }
   | { type: "handsOnStop" }
+  | { type: "resumeHandsOn" }
   | { type: "handsOnResults"; results: HandsOnResult[] }
   | { type: "handsOnScore"; summary: ShiftSummary }
   | { type: "tastingMenu"; menuId: string | null }
@@ -182,7 +184,7 @@ function settle(s: AppState): AppState {
     if (!meta.fork.offered && forkDue(game, meta.fork, meta.mode === "career" && meta.career?.handover ? "owner" : meta.mode)) {
       meta = { ...meta, fork: { ...meta.fork, offered: true, firstOfferDay: meta.fork.firstOfferDay ?? game.day } };
     }
-    if (meta.handsOn) meta = { ...meta, handsOn: undefined };
+    if (meta.handsOn || meta.handsOnResume) meta = { ...meta, handsOn: undefined, handsOnResume: undefined };
   } else if (game.phase === "planning" && meta.morningDay !== game.day) {
     ({ game, meta } = careerMorning(game, meta));
     game = starsMorning(game, meta);
@@ -257,6 +259,16 @@ function reduce(s: AppState, a: AppAction): AppState {
       // till); old saves' parked GameStates are slimmed on the next evening or switch (pathEngine).
       if (m.empire) ({ game, meta: m } = hqBacksTill(game, m));
       return { ...initialAppState, game, lastResult: game.history.at(-1) ?? null, meta: m };
+    }
+    case "resumeHandsOn": {
+      // Round 11 (D, U11): the game was saved mid-shift while playing hands-on (meta.handsOnResume, from the envelope).
+      // App dispatches this right after "load": straight back into hands-on play — a fresh session, like Jump in, at the
+      // saved clock (the last hourly save) — with one line saying so. "load" itself still drops the live session.
+      const resume = s.meta.handsOnResume;
+      if (!s.game || !resume) return s;
+      const cleared: AppState = { ...s, meta: { ...s.meta, handsOnResume: undefined } };
+      if (s.game.phase !== "service") return cleared;
+      return withToast(reduce(cleared, { type: "handsOnStart", meta: { role: resume.role, jumpIn: resume.jumpIn } }), `Back on your shift from ${clockLabel(s.game.tick)} — the game saves every hour of service.`, "info");
     }
     case "quit":
       return initialAppState;

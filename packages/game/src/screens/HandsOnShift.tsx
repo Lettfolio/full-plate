@@ -10,7 +10,7 @@ import { clockLabel } from "../lib/calendar";
 import { modalOpen } from "../lib/modal";
 import { cardPlacement, markOnboardSeen, onboardingSteps, onboardSeen, type OnboardStep } from "../lib/onboarding";
 import { createTouchControl, prefersTouch } from "../lib/touchControl";
-import { canvasDpr, createPerfMeter, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
+import { canvasDpr, createPerfMeter, devSwitches, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
 
 /**
  * Real seconds per sim tick while a hands-on session is live with no station (HANDSON-NOTES: a 120-tick service is 3
@@ -30,7 +30,8 @@ export function parseAutopilot(v: string | null): { skill: number; pace: number 
   return { skill: unit(a, 0), pace: unit(b, 1) };
 }
 const AUTOPILOT = (() => {
-  try { return parseAutopilot(new URLSearchParams(window.location.search).get("autopilot")); } catch { return undefined; }
+  // Round 11 (D, S12): a dev build, or the `full-plate:dev` localStorage flag (lib/perfMeter devSwitches).
+  try { return devSwitches() ? parseAutopilot(new URLSearchParams(window.location.search).get("autopilot")) : undefined; } catch { return undefined; }
 })();
 const STEP = 1 / 60;
 

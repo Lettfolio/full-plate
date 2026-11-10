@@ -1,3 +1,4 @@
+import { formatPounds } from "../../lib/format";
 import { useEffect, useRef } from "react";
 import { associationBlocks, bookNet, spendable, type BoardDecisionKind, type BoardIncome, type BoardMeeting as Meeting, type EmpireCommand, type EmpireState } from "@full-plate/sim-empire";
 import { content } from "../../sim";
@@ -15,11 +16,11 @@ interface Props {
 /** The month's money, one line per source (round 6). Rows with nothing in them are left out, except your own shops. */
 const INCOME_ROWS: { key: keyof BoardIncome; icon: string; term: TermId; label: string }[] = [
   { key: "shops", icon: "🏪", term: "company", label: "Your own shops" },
-  { key: "royalties", icon: "👑", term: "royalty", label: "Royalties from franchise shops" },
+  { key: "royalties", icon: "👑", term: "royalty", label: "A share of franchise shops' takings" },
   { key: "rent", icon: "🏠", term: "landRent", label: "Rent from your land" },
   { key: "fees", icon: "✍️", term: "franchiseFee", label: "Joining fees" },
   { key: "supply", icon: "🍞", term: "supplyMarkup", label: "Extra on food" },
-  { key: "costs", icon: "🏢", term: "hqCosts", label: "Running HQ" },
+  { key: "costs", icon: "🏢", term: "hqCosts", label: "Running head office" },
 ];
 
 /** The trade word behind each kind of question (shown as a "What's this?" chip). */
@@ -70,7 +71,7 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
         <div className="modal__body boardmeeting__body">
           <div className="boardmeeting__top">
             <section aria-label="Money this month" className="boardmeeting__money">
-              <h3>{net >= 0 ? <>HQ made <MoneyText pence={net} whole tone /></> : <>HQ lost <MoneyText pence={-net} whole tone={false} className="money--neg" /></>}</h3>
+              <h3>{net >= 0 ? <>Head office made <MoneyText pence={net} whole tone /></> : <>Head office lost <MoneyText pence={-net} whole tone={false} className="money--neg" /></>}</h3>
               <ul className="boardmeeting__rows">
                 {rows.map((r) => (
                   <li key={r.key}>
@@ -105,7 +106,7 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
             <h3 className="boardmeeting__q">{d.question} <span className="xs muted">(<Term id={KIND_TERM[d.kind]} inline>what's this?</Term>)</span></h3>
             <div className="boardmeeting__options">
               {d.options.map((o, i) => {
-                const why = (o.cmd && associationBlocks(e, o.cmd)) ?? (o.cost && spendable(e) < o.cost ? `HQ can only spend ${pounds(Math.max(0, spendable(e)))} right now.` : undefined);
+                const why = (o.cmd && associationBlocks(e, o.cmd)) ?? (o.cost && spendable(e) < o.cost ? `Head office can only spend ${pounds(Math.max(0, spendable(e)))} right now.` : undefined);
                 return (
                   <button key={o.id} ref={i === 0 ? first : undefined} className={`libdish libdish--btn boardmeeting__option ${o.id === d.advice ? "boardmeeting__option--tip" : ""}`} disabled={!!why} onClick={() => send({ type: "BOARD_DECIDE", optionId: o.id })}>
                     {o.id === d.advice && <span className="boardmeeting__ribbon" aria-hidden="true">💡 The board's pick</span>}
@@ -129,5 +130,5 @@ export function BoardMeeting({ empire: e, meeting: m, send }: Props) {
   );
 }
 
-const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const pounds = formatPounds;
 

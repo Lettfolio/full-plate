@@ -48,6 +48,8 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
     text: arr(text, 100), dismissed: opt(bool),
   })),
   handsOn: opt(anyJson),
+  // Round 11 (D, U11): a save made mid-shift while playing hands-on goes back into hands-on play on load.
+  handsOnResume: opt(obj({ role: oneOf("chef", "server", "bar"), jumpIn: bool })),
   shiftSummary: opt(obj({
     role: oneOf("chef", "server", "bar"), points: n, stars: oneOf(0, 1, 2, 3), plates: n, meanQuality: n, speedPct: n,
     served: n, cleared: n, payments: n, drops: n, dropCost: money, lines: arr(obj({ label: text, value: text }), 100), tip: text,

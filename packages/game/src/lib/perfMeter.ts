@@ -16,7 +16,20 @@ export interface PerfMeter {
   draw(ctx: CanvasRenderingContext2D, x: number, y: number): void;
 }
 
+/** Round 11 (D, red-team S12): the localStorage key that turns the playtest switches on in a production build. */
+export const DEV_FLAG_KEY = "full-plate:dev";
+
+/**
+ * Round 11 (D, S12): `?perf=` and `?autopilot=` are playtest switches, not features: they work in a dev build
+ * (`import.meta.env.DEV`) or when localStorage has `full-plate:dev` = "1" (the Playwright playtests and type audit set it).
+ */
+export function devSwitches(): boolean {
+  if (import.meta.env.DEV) return true;
+  try { return typeof window !== "undefined" && window.localStorage.getItem(DEV_FLAG_KEY) === "1"; } catch { return false; }
+}
+
 export function perfEnabled(search = typeof window !== "undefined" ? window.location.search : ""): boolean {
+  if (!devSwitches()) return false;
   try { return new URLSearchParams(search).get("perf") === "1"; } catch { return false; }
 }
 

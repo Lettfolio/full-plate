@@ -68,7 +68,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
             <table className="pnl">
               <tbody>
                 <tr><td>Pay ({perHour(career.wage)} × 10h)</td><td><MoneyText pence={shiftPay} /></td></tr>
-                {!slip && <tr><td>Tips this week so far <span className="pnl__pct">tronc, shared by law</span></td><td><MoneyText pence={career.week.tips} /></td></tr>}
+                {!slip && <tr><td>Tips this week so far <span className="pnl__pct">shared tips, by law</span></td><td><MoneyText pence={career.week.tips} /></td></tr>}
                 {!slip && <tr><td>Wages this week so far</td><td><MoneyText pence={career.week.wagesGross} /></td></tr>}
                 {slip && <tr><td colSpan={2} className="xs muted">Pay day — this week's wages and tips are on the payslip below.</td></tr>}
               </tbody>
@@ -101,7 +101,7 @@ export function CareerEvening({ game, meta, career, result, onNext }: Props) {
                   <tr><td><Term id="tronc" /></td><td><MoneyText pence={slip.tips} /></td></tr>
                   {slip.bonus > 0 && <tr><td>Bonus</td><td><MoneyText pence={slip.bonus} /></td></tr>}
                   <tr className="pnl__cost"><td>Income tax</td><td><MoneyText pence={-slip.tax} /></td></tr>
-                  <tr className="pnl__cost"><td>National Insurance <span className="pnl__pct">none on tronc</span></td><td><MoneyText pence={-slip.ni} /></td></tr>
+                  <tr className="pnl__cost"><td>National Insurance <span className="pnl__pct">none on shared tips</span></td><td><MoneyText pence={-slip.ni} /></td></tr>
                   <tr className="pnl__cost"><td>Rent, bills, food, travel</td><td><MoneyText pence={-slip.living} /></td></tr>
                   <tr className="pnl__total"><td>Saved</td><td><MoneyText pence={slip.saved} tone signed /></td></tr>
                 </tbody>
