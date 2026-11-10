@@ -1245,3 +1245,174 @@ Open (small):
 - Move 5–10 kB out of main before adding anything to the shell.
 - Decor × Stars: decor prestige is capped at 8 and end-of-year prestige saturates near 91, so posh rooms matter mainly early and on the Stars path; consider a Stars-only reason to keep a smart room fresh.
 - A child playtest of the staff room: do they read the likes/dislikes and rota around them, or only hire by skill bars?
+
+# Round 11: integration review of the red-team fixes (r11-a … r11-e)
+
+Master `9c9061e` + five merges in order a → b → c → d → e (one `--no-ff` merge commit each, the builders' 21 commits kept), then one review commit (`35a5496`: bundle + seam tests) and this doc. Before/after comparisons are against `9c9061e` (= `95c5ab0` code). Scratch work: `scratchpad/r11rev/`; screenshots: `scratchpad/shots/r11/review/`.
+
+## R11.1 What merged
+
+| Branch | Commits | What | Merge |
+|---|---|---|---|
+| r11-a | 2 | Save schemas per state (`sim-*/validate`, `game/state/saveCheck.ts`), CrashGuard, size/gzip caps, per-slot stall, account-keyed device cache, backup cap, own-key dispatch, NaN guards, fork guard, duplicate-id HIRE, autosave can't throw | clean |
+| r11-b | 2 | Bank countdown (chip, evening card, last-days banner), archive lost games, spend guard, visible "Needs £X", greyed advice, Cosy hire into the overdraft, starter loan, starter chef wired **off**, toast clearing, Star/Dog after 7 days, rough-night reviews | 2 conflicts |
+| r11-c | 5 | HQ backs the hands-on till, float + larder from HQ, franchises not hands-on, `ParkedSite`, bankruptcy screen + checkpoint retry, debt question, Stars keep-margin 2, head-chef pay rise, El Bulli only at the top, "Golden Plate" | 2 conflicts |
+| r11-d | 4 | Portrait layout, plain-words pass, "No grown-up drinks" (on by default), terms out of Tab order, skip links, "?" words sheet, Skip to evening, remembered speed, mid-shift resume, Tap/Click, Stock filter, one pounds formatter, dev-gated playtest switches | 10 conflicts |
+| r11-e | 8 | CI permissions + SHA pins + Dependabot + `.nvmrc`, vite 6.4 / vitest 4.1, no `--host`, OFL.txt, probe/audit in the repo with a baseline, aggregate lead-in/parity tests, 29-save corpus, README/ARCHITECTURE, RestaurantView split | 3 conflicts |
+
+## R11.2 Collisions and how they were resolved
+
+1. **"Over" vs "lost" (B × C).** One rule, no deletion: `saveStore.isOver` is always false and `saveCore.save` no longer removes a slot under any condition (the `remove` call is gone, not just bypassed). `isLost` (→ `SlotSummary.archived`) follows C's `runIsOver`: a career is never lost; an Empire is lost only when `status === "bankrupt"`; otherwise a game over. It is inlined in saveStore (C's import of `pathEngine` into saveStore would have pulled the path engine into the main chunk). So a bankrupt Empire shows EmpireEnd and its slot is archived ("Lost — day N", Continue skips it); "Try again from the last board meeting" restores a running Empire, whose next autosave writes the slot back **un-archived**; a running Empire with a bust shop is never archived (C's top-up / move-on). Test: `round11.review` "B × C". `state/save.ts`'s legacy-key removal was left alone (it doesn't touch slots). Save-file import of a finished game is now accepted (it arrives archived) — the old "already finished" refusal can't fire.
+2. **A's schemas vs B/C/D fields** — A drops unknown top-level keys, and four things would have been silently lost: B's `GameState.starterLoan` (the loan could be taken twice after a reload), C's `ParkedSite` objects in `meta.parked` (A's schema only took strings: every Empire save with a parked site would have been refused as damaged after its first evening), the header's `archived` (an archived slot would have come back from the account un-archived), and D's `meta.handsOnResume` (mid-shift resume would never have fired). All four added; `ParkedSite` has its own schema (`sim-empire/validate validateParkedSite`, built from `sim-core/validate gameStateParts`); old string entries are still checked as GameStates. Also added: the board's `debt` decision kind and the Stars head chef's `staysUntil`. Commands (`TRANSFER_TO_FOCUSED`, `STARTER_LOAN`) are not stored in typed form (ownerCommands are `{type}` + JSON), CASH_LOW is an event (never saved), `reviewTemplates.rough` is content; settings go through `normalize` (keeps `noGrownUpDrinks`/`speedPicked`). E's 29 corpus saves all load (corpus.test 31/31); 14,000 reducer-fuzz states and 30 × 3,000 sim-core fuzz steps pass.
+3. **Text-level merges:** HIRE keeps A's duplicate-id check and B's `hireNeed`; appReducer runs B's stale-toast clear and C's board checkpoint; A's robustness guards in sim-empire/stars keep D's words; StarsMap key = C's "Golden Plate" + D's "Sister restaurants"; the hire card keeps B's visible "Needs £X" (no tooltip) through D's formatter; reducer imports A's `FORK_DAY` and D's `clockLabel`; theme.css keeps B's bank block before D's portrait block (D's media query wins where they meet; the bank card spans the one column). Settings: D's drinks switch above E's About line (still last). Service: B's single toast line ("— choose what to do on its card.") with D's Tap/Skip. App: CrashGuard (main.tsx) + B's restartSlot/Continue-skips-archived + C's EmpireEnd routing before GameOver + D's skip links/lazy ForkCard/resumeHandsOn — all present, no edits needed.
+4. **RestaurantView:** E's split taken whole; D's only change to it (the "+£X" floaty through `formatPence`) re-applied in the new `RestaurantView.ts`.
+5. **type-audit.mjs:** E's rewrite on `scripts/lib/harness.mjs`; B's and D's changes ported into the harness: the lost game reached through Your games (`32a-lost-slot`, then "What happened" → `32-game-over`), `speedPicked` + the dev flag at boot, the canvas repaint nudge on the height, and 768×1024 (with touch) added to the audit's default sizes (`FP_AUDIT_VIEWPORT` kept as an alias).
+6. **Words (D × B, C):** D's word list applied to C's new lines — "Head office topped up the till / paid … to open / paid off … 's till / can only spend / can't open the till / is sinking / owes the bank / gets / keeps borrowing / keeps sinking", EmpireEnd and the Empire tab's sinking card; and D's formatter to C's `focus.ts` and B's "Save £X to hire". B's new strings had no trade words. D's key-screen check is extended over EmpireEnd and the bank card/banner, and the formatter scan over B's and C's new files (`round11.review`).
+7. **Lockfile:** E's; `pnpm install` leaves it byte-identical. `pnpm audit`: no known vulnerabilities.
+
+## R11.3 Fixes in this pass (`35a5496`)
+
+- **Bundle:** main was 207.2 kB after the five merges (budget 200). The start picker, the lease screen and the game-over screen are now lazy chunks (the title prefetches the first two on idle, so "New game" doesn't wait): **194.9 kB**. No feature removed.
+- **`round11.review.test.tsx`** (7): the four save fields above round-trip byte-identically through `checkedDecode` (and a damaged ParkedSite is refused); the archive rule end to end through the store; D's trade-word and formatter checks on B's/C's screens and files.
+- Everything else from the merges themselves (R11.2).
+
+## R11.4 Tests
+
+`pnpm -r typecheck` clean. `pnpm -r test`: **1,231 passed** (sim-core 301, content 68, handson 97, sim-career 61, sim-stars 72, sim-empire 106, game 526), 0 failed; `round7.dayLoop`'s 8 s Menu-matrix timeout kept. E's aggregate bars re-measured on the merged sim (C/D didn't touch the sous chef or pacing): lead-in seeds 1–16 = 1.00 .53 .54 .64 .69 .63 .50 .71 .63 .60 .55 .46 .60 .60 .60 .69, mean 0.623 (bar ≥ 0.5, each ≥ 0.4); parity pooled half speed 95.4 % ± 2.4, full 96.1 % ± 2.6, idle 99.3 % ± 3.0 — identical to E's measurement on master, so the bars stay where E set them from that data.
+
+## R11.5 Red-team reproductions re-run (merged master)
+
+**Security kit** (`redteam/sec` harness + A's pointed copy, `e2e.mjs` on the built dist): the 10 assertions that proved a hole now fail (the hole is gone) and the 5 "held up" ones pass — same as A's branch. obj-name / staff-obj / day-string files: "That save file is damaged.", nothing stored, title renders after reload; gzip bomb: "That file is too big…" in **0.29–0.32 s**, JS heap 6 MiB (was 13.6 s / 3.7 GB); 300 kB name: cut to 40, account stays **on**, next game reaches the account; XSS name: plain text, `document.title` unchanged, 0 injected `<img>`; padded save: 1 chunk, raw text not kept; backups ≤ 2 per game (3 slots after 10 conflicts, was 11); 0 orphan chunks; forged `chunkCount`: 1 read (was 400k); shared browser: account B got **0** of A's games and A's synced game stayed on the device. (The harness's `cashInf` case doesn't actually inject 1e999 — its regex misses the escaped envelope; A's own test covers Infinity.)
+
+**Sim kit:** `micro.ts` — `toString`/`__proto__`/… rejected; HIRE after HIRE_STAFF with the same id refused; decor 0p gain; CANCEL_ORDER 0p; SET_OWNER_PROFILE still accepted **by the sim API** (the reducer gate is what stops it). `fuzz-core` 30 × 3,000 steps (2,141 days): 0 invariant breaks, 0 determinism / save-mid-run divergences. Reducer fuzz 14 × 1,000 actions: 0 issues, 0 soft-locks. `empire-exploits`: every NaN/Infinity argument refused; 0.4p campaign refused (min £500); sell→buy-back still loses HQ £221k–£1.35m. C's repros: F2 first visit — till £3,720 from HQ (was £20,000 free), sweeping it returns what HQ paid; F1 franchise — focus refused (the script's old wording still prints, but the franchisee's numbers match the model's); F3 hire-everyone — plays to day 961, Empire running; master's own `empire-f3-3.json` bust save loads to the evening with "Head office topped up the till £128,430.", then 120 days: 44 top-ups (£37,563), distress never above 0. `empire-bust` — HQ never hits the −£2m line in 1,260 days (−£846k) but the sinking card shows from day 465 with one-tap "Sell …" / "Close …", and the board asks the debt question. `savesize-r11`: 10 visited sites 16.50 → 0.58 MB raw (2.02 → 0.10 MB packed). `cosy-lock` 8 seeds: a Cosy player who never hired can still hire on day 199 (was day 54–135), and switching to typical play hires on every seed.
+
+**Stars dynasty** (`stars-sum`, scripted `stars` profile, 12 years) — row-for-row identical to C's branch:
+
+| run | dynasty by year 10 | by year 12 | stars lost on guide days |
+|---|---|---|---|
+| cold, 20 seeds, master | 3/20 | 3/20 | 22 |
+| cold, 20 seeds, merged | **12/20** | 16/20 | 0 |
+| fork (day 365, balanced year 1), 10 seeds, master | 1/10 | 1/10 | 15 |
+| fork, 10 seeds, merged | **7/10** | 8/10 | 1 |
+
+## R11.6 Combined balance (headless, real pack, 200 seeds × 365 days, normal)
+
+| strategy | `95c5ab0` | merged | covers/day · ★ | bank chip ever / last-days banner |
+|---|---|---|---|---|
+| typical | 90.0 % | **90.0 %** | 91.0 · 4.26 | 23 / 21 |
+| balanced | 98.5 % | **98.5 %** | 86.9 · 4.40 | 3 / 3 |
+| cheap | 68.0 % | **68.0 %** | 78.0 · 4.45 | 74 / 68 |
+| premium | 99.0 % | **99.0 %** | 61.3 · 4.55 | 2 / 2 |
+| nohire | 0 % | **0 %** | 11.1 · 1.86 | 200 (median day 101) / 200 |
+| learner | 98.0 % | **98.0 %** | 88.3 · 4.26 | 6 / 4 |
+| decorator | 88.0 % | **88.0 %** | 92.2 · 4.31 | 27 / 24 |
+
+Identical row for row (nothing the scripted owners do touches B's Cosy rule, the loan or the words). **Empire** 10 years × 5 seeds, `--board both`: franchise skip 5/5 (y5.0–5.6) / follow 5/5 (y5.3–6.2); company 5/5 (y7.2–8.1) / 5/5; In-N-Out skip 3/5 / follow **5/5** (y8.5–9.1) — follower 15/15, wins and years as master (one In-N-Out follow seed's HQ cash differs by £0.1m). **Stars** see R11.5.
+
+## R11.7 Bundle (vite kB, minified; master built by E on `9c9061e` with vite 5)
+
+| chunk | `9c9061e` | merged | | chunk | `9c9061e` | merged |
+|---|---|---|---|---|---|---|
+| **index (main)** | 195.85 | **194.92** | | SlotPicker | 8.49 | 9.37 |
+| react | 141.67 | 142.12 | | StaffTab | 13.95 | 14.29 |
+| content | 178.18 | 186.25 | | DecorateTab | 7.47 | 7.83 |
+| sim-core | 129.89 | 133.58 | | StarsTab | 23.92 | 24.51 |
+| paths (sim-empire/stars/career) | 154.19 | 165.20 | | BoardMeeting | 5.65 | 5.71 |
+| saveCheck (new, lazy) | — | 16.32 | | CareerEvening | 11.50 | 11.53 |
+| saveCore | 5.89 | 9.28 | | MyShift | 13.74 | 13.79 |
+| saveCloud | 7.17 | 9.50 | | WinScreen | 6.23 | 6.27 |
+| saveFiles | 3.49 | 3.87 | | GuideEnvelope / HandoverModal | 3.01 / 1.69 | 3.02 / 1.69 |
+| saveCodec | 1.17 | 1.48 | | MenuMatrixPanel | 4.15 | 4.16 |
+| SaveSheet | 1.78 | 2.16 | | mapParts | 9.95 | 9.93 |
+| HandsOnShift | 112.54 | 112.66 | | decorArt / sprites / device | 18.79 / 10.56 / 0.18 | 18.78 / 10.56 / 0.18 |
+| RestaurantView | 38.48 | 38.57 | | BankCards (new) | — | 3.74 |
+| EmpireTab | 47.33 | 48.66 | | EmpireEnd (new) | — | 2.95 |
+| NewGame (new, was in main) | — | 6.28 | | ForkCard (new, was in main) | — | 3.55 |
+| StartPicker (new, was in main) | — | 5.85 | | GoalExplainer (new) | — | 4.21 |
+| GameOver (new, was in main) | — | 2.05 | | WordsDialog (new) | — | 0.74 |
+
+`content` +8 kB is D's soft-drinks view; `paths` +11 kB is C's focus/board code plus A's command guards.
+
+## R11.8 Probe and type audit (built dist, `vite preview` :5701; baseline `scripts/probe-baseline.json` rewritten)
+
+| run | screens | targets < 44 (all glossary terms) | overflow screens | covered | text < 13 | errors |
+|---|---|---|---|---|---|---|
+| 1280×800 normal | 38 → 39 | 283 → 288 | 0 → 0 | 5 → 7 | 0 → 0 | 0 → 0 |
+| 1024×768 normal | 38 → 39 | 291 → 312 | 0 → 0 | 12 → 12 | 0 → 0 | 0 → 0 |
+| **768×1024 normal** | 38 → 39 | 291 → 288 | **38 → 0** | 20 → 33 | 0 → 0 | 0 → 0 |
+| 1280×800 Bigger | 38 → 39 | 269 → 275 | 0 → 0 | 8 → 8 | 0 → 0 | 0 → 0 |
+| 1024×768 Bigger | 38 → 39 | 290 → 311 | 0 → 0 | 13 → 13 | 0 → 0 | 0 → 0 |
+| **768×1024 Bigger** | 38 → 39 | 290 → 287 | **38 → 0** | 19 → 31 | 0 → 0 | 0 → 0 |
+
+Non-term targets (disabled, switch, handler-only) stay 0 everywhere; contrast 4 (the empty ★ glyphs) as before. **Sideways scroll at 768 is gone on every screen.** **Glossary targets did not fall:** D's `tabIndex=-1` takes terms out of the Tab order (keyboard), but they are still tappable 17–30 px words, which is what E's probe counts — and D's own rule ("a trade word on screen is either gone or inside a Term") adds terms: the lease's "People walking past", Service's "Take off tonight" header, the Empire strip's HQ chip, the career rung names (+1–4 per screen; day-1 Menu's 71 unchanged). Portrait "covered" hits are content scrolled under the pinned dock and tabs under the edge fade (D's design). Type audit (now 1280, 1024 and 768-touch): **117 screens per text size, 0 DOM and 0 canvas text runs < 13 px, 0 page errors**, normal and Bigger.
+
+## R11.9 Playtests (built dist on :5701, Playwright Chromium, touch unless noted; 0 page errors in every run)
+
+- **New player to day 3** at 1024×768 and 768×1024: no sideways scroll (scrollWidth = viewport); with the default settings **no drink word** on the menu, the full stock list or any button (control run with the setting off: ale, wine, beer, prosecco, lager present); Open for service on screen every morning; Skip to evening each day.
+- **Owner 7 days** (Normal, 1024): decor on day 1, restock, morning post; day 8 Star/Dog pills appear only after 7 days of sales. **Decor spree** (B's p11, Hard): four buys, then "This leaves you with £630 — are you sure?" at each further item; kept **£1,130**, a chef affordable. **No-hire** (real saves): day 31 "Save £68 to hire a chef" + loan tip → Borrow £1,000 → hired; day 81 "Bank: 13 days left" and the evening card; day 92 the last-days banner; the loss kept as "Lost — day 93"; **Start over with the same restaurant** → day 1, same name.
+- **Empire bust at the flagship** (C's save of master's `empire-f3-3.json`) at both sizes: opens on the evening, "Head office topped up the till £128,430", no game-over screen, the pending board meeting opens. **Broke HQ**: "R3 has run out of money" card → Close this shop and move on → Harbourton Business Park, day 661.
+- **Stars** save at both sizes: "Golden Plate", no "Michelin", no "satellite", no drink words; no sideways scroll at 768.
+- **Win** (dynasty save): the win screen. **Crafted imports**: obj-name and staff-obj "damaged", bomb "too big", XSS name loaded as plain text.
+- **Mid-shift reload** (Normal, On the pass, 1×): clock 12:15 → 14:25, reload, Continue → straight back in hands-on with "Back on your shift from 14:00 — the game saves every hour of service."
+- **Keyboard** (1280, no touch): from the top of a planning screen Tab → "Skip to main action", Enter → focus on Open for service, Enter → service; "?" opens What the words mean. (Tabbing straight through the menu without the skip link is still ~77 stops — the menu's Add/price buttons — but no glossary terms.)
+- The red-team's own `s7` stops at B's new confirm dialog (it doesn't answer it), `s13` shows no sideways scroll at 768 on every tab, `s14` no glossary terms in the Tab order.
+
+Screenshots: `shots/r11/review/` (newplayer-*, owner7-*, p11/, empirebust-*, empirebroke-*, stars-*, win-*, import-*, resume-*, keyboard-*, ux-s13-*, audit-normal/, audit-large/).
+
+## R11.10 Findings
+
+| id | status | evidence |
+|---|---|---|
+| S1 | CLOSED | e2e + brick test: refused "damaged", title/Your games render; CrashGuard |
+| S2 | CLOSED | harness hugeName: account stays on, name 40 chars |
+| S3 | CLOSED | day-string, staff object, 1e5 staff, bogus phase refused; schema on every load path |
+| G1 | CLOSED | f3-load (top-up, 120 days no game over), empirebust/empirebroke playtests, archive rule test |
+| G2 | CLOSED | cosy-lock: hire possible on day 199 on all seeds; starter loan playtest |
+| G3 | CLOSED | dynasty 12/20 cold, 7/10 fork by year 10 (≥ 50 %) |
+| U1 | CLOSED | probe 768: 0 overflow screens; playtests at 768 |
+| U2 | CLOSED | p11 spree keeps £1,130, chef affordable; "Needs £X" visible |
+| U3 | CLOSED | chip/card/banner playtest; nohire bank-warnings line; archived "Lost — day 93" |
+| S4 | CLOSED | bomb refused in 0.3 s, 6 MiB heap |
+| S5 | CLOSED | harness sharedDevice: B got 0 of A's games, A's kept |
+| S6 | CLOSED | 1 chunk for a padded save; ≤ 2 backups; 0 orphans |
+| S7 | CLOSED | pages.yml permissions `{}` + per job; pipeline test |
+| G4 | CLOSED | sim-stars round11.dynasty test (El Bulli win only with ★★★ on 2 guides) |
+| G5 | CLOSED | switchSite refuses a franchise; hands-on button only on company shops |
+| G6 | CLOSED | F2: float £3,720 from HQ, no free £20k |
+| G7 | CLOSED | 10 sites 16.50 → 0.58 MB raw |
+| G8 | CLOSED | EmpireEnd + checkpoint test; sinking card from day 465 in empire-bust |
+| U4 | CLOSED | B's reducer test; one toast at a time in playtests |
+| U5 | CLOSED | pills only from day 8 (owner7) |
+| U6 | CLOSED | round11.losing tests (greyed tip/choice) |
+| U7 | CLOSED | D's key-screen test + review extension; "HQ" gone from sentences |
+| U8 | CLOSED | default hides every drink word (playtest, control with it off) |
+| U9 | CLOSED | Tab → skip link → Open for service; terms out of Tab order |
+| U10 | PARTIAL | Skip to evening, remembered speed, Cosy 4×; the year is still ≈ 4.7–6 h of play |
+| U11 | CLOSED | reload at 14:25 resumes hands-on from 14:00 |
+| T1 | CLOSED | probe/audit in the repo, baseline re-set (R11.8) |
+| T2 | CLOSED | aggregates re-measured after the merge, unchanged |
+| T3 | CLOSED | corpus.test 31/31 on the merged validators |
+| T4 | CLOSED | README, ARCHITECTURE, `.nvmrc`, engines |
+| S8 | CLOSED | SHA pins, Dependabot |
+| S9 | CLOSED | `pnpm audit`: no known vulnerabilities; no `--host` (only `dev:lan`) |
+| S10 | CLOSED | forged chunkCount → 1 read |
+| S11 | CLOSED (by design, not reproduced) | a failed header write re-reads the header before the next push (A) |
+| S12 | PARTIAL | bidi/zero-width stripped, `?autopilot`/`?perf` dev-gated, prefs capped at 50; still no CSP, and GitHub Pages' shared origin is inherent |
+| S13 | CLOSED | `fonts-licence/OFL.txt`, Settings About line |
+| G9 | CLOSED | micro.ts: Object.prototype names rejected in all dispatchers |
+| G10 | CLOSED | empire-exploits D lines: every NaN/Infinity refused; autosave catch |
+| G11 | CLOSED | A's tests (kinds, NaN, MAX_SATELLITES) |
+| G12 | CLOSED | fork once, from day 365, owner only (A's test; reducer fuzz 0 issues) |
+| G13 | CLOSED | micro.ts 2: duplicate id refused |
+| G14 | PARTIAL | campaign min/stacking, transfer cap, rounding fixed; SET_OWNER_PROFILE gated in the reducer but still accepted by the sim API |
+| U12 | CLOSED | "Your career", Tap, mood sign, rough-night reviews, Golden Plate, Stock filter, burnout line, one formatter, RestaurantView split |
+
+## R11.11 Still open
+
+1. **Glossary words as touch targets:** 288–312 inline terms under 44 px per run; they're out of the Tab order now but a finger still hits 17 px words. A taller invisible hit area (or fewer inline terms on day-1 Menu) would bring the probe's count down.
+2. **U10 length:** the fork is still ≈ 4.7 h even skipping every service; a Cosy "quick year" was in the red-team's list and isn't done.
+3. **S12:** no Content-Security-Policy meta; Pages origin shared across the owner's project pages (localStorage readable by sibling repos).
+4. **G14:** `SET_OWNER_PROFILE` remains a public sim command (only the reducer refuses it).
+5. Starter chef stays **off** (`STARTER_CHEF = false`): B's experiment cost typical −2 and cheap −3 points; it rescues the never-hire child (0 → 73.5 %), so it's one flag away if a child playtest says the loan isn't enough.
+6. Probe/audit aren't in CI (Playwright's Chromium on the runner); the baseline only guards when someone runs them.
+7. Main chunk 194.9 kB of 200: the next shell feature should move something else out (Settings' sheet body or the Evening's bank/decor rows are the next candidates).
