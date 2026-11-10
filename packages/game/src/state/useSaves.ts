@@ -34,7 +34,7 @@ export function saveNote(status: StoreStatus): { icon: "cloud" | "cloudOff" | "w
  */
 export function autosaveKey(game: GameState, m: PathMeta): string {
   const hour = game.phase === "service" ? `:h${Math.floor(game.tick / SERVICE_HOUR_TICKS)}:${m.handsOn?.role ?? ""}` : "";
-  return `${m.mode}:${game.seed}:${game.day}:${game.phase}:${m.fork.chosen ?? ""}:${m.empire?.nextId ?? ""}:${m.stars?.nextId ?? ""}:${m.stars?.ledger.persistentMult ?? ""}:${m.career?.day ?? ""}:${m.career?.log.length ?? ""}:${m.career?.handover ? 1 : 0}${hour}:${m.brand ?? ""}`;
+  return `${m.mode}:${game.seed}:${game.day}:${game.phase}:${m.fork.chosen ?? ""}:${m.empire?.nextId ?? ""}:${m.stars?.nextId ?? ""}:${m.stars?.ledger.persistentMult ?? ""}:${m.career?.day ?? ""}:${m.career?.log.length ?? ""}:${m.career?.handover ? 1 : 0}${hour}:${m.brand ?? ""}:${(m.customDishes ?? []).map((d) => d.id).join(",")}`;
 }
 
 /**

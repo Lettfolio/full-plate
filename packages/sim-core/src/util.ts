@@ -39,6 +39,8 @@ export const isWeekend = (day: number): boolean => WEEKEND_DAYS.includes(weekday
 
 // ── content lookups (linear scans are fine at content sizes; cached per pack) ──
 interface Index {
+  /** Round 12 (F): the dishes array the map was built from; a pack whose `dishes` is replaced is re-indexed. */
+  dishList: readonly DishDef[];
   dishes: Map<string, DishDef>;
   ingredients: Map<string, IngredientDef>;
   segments: Map<string, SegmentDef>;
@@ -49,8 +51,9 @@ const indexCache = new WeakMap<ContentPack, Index>();
 
 function indexOf(content: ContentPack): Index {
   let idx = indexCache.get(content);
-  if (!idx) {
+  if (!idx || idx.dishList !== content.dishes) {
     idx = {
+      dishList: content.dishes,
       dishes: new Map(content.dishes.map((d) => [d.id, d])),
       ingredients: new Map(content.ingredients.map((i) => [i.id, i])),
       segments: new Map(content.segments.map((s) => [s.id, s])),

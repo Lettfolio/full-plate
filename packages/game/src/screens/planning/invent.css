@@ -1,0 +1,46 @@
+/* Round 12 (F): the "Invent a dish" sheet and the Cookbook strip (loaded with their lazy chunks). */
+.invent { width: min(960px, 100%); max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); display: flex; flex-direction: column; }
+.invent .modal__body { overflow-y: auto; min-height: 0; padding-bottom: 0; }
+.invent__grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+@media (max-width: 760px) { .invent__grid { grid-template-columns: 1fr; } }
+.invent__field { display: flex; flex-direction: column; gap: 6px; }
+.invent__label { font-weight: var(--fw-label); color: var(--ink-soft); }
+.invent__name { min-height: var(--control-h); font: inherit; font-size: var(--fs-body); padding: 8px 12px; border: 2px solid var(--border-ink, var(--ink)); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--ink); }
+.invent__seg { align-self: flex-start; flex-wrap: wrap; }
+.invent__seg .seg__opt[aria-pressed="true"] { background: var(--ink); color: var(--paper); box-shadow: 0 2px 0 rgba(0,0,0,0.25); }
+.invent__icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.invent__icon { min-width: 44px; min-height: 44px; font-size: 24px; line-height: 1; border: 1.5px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-raised); cursor: pointer; }
+.invent__icon[aria-pressed="true"] { border: 2px solid var(--ink); background: var(--surface-inset); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+.invent__ings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.invent__ing { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1.5px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-raised); flex-wrap: wrap; }
+.invent__ingname { display: flex; flex-direction: column; flex: 1; min-width: 140px; }
+.invent__add { gap: 8px; flex-wrap: wrap; }
+.invent__select { min-height: var(--control-h); flex: 1; min-width: 200px; font: inherit; font-size: var(--fs-body); padding: 0 10px; border: 2px solid var(--ink); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--ink); }
+.invent__facts { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-md); background: var(--surface-inset); border: 1.5px solid var(--border-subtle); }
+.invent__preview { display: flex; align-items: center; gap: 12px; }
+.invent__plate { font-size: 40px; line-height: 1; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--ink); flex: none; }
+.invent__dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+.invent__dl > div { display: flex; flex-direction: column; }
+.invent__dl dt { font-weight: var(--fw-label); color: var(--ink-soft); font-size: var(--fs-small); }
+.invent__dl dd { margin: 0; font-family: var(--font-display, inherit); font-size: 20px; font-variant-numeric: tabular-nums; }
+.invent__note { padding: 8px 10px; border-radius: var(--radius-sm); font-size: var(--fs-small); }
+.invent__note--warn { background: var(--warning-wash, #fff4d6); border: 1.5px solid var(--warning, #8a5a00); }
+.invent__guess { padding: 10px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-subtle); background: var(--surface-raised); border-left-width: 5px; }
+.invent__guess--favourite { border-left-color: var(--success, #2e7d32); }
+.invent__guess--steady { border-left-color: var(--info, #1f5f8b); }
+.invent__guess--slow { border-left-color: var(--warning, #8a5a00); }
+.invent__guess--hard { border-left-color: var(--danger, #b3261e); }
+.invent__price { display: flex; flex-direction: column; gap: 6px; }
+.invent__foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: var(--space-3) 0 var(--space-4); border-top: 1.5px solid var(--border-subtle); position: sticky; bottom: 0; background: var(--paper); }
+
+/* the Cookbook strip on the Menu tab */
+.cookbook { margin-top: 20px; }
+.cookbook__head { margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+.cookbook__strip { display: flex; gap: 8px; overflow-x: auto; list-style: none; margin: 0; padding: 0 0 6px; }
+.cookbook__card { flex: 0 0 auto; width: 200px; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 2px solid var(--ink); border-radius: var(--radius-sm); background: var(--surface-raised); box-shadow: 0 3px 0 rgba(0,0,0,0.12); }
+.cookbook__top { display: flex; align-items: center; gap: 8px; }
+.cookbook__icon { font-size: 28px; line-height: 1; }
+.cookbook__sold { font-family: var(--font-display, inherit); font-size: 20px; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .invent__icon, .cookbook__card { transition: none; } }
+.invent__error { color: var(--danger, #b3261e); font-weight: 700; }
+.invent__price .stepper { align-self: flex-start; }

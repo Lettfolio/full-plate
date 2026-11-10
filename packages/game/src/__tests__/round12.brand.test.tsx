@@ -130,7 +130,8 @@ describe("saves", () => {
       const name = l.meta.empire?.brand.name ?? l.game.restaurantName;
       const b = resolveBrand(l.meta.brand, name, l.meta.mode === "career" && !!l.meta.career && !l.meta.career.handover);
       expect(BRAND_RE.test(encodeBrand(b))).toBe(true);
-      if (!e.file.startsWith("r12-")) expect(b).toEqual(defaultBrand(name));
+      // Merge (R12 review): only B's branded save stores a brand; F's r12-owner-invented save gets the default.
+      if (!e.file.startsWith("r12-owner-branded")) expect(b).toEqual(defaultBrand(name));
       else expect(l.meta.brand).toBeTruthy();
     }
   });

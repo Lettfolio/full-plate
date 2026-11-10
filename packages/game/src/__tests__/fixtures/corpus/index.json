@@ -210,6 +210,13 @@
    "key": "save",
    "origin": "generated (round 12 B: r11-owner-staffed-normal-d40 loaded, then a brand set through the reducer)",
    "what": "round 12: an owner game with a custom brand kit (meta.brand)"
+  },
+  {
+   "file": "r12-owner-invented-d6.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated once (round 12 F, the invent-a-dish tests' recipe)",
+   "what": "round 12: owner on day 7 with two invented dishes (a risotto on the menu since day 1, a pudding since day 4) and their cookbook sales"
   }
  ]
 }

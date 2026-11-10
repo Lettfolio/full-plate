@@ -2,7 +2,9 @@ import type { Command, ContentPack, DayResult, GameState, Goal, LogEntry, SimEve
 import type { CareerCommand, CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
-import { applyCommand, asCommand, content, HOOKS, newGame, tick } from "../sim";
+import { applyCommand, asCommand, content, cookbook, customRef, HOOKS, newGame, tick } from "../sim";
+import { inventInto } from "@full-plate/content";
+import type { CustomDish } from "../lib/customDish";
 import { formatPence } from "../lib/format";
 import { clockLabel } from "../lib/calendar";
 import { forkDayOf, forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
@@ -90,6 +92,8 @@ export type AppAction =
   | { type: "handsOnScore"; summary: ShiftSummary }
   | { type: "tastingMenu"; menuId: string | null }
   | { type: "command"; cmd: Command }
+  /** Round 12 (F): a dish the player invented goes into the cookbook (the sheet then adds it to the menu). */
+  | { type: "invent"; dish: CustomDish }
   | { type: "ticks"; n: number }
   | { type: "toast"; text: string; tone?: ToastTone }
   | { type: "dismissToast" }
@@ -204,7 +208,12 @@ function rejectToast(s: AppState, why: string | undefined): AppState {
 
 export function appReducer(s: AppState, a: AppAction): AppState {
   const next = reduce(s, a);
-  return next === s ? s : boardCheckpoint(clearStaleToast(s, morningActions(settle(next))));
+  if (next === s) return s;
+  // Round 12 (F): the pack carries this game's invented dishes (memoised on the array), and each new day's sales of
+  // them go into their lifetime count (content's customDish.ts).
+  const out = boardCheckpoint(clearStaleToast(s, morningActions(settle(next))));
+  const meta = cookbook(out.meta, out.game);
+  return meta === out.meta ? out : { ...out, meta };
 }
 
 /**
@@ -300,6 +309,10 @@ function reduce(s: AppState, a: AppAction): AppState {
         }
       }
       return absorb(next, res.events);
+    }
+    case "invent": {
+      const meta = inventInto(s.meta, a.dish, s.game, customRef);
+      return meta === s.meta ? s : { ...s, meta };
     }
     case "ticks": {
       if (!s.game || s.game.phase !== "service" || a.n <= 0) return s;

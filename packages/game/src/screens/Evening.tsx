@@ -37,6 +37,7 @@ import { formatPence } from "../lib/format";
 import { ArrowLabel, Icon } from "../components/Icon";
 import { Panel } from "../components/Panel";
 import { CountUp } from "../lib/motion";
+import { withNewDishReview } from "@full-plate/content";
 
 /** Round 12 (A): tonight beat every earlier night (at least two of them, and tonight made money). */
 export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boolean {
@@ -251,6 +252,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
     );
   }
   const r = result;
+  const reviews = withNewDishReview(r.reviews, meta, game.seed, game.restaurantName, r); // R12-F: an invented dish's first night
   // profit = revenue − vat − food − prep waste − spoilage − labour − rent − overheads − incident costs − loan (sim-core stats.ts).
   // Plate waste is already inside food cost, so it is shown as a note, not a line.
   const vat = r.vat ?? 0;
@@ -388,10 +390,10 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
             </Panel>
           )}
 
-          <Panel title="What people said" sub={`${r.reviews.length} review${r.reviews.length === 1 ? "" : "s"}`}>
-            {r.reviews.length === 0 ? <div className="empty small">Nobody wrote anything today.</div> : (
+          <Panel title="What people said" sub={`${reviews.length} review${reviews.length === 1 ? "" : "s"}`}>
+            {reviews.length === 0 ? <div className="empty small">Nobody wrote anything today.</div> : (
               <div className="reviews">
-                {r.reviews.map((rv, i) => (
+                {reviews.map((rv, i) => (
                   <div key={i} className="review">
                     <span className="review__icon" title={SOURCE[rv.source].label} aria-hidden="true">{SOURCE[rv.source].icon}</span>
                     <div>

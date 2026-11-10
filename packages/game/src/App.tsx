@@ -377,6 +377,7 @@ export function App() {
             onFocusSite={(siteId) => dispatch({ type: "focusSite", siteId })}
             onTastingMenu={(menuId) => dispatch({ type: "tastingMenu", menuId })}
             onBrand={(code) => dispatch({ type: "brand", code })}
+            onInvent={(dish) => dispatch({ type: "invent", dish })}
           />
         )}
         {inService && meta.handsOn && (

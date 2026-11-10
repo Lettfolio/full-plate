@@ -1,0 +1,13 @@
+{
+  "_note": "Round 12 (F). Read by the game, not sim-core. newDish: one review line on the Evening the first night a dish the player invented sells. Placeholders: {dish}, {restaurant}. Picked by a hash of the seed, day and dish, so a reload shows the same line.",
+  "newDish": [
+    "First time I've seen the {dish} anywhere. Ordered it out of curiosity, finished it out of respect.",
+    "The {dish} is new and it shows: a bit of nerve on a plate. I'd have it again.",
+    "Asked what the {dish} was. The answer was 'ours'. Fair enough. It was good.",
+    "{restaurant} has started inventing things. The {dish} suggests they should keep going.",
+    "You won't find the {dish} in a cookbook. Yet.",
+    "Somebody at {restaurant} had an idea, and the idea was the {dish}. Bold. Mostly worked.",
+    "Took a chance on the {dish}. The chance paid off, which is more than I can say for my bus fare.",
+    "The {dish}: not on any other menu in town. Worth the trip just to say you've had it."
+  ]
+}

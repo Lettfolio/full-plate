@@ -10,6 +10,7 @@ import type { ShiftSummary, HandsOnResult, HandsOnRole, StationPlan } from "@ful
 import type { Command, DayResult, GameState } from "@full-plate/sim-core";
 import { asCommand } from "../sim";
 import type { PathKind } from "../lib/library";
+import type { CustomDish } from "../lib/customDish";
 
 export type GameMode = "owner" | "career";
 
@@ -168,6 +169,10 @@ export interface PathMeta {
   chapterSeen?: number | undefined;
   /** Round 12 (C): this game is a daily challenge (its own save, lib/challenge.ts), not one of the six slots. */
   challenge?: ChallengeMeta | undefined;
+  /** Round 12 (F): dishes the player invented (lib/customDish.ts; put into the pack by sim.ts syncCustomDishes). */
+  customDishes?: CustomDish[];
+  /** Round 12 (F): last history day folded into the custom dishes' lifetime sales. */
+  cookbookDay?: number;
 }
 
 /** Round 12 (C): what the score screen needs to know about where a daily challenge started. */
