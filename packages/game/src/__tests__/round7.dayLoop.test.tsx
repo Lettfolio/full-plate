@@ -190,7 +190,7 @@ describe("GameOver: the cause in one sentence", () => {
     const g = { ...played(), history: days(14, () => ({ profit: -100 })) };
     render(<GameOver game={g} reason="Cash stayed below the bank's limit for 14 days." onRetrySameSeed={noop} onNewSeed={noop} onTitle={noop} />);
     expect(screen.getByTestId("gameover-cause").textContent).toMatch(/^You lost money on 14 of your last 14 days/);
-    expect(screen.getByRole("button", { name: "Play this start again" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start over with the same restaurant" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "New game" })).toBeTruthy();
     expect(screen.queryByText(/seed/i)).toBeNull();
   });

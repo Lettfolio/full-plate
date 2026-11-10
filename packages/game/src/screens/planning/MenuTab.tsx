@@ -7,7 +7,7 @@ import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
 import { marginFraction, plateCost } from "../../lib/content";
 import { pct } from "../../lib/format";
-import { QUADRANT } from "./quadrants";
+import { judged, QUADRANT, QUADRANT_MIN_DAYS } from "./quadrants";
 // Round 7: the matrix is the expert view, loaded the first time it is opened.
 const MenuMatrixPanel = lazy(() => import("./MenuMatrixPanel"));
 import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
@@ -113,16 +113,19 @@ export function MenuTab({ game, send, path }: Props) {
               const d = content.dishes.find((x) => x.id === m.dishId);
               const cost = plateCost(content, m.dishId);
               const f = marginFraction(m.price, cost);
-              const q = quadrants[m.dishId];
+              const q = judged(m) ? quadrants[m.dishId] : undefined;
               return (
                 <div key={m.dishId} className={`dish ${m.active ? "" : "dish--off"}`} onMouseEnter={() => setHover(m.dishId)} onMouseLeave={() => setHover(null)} style={hover === m.dishId ? { borderColor: "var(--ink)" } : undefined}>
                   <span className="dish__course" title={d?.course}>{d ? COURSE_ICON[d.course] : "🍽️"}</span>
                   <div style={{ minWidth: 0 }}>
                     <div className="row">
                       <span className="dish__name">{d?.name ?? m.dishId}</span>
-                      {m.active && q && <span className={`pill pill--${q}`} title={QUADRANT[q].hint}>{QUADRANT[q].label}</span>}
+                      {m.active && q && <span className={`pill pill--${q}`}>{QUADRANT[q].label}</span>}
                       {!m.active && <span className="pill pill--off">Off today</span>}
                     </div>
+                    {/* Round 11 (U5): the advice as words under the name; nothing until a week of sales. */}
+                    {m.active && (q ? <div className="dish__hint" data-testid="dish-hint">{QUADRANT[q].short}</div>
+                      : <div className="dish__hint" data-testid="dish-hint">New: judged after {QUADRANT_MIN_DAYS} days of sales</div>)}
                     <div className="dish__meta">
                       <span>cost <MoneyText pence={cost} /></span>
                       <span>suggested <MoneyText pence={d?.suggestedPrice ?? 0} /></span>

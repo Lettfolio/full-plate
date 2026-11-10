@@ -28,10 +28,22 @@ const FALLBACK_TEMPLATES: Record<string, string[]> = {
   "3": ["Decent enough. The {dish} was fine.", "Average night out — nothing special, nothing wrong."],
   "4": ["Lovely {dish}! Will be back.", "Really good meal at {restaurant}, friendly staff."],
   "5": ["Best {dish} in town. {restaurant} is a gem!", "Faultless. Book now before everyone finds out."],
+  rough: ["Good {dish}, but it was chaos in here tonight.", "Our table was happy. The queue by the door wasn't."],
 };
 
-export function reviewText(content: ContentPack, state: GameState, rng: Rng, rating: number, dishId?: string, segmentId?: string): string {
-  const pool = content.reviewTemplates?.[String(rating)] ?? FALLBACK_TEMPLATES[String(rating)] ?? ["…"];
+/**
+ * Round 11 (U12): a night where more people walked out than were served, or the stars averaged under ROUGH_NIGHT_RATING,
+ * is "rough": a 4★/5★ guest's words come from the "rough" pool ("Good pie, but it was chaos in here tonight") instead of
+ * "Five stars isn't enough!". The rating is unchanged and `rng.pick` draws once either way, so the stream is the same.
+ */
+export const ROUGH_NIGHT_RATING = 2.5;
+export function roughNight(walkouts: number, covers: number, meanRating: number | undefined): boolean {
+  return walkouts > covers || (meanRating !== undefined && meanRating < ROUGH_NIGHT_RATING);
+}
+
+export function reviewText(content: ContentPack, state: GameState, rng: Rng, rating: number, dishId?: string, segmentId?: string, rough = false): string {
+  const key = rough && rating >= 4 ? "rough" : String(rating);
+  const pool = content.reviewTemplates?.[key] ?? FALLBACK_TEMPLATES[key] ?? ["…"];
   const dish = (dishId && findDish(content, dishId)?.name) || "food";
   const segment = (segmentId && findSegment(content, segmentId)?.name) || "guest";
   return rng
@@ -47,12 +59,13 @@ export function writeReviews(content: ContentPack, state: GameState, rng: Rng, t
   const sources = REVIEW_SOURCE_WEIGHTS.map((s) => s.source);
   const weights = REVIEW_SOURCE_WEIGHTS.map((s) => s.weight);
   const reviews: Review[] = [];
+  const rough = roughNight(state.todays.walkouts ?? 0, covers, tally.ratedCovers > 0 ? tally.ratingSum / tally.ratedCovers : undefined);
   for (const p of rng.shuffle(tally.paid).slice(0, count)) {
     reviews.push({
       day: state.day,
       source: rng.weighted(sources, weights) ?? "online",
       rating: p.rating,
-      text: reviewText(content, state, rng, p.rating, p.dishId, p.segment),
+      text: reviewText(content, state, rng, p.rating, p.dishId, p.segment, rough),
       ...(p.dishId ? { dishId: p.dishId } : {}),
       quality: p.quality,
     });

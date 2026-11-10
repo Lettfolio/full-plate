@@ -57,11 +57,13 @@ interface Props {
   onClose: () => void;
   /** A slot is opening. */
   busy?: string | null;
+  /** Round 11: an archived ("Lost — day N") game starts again with the same restaurant, in its own slot. */
+  onRestart?: (slotId: string) => void;
 }
 
 type Ask = { kind: "delete" | "overwrite"; slot: SlotView } | null;
 
-export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy }: Props) {
+export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy, onRestart }: Props) {
   const { slots } = useSaves(store);
   const [ask, setAsk] = useState<Ask>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -145,7 +147,7 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy }: 
           const where = WHERE[s.where];
           const isRenaming = renaming === s.slotId;
           return (
-            <li key={s.slotId} className={`slot${fresh === s.slotId ? " slot--fresh" : ""}`} aria-label={s.name}>
+            <li key={s.slotId} className={`slot${fresh === s.slotId ? " slot--fresh" : ""}${s.archived ? " slot--lost" : ""}`} aria-label={s.archived ? `${s.name}, lost on day ${s.day + 1}` : s.name}>
               <div className="slot__head">
                 {isRenaming ? (
                   <form className="slot__rename" onSubmit={(e) => { e.preventDefault(); void saveName(s); }}>
@@ -161,13 +163,17 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy }: 
               </div>
               {s.name !== s.restaurantName && <div className="slot__sub">{s.restaurantName}</div>}
               <div className="slot__meta">
-                <span className="slot__day">Day {s.day + 1}</span>
+                {s.archived ? <span className="slot__day slot__lost" data-testid="slot-lost">Lost — day {s.day + 1}</span> : <span className="slot__day">Day {s.day + 1}</span>}
                 <MoneyText pence={s.cash} whole className={s.cash < 0 ? "money--neg" : ""} />
                 <span className="slot__date">{dateLabel(s.day)}</span>
               </div>
               <div className="slot__when"><Icon name={where.icon} size={18} />Played {playedAgo(s.updatedAt)} · {s.cantSync ? "Can't go to your account (too big), kept on this device" : where.text}</div>
               <div className="slot__actions">
-                {mode === "browse" ? (
+                {mode === "browse" && s.archived ? (
+                  <button className="btn btn--primary btn--tap" onClick={() => onRestart?.(s.slotId)} disabled={!!busy || !onRestart} aria-label={`Start ${s.restaurantName} over`} {...(i === 0 ? { "data-autofocus": true } : {})}>
+                    {busy === s.slotId ? "Opening…" : "Start over with the same restaurant"}
+                  </button>
+                ) : mode === "browse" ? (
                   <button className="btn btn--primary btn--tap" onClick={() => onContinue(s.slotId)} disabled={!!busy} aria-label={`Continue ${s.name}`} {...(i === 0 ? { "data-autofocus": true } : {})}>
                     {busy === s.slotId ? "Opening…" : "Continue"}<Icon name="forward" size={20} />
                   </button>
@@ -176,6 +182,7 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy }: 
                 )}
                 {mode === "browse" && (
                   <>
+                    {s.archived && <button className="btn btn--ghost btn--tap" onClick={() => onContinue(s.slotId)} disabled={!!busy} aria-label={`What happened to ${s.name}`}>What happened</button>}
                     <button className="btn btn--ghost btn--tap" onClick={() => { setDraft(s.name); setRenaming(s.slotId); }} aria-label={`Rename ${s.name}`}><PickIcon name="pencil" />Rename</button>
                     <button className="btn btn--ghost btn--tap" onClick={() => void toFile(s)} aria-label={`Save ${s.name} to a file`}><Icon name="download" size={20} />Save to a file</button>
                     <button className="btn btn--ghost btn--tap slot__delete" onClick={() => setAsk({ kind: "delete", slot: s })} aria-label={`Delete ${s.name}`}><PickIcon name="trash" />Delete</button>

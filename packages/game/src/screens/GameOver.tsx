@@ -15,8 +15,9 @@ interface Props {
 
 /**
  * Round 7 (B): the cause in one sentence from her own last fortnight (`gameOverCause`), the bank's rule under it, and
- * plain buttons. There is no "last Monday" save to go back to (a game over deletes the save; nothing keeps a weekly
- * snapshot), so "Play this start again" replays the same restaurant from day 1 and "New game" picks a new start.
+ * plain buttons. Round 11 (U3): the game is no longer deleted — it stays in Your games, greyed, as "Lost — day N".
+ * Nothing keeps a weekly snapshot, so there is no "last Monday" to go back to: "Start over with the same restaurant"
+ * replays the same street, name and difficulty from day 1 (in the same slot) and "New game" picks a new start.
  */
 export function GameOver({ game, reason, onRetrySameSeed, onNewSeed, onTitle }: Props) {
   const h = game.history;
@@ -31,6 +32,7 @@ export function GameOver({ game, reason, onRetrySameSeed, onNewSeed, onTitle }: 
         <h1>{game.restaurantName} has closed its doors</h1>
         <p className="gameover__cause" data-testid="gameover-cause">{cause}</p>
         <p className="gameover__reason small">{reason ?? "The money ran out. It happens to the best of them."}</p>
+        <p className="gameover__kept small" data-testid="gameover-kept">It's kept in Your games as “Lost — day {game.day + 1}”, so you can always start it over.</p>
         <div className="gameover__stats">
           <StatTile label="Days open" value={game.stats.daysOpen} />
           <StatTile label="Guests fed" value={game.stats.totalCovers.toLocaleString("en-GB")} />
@@ -42,7 +44,7 @@ export function GameOver({ game, reason, onRetrySameSeed, onNewSeed, onTitle }: 
         <div className="gameover__buttons">
           <button className="btn btn--ghost" onClick={onTitle}>Title screen</button>
           <button className="btn" onClick={onNewSeed}>New game</button>
-          <button className="btn btn--primary btn--xl" onClick={onRetrySameSeed} autoFocus title={`Same street, same customers (seed ${game.seed}, ${game.difficulty})`}>Play this start again</button>
+          <button className="btn btn--primary btn--xl" onClick={onRetrySameSeed} autoFocus title={`Same street, same customers (seed ${game.seed}, ${game.difficulty})`}>Start over with the same restaurant</button>
         </div>
       </div>
     </div>

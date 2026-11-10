@@ -129,9 +129,9 @@ describe("economics", () => {
 });
 
 describe("review templates", () => {
-  it("has ~8 lines for each rating 1–5 using only known placeholders", () => {
+  it("has ~8 lines for each rating 1–5 (and round 11's \"rough\" night) using only known placeholders", () => {
     const rt = content.reviewTemplates!;
-    expect(Object.keys(rt).sort()).toEqual(["1", "2", "3", "4", "5"]);
+    expect(Object.keys(rt).sort()).toEqual(["1", "2", "3", "4", "5", "rough"]);
     for (const k of Object.keys(rt)) {
       expect(rt[k]!.length, k).toBeGreaterThanOrEqual(8);
       for (const line of rt[k]!) for (const ph of line.match(/\{[^}]*\}/g) ?? []) expect(["{dish}", "{restaurant}", "{segment}"]).toContain(ph);

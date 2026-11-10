@@ -1,6 +1,7 @@
 import type { Command, GameState } from "@full-plate/sim-core";
 import { content, TABLE_COST } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
+import { useSpendGuard } from "../../components/SpendGuard";
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
@@ -9,6 +10,7 @@ export function RestaurantTab({ game, send }: Props) {
   const seats = game.tables.reduce((a, t) => a + t.seats, 0);
   const roomLeft = game.tables.length < max;
   const affordable = game.cash >= TABLE_COST;
+  const { guard, dialog } = useSpendGuard(game);
   return (
     <div className="floorplan">
       <div className="stack stack--sm">
@@ -34,9 +36,10 @@ export function RestaurantTab({ game, send }: Props) {
           but only if the kitchen and your servers can keep up.
         </p>
         <p className="small">Price: <b><MoneyText pence={TABLE_COST} whole /></b></p>
-        <button className="btn btn--green" disabled={!roomLeft || !affordable || game.phase !== "planning"} onClick={() => send({ type: "BUY_TABLE" })}>
-          {!roomLeft ? "Room is full" : affordable ? <>Buy table · <MoneyText pence={TABLE_COST} whole /></> : "Not enough cash"}
+        <button className="btn btn--green" disabled={!roomLeft || !affordable || game.phase !== "planning"} onClick={() => guard(TABLE_COST, "Another table", () => send({ type: "BUY_TABLE" }))}>
+          {!roomLeft ? "Room is full" : affordable ? <>Buy table · <MoneyText pence={TABLE_COST} whole /></> : <>Needs <MoneyText pence={TABLE_COST - game.cash} whole /> more</>}
         </button>
+        {dialog}
       </aside>
     </div>
   );

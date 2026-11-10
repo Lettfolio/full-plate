@@ -62,6 +62,8 @@ export interface SlotSummary {
   updatedAt: string;
   /** Round 11: a "Backup of …" slot remembers which game it backs up (at most MAX_BACKUPS each). */
   backupOf?: string;
+  /** Round 11: the game has ended (the bank closed it). Kept, greyed, as "Lost — day N"; absent = still playing. */
+  archived?: boolean;
 }
 
 /** The header document `data/users/<id>/save-<slotId>`. Written after its chunks, so a half-written save never lists. */
@@ -170,11 +172,13 @@ export function slotPath(meta: PathMeta): SlotPath {
   return meta.mode === "career" && meta.career && !meta.career.handover ? "career" : meta.empire ? "empire" : meta.stars ? "stars" : "owner";
 }
 export function defaultSlotName(game: GameState, meta: PathMeta): string {
-  return slotPath(meta) === "career" && meta.career!.playerName ? `${meta.career!.playerName}'s career` : game.restaurantName || "My restaurant";
+  // Round 11 (U12): a blank career name is "You" in sim-career — "Your career", never "You's career".
+  const who = slotPath(meta) === "career" ? meta.career!.playerName?.trim() : "";
+  return who ? (who === "You" ? "Your career" : `${who}'s career`) : game.restaurantName || "My restaurant";
 }
 export function summarize(slotId: string, name: string, game: GameState, meta: PathMeta, updatedAt: string): SlotSummary {
   const path = slotPath(meta);
-  return pickSummary({ slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt });
+  return pickSummary({ slotId, name, mode: meta.mode, restaurantName: game.restaurantName, day: game.day, cash: path === "career" ? meta.career!.savings : game.cash, path, difficulty: game.difficulty, updatedAt, ...(isLost(game, meta) ? { archived: true } : {}) });
 }
 // eslint-disable-next-line no-control-regex
 const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b\u200c\u200e\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g;
@@ -193,6 +197,7 @@ export const pickSummary = (s: SlotSummary): SlotSummary => ({
   difficulty: s.difficulty === "cosy" || s.difficulty === "hard" ? s.difficulty : "normal",
   updatedAt: typeof s.updatedAt === "string" ? s.updatedAt.slice(0, 40) : "",
   ...(typeof s.backupOf === "string" ? { backupOf: s.backupOf.slice(0, 80) } : {}),
+  ...(s.archived === true ? { archived: true } : {}),
 });
 /** Round 11 (S5): the device's last account, as a hash (null outside an account). */
 export function lastOwner(storage: StorageLike | null): string | null {
@@ -200,7 +205,13 @@ export function lastOwner(storage: StorageLike | null): string | null {
 }
 /** Is this index entry visible to `viewer` (an owner hash)? Untied entries are everyone's until an account claims them. */
 export const visibleTo = (e: { owner?: string | undefined }, viewer: string | null): boolean => !viewer || !e.owner || e.owner === viewer;
-export const isOver = (game: GameState, meta: PathMeta) => game.phase === "gameover" && meta.mode === "owner";
+/**
+ * Round 11 (U3): a finished game is never deleted. The bank closed it (any path but a career that's still running —
+ * an employer going bust isn't her game ending): it is archived, kept and greyed as "Lost — day N" in Your games.
+ */
+export const isLost = (game: GameState, meta: PathMeta) => game.phase === "gameover" && slotPath(meta) !== "career";
+/** Round 9 removed an ended owner game on save; round 11 keeps every game (archived), so nothing is "over" enough to drop. */
+export const isOver = (_game: GameState, _meta: PathMeta) => false;
 
 // ── the store ──
 export interface StoreDeps {

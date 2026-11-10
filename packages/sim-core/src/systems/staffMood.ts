@@ -138,10 +138,15 @@ function personalityToday(content: ContentPack, s: Staff, day: number, ctx: DayC
  * every night; otherwise the biggest reason of all.
  */
 const note = (factors: readonly MoodFactor[], delta: number, personal: readonly MoodFactor[] = []): Staff["moodWhy"] => {
-  const own = mainReason(personal);
-  const main = own && Math.abs(own.delta) >= 1 ? own : mainReason(factors);
+  // Round 11 (U12): the reason points the same way as the day's change — never "stuck with Nikhil" beside ▲ +3.
+  const same = (f: MoodFactor) => Math.abs(delta) < 0.5 || Math.sign(f.delta) === Math.sign(delta);
+  const own = mainReason(personal.filter(same));
+  const main = own && Math.abs(own.delta) >= 1 ? own : mainReason(factors.filter(same));
   return { text: main?.text ?? (Math.abs(delta) < 0.5 ? "an ordinary day" : delta > 0 ? "a good day" : "a long day"), delta: round2(delta) };
 };
+
+/** [round 11] Exported for tests. */
+export const moodNote = note;
 
 export function updateStaffMember(content: ContentPack, s: Staff, day: number, ctx: DayContext): Staff {
   if (s.trainingDay === day) {

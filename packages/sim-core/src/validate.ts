@@ -126,6 +126,7 @@ const gameState = obj<GameState>({
   eightySixed: opt(arr(id, 1000)),
   hiredCandidates: opt(arr(int(0, 1000), 1000)),
   distressDays: opt(n),
+  starterLoan: opt(bool),
   service: opt(service),
   eventHistory: opt(arr(obj({ eventId: id, day }), 1000)),
   gameOverReason: opt(text),

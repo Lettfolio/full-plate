@@ -12,6 +12,8 @@ import { placeTip } from "../../components/Term";
 import { WEEKDAYS, weekdayIndex } from "../../lib/calendar";
 import { RotaWeek } from "./RotaWeek";
 import { isTrainingToday, moodFace, moodWord, onFloorToday, ROLE_LABEL, SHIFT_HOURS } from "../../lib/staff";
+import { useSpendGuard } from "../../components/SpendGuard";
+import { StarterLoanTip } from "../../components/BankCards";
 import "./staffRoom.css";
 
 /**
@@ -127,6 +129,7 @@ function LevelDots({ level }: { level: number }) {
 
 function Training({ s, game, today, send }: { s: Staff; game: GameState; today: number; send: Props["send"] }) {
   const tracks = tracksFor(s.role);
+  const { guard, dialog } = useSpendGuard(game);
   if (!tracks.length) return null;
   const training = isTrainingToday(game, s);
   const reasons = tracks.map((t) => trackBlocker(game, s, t, today));
@@ -151,7 +154,7 @@ function Training({ s, game, today, send }: { s: Staff; game: GameState; today: 
               disabled={!!why}
               aria-label={`${t.name}: level ${lvl} of ${TRACK_MAX_LEVEL}${fee !== undefined ? `, next level £${Math.round(fee / 100)}` : ", finished"}${why ? ` (${why})` : ""}`}
               title={why ?? `${t.blurb} A day on the course (still paid).`}
-              onClick={() => send({ type: "TRAIN", staffId: s.id, track: t.id })}
+              onClick={() => guard(fee ?? 0, `${t.name} for ${s.name.split(" ")[0]}`, () => send({ type: "TRAIN", staffId: s.id, track: t.id }))}
             >
               <span className="track__name">{t.name}</span>
               <LevelDots level={lvl} />
@@ -161,6 +164,7 @@ function Training({ s, game, today, send }: { s: Staff; game: GameState; today: 
         })}
       </div>
       {shared && !training && <span className="xs muted train__why">{shared}</span>}
+      {dialog}
     </div>
   );
 }
@@ -264,10 +268,12 @@ export function CandidateCard({ c, game, onHire, wanted = false, quote }: { c: C
       </div>
       <div className="candidate__foot">
         <div className="xs muted spacer">Asks <b className="ink"><MoneyText pence={c.wage} />/h</b> · about <MoneyText pence={perShift} whole /> a shift</div>
-        <button className="btn btn--green btn--sm" onClick={onHire} disabled={!canAfford} title={canAfford ? undefined : `Needs £${Math.ceil(needed / 100)} in the bank`}>
+        <button className="btn btn--green btn--sm" onClick={onHire} disabled={!canAfford}>
           Hire · <MoneyText pence={fee} whole />
         </button>
       </div>
+      {/* Round 11 (U2): the reason is on the card, not in a tooltip a tablet never shows. */}
+      {!canAfford && <p className="candidate__needs small" data-testid="hire-needs">Needs £{Math.ceil(needed / 100).toLocaleString("en-GB")} in the bank (you have <MoneyText pence={game.cash} whole />)</p>}
     </article>
   );
 }
@@ -289,6 +295,7 @@ function HireSheet({ game, send, wantRole, known, onClose }: Props & { onClose: 
         <span className="card__sub small">New faces every morning. A shift is {SHIFT_HOURS} hours; the agency fee is <MoneyText pence={fee} whole />.</span>
         {game.staff.length > 0 && <span className="panel__action"><button className="btn btn--ghost btn--tap" onClick={onClose}><Icon name="close" size={20} />Close</button></span>}
       </div>
+      <StarterLoanTip game={game} send={send} />
       {shown.length === 0 ? <div className="empty small">No one else today. Check again tomorrow.</div> : (
         <div className="hiresheet__row">
           {shown.map(({ c, i }) => (

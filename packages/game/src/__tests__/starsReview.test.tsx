@@ -164,7 +164,9 @@ describe("P2: one hire-cost rule (sim.ts hireCheck over sim-core exports)", () =
     fireEvent.click(screen.getByRole("button", { name: /Hire someone/ }));
     const btn = screen.getByText(c.name).closest(".candidate")!.querySelector("button")!;
     expect(btn.disabled).toBe(true);
-    expect(btn.title).toBe(`Needs £${Math.ceil(needed / 100)} in the bank`);
+    // Round 11 (U2): the reason is visible text on the card, not a title touch never shows.
+    expect(btn.title).toBe("");
+    expect(screen.getByText(c.name).closest(".candidate")!.querySelector("[data-testid=hire-needs]")!.textContent).toMatch(new RegExp(`^Needs £${Math.ceil(needed / 100).toLocaleString("en-GB")} in the bank`));
     cleanup();
     render(<StaffTab game={{ ...g0, cash: needed }} send={noop} />);
     fireEvent.click(screen.getByRole("button", { name: /Hire someone/ }));

@@ -52,6 +52,13 @@ export type Shell =
   | { view: "newgame"; seed?: number; districtId?: string; difficulty?: Difficulty }
   | { view: "game" };
 
+/**
+ * Round 11 (G2): new owner games *could* open with a starter chef (sim-core NEW_GAME.starterChef). Off: the balancer
+ * (SIM-NOTES "Round 11 — B") showed typical −2.0 and cheap −3.0 points with it; the starter loan and the bank's warnings
+ * do the job instead. Flip this and `STARTER_CHEF_DEFAULT` (sim-core headless.ts) together.
+ */
+export const STARTER_CHEF = false;
+
 export function randomSeed(): number {
   return Math.floor(Math.random() * 900_000) + 100_000;
 }
@@ -99,17 +106,28 @@ export function App() {
   const [lastShift, setLastShift] = useState<ShiftSummary | null>(null);
 
   /** The slot a new game goes in: the one picked, else this game's (retry), else a free one. */
-  const claimSlot = () => {
-    const id = newSlot ?? slotRef.current ?? store.freeSlotId() ?? slots.at(-1)?.slotId ?? "s1";
+  const claimSlot = (into?: string) => {
+    const id = into ?? newSlot ?? slotRef.current ?? store.freeSlotId() ?? slots.at(-1)?.slotId ?? "s1";
     store.beginNew(id);
     noteSlot(id);
     setSlotId(id); setNewSlot(null);
   };
-  const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty) => {
-    claimSlot();
+  const start = (seed: number, districtId: string, restaurantName: string, difficulty: Difficulty, into?: string) => {
+    claimSlot(into);
     setPlanTab("menu");
-    dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty } });
+    // Round 11 (G2): the starter chef is wired but off (STARTER_CHEF above).
+    dispatch({ type: "new", cmd: { type: "NEW_GAME", seed, districtId, restaurantName, difficulty, ...(STARTER_CHEF ? { starterChef: true } : {}) } });
     setShell({ view: "game" });
+  };
+  /** Round 11 (U3): a lost game in Your games starts over with the same restaurant (seed, street, name, difficulty), in its slot. */
+  const restartSlot = async (id: string) => {
+    setOpening(id); setTitleNote(null);
+    const r = await store.load(id).catch(() => null);
+    setOpening(null);
+    if (!r) { setTitleNote("Sorry, that game couldn't be opened. Try again, or load it from a save file."); return; }
+    setPicker(null);
+    const g = r.loaded.game;
+    start(g.seed, g.districtId, g.restaurantName, g.difficulty, id);
   };
   const startCareer = (o: CareerStartOptions) => {
     claimSlot();
@@ -170,7 +188,7 @@ export function App() {
           {...(slots.length || status.cloud !== "waiting" ? { saveNote: saveNote(status) } : {})}
           onNew={newGame}
           onYourGames={() => { setTitleNote(null); setPicker("browse"); }}
-          onContinue={() => { const s0 = slots[0]; if (s0) void continueSlot(s0.slotId); }}
+          onContinue={() => { const s0 = slots.find((x) => !x.archived); if (s0) void continueSlot(s0.slotId); }}
         />
         <Suspense fallback={null}>
           {picker && !conflict && (
@@ -181,6 +199,7 @@ export function App() {
               onClose={() => setPicker(null)}
               onContinue={(id) => void continueSlot(id)}
               onNewIn={(id) => { setPicker(null); setNewSlot(id ?? store.freeSlotId()); setShell({ view: "pick" }); }}
+              onRestart={(id) => void restartSlot(id)}
             />
           )}
           {conflict && <ConflictDialog local={conflict.local} cloud={conflict.cloud} onPick={(w) => conflict.resolve(w)} />}

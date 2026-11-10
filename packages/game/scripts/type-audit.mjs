@@ -220,7 +220,10 @@ try {
   await boot({ owner: "owner-evening" }); await cont(); await audit("30-evening");
   await boot({ owner: "fork-evening" }); await cont(); await audit("31-fork-card");
   await boot({ career: save("gameover") });
-  await cont(); // round 9: the career save is a slot; Continue plays the most recent
+  // Round 11: a lost game is archived ("Lost — day N"), not behind Continue; Your games shows it, "What happened" opens it.
+  await page.getByRole("button", { name: /Your games/ }).click(); await page.waitForTimeout(500);
+  await audit("32a-lost-slot");
+  await page.getByRole("button", { name: /^What happened to / }).first().click(); await page.waitForTimeout(900);
   await audit("32-game-over");
   await boot({ owner: "win" }); await cont(); await audit("33-win");
 

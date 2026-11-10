@@ -58,3 +58,5 @@
 /* rota grid: mini portraits overlap like the old initials */
 .rotaweek__face.avatarsvg { width: 30px; height: 30px; border: 2px solid var(--paper); box-sizing: content-box; }
 .rotaweek__face.avatarsvg + .rotaweek__face.avatarsvg { margin-left: -9px; }
+/* Round 11 (U2): why Hire is greyed, as text on the card. */
+.candidate__needs { margin: 0; color: var(--danger); font-weight: 700; }

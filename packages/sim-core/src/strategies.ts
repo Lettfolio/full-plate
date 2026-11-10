@@ -5,7 +5,8 @@
  *   runStrategyDay(content, state, STRATEGIES.typical)  // one planning → service → evening → next planning day
  *   playOne(content, seed, days, strat, difficulty)     // a whole run from newGame
  */
-import { DAYS_PER_MONTH, DECOR_SLOTS } from "./constants";
+import { DAYS_PER_MONTH, DECOR_SLOTS, INSOLVENCY_DAYS } from "./constants";
+import { BANK_LAST_DAYS } from "./bank";
 import { dispatch as applyCommand } from "./commands";
 import { tickService as tick } from "./engine";
 import { newGame } from "./newGame";
@@ -357,12 +358,21 @@ export interface RunResult {
   finalPrestige?: number;
   /** Final state (dropped when results cross a worker boundary). */
   final?: GameState;
+  /** [round 11] First day the evening ended below the bank's overdraft line (the countdown chip appears), if ever. */
+  firstBelowDay?: number;
+  /** [round 11] Evenings that ended with the bank's last-days banner due (BANK_LAST_DAYS or fewer left). */
+  lastDaysWarnings?: number;
 }
 
-export function playOne(content: ContentPack, seed: number, days: number, strat: Strategy, difficulty: Difficulty): RunResult {
+/** [round 11] playOne options. `starterChef` opens with one chef hired (NEW_GAME.starterChef), as the game does. */
+export interface PlayOptions { starterChef?: boolean }
+
+export function playOne(content: ContentPack, seed: number, days: number, strat: Strategy, difficulty: Difficulty, opts: PlayOptions = {}): RunResult {
   const step: Step = (s, cmd) => applyCommand(content, s, cmd).state;
   const districtId = content.districts[seed % content.districts.length]!.id;
-  let s = newGame(content, { type: "NEW_GAME", seed, districtId, restaurantName: "Headless", difficulty });
+  let s = newGame(content, { type: "NEW_GAME", seed, districtId, restaurantName: "Headless", difficulty, ...(opts.starterChef ? { starterChef: true } : {}) });
+  let firstBelowDay: number | undefined;
+  let lastDaysWarnings = 0;
   s = setUpMenu(content, s, strat, step);
   const monthEndCash: number[] = [];
   const covers: number[] = [];
@@ -381,8 +391,15 @@ export function playOne(content: ContentPack, seed: number, days: number, strat:
       if (h.covers) ratings.push(h.averageRating);
     }
     if ((s.day + 1) % DAYS_PER_MONTH === 0 && s.phase !== "gameover") monthEndCash.push(s.cash);
+    if ((s.distressDays ?? 0) > 0) {
+      firstBelowDay ??= s.day;
+      if (INSOLVENCY_DAYS - (s.distressDays ?? 0) <= BANK_LAST_DAYS) lastDaysWarnings++;
+    }
     if (s.phase === "evening") s = step(s, { type: "END_DAY" });
     else if (s.phase === "event") s = resolveEvent(content, s, step);
   }
-  return { seed, survived: s.phase !== "gameover", daysPlayed: s.day, monthEndCash, covers, ratings, finalPopularity: s.reputation.popularity, finalPrestige: s.reputation.prestige, final: s };
+  return {
+    seed, survived: s.phase !== "gameover", daysPlayed: s.day, monthEndCash, covers, ratings, finalPopularity: s.reputation.popularity, finalPrestige: s.reputation.prestige, final: s,
+    ...(firstBelowDay !== undefined ? { firstBelowDay } : {}), lastDaysWarnings,
+  };
 }

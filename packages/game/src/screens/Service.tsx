@@ -167,7 +167,8 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     }
     if (next.toast) {
       const inc = game.incidents?.find((i) => i.id === app.incidentAlert.incidentId);
-      notify?.(`${inc?.title ?? "Something's come up"} — see the right-hand panel.`);
+      // Round 11 (U4): the card isn't always on the right (narrow screens stack it), so don't say where.
+      notify?.(`${inc?.title ?? "Something's come up"} — choose what to do on its card.`);
     }
   }, [app.incidentAlert, settings.autoPause, game.incidents, notify]);
 

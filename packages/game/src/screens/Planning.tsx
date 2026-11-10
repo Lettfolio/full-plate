@@ -6,6 +6,7 @@ import { GOAL_TAB } from "../lib/goals";
 import { Tabs, type TabDef } from "../components/Tabs";
 import { asCommand, content, HOOKS, openingStockBudget, OWNER_FATIGUE_WARNING } from "../sim";
 import { FatigueNote } from "../components/FatigueNote";
+import { BankBanner, bankLastDays, hirePromptText, loanDue, StarterLoanTip } from "../components/Bank";
 import { MoneyText } from "../components/MoneyText";
 import { isOpeningDay } from "../lib/calendar";
 import { MenuTab } from "./planning/MenuTab";
@@ -76,6 +77,10 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const shortDelivery = game.shortDelivery;
   const shortName = shortDelivery ? content.ingredients.find((i) => i.id === shortDelivery.ingredientId)?.name ?? shortDelivery.ingredientId : "";
 
+  const hire = hirePromptText(game);
+  const lastDays = bankLastDays(game);
+  // The starter-loan tip shows in the morning too, except on the Staff tab (the hiring sheet carries it there).
+  const loanTip = tab !== "staff" && !opening && loanDue(game);
   const closedForRefit = !!meta?.stars && (meta.stars.refitUntil ?? -1) > game.day;
   // Round 3 review P1: say before service when the larder won't cover the forecast (louder in inspection season).
   const risk = useMemo(() => tonightRisk(content, game), [game]);
@@ -84,7 +89,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const hints: Hint[] = [];
   if (!active.length) hints.push({ text: "Step 1: add dishes to your menu", tone: "bad", tab: "menu" });
   // With nobody on, the owner covers the role (slowly) — a warning, not a blocker.
-  if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: "Hire a chef (or you'll cook yourself)", tone: "bad", tab: "staff" });
+  // Round 11 (U2): when no chef is affordable the dock says how far off it is, not "Hire a chef".
+  if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: hire.can ? "Hire a chef (or you'll cook yourself)" : `${hire.text} (you'll cook yourself)`, tone: "bad", tab: "staff" });
   else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
   if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll be serving`, tone: "warn", tab: "staff" });
   const noStock = opening ? 0 : unplateable(content, game).length;
@@ -125,8 +131,14 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
         <div className="planning__help"><HelpPopover /></div>
       </div>
-      {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING) && (
+      {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
+          {(lastDays || loanTip) && (
+            <Suspense fallback={null}>
+              {lastDays && <BankBanner game={game} />}
+              {loanTip && <StarterLoanTip game={game} send={send} />}
+            </Suspense>
+          )}
           {showRisk && (
             <StockWarning
               game={game}
@@ -149,7 +161,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
               <b>🚚 The {shortName} delivery came {shortDelivery.missing} portion{shortDelivery.missing === 1 ? "" : "s"} short</b> this morning (the supplier refunded it). Dishes that use it may run out during service.
             </p>
           )}
-          {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={() => setTab("staff")} />}
+          {(game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING && <FatigueNote fatigue={game.ownerFatigue ?? 0} onHire={() => setTab("staff")} hireLabel={hire.text} />}
         </div>
       )}
       <div className={`planning__body ${hasGoals && !wide ? "planning__body--goals" : ""}`}>

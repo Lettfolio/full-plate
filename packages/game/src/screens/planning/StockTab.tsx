@@ -5,6 +5,7 @@ import { MoneyText } from "../../components/MoneyText";
 import { Stepper } from "../../components/Stepper";
 import { expectedCovers, restockLines, type StockNeed } from "./stockNeeds";
 import { forecastLine, wholeHave } from "../../lib/dayLoop";
+import { useSpendGuard } from "../../components/SpendGuard";
 
 interface Props { game: GameState; send: (cmd: Command) => void; needs: StockNeed[]; /** Day 0: opening stock arrives at "Open", so nothing reads as short. */ opening?: boolean }
 
@@ -21,6 +22,12 @@ function Shelf({ days, age }: { days: number; age: number }) {
   );
 }
 
+/** What filling tomorrow's shortfall costs (that much stock is never "extra"). */
+function restockCost(game: GameState, rows: StockNeed[]): number {
+  const unit = new Map(rows.map((r) => [r.ingredientId, r.unitCost]));
+  return restockLines(game).reduce((a, [id, q]) => a + q * (unit.get(id) ?? 0), 0);
+}
+
 export function StockTab({ game, send, needs, opening = false }: Props) {
   const [qty, setQty] = useState<Record<IngredientId, number>>({});
   const rows = [...needs].sort((a, b) => (b.need > 0 ? 1 : 0) - (a.need > 0 ? 1 : 0) || a.name.localeCompare(b.name));
@@ -30,13 +37,15 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
   const shortCount = [...lines.values()].filter((l) => l.tone === "short").length;
   const guests = expectedCovers(game);
   const fillShort = () => setQty({ ...qty, ...Object.fromEntries(restockLines(game)) });
-  const place = () => {
+  const { guard, dialog } = useSpendGuard(game);
+  // Round 11 (U2): an order bigger than tomorrow's shortfall that would leave under three days of running costs asks first.
+  const place = () => guard(basket > restockCost(game, rows) ? basket : 0, "This stock order", () => {
     for (const r of rows) {
       const q = qty[r.ingredientId] ?? 0;
       if (q > 0) send({ type: "ORDER_STOCK", ingredientId: r.ingredientId, qty: q });
     }
     setQty({});
-  };
+  });
 
   return (
     <div className="stack">
@@ -105,6 +114,7 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
         <button className="btn btn--green" disabled={basket === 0} onClick={place}>Place order</button>
       </div>
       <p className="xs faint">“Next service” is a rough guess: the busiest recent day, one main per guest plus some starters, sides, desserts and drinks. Prices shown are base prices; seasonal discounts apply at checkout. Fresh food spoils — don't over-order the short-life stuff.</p>
+      {dialog}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { encodeSave } from "./save";
 import type { PathMeta } from "./paths";
 import { tryDecode } from "./saveCheck";
 import {
-  CLOUD_DEBOUNCE_MS, defaultSlotName, defaultStorage, fnv1a, hasCompression, INDEX_KEY, isOver, lastOwner, MAX_OWN_UNPACKED, MAX_SLOTS, migrateLegacy, newSlotId, pickSummary, runtime, slotKey, summarize, visibleTo,
+  CLOUD_DEBOUNCE_MS, defaultSlotName, defaultStorage, fnv1a, hasCompression, INDEX_KEY, lastOwner, MAX_OWN_UNPACKED, MAX_SLOTS, migrateLegacy, newSlotId, pickSummary, runtime, slotKey, summarize, visibleTo,
   type CloudPart, type Core, type Encoding, type LoadOptions, type LoadResult, type LocalEntry, type PrefsBridge, type SaveStore, type SlotView, type StoreDeps, type StoreStatus,
 } from "./saveStore";
 
@@ -157,10 +157,10 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
 
     /**
      * Autosave: the device copy is written at once (after packing, a few ms); the account copy follows after
-     * `debounceMs` of quiet, and only if the save changed. An owner game that has ended is removed (it can't continue).
+     * `debounceMs` of quiet, and only if the save changed. Round 11: a game that has ended is kept too (its summary is
+     * `archived`, "Lost — day N" in Your games) — save never removes a slot.
      */
     save(slotId: string, game: GameState, meta: PathMeta): Promise<void> {
-      if (isOver(game, meta)) return this.remove(slotId);
       // Round 11 (G10): a state that can't be packed (a NaN from a junk command) must never break autosave; the save
       // mark says "Couldn't save" until a save works again.
       let raw: string;

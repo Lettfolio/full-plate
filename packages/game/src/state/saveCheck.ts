@@ -102,6 +102,7 @@ const headerSchema = obj<CloudHeader>({
   appVersion: str(20),
   hw: opt(int(0, MAX_CHUNKS)),
   backupOf: opt(id),
+  archived: opt(bool),
 }, false);
 
 /**

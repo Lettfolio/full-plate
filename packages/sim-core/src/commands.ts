@@ -38,6 +38,8 @@ import { planArrivals } from "./systems/arrival";
 import { applyChoice } from "./systems/eventDeck";
 import { shiftCost } from "./systems/finance";
 import { findDecorItem, installed, isDecorSlot, wearOf } from "./decor";
+import { hireNeed, recruitmentFeeOf, starterLoanOffer } from "./bank";
+import { dailyInstalment } from "./systems/finance";
 import type { Command, ContentPack, GameState, KitchenTicket, Phase, SimEvent, Staff, StaffRole, StepResult } from "./types";
 import { clamp, findDish, findIngredient, foldLog, logEvent, monthOf, onFloor, round2, tallyOf, worksToday } from "./util";
 
@@ -106,9 +108,8 @@ const removeMenuItem: Handler<"REMOVE_MENU_ITEM"> = (_c, state, cmd) => {
 };
 
 // ── staff ──
-/** Recruitment fee in effect: GameState.recruitmentFee (career perk) or RECRUITMENT_FEE. */
-export const recruitmentFeeOf = (state: GameState): number =>
-  isInt(state.recruitmentFee) && state.recruitmentFee >= 0 ? state.recruitmentFee : RECRUITMENT_FEE;
+/** Recruitment fee in effect: GameState.recruitmentFee (career perk) or RECRUITMENT_FEE (round 11: lives in bank.ts). */
+export { recruitmentFeeOf };
 
 /** [round 10] Today's candidate index from a Candidate.id ("s<day>-<index>"); NaN when it isn't today's. */
 function candidateIndexOf(state: GameState, id: string | undefined): number {
@@ -128,9 +129,8 @@ const hire: Handler<"HIRE"> = (content, state, cmd) => {
   if (!staff) return reject(state, "No such candidate.");
   // Round 11 (G13): ids are unique (a HIRE_STAFF may already have used this candidate's id); FIRE would take both.
   if (state.staff.some((s) => s.id === staff.id)) return reject(state, `${staff.name} already works here.`);
-  const fee = recruitmentFeeOf(state);
-  const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
-  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
+  const { fee, needed, canAfford } = hireNeed(state, staff.wage);
+  if (!canAfford) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
   const next: GameState = {
     ...state,
     cash: state.cash - fee,
@@ -173,9 +173,8 @@ const hireStaff: Handler<"HIRE_STAFF"> = (_c, state, cmd) => {
     potential: round2(clamp(isNum(p.potential) ? Math.max(p.potential, skill) : skill, 0, 100)),
     rota: DEFAULT_ROTA.slice(),
   };
-  const fee = recruitmentFeeOf(state);
-  const needed = fee + HIRE_CASH_BUFFER_SHIFTS * shiftCost(staff);
-  if (state.cash < needed) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
+  const { fee, needed, canAfford } = hireNeed(state, staff.wage);
+  if (!canAfford) return reject(state, `Not enough cash to hire ${staff.name} (need £${(needed / 100).toFixed(0)}).`);
   return ok({ ...state, cash: state.cash - fee, staff: [...state.staff, staff] }, `Hired ${staff.name} (${staff.role}).`, "good");
 };
 
@@ -607,6 +606,23 @@ const refreshDecor: Handler<"REFRESH_DECOR"> = (content, state, cmd) => {
   return ok({ ...state, cash: state.cash - it.item.refreshCost, decor }, `${it.item.name} refreshed — good as new.`, "money");
 };
 
+/**
+ * [round 11] STARTER_LOAN: the bank lends a staffless Normal/Hard owner a first wage (bank.ts `starterLoanOffer`: what
+ * the cheapest chef needs, £1,000–£5,000), once, on the game's own loan terms — added to the loan, the daily instalment
+ * re-spread over the days left (a new term if it was already paid off). Planning, evening or the morning post.
+ */
+const starterLoan: Handler<"STARTER_LOAN"> = (content, state) => {
+  const bad = requirePhase(state, ["planning", "evening", "event"], "borrow");
+  if (bad) return bad;
+  if (state.starterLoan) return reject(state, "The bank has already lent you a first wage.");
+  const amount = starterLoanOffer(content, state);
+  if (amount === null) return reject(state, state.staff.length ? "The starter loan is for a first hire." : "The bank won't lend you that.");
+  const remaining = state.loan.remaining + amount;
+  const days = state.loan.daysRemaining > 0 ? state.loan.daysRemaining : content.balance.loanTermDays;
+  const loan = { ...state.loan, principal: state.loan.principal + amount, remaining, daysRemaining: days, dailyPayment: dailyInstalment(remaining, content.balance.loanApr, days) };
+  return ok({ ...state, cash: state.cash + amount, loan, starterLoan: true }, `The bank lent you ${pounds(amount)} for a first wage. Hire a chef!`, "money");
+};
+
 const newGameCmd: Handler<"NEW_GAME"> = (_c, state) => reject(state, "Use newGame() to start a new game.");
 
 const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
@@ -641,6 +657,7 @@ const HANDLERS: { [T in Command["type"]]: Handler<T> } = {
   SET_OWNER_PROFILE: setOwnerProfile,
   BUY_DECOR: buyDecor,
   REFRESH_DECOR: refreshDecor,
+  STARTER_LOAN: starterLoan,
 };
 
 export function dispatch(content: ContentPack, state: GameState, cmd: Command): StepResult {
