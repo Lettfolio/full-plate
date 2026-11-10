@@ -10,12 +10,19 @@ export interface Settings {
   sound: boolean;
   /** Round 7: "large" sets `data-text="large"` on <html>, which bumps the type scale ~12% (theme.css R7-C). */
   textSize: TextSize;
+  /**
+   * Round 11 (D, red-team U8): "No grown-up drinks" — on by default. The content view swaps alcoholic drinks (and the
+   * Stars wine list) for soft drinks of the same price and shape (content `applySoftDrinks`; ids and numbers unchanged).
+   */
+  noGrownUpDrinks: boolean;
+  /** Round 11 (D, U10): the player has picked a service speed (Settings or the speed deck); until then Cosy starts at 4×. */
+  speedPicked: boolean;
 }
 
 export type TextSize = "normal" | "large";
 
 export const SETTINGS_KEY = "full-plate:settings:v1";
-export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal" };
+export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: true, speedPicked: false };
 
 function read(): Settings {
   try {
@@ -33,6 +40,8 @@ function normalize(p: Partial<Settings>): Settings {
       defaultSpeed: p.defaultSpeed === 1 || p.defaultSpeed === 2 || p.defaultSpeed === 4 ? p.defaultSpeed : DEFAULT_SETTINGS.defaultSpeed,
       sound: typeof p.sound === "boolean" ? p.sound : DEFAULT_SETTINGS.sound,
       textSize: p.textSize === "large" ? "large" : "normal",
+      noGrownUpDrinks: typeof p.noGrownUpDrinks === "boolean" ? p.noGrownUpDrinks : DEFAULT_SETTINGS.noGrownUpDrinks,
+      speedPicked: p.speedPicked === true,
     };
 }
 
@@ -79,6 +88,14 @@ export function applyTextSize(size: TextSize): void {
 export function resetSettingsCache(): void {
   current = null;
 }
+
+/** Round 11 (D): the speed a service starts at — the remembered one, or 4× on Cosy until the player picks one. */
+export function startSpeed(s: Settings, difficulty: string | undefined): 1 | 2 | 4 {
+  return !s.speedPicked && difficulty === "cosy" ? 4 : s.defaultSpeed;
+}
+
+/** Round 11 (D): non-React listeners (the soft-drinks content view in sim.ts). */
+export function subscribeSettings(l: () => void): () => void { return subscribe(l); }
 
 function subscribe(l: () => void) {
   listeners.add(l);

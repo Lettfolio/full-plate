@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSettings, type TextSize } from "../lib/settings";
+import { startSpeed, useSettings, type TextSize } from "../lib/settings";
 import { playSfx } from "../lib/sfx";
 import { ConfirmDialog, Dialog } from "./Dialog";
 import { Icon, type IconName } from "./Icon";
@@ -15,6 +15,8 @@ interface Props {
   onSave?: (() => Promise<SavedWhere>) | undefined;
   /** Round 9: offer the current game as a save file; resolves with a line to show. */
   onSaveFile?: (() => Promise<string>) | undefined;
+  /** Round 11 (D): the game's difficulty, for the speed a service starts at (Cosy: 4× until one is picked). */
+  difficulty?: string | undefined;
 }
 
 export type SavedWhere = "account" | "device" | "memory" | "none";
@@ -45,7 +47,7 @@ function Choice<T extends string | number>({ label, value, options, onChange }: 
  * The gear in the header. Round 7: a settings sheet (text size, sound, service speed and pause) with the game's
  * save / title / new-game actions in one place. Preferences live in localStorage, not in the game save.
  */
-export function SettingsMenu({ onQuit, onNewGame, saveName, onSave, onSaveFile }: Props) {
+export function SettingsMenu({ onQuit, onNewGame, saveName, onSave, onSaveFile, difficulty }: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<"saving" | SavedWhere | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -71,10 +73,14 @@ export function SettingsMenu({ onQuit, onNewGame, saveName, onSave, onSaveFile }
         <Dialog title="Settings" kicker="Your game" stamp={<Icon name="settings" size={28} />} onClose={() => { setSaving(null); setOpen(false); }} className="sheet">
           <Choice<TextSize> label="Text size" value={s.textSize} onChange={(v) => set({ textSize: v })} options={[{ id: "normal", label: "Normal" }, { id: "large", label: "Bigger", icon: "textSize" }]} />
           <Choice<"on" | "off"> label="Sound" value={s.sound ? "on" : "off"} onChange={(v) => { set({ sound: v === "on" }); if (v === "on") playSfx("good"); }} options={[{ id: "on", label: "On", icon: "sound" }, { id: "off", label: "Off", icon: "soundOff" }]} />
-          <Choice<1 | 2 | 4> label="Service starts at" value={s.defaultSpeed} onChange={(v) => set({ defaultSpeed: v })} options={[{ id: 1, label: "1×" }, { id: 2, label: "2×" }, { id: 4, label: "4×" }]} />
+          <Choice<1 | 2 | 4> label="Service starts at" value={startSpeed(s, difficulty)} onChange={(v) => set({ defaultSpeed: v, speedPicked: true })} options={[{ id: 1, label: "1×" }, { id: 2, label: "2×" }, { id: 4, label: "4×" }]} />
           <label className="sheet__row sheet__check">
             <input type="checkbox" className="switch" checked={s.autoPause} onChange={(e) => set({ autoPause: e.target.checked })} />
             <span>Pause when something goes wrong in service <span className="xs muted">(at 1× and 2×; at 4× you get a note instead)</span></span>
+          </label>
+          <label className="sheet__row sheet__check">
+            <input type="checkbox" className="switch" checked={s.noGrownUpDrinks} onChange={(e) => set({ noGrownUpDrinks: e.target.checked })} />
+            <span>No grown-up drinks <span className="xs muted">(soft drinks take their place on the menu, at the same prices)</span></span>
           </label>
           <div className="sheet__game">
             <p className="small muted">Your game saves itself every morning and every evening.</p>

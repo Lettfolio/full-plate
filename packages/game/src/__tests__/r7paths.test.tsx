@@ -78,7 +78,7 @@ describe("Empire heroes", () => {
     expect(screen.getByLabelText("Brand summary").textContent).toMatch(/of 5 regions know your name/);
     expect(screen.getByRole("list", { name: /How many people know you/ }).querySelectorAll("li")).toHaveLength(s.meta.empire!.regions.length);
     fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
-    expect(screen.getByLabelText("Money summary").textContent).toMatch(/HQ (made|lost) in the last 30 days/);
+    expect(screen.getByLabelText("Money summary").textContent).toMatch(/head office (made|lost) in the last 30 days/);
   });
 
   it("each district's franchise verdict is a coloured badge", () => {

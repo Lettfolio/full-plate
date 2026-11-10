@@ -141,10 +141,10 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
       {e && (
         <div className="card">
           <div className="card__title"><h3>🍔 {e.brand.name} tonight</h3><span className="xs faint">{e.sites.filter((x) => x.status === "open").length} site{e.sites.filter((x) => x.status === "open").length === 1 ? "" : "s"}</span></div>
-          <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · HQ cash <MoneyText pence={e.hq.cash} whole tone /> · HQ net today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
+          <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · <Term id="hqCash" inline>Head office money</Term> <MoneyText pence={e.hq.cash} whole tone /> · head office today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
           {lastMeals && <div className="xs muted">This month so far: {lastMeals.sites} sites trading.</div>}
           {sendEmpire && spare >= 10_000 && (
-            <button className="btn btn--sm btn--green" style={{ marginTop: 8 }} onClick={() => sendEmpire({ type: "TRANSFER_FROM_FOCUSED", amount: spare })}>Sweep <MoneyText pence={spare} whole /> from the till to HQ</button>
+            <button className="btn btn--sm btn--green" style={{ marginTop: 8 }} onClick={() => sendEmpire({ type: "TRANSFER_FROM_FOCUSED", amount: spare })}>Sweep <MoneyText pence={spare} whole /> from the till to head office</button>
           )}
         </div>
       )}
@@ -292,7 +292,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
               <caption className="sr-only">Where tonight's money went: sales, then each cost, then {good ? "profit" : "loss"}</caption>
               <tbody>
                 <tr><td>Food & drink sales</td><td><MoneyText pence={r.revenue} /></td></tr>
-                <tr className="pnl__cost"><td>VAT to the taxman <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
+                <tr className="pnl__cost"><td>Tax on sales, to the tax office <span className="pnl__pct">{ofRev(vat)}</span></td><td><MoneyText pence={-vat} /></td></tr>
                 <tr className="pnl__cost"><td>Food cost <span className="pnl__pct">{ofRev(r.foodCost)}</span></td><td><MoneyText pence={-r.foodCost} /></td></tr>
                 <tr className="pnl__cost"><td>Staff wages <span className="pnl__pct">{ofRev(r.labourCost)}</span></td><td><MoneyText pence={-r.labourCost} /></td></tr>
                 <tr className="pnl__cost"><td>Rent (today's share)</td><td><MoneyText pence={-r.rent} /></td></tr>

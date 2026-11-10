@@ -9,6 +9,7 @@ import { dateLabel } from "../lib/calendar";
 import { Bar } from "./Bar";
 import { MoneyText } from "./MoneyText";
 import { SettingsMenu, type SavedWhere } from "./Settings";
+import { RungName, Term } from "./Term";
 import { pathBadges, type PathMeta } from "../state/paths";
 import { Icon } from "./Icon";
 
@@ -73,7 +74,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
             </div>
             <div className="status__stat">
               <span className="status__k">You are</span>
-              <b>{rungDef(career.track, career.rung).title}</b>
+              <b><RungName title={rungDef(career.track, career.rung).title} /></b>
               <span className="status__sub">at {career.employer.restaurantName}</span>
             </div>
             <div className="status__stat status__stat--bars">
@@ -102,7 +103,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
         <div className="status__end">
           {saveMark}
           <span className={`pill pill--${game.difficulty}`}><Icon name={game.difficulty === "cosy" ? "heart" : game.difficulty === "hard" ? "chilli" : "speed"} size={16} />{game.difficulty[0]!.toUpperCase() + game.difficulty.slice(1)}</span>
-          <SettingsMenu onQuit={onQuit} onNewGame={onNewGame} onSave={onSave} onSaveFile={onSaveFile} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
+          <SettingsMenu difficulty={game.difficulty} onQuit={onQuit} onNewGame={onNewGame} onSave={onSave} onSaveFile={onSaveFile} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />
         </div>
       </div>
       {e && (
@@ -110,8 +111,8 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
           <span className="pathstrip__brand"><Icon name="empire" size={18} />{e.brand.name}</span>
           <span><b>{openSites(e).length}</b> site{openSites(e).length === 1 ? "" : "s"}{e.sites.some((x) => x.status === "building") ? ` (+${e.sites.filter((x) => x.status === "building").length} building)` : ""}</span>
           <span><b>{compactMeals(e.mealsServedTotal)}</b> meals served</span>
-          <span>HQ <MoneyText pence={e.hq.cash} whole className={e.hq.cash < 0 ? "money--neg" : ""} /></span>
-          <span>Franchisee mood <b>{franchised ? Math.round(avgFranchiseeMood(e)) : "—"}</b></span>
+          <span><Term id="hqCash" inline>HQ</Term> <MoneyText pence={e.hq.cash} whole className={e.hq.cash < 0 ? "money--neg" : ""} /></span>
+          <span>Shop owners' mood <b>{franchised ? Math.round(avgFranchiseeMood(e)) : "—"}</b></span>
           {e.association.active && <span className="pathstrip__warn"><Icon name="warning" size={18} />Franchisee association</span>}
         </div>
       )}

@@ -1,3 +1,4 @@
+import { formatPounds } from "../../lib/format";
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { Icon, type IconName } from "../../components/Icon";
 import { Avatar } from "../../components/Avatar";
@@ -59,7 +60,7 @@ export function traitEffectLine(def: TraitDef): string {
 function TipChip({ label, tip, icon, tone }: { label: ReactNode; tip: ReactNode; icon?: IconName; tone?: "like" | "dislike" | "friend" | "clash" }) {
   const id = `tip-${useId().replace(/:/g, "")}`;
   return (
-    <span className={`term chip${tone ? ` chip--${tone}` : ""}`} tabIndex={0} aria-describedby={id} onFocus={(e) => placeTip(e.currentTarget)} onMouseEnter={(e) => placeTip(e.currentTarget)}>
+    <span className={`term chip${tone ? ` chip--${tone}` : ""}`} tabIndex={-1} aria-describedby={id} onFocus={(e) => placeTip(e.currentTarget)} onMouseEnter={(e) => placeTip(e.currentTarget)}>
       {icon && <Icon name={icon} size={16} />}
       <span>{label}</span>
       <span role="tooltip" id={id} className="term__tip">{tip}</span>
@@ -149,7 +150,7 @@ function Training({ s, game, today, send }: { s: Staff; game: GameState; today: 
               key={t.id}
               className="track"
               disabled={!!why}
-              aria-label={`${t.name}: level ${lvl} of ${TRACK_MAX_LEVEL}${fee !== undefined ? `, next level £${Math.round(fee / 100)}` : ", finished"}${why ? ` (${why})` : ""}`}
+              aria-label={`${t.name}: level ${lvl} of ${TRACK_MAX_LEVEL}${fee !== undefined ? `, next level ${formatPounds(fee)}` : ", finished"}${why ? ` (${why})` : ""}`}
               title={why ?? `${t.blurb} A day on the course (still paid).`}
               onClick={() => send({ type: "TRAIN", staffId: s.id, track: t.id })}
             >
@@ -264,7 +265,7 @@ export function CandidateCard({ c, game, onHire, wanted = false, quote }: { c: C
       </div>
       <div className="candidate__foot">
         <div className="xs muted spacer">Asks <b className="ink"><MoneyText pence={c.wage} />/h</b> · about <MoneyText pence={perShift} whole /> a shift</div>
-        <button className="btn btn--green btn--sm" onClick={onHire} disabled={!canAfford} title={canAfford ? undefined : `Needs £${Math.ceil(needed / 100)} in the bank`}>
+        <button className="btn btn--green btn--sm" onClick={onHire} disabled={!canAfford} title={canAfford ? undefined : `Needs ${formatPounds(Math.ceil(needed / 100) * 100)} in the bank`}>
           Hire · <MoneyText pence={fee} whole />
         </button>
       </div>

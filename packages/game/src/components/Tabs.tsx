@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Icon, isIconName, type IconName } from "./Icon";
 
 export interface TabDef<T extends string> {
@@ -31,8 +31,39 @@ interface Props<T extends string> {
   label: string;
 }
 
+/**
+ * Round 11 (D): on a narrow screen (iPad portrait) the tab row scrolls sideways. `data-more-left` / `data-more-right`
+ * turn on the edge fades (theme.css R11-D) only on the side that has more tabs; layout only, nothing is stored.
+ */
+export function markTabEdges(el: HTMLElement): void {
+  const left = el.scrollLeft > 2;
+  const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+  el.toggleAttribute("data-more-left", left);
+  el.toggleAttribute("data-more-right", right);
+}
+
 export function Tabs<T extends string>({ tabs, active, onChange, label }: Props<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    markTabEdges(el);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => markTabEdges(el));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tabs.length]);
+  // Keep the picked tab in view when the row scrolls (a tab picked from a goal or a hint can be off to the side).
+  useEffect(() => {
+    const el = row.current;
+    const b = refs.current[tabs.findIndex((t) => t.id === active)];
+    if (!el || !b || el.scrollWidth <= el.clientWidth) return;
+    const l = b.offsetLeft - el.offsetLeft, r = l + b.offsetWidth;
+    if (l < el.scrollLeft) el.scrollLeft = l - 24;
+    else if (r > el.scrollLeft + el.clientWidth) el.scrollLeft = r - el.clientWidth + 24;
+    markTabEdges(el);
+  }, [active, tabs]);
   const onKey = (e: KeyboardEvent, i: number) => {
     const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!d) return;
@@ -42,7 +73,7 @@ export function Tabs<T extends string>({ tabs, active, onChange, label }: Props<
     refs.current[j]?.focus();
   };
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div className="tabs" role="tablist" aria-label={label} ref={row} onScroll={(e) => markTabEdges(e.currentTarget)}>
       {tabs.map((t, i) => (
         <button
           key={t.id}

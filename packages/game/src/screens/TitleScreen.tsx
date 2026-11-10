@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { MoneyText } from "../components/MoneyText";
 import { Shopfront } from "../components/Shopfront";
-import { GoalExplainer } from "../components/GoalExplainer";
+// Round 11 (D): "How do I win?" (pictures and all) loads when opened (main-chunk budget).
+const GoalExplainer = lazy(() => import("../components/GoalExplainer").then((m) => ({ default: m.GoalExplainer })));
 import { ConfirmDialog } from "../components/Dialog";
 import { dateLabel } from "../lib/calendar";
 import type { SlotView } from "../state/saveStore";
@@ -88,7 +89,7 @@ export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, save
           <p className="title__foot">Owner, chef, bar, waiter or manager: every road leads to a place of your own.</p>
         </div>
       </div>
-      {goals && <GoalExplainer onClose={() => setGoals(false)} />}
+      {goals && <Suspense fallback={null}><GoalExplainer onClose={() => setGoals(false)} /></Suspense>}
       {confirmNew && (
         <ConfirmDialog
           title="Start a new game?"

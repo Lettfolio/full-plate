@@ -23,7 +23,13 @@ function Shelf({ days, age }: { days: number; age: number }) {
 
 export function StockTab({ game, send, needs, opening = false }: Props) {
   const [qty, setQty] = useState<Record<IngredientId, number>>({});
+  const [everything, setEverything] = useState(false);
   const rows = [...needs].sort((a, b) => (b.need > 0 ? 1 : 0) - (a.need > 0 ? 1 : 0) || a.name.localeCompare(b.name));
+  // Round 11 (D, U12): the order sheet lists what tonight's menu uses (and anything in the larder, coming, or in the
+  // basket); "Show everything" opens the other ~90 ingredients. Day 1 was a 100-row table.
+  const relevant = (r: StockNeed) => r.usedBy.length > 0 || r.onHand > 0 || r.incoming > 0 || (qty[r.ingredientId] ?? 0) > 0;
+  const shown = everything ? rows : rows.filter(relevant);
+  const hidden = rows.length - shown.length;
   const basket = rows.reduce((a, r) => a + (qty[r.ingredientId] ?? 0) * r.unitCost, 0);
   const ordered = game.orders.reduce((a, o) => a + o.cost, 0);
   const lines = new Map(rows.map((r) => [r.ingredientId, forecastLine(r, opening)]));
@@ -72,7 +78,7 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {shown.map((r) => {
             const q = qty[r.ingredientId] ?? 0;
             const line = lines.get(r.ingredientId)!;
             return (
@@ -97,6 +103,11 @@ export function StockTab({ game, send, needs, opening = false }: Props) {
           })}
         </tbody>
       </table>
+      {(hidden > 0 || everything) && (
+        <button className="btn btn--ghost stock__more" aria-expanded={everything} onClick={() => setEverything(!everything)}>
+          <Icon name={everything ? "minus" : "plus"} size={18} />{everything ? "Show only what the menu uses" : `Show everything (${hidden} more)`}
+        </button>
+      )}
       <div className="row">
         <button className="btn btn--ghost" onClick={fillShort}>{opening ? "Fill for tomorrow" : "Fill what's short"}</button>
         {ordered > 0 && <span className="small muted">Already ordered today: <MoneyText pence={ordered} /></span>}

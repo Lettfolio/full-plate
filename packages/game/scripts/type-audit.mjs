@@ -100,7 +100,9 @@ function domSmall(min) {
 
 const results = [];
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+// Round 11 (D): FP_AUDIT_VIEWPORT=1024x768 or 768x1024 (iPad portrait, with touch) audits other sizes; default 1280×800.
+const [VW, VH] = (process.env.FP_AUDIT_VIEWPORT ?? "1280x800").split("x").map(Number);
+const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: 2, hasTouch: VW < 1024 });
 await ctx.addInitScript(canvasProbe);
 const page = await ctx.newPage();
 const errors = [];
@@ -113,7 +115,10 @@ async function boot({ owner, career, speed = 1 } = {}) {
   await page.goto(URL);
   await page.evaluate(([o, c, sp, t]) => {
     localStorage.clear();
-    localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: sp, textSize: t }));
+    // Round 11 (D): speedPicked keeps Cosy saves at the audit's speed (Cosy otherwise starts at 4×); the dev flag turns
+    // the playtest switches (?autopilot=, ?perf=) on in this production build.
+    localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: sp, speedPicked: true, textSize: t }));
+    localStorage.setItem("full-plate:dev", "1");
     if (o) localStorage.setItem("full-plate:save:v1", o);
     if (c) localStorage.setItem("full-plate:career:v1", c);
   }, [owner ? save(owner) : null, career ?? null, speed, TEXT]);

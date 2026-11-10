@@ -1,6 +1,10 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import type { PathMeta } from "./paths";
+import { MINUTES_PER_TICK } from "../sim";
+
+/** Ticks in one sim-hour of service. */
+export const SERVICE_HOUR_TICKS = Math.max(1, Math.round(60 / MINUTES_PER_TICK));
 import { getSaveStore, type SaveStore, type StoreStatus } from "./saveStore";
 
 /** Round 9: the slot list and the store's status, live. */
@@ -22,9 +26,14 @@ export function saveNote(status: StoreStatus): { icon: "cloud" | "cloudOff" | "w
   return { icon: "cloudOff", text: status.reason === "signed-out" ? "Saved on this device only — sign in to keep it everywhere" : "Saved on this device only" };
 }
 
-/** The autosave key: a save on every phase or day change and on path changes — never per tick (as round 1–8). */
+/**
+ * The autosave key: a save on every phase or day change and on path changes — never per tick (as round 1–8).
+ * Round 11 (D, U11): during service also once per sim-hour and when a hands-on shift starts or stops, so a reload
+ * mid-shift loses at most an hour of the clock and goes back into hands-on play.
+ */
 export function autosaveKey(game: GameState, m: PathMeta): string {
-  return `${m.mode}:${game.seed}:${game.day}:${game.phase}:${m.fork.chosen ?? ""}:${m.empire?.nextId ?? ""}:${m.stars?.nextId ?? ""}:${m.stars?.ledger.persistentMult ?? ""}:${m.career?.day ?? ""}:${m.career?.log.length ?? ""}:${m.career?.handover ? 1 : 0}`;
+  const hour = game.phase === "service" ? `:h${Math.floor(game.tick / SERVICE_HOUR_TICKS)}:${m.handsOn?.role ?? ""}` : "";
+  return `${m.mode}:${game.seed}:${game.day}:${game.phase}:${m.fork.chosen ?? ""}:${m.empire?.nextId ?? ""}:${m.stars?.nextId ?? ""}:${m.stars?.ledger.persistentMult ?? ""}:${m.career?.day ?? ""}:${m.career?.log.length ?? ""}:${m.career?.handover ? 1 : 0}${hour}`;
 }
 
 /**

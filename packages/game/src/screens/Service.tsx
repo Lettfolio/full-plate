@@ -21,7 +21,8 @@ import { modalOpen } from "../lib/modal";
 import { clockLabel, WEEKDAY_NAMES, weekdayIndex } from "../lib/calendar";
 import { dishName, segmentName } from "../lib/content";
 import { coveringPhrase } from "../lib/staff";
-import { getSettings, useSettings } from "../lib/settings";
+import { getSettings, setSettings, startSpeed, useSettings } from "../lib/settings";
+import { pointWord, useCoarsePointer } from "../lib/layout";
 import { Term } from "../components/Term";
 import { DayRhythm } from "../components/DayRhythm";
 
@@ -117,7 +118,14 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const stageRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<RestaurantView | null>(null);
   const tickerRef = useRef<HTMLDivElement>(null);
-  const [speed, setSpeed] = useState<Speed>(() => getSettings().defaultSpeed);
+  const [speed, setSpeedRaw] = useState<Speed>(() => startSpeed(getSettings(), game.difficulty));
+  // Round 11 (D, U10): a speed the player picks is remembered for the next service (Settings › Service starts at).
+  const pickSpeed = (sp: Speed) => {
+    setSpeedRaw(sp);
+    if (sp !== 0 && (getSettings().defaultSpeed !== sp || !getSettings().speedPicked)) setSettings({ defaultSpeed: sp, speedPicked: true });
+  };
+  const setSpeed = setSpeedRaw;
+  const tap = pointWord(useCoarsePointer());
   const [selected, setSelected] = useState<CustomerId | null>(null);
   const [hoverTable, setHoverTable] = useState<TableId | null>(null);
   const [focusIncident, setFocusIncident] = useState<string | null>(null);
@@ -208,7 +216,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
 
   // keyboard: space = pause/resume, 1/2/4 = speeds (not while a control has focus)
   useEffect(() => {
-    let resume: Speed = getSettings().defaultSpeed;
+    let resume: Speed = startSpeed(getSettings(), live.current.game.difficulty);
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") { setSelected(null); return; }
@@ -216,9 +224,9 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       if (e.code === "Space") {
         e.preventDefault();
         setSpeed((s) => { if (s) { resume = s; return 0; } return resume; });
-      } else if (e.key === "1") setSpeed(1);
-      else if (e.key === "2") setSpeed(2);
-      else if (e.key === "3" || e.key === "4") setSpeed(4);
+      } else if (e.key === "1") pickSpeed(1);
+      else if (e.key === "2") pickSpeed(2);
+      else if (e.key === "3" || e.key === "4") pickSpeed(4);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -286,7 +294,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           onMouseMove={onMove}
           onMouseLeave={() => setHoverTable(null)}
           style={{ cursor: hoverTable ? "pointer" : "default" }}
-          aria-label={`Restaurant floor: ${seatedParties} tables in use, ${queueing} people queueing outside. Click a table to select it.`}
+          aria-label={`Restaurant floor: ${seatedParties} tables in use, ${queueing} people queueing outside. ${tap} a table to select it.`}
           role="img"
         />
         {speed === 0 && <div className="paused-badge">PAUSED</div>}
@@ -329,12 +337,19 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           <StaffStrip game={game} send={send} readOnly={!!watch} />
           <div className="speeds speeds--deck" role="group" aria-label="Speed" style={{ marginTop: 12 }}>
             {SPEEDS.map((sp) => (
-              <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => setSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
+              <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => pickSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
                 <span className="speed__icon" aria-hidden="true"><Icon name={SPEED_ICON[sp]!} size={20} /></span>
                 <span className="speed__word">{sp === 0 ? (speed === 0 ? "Paused" : "Pause") : `${sp}×`}</span>
               </button>
             ))}
           </div>
+          {/* Round 11 (D, U10): the owner can skip the rest of tonight — the same ticks run at once (problems left
+              unanswered sort themselves out, as when watching), so the evening is exactly what watching would give. */}
+          {!watch && onSkip && (
+            <button className="btn service__skip" data-main-action onClick={onSkip}>
+              <Icon name="fastest" size={20} />Skip to evening
+            </button>
+          )}
         </div>
 
         {covering.length > 0 && (
@@ -396,11 +411,11 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
                 </div>
               </div>
               <button className="btn btn--primary btn--sm" disabled={!!sel.comped} onClick={() => send({ type: "COMP_TABLE", customerId: sel.id })} title="Their meal is on the house: big happiness boost, no revenue">
-                {sel.comped ? "Comped ✓" : "Comp this table"}
+                {sel.comped ? "On the house ✓" : "Make their meal free"}
               </button>
             </div>
           ) : (
-            <div className="selected__none">Click a table on the floor, or pick one below.</div>
+            <div className="selected__none">{tap} a table on the floor, or pick one below.</div>
           )}
           {seated.length > 0 && (
             <ul className="tablelist" aria-label="Seated tables (Tab to move, Enter to select)">
@@ -420,8 +435,8 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
               ))}
             </ul>
           )}
-          <div className="xs faint" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }} title="Kitchen slang: to 86 a dish means to stop selling it for the rest of the day">
-            Take off today's menu (86)
+          <div className="xs faint" style={{ fontWeight: 800 }}>
+            <Term id="eightySix" inline>Take off tonight</Term>
           </div>
           <div className="eightysix">
             {game.menu.filter((m) => m.active).map((m) => {
@@ -435,10 +450,10 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
                     className="btn btn--ghost btn--sm"
                     disabled={off}
                     onClick={() => send({ type: "EIGHTY_SIX", dishId: m.dishId })}
-                    title={off ? `${name} is off for today` : `"86" ${name}: stop selling it for the rest of today (back on tomorrow)`}
-                    aria-label={off ? `${name} is off today` : `Take ${name} off today's menu`}
+                    title={off ? `${name} is off for today` : `Stop selling ${name} for the rest of tonight (back on tomorrow)`}
+                    aria-label={off ? `${name} is off tonight` : `Take ${name} off tonight`}
                   >
-                    {off ? "Off today" : "86"}
+                    {off ? "Off tonight" : "Take off"}
                   </button>
                 </div>
               );

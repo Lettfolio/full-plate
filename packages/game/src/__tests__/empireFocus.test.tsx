@@ -156,10 +156,10 @@ describe("round 5: the Empire side panel is three cards and keeps every control"
     expect(screen.getByText("How alike your shops are")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("tab", { name: /Money/ }));
-    expect(screen.getByRole("button", { name: "Move to HQ" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Raise Royalty" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Move to head office" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Raise their share of takings" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lower fee" })).toBeTruthy();
-    const royalty = screen.getByText("Money the brand gets from each shop").closest(".term")!;
+    const royalty = screen.getByText("A share of their takings").closest(".term")!;
     expect(royalty.querySelector(".term__real")!.textContent).toBe("royalty");
   });
 });

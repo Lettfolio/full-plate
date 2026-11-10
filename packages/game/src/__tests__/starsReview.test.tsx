@@ -2,6 +2,7 @@
  * Round 3 review, Stars fixes: the short-menu warning before service (P1), the Stars hints (P2) and the shared hire
  * check (P2). Every state comes from the real sim and the real reducer.
  */
+import { formatPounds } from "../lib/format";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Command, GameState } from "@full-plate/sim-core";
@@ -164,7 +165,7 @@ describe("P2: one hire-cost rule (sim.ts hireCheck over sim-core exports)", () =
     fireEvent.click(screen.getByRole("button", { name: /Hire someone/ }));
     const btn = screen.getByText(c.name).closest(".candidate")!.querySelector("button")!;
     expect(btn.disabled).toBe(true);
-    expect(btn.title).toBe(`Needs £${Math.ceil(needed / 100)} in the bank`);
+    expect(btn.title).toBe(`Needs ${formatPounds(Math.ceil(needed / 100) * 100)} in the bank`); // R11-D: the one formatter (grouped)
     cleanup();
     render(<StaffTab game={{ ...g0, cash: needed }} send={noop} />);
     fireEvent.click(screen.getByRole("button", { name: /Hire someone/ }));

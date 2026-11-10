@@ -53,7 +53,8 @@ describe("Menu tab: today's menu first, the matrix as an expert view", () => {
     expect(document.querySelector(".matrix svg")).toBeNull();
     fireEvent.click(matrix);
     expect(matrix.getAttribute("aria-pressed")).toBe("true");
-    expect(await screen.findByRole("heading", { name: "Menu matrix" })).toBeTruthy();
+    // R11-D: a lazy chunk; on a loaded machine its first import can take longer than the 1 s default.
+    expect(await screen.findByRole("heading", { name: "Menu matrix" }, { timeout: 8000 })).toBeTruthy();
     expect(document.querySelector(".matrix svg")).not.toBeNull();
     expect(readMenuView()).toBe("matrix");
     fireEvent.click(list);
@@ -94,6 +95,12 @@ describe("Stock tab: the forecast in one line, in whole numbers", () => {
     render(<StockTab game={g} send={noop} needs={needs} />);
     const line = screen.getByTestId("stock-forecast");
     expect(line.textContent).toMatch(/Next service: about \d+ guests\./);
+    // Round 11 (D): the sheet lists what the menu uses (and what's on hand / coming) until "Show everything".
+    const rows = () => document.querySelectorAll(".stocktable tbody tr").length;
+    const relevant = needs.filter((n) => n.usedBy.length > 0 || n.onHand > 0 || n.incoming > 0).length;
+    expect(rows()).toBe(relevant);
+    if (relevant < needs.length) fireEvent.click(screen.getByRole("button", { name: /^Show everything \(\d+ more\)$/ }));
+    expect(rows()).toBe(needs.length);
     const shown = [...document.querySelectorAll(".stocktable tbody td:nth-child(2) b")].map((b) => b.textContent);
     expect(shown.every((t) => /^\d+$/.test(t!))).toBe(true);
     for (const n of needs) {

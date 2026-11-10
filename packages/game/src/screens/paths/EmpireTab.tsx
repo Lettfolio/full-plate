@@ -1,3 +1,4 @@
+import { formatPounds } from "../../lib/format";
 import { useMemo, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
@@ -69,8 +70,8 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
       <div className="empire__stats" aria-label="Empire totals">
         <Stat k="Shops open" v={String(open.length)} sub={`${open.filter((s) => s.ownership === "company").length} company · ${open.filter((s) => s.ownership !== "company").length} franchised`} />
         <Stat k="Meals served" v={compactMeals(e.mealsServedTotal)} sub={`of ${compactMeals(EMPIRE.WIN_MEALS)}`} />
-        <Stat k={<Term id="hqCash">HQ money</Term>} v={<MoneyText pence={e.hq.cash} whole tone />} sub={<>net <MoneyText pence={e.hq.income30d} whole tone /> / month</>} />
-        <Stat k={<Term id="facility">HQ can spend</Term>} v={<MoneyText pence={Math.max(0, spendable(e))} whole />} sub={<>incl. <MoneyText pence={developmentFacility(e)} whole /> bank facility (grows with open sites)</>} />
+        <Stat k={<Term id="hqCash">Head office money</Term>} v={<MoneyText pence={e.hq.cash} whole tone />} sub={<>net <MoneyText pence={e.hq.income30d} whole tone /> / month</>} />
+        <Stat k={<Term id="facility">Head office can spend</Term>} v={<MoneyText pence={Math.max(0, spendable(e))} whole />} sub={<>incl. <MoneyText pence={developmentFacility(e)} whole /> bank facility (grows with open sites)</>} />
         <Stat k={<Term id="franchiseeMood">Shop owners' mood</Term>} v={mood === undefined ? "—" : String(Math.round(mood))} sub={e.association.active ? "⚠ association formed" : `revolt below ${EMPIRE.ASSOCIATION_MOOD}`} />
         <Stat k={<Term id="plot">Land owned</Term>} v={String(e.property.length)} sub={`${e.applicants.length} applicant${e.applicants.length === 1 ? "" : "s"} waiting`} />
       </div>
@@ -80,9 +81,9 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
       )}
       {e.hq.cash < 0 && (
         <p className="callout callout--warn" role="note">
-          <b>HQ is overdrawn by <MoneyText pence={-e.hq.cash} whole />.</b> The overdraft costs {Math.round(EMPIRE.OVERDRAFT_APR * 100)}% a year (about <MoneyText pence={Math.round((-e.hq.cash * EMPIRE.OVERDRAFT_APR) / 12)} whole /> a month).{" "}
+          <b>Head office is overdrawn by <MoneyText pence={-e.hq.cash} whole />.</b> The overdraft costs {Math.round(EMPIRE.OVERDRAFT_APR * 100)}% a year (about <MoneyText pence={Math.round((-e.hq.cash * EMPIRE.OVERDRAFT_APR) / 12)} whole /> a month).{" "}
           {spendable(e) > 0 ? <>The bank will lend <MoneyText pence={spendable(e)} whole /> more for new building.</> : <>The bank won't lend more for building until sites open or cash comes in.</>}{" "}
-          HQ goes bust at −<MoneyText pence={EMPIRE.HQ_CREDIT_LINE * e.hq.priceLevel} whole />.
+          Head office goes bust at −<MoneyText pence={EMPIRE.HQ_CREDIT_LINE * e.hq.priceLevel} whole />.
         </p>
       )}
 
@@ -122,21 +123,21 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
             <>
               <MoneyHero e={e} />
               <div className="card stack stack--sm">
-                <div className="card__title"><h3>Money at HQ</h3></div>
+                <div className="card__title"><h3>Money at head office</h3></div>
                 <div className="bignums">
-                  <BigNum label={<Term id="hqCash">HQ money</Term>} value={<MoneyText pence={e.hq.cash} whole tone />} />
-                  <BigNum label={<Term id="facility">HQ can spend</Term>} value={<MoneyText pence={Math.max(0, spendable(e))} whole />} />
+                  <BigNum label={<Term id="hqCash">Head office money</Term>} value={<MoneyText pence={e.hq.cash} whole tone />} />
+                  <BigNum label={<Term id="facility">Head office can spend</Term>} value={<MoneyText pence={Math.max(0, spendable(e))} whole />} />
                 </div>
-                <p className="small muted">Last month HQ made <MoneyText pence={e.hq.income30d} whole tone />. HQ can spend its cash plus a bank loan for building that grows as shops open.</p>
+                <p className="small muted">Last month head office made <MoneyText pence={e.hq.income30d} whole tone />. Head office can spend its cash plus a bank loan for building that grows as shops open.</p>
               </div>
               <div className="card stack stack--sm">
                 <div className="card__title"><h3>Money from the flagship</h3></div>
-                <p className="small muted">The restaurant you run keeps its own till. Move spare cash to HQ to fund new sites.</p>
+                <p className="small muted">The restaurant you run keeps its own till. Move spare cash to head office to fund new sites.</p>
                 <div className="row">
                   <button className="btn btn--sm" aria-label="Move less" disabled={move <= 0} onClick={() => setMove(Math.max(0, move - step))}>−</button>
                   <b className="bignum__inline"><MoneyText pence={move} whole /></b>
                   <button className="btn btn--sm" aria-label="Move more" disabled={move + step > tillSpare} onClick={() => setMove(Math.min(tillSpare, move + step))}>+</button>
-                  <button className="btn btn--green btn--sm" disabled={move <= 0} onClick={() => { send({ type: "TRANSFER_FROM_FOCUSED", amount: move }); setMove(0); }}>Move to HQ</button>
+                  <button className="btn btn--green btn--sm" disabled={move <= 0} onClick={() => { send({ type: "TRANSFER_FROM_FOCUSED", amount: move }); setMove(0); }}>Move to head office</button>
                 </div>
                 <p className="xs faint">Keeps £2,000 in the till. Till now: <MoneyText pence={game.cash} whole /></p>
               </div>
@@ -164,7 +165,7 @@ function BoardMinutes({ e }: { e: EmpireState }) {
         <ul className="boardminutes">
           {minutes.map((m) => (
             <li key={m.id} className="small">
-              <b>{monthLabel(m.day)}</b> · {m.text} · HQ {m.net >= 0 ? "made" : "lost"} <MoneyText pence={Math.abs(m.net)} whole />
+              <b>{monthLabel(m.day)}</b> · {m.text} · head office {m.net >= 0 ? "made" : "lost"} <MoneyText pence={Math.abs(m.net)} whole />
             </li>
           ))}
         </ul>
@@ -254,9 +255,9 @@ function MoneyHero({ e }: { e: EmpireState }) {
   const last = e.hq.income30d;
   return (
     <div className="card hero" aria-label="Money summary">
-      <div className="hero__num"><b className={last < 0 ? "money--neg" : "money--pos"}><MoneyText pence={Math.abs(last)} whole /></b> <span>HQ {last < 0 ? "lost" : "made"} in the last 30 days</span></div>
+      <div className="hero__num"><b className={last < 0 ? "money--neg" : "money--pos"}><MoneyText pence={Math.abs(last)} whole /></b> <span>head office {last < 0 ? "lost" : "made"} in the last 30 days</span></div>
       {months.length > 1 ? (
-        <div className="monthbars" role="img" aria-label={`HQ money each month: ${months.map((m) => `${monthShort(m.day)} ${m.net >= 0 ? "made" : "lost"} ${pounds(Math.abs(m.net))}`).join(", ")}`}>
+        <div className="monthbars" role="img" aria-label={`Head office money each month: ${months.map((m) => `${monthShort(m.day)} ${m.net >= 0 ? "made" : "lost"} ${pounds(Math.abs(m.net))}`).join(", ")}`}>
           {months.map((m) => (
             <div key={m.id} className="monthbars__col">
               <span className={`monthbars__bar ${m.net < 0 ? "monthbars__bar--neg" : ""}`} style={{ height: `${Math.max(4, (Math.abs(m.net) / max) * 100)}%` }} />
@@ -276,10 +277,10 @@ function Stat({ k, v, sub }: { k: React.ReactNode; v: React.ReactNode; sub?: Rea
 /** Why HQ can't pay `cost` right now (undefined when it can). */
 function cantAfford(e: EmpireState, cost: number | undefined): string | undefined {
   if (!cost || cost <= 0 || spendable(e) >= cost) return undefined;
-  return `Needs ${pounds(cost)}; HQ can spend ${pounds(Math.max(0, spendable(e)))}`;
+  return `Needs ${pounds(cost)}; head office can spend ${pounds(Math.max(0, spendable(e)))}`;
 }
-const AFFORD_HELP = "HQ can spend its cash plus a bank facility that grows as sites open. Move cash from the flagship, or wait for sites to trade.";
-const pounds = (p: number) => `£${Math.round(p / 100).toLocaleString("en-GB")}`;
+const AFFORD_HELP = "Head office can spend its cash plus a bank facility that grows as sites open. Move cash from the flagship, or wait for sites to trade.";
+const pounds = formatPounds;
 
 /** A button the franchisee association may block, or that HQ may not be able to pay for: disabled with the reason. */
 function Blockable({ e, cmd, send, children, className = "btn btn--sm", title, cost }: { e: EmpireState; cmd: EmpireCommand; send: (c: EmpireCommand) => void; children: React.ReactNode; className?: string; title?: string; cost?: number }) {
@@ -326,7 +327,7 @@ function CityPanel({ e, city, send }: { e: EmpireState; city: City; send: (c: Em
           <Blockable e={e} send={send} className="btn btn--primary btn--sm" cost={cityEntryCost(e, city)} cmd={{ type: "ENTER_CITY", cityId: city.id }}>Enter {city.name} · <MoneyText pence={cityEntryCost(e, city)} whole /></Blockable>
         )}
         {!city.entered && !city.exited && spendable(e) >= cityEntryCost(e, city) && spendable(e) - cityEntryCost(e, city) < cost && (
-          <p className="xs callout callout--warn" role="note">Entering leaves HQ <MoneyText pence={spendable(e) - cityEntryCost(e, city)} whole /> to spend, and a site here costs <MoneyText pence={cost} whole />. You'd be in {city.name} with nothing to open until more money comes in.</p>
+          <p className="xs callout callout--warn" role="note">Entering leaves head office <MoneyText pence={spendable(e) - cityEntryCost(e, city)} whole /> to spend, and a site here costs <MoneyText pence={cost} whole />. You'd be in {city.name} with nothing to open until more money comes in.</p>
         )}
         {city.entered && city.dietaryRules.length > 0 && !city.localised && (
           <Blockable e={e} send={send} cost={Math.round(EMPIRE.LOCALISE_COST * Math.max(0.6, city.costIndex) * e.hq.priceLevel)} cmd={{ type: "LOCALISE_MENU", cityId: city.id }}>Localise the menu · <MoneyText pence={Math.round(EMPIRE.LOCALISE_COST * Math.max(0.6, city.costIndex) * e.hq.priceLevel)} whole /></Blockable>
@@ -578,7 +579,7 @@ function ContractPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) =
         <b className="bignum__inline"><MoneyText pence={c.fee} whole /></b>
         <button className="btn btn--sm" aria-label="Raise fee" onClick={() => set({ fee: c.fee + 500_000 })}>+</button>
       </div>
-      {row("royalty", "Royalty", `${(c.royaltyPct * 100).toFixed(1)}%`, "royaltyPct", 0.005)}
+      {row("royalty", "their share of takings", `${(c.royaltyPct * 100).toFixed(1)}%`, "royaltyPct", 0.005)}
       {row("adFund", "Ad fund", `${(c.adFundPct * 100).toFixed(1)}%`, "adFundPct", 0.005)}
       {row("landRent", "Rent on your land", `${(c.rentPctOfSales * 100).toFixed(0)}%`, "rentPctOfSales", 0.01)}
       <Bar label="Applicants like it" value={Math.min(1.5, attract)} max={1.5} tone={attract < 0.6 ? "accent" : attract < 1 ? "amber" : "basil"} size="sm" />

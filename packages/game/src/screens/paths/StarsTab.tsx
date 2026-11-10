@@ -254,7 +254,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           </div>
 
           <div className="card stack stack--sm">
-            <div className="card__title"><h3>The group</h3><span className="xs faint">satellites never earn stars</span></div>
+            <div className="card__title"><h3>The group</h3><span className="xs faint">sister restaurants never earn stars</span></div>
             {v.satellites.map((s) => (
               <div key={s.id} className="row">
                 <span className="spacer small"><b>{s.name}</b> <span className="xs muted">{s.kind} · earned <MoneyText pence={s.earned} whole /></span>{!s.headChefTrained && <span className="xs" title="Untrained head chef: costs the flagship consistency"> ⚠</span>}</span>

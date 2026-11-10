@@ -8,7 +8,8 @@
  * from every dish it is given); a library save loads fine under the full pack after the handover.
  */
 import * as sim from "@full-plate/sim-core";
-import { content as libraryPack, extras, fullContent, inLibrary as contentInLibrary, tagsOf as contentTagsOf } from "@full-plate/content";
+import { applySoftDrinks, content as libraryPack, extras, fullContent, inLibrary as contentInLibrary, tagsOf as contentTagsOf } from "@full-plate/content";
+import { getSettings, subscribeSettings } from "./lib/settings";
 import type { Command, ContentPack, GameState } from "@full-plate/sim-core";
 
 export type * from "@full-plate/sim-core";
@@ -17,6 +18,16 @@ export type * from "@full-plate/sim-core";
 function withText(pack: ContentPack): ContentPack {
   return { ...pack, incidentText: extras.incidentText, goalText: extras.goalText } as unknown as ContentPack;
 }
+
+/**
+ * Round 11 (D, U8): "No grown-up drinks" (Settings, on by default) re-words the drinks in place — names, blurbs, the
+ * Stars wine list and a few lines; ids and every number are unchanged, so saves and the sim's results are identical.
+ */
+export function syncSoftDrinks(on: boolean = getSettings().noGrownUpDrinks): boolean {
+  return applySoftDrinks([fullContent, libraryPack, extras], on);
+}
+syncSoftDrinks();
+if (typeof window !== "undefined") subscribeSettings(() => { syncSoftDrinks(); });
 
 /** The owner game's pack: every dish, plus the Round 3 text. */
 export const content: ContentPack = withText(fullContent);

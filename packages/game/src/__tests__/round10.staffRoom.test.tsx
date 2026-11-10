@@ -76,7 +76,7 @@ describe("person cards", () => {
       for (const id of s.traits) {
         const def = content.traits.find((x) => x.id === id)!;
         const chip = within(card).getByText(def.name).closest(".chip")!;
-        expect(chip.getAttribute("tabindex")).toBe("0");
+        expect(chip.getAttribute("tabindex")).toBe("-1"); // R11-D: out of the Tab order; "?" lists it
         const tip = document.getElementById(chip.getAttribute("aria-describedby")!)!;
         expect(tip.getAttribute("role")).toBe("tooltip");
         expect(tip.textContent).toContain(def.description);
