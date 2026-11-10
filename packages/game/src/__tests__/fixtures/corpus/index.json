@@ -203,6 +203,13 @@
    "key": "save",
    "origin": "generated (scripts/corpus.gen.ts, round 11)",
    "what": "Stars, two scripted years after the fork (year 3)"
+  },
+  {
+   "file": "r12-owner-branded-d40.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (round 12 B: r11-owner-staffed-normal-d40 loaded, then a brand set through the reducer)",
+   "what": "round 12: an owner game with a custom brand kit (meta.brand)"
   }
  ]
 }
