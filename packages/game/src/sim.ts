@@ -8,7 +8,7 @@
  * from every dish it is given); a library save loads fine under the full pack after the handover.
  */
 import * as sim from "@full-plate/sim-core";
-import { applySoftDrinks, content as libraryPack, extras, fullContent, inLibrary as contentInLibrary, tagsOf as contentTagsOf } from "@full-plate/content";
+import { applySoftDrinks, cookbookStep, customBase, syncCustomDishes as syncDishes, type CookbookMeta, content as libraryPack, extras, fullContent, inLibrary as contentInLibrary, tagsOf as contentTagsOf, type CustomDishSpec } from "@full-plate/content";
 import { getSettings, subscribeSettings } from "./lib/settings";
 import type { Command, ContentPack, GameState } from "@full-plate/sim-core";
 
@@ -34,6 +34,17 @@ export const content: ContentPack = withText(fullContent);
 /** The career's employer pack: library dishes only (the AI owner chooses from what it is given). */
 export const careerContent: ContentPack = withText(libraryPack);
 export { extras };
+
+// ── Round 12 (F): invented dishes (packages/content/src/customDish.ts) ──
+/** The pack whose real dishes an invented dish's numbers are derived from (the starter library; fixed for a game). */
+export const customRef: ContentPack = libraryPack;
+/** Puts this game's invented dishes into the owner pack (`content` and the full pack); memoised on the array. */
+export const syncCustomDishes = (specs: readonly CustomDishSpec[] | undefined): boolean => syncDishes([fullContent, content], specs, customRef);
+/** The reducer's step after every action: sync the pack, fold the day's sales into the cookbook. */
+export const cookbook = <M extends CookbookMeta>(meta: M, game: GameState | null): M => cookbookStep([fullContent, content], customRef, meta, game);
+/** `content`, or a fresh copy once invented dishes changed it (sim-stars memoises signatures per pack object). */
+export const cookingBase = (): ContentPack => customBase(content);
+
 export const inLibrary = contentInLibrary;
 export const tagsOf = contentTagsOf;
 

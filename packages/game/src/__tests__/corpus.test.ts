@@ -27,7 +27,8 @@ async function rawOf(e: Entry): Promise<string> {
 
 describe("save corpus (round 11)", () => {
   it("is the distinct set the red-team counted, plus this round's saves, and stays small", () => {
-    const legacy = files.filter((f) => !f.file.startsWith("r11-"));
+    // Round 12 (F): generated saves are r11-* and later (r12-owner-invented-d6: invented dishes); legacy is the rest.
+    const legacy = files.filter((f) => !/^r1[1-9]-/.test(f.file));
     expect(legacy.filter((f) => f.kind === "envelope")).toHaveLength(17);
     expect(files.filter((f) => f.file.startsWith("r11-career-")).length).toBeGreaterThanOrEqual(3);
     const bytes = files.reduce((a, f) => a + readFileSync(join(DIR, f.file)).length, 0);
@@ -38,7 +39,7 @@ describe("save corpus (round 11)", () => {
     const raw = await rawOf(e);
     const loaded = decodeSave(raw);
     const once = encodeSave(loaded.game, loaded.meta);
-    if (e.file.startsWith("r11-")) expect(once).toBe(raw);
+    if (/^r1[1-9]-/.test(e.file)) expect(once).toBe(raw);
     const again = decodeSave(once);
     expect(encodeSave(again.game, again.meta)).toBe(once);
 
@@ -69,5 +70,10 @@ describe("save corpus (round 11)", () => {
     const stars = await get("stars-y3");
     expect(stars.meta.stars).toBeTruthy();
     expect(stars.game.day).toBeGreaterThan(2 * 365);
+    // Round 12 (F): invented dishes on the menu, with their cookbook sales.
+    const inv = decodeSave(await rawOf(files.find((f) => f.file === "r12-owner-invented-d6.json.gz")!));
+    expect(inv.meta.customDishes?.map((d) => d.name)).toEqual(["Midnight risotto", "Strawberry mess"]);
+    expect(inv.meta.customDishes![0]!.sold).toBeGreaterThan(0);
+    expect(inv.game.menu.filter((m) => m.dishId.startsWith("custom:"))).toHaveLength(2);
   });
 });

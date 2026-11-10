@@ -19,5 +19,6 @@ export function dishUnlocked(dishId: string, path: PathKind | undefined): boolea
 }
 
 export function recipeBook(content: ContentPack, path: PathKind | undefined): DishDef[] {
-  return content.dishes.filter((d) => dishUnlocked(d.id, path));
+  // Round 12 (F): invented dishes ("custom:…") live in the cookbook strip, not the recipe book.
+  return content.dishes.filter((d) => !d.id.startsWith("custom:") && dishUnlocked(d.id, path));
 }

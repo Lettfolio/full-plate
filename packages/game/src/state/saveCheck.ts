@@ -15,7 +15,9 @@ import { validateGameState } from "@full-plate/sim-core/validate";
 import { handoverSchema, ownerPerksSchema, validateCareerState } from "@full-plate/sim-career/validate";
 import { validateEmpireState, validateParkedSite } from "@full-plate/sim-empire/validate";
 import { starsGuideResult, starsVisit, validateStarsState } from "@full-plate/sim-stars/validate";
-import { deserialize, serialize } from "../sim";
+import { customRef, deserialize, serialize } from "../sim";
+import { checkCustomDish, cleanDishName, CUSTOM_COURSES, CUSTOM_ICONS, CUSTOM_MAX_INGREDIENTS, CUSTOM_MAX_PER_GAME, CUSTOM_MIN_INGREDIENTS, CUSTOM_QTY_MAX, CUSTOM_QTY_MIN, isCustomDishId } from "@full-plate/content";
+import type { CustomDish } from "../lib/customDish";
 import { decodeSave, type Loaded } from "./save";
 import type { PathMeta } from "./paths";
 import { CHUNK_SIZE, MAX_CHUNKS, MAX_PACKED, type CloudHeader } from "./saveStore";
@@ -24,6 +26,22 @@ export { SchemaError };
 export const DAMAGED = "That save file is damaged.";
 
 const n = num();
+
+/**
+ * Round 12 (F): an invented dish — every field typed and range-checked, the name cleaned like a restaurant's, then the
+ * content package's own recipe check (ids `custom:…`, 2–5 distinct ingredients from the list, quantities in steps).
+ */
+const customDishShape = obj<CustomDish>({
+  id, name: name(64), course: oneOf(...CUSTOM_COURSES), icon: oneOf(...CUSTOM_ICONS),
+  ingredients: arr(obj({ id, qty: num(CUSTOM_QTY_MIN, CUSTOM_QTY_MAX) }, false), CUSTOM_MAX_INGREDIENTS, CUSTOM_MIN_INGREDIENTS),
+  createdDay: day, sold: int(0, 1e9), firstSoldDay: opt(day),
+}, false);
+const customDish: Check<CustomDish> = (v, at) => {
+  const d = customDishShape(v, at);
+  d.name = cleanDishName(d.name);
+  const problems = checkCustomDish(d, customRef);
+  return problems.length ? fail(at, problems[0]!) : d;
+};
 const command: Check = obj({ type: id }, anyJson);
 const empireEvent = obj({ day, kind: id, text, tone: oneOf("good", "bad", "info", "money"), siteId: opt(id), cityId: opt(id), regionId: opt(id) });
 
@@ -56,6 +74,8 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   })),
   lastPathDay: day,
   morningDay: opt(day),
+  customDishes: opt(arr(customDish, CUSTOM_MAX_PER_GAME)),
+  cookbookDay: opt(day),
 }, false);
 
 /** A decoded save, checked and cleaned. Throws a SchemaError naming the first bad field. */
@@ -66,6 +86,11 @@ export function validateLoaded(l: Loaded): Loaded {
   if (career) meta.career = validateCareerState(career);
   if (empire) meta.empire = validateEmpireState(empire);
   if (stars) meta.stars = validateStarsState(stars);
+  // Round 12 (F): every invented dish the game names is in the save's cookbook, and no recipe id is used twice.
+  const mine = new Set((meta.customDishes ?? []).map((d) => d.id));
+  if (mine.size !== (meta.customDishes ?? []).length) fail("meta.customDishes", "duplicate id");
+  for (const dishId of [...game.menu.map((m) => m.dishId), ...(game.setMenu?.dishIds ?? [])])
+    if (isCustomDishId(dishId) && !mine.has(dishId)) fail("game.menu", `unknown invented dish ${dishId}`);
   if (meta.parked) {
     for (const [site, s] of Object.entries(meta.parked)) {
       if (typeof s !== "string") { meta.parked[site] = validateParkedSite(s, `meta.parked.${site}`); continue; }

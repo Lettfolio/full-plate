@@ -335,6 +335,7 @@ export function App() {
             sendStars={sendStars}
             onFocusSite={(siteId) => dispatch({ type: "focusSite", siteId })}
             onTastingMenu={(menuId) => dispatch({ type: "tastingMenu", menuId })}
+            onInvent={(dish) => dispatch({ type: "invent", dish })}
           />
         )}
         {inService && meta.handsOn && (

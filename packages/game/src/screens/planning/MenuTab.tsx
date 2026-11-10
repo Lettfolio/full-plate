@@ -10,9 +10,13 @@ import { pct } from "../../lib/format";
 import { judged, QUADRANT, QUADRANT_MIN_DAYS } from "./quadrants";
 // Round 7: the matrix is the expert view, loaded the first time it is opened.
 const MenuMatrixPanel = lazy(() => import("./MenuMatrixPanel"));
+// Round 12 (F): "Invent a dish" and the cookbook of invented dishes (its own chunk; the sheet is another).
+const CookbookStrip = lazy(() => import("./CookbookStrip"));
 import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
 import { Term } from "../../components/Term";
 import { useDrinksView } from "../../lib/settings";
+import type { CustomDish } from "../../lib/customDish";
+import type { PathMeta } from "../../state/paths";
 
 export type MenuView = "list" | "matrix";
 const VIEW_KEY = "full-plate:menuView:v1";
@@ -46,6 +50,9 @@ interface Props {
   send: (cmd: Command) => void;
   /** The path chosen at the fork: unlocks the fast-food (Empire) or fine-dining (Stars) recipes. */
   path?: PathKind | undefined;
+  /** Round 12 (F): the game's invented dishes (meta.customDishes) and the invent action. */
+  meta?: PathMeta | undefined;
+  onInvent?: ((dish: CustomDish) => void) | undefined;
 }
 
 const SECTION_TITLE: Record<LibrarySection, string> = {
@@ -63,13 +70,14 @@ function marginTone(f: number): string {
   return f >= 0.68 ? "margin--good" : f >= 0.55 ? "margin--ok" : "margin--bad";
 }
 
-export function MenuTab({ game, send, path }: Props) {
+export function MenuTab({ game, send, path, meta, onInvent }: Props) {
+  const custom = (meta && meta.customDishes) || [];
   const [hover, setHover] = useState<DishId | null>(null);
   const [view, setViewState] = useState<MenuView>(readMenuView);
   const setView = (v: MenuView) => { setViewState(v); writeMenuView(v); };
   const quadrants = useMemo(() => classifyMenu(content, game), [game]);
   const drinks = useDrinksView(); // Round 11b: names follow "Hide alcoholic drinks" at once
-  const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), [drinks]);
+  const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), [drinks, custom]);
   const byCourse = (a: MenuItem, b: MenuItem) => {
     const ca = content.dishes.find((d) => d.id === a.dishId)?.course ?? "main";
     const cb = content.dishes.find((d) => d.id === b.dishId)?.course ?? "main";
@@ -118,7 +126,7 @@ export function MenuTab({ game, send, path }: Props) {
               const q = judged(m) ? quadrants[m.dishId] : undefined;
               return (
                 <div key={m.dishId} className={`dish ${m.active ? "" : "dish--off"}`} onMouseEnter={() => setHover(m.dishId)} onMouseLeave={() => setHover(null)} style={hover === m.dishId ? { borderColor: "var(--ink)" } : undefined}>
-                  <span className="dish__course" title={d?.course}>{d ? COURSE_ICON[d.course] : "🍽️"}</span>
+                  <span className="dish__course" title={d?.course}>{(custom.find((c) => c.id === m.dishId) || { icon: d ? COURSE_ICON[d.course] : "🍽️" }).icon}</span>
                   <div style={{ minWidth: 0 }}>
                     <div className="row">
                       <span className="dish__name">{d?.name ?? m.dishId}</span>
@@ -154,6 +162,8 @@ export function MenuTab({ game, send, path }: Props) {
           </div>
         </div>
       </div>
+
+      {onInvent && <Suspense fallback={null}><CookbookStrip meta={meta} game={game} send={send} onInvent={onInvent} /></Suspense>}
 
       {library.length === 0 ? (
         <section className="library"><h3>Recipe book</h3><div className="empty">Every recipe is already on your menu.</div></section>

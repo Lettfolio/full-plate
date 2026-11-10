@@ -10,6 +10,7 @@ import { BankBanner, bankLastDays, hirePromptText, loanDue, StarterLoanTip } fro
 import { MoneyText } from "../components/MoneyText";
 import { isOpeningDay } from "../lib/calendar";
 import { MenuTab } from "./planning/MenuTab";
+import type { CustomDish } from "../lib/customDish";
 import type { KnownPerson } from "./planning/StaffTab";
 // Round 10: the staff room (portrait cards, hiring sheet, training) loads on first open too.
 const StaffTab = lazy(() => import("./planning/StaffTab").then((m) => ({ default: m.StaffTab })));
@@ -53,6 +54,8 @@ interface Props {
   sendStars?: (cmd: StarsCommand) => void;
   onFocusSite?: (siteId: string) => void;
   onTastingMenu?: (menuId: string | null) => void;
+  /** Round 12 (F): invent a dish (Menu tab). */
+  onInvent?: (dish: CustomDish) => void;
 }
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }
@@ -62,7 +65,7 @@ function openHireGoalRole(game: GameState): StaffRole | undefined {
   return (game.goals ?? []).find((g) => !g.done && g.kind === "hire_role")?.role;
 }
 
-export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu }: Props) {
+export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu, onInvent }: Props) {
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
@@ -184,7 +187,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           </aside>
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-          {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
+          {tab === "menu" && <MenuTab game={game} send={send} path={path} meta={meta} onInvent={onInvent} />}
           {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
           {tab === "restaurant" && <RestaurantTab game={game} send={send} />}

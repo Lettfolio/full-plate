@@ -10,6 +10,7 @@ import type { ShiftSummary, HandsOnResult, HandsOnRole, StationPlan } from "@ful
 import type { Command, DayResult, GameState } from "@full-plate/sim-core";
 import { asCommand } from "../sim";
 import type { PathKind } from "../lib/library";
+import type { CustomDish } from "../lib/customDish";
 
 export type GameMode = "owner" | "career";
 
@@ -151,6 +152,10 @@ export interface PathMeta {
   lastPathDay: number;
   /** Sim day the morning hooks (career owner planning, Stars refit) last ran for. */
   morningDay?: number | undefined;
+  /** Round 12 (F): dishes the player invented (lib/customDish.ts; put into the pack by sim.ts syncCustomDishes). */
+  customDishes?: CustomDish[];
+  /** Round 12 (F): last history day folded into the custom dishes' lifetime sales. */
+  cookbookDay?: number;
 }
 
 export const initialMeta = (mode: GameMode = "owner"): PathMeta => ({

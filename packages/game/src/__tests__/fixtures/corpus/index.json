@@ -203,6 +203,13 @@
    "key": "save",
    "origin": "generated (scripts/corpus.gen.ts, round 11)",
    "what": "Stars, two scripted years after the fork (year 3)"
+  },
+  {
+   "file": "r12-owner-invented-d6.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated once (round 12 F, the invent-a-dish tests' recipe)",
+   "what": "round 12: owner on day 7 with two invented dishes (a risotto on the menu since day 1, a pudding since day 4) and their cookbook sales"
   }
  ]
 }

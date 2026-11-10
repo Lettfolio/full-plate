@@ -21,7 +21,7 @@ import {
   applyStarsCommand, applyStarsEffects, closedDay, isClosed, newStarsState, prepareService, stepStarsDay, withSignatures,
   type StarsCommand, type StarsEvent,
 } from "@full-plate/sim-stars";
-import { applyCommand, asCommand, careerContent, content, extras, HOOKS, recruitmentFeeOf } from "../sim";
+import { applyCommand, asCommand, careerContent, content, cookingBase, extras, HOOKS, recruitmentFeeOf } from "../sim";
 import { fill } from "@full-plate/content";
 import { FORK_SNOOZE_DAYS, type PathMeta, type WinMeta, initialMeta } from "./paths";
 
@@ -30,7 +30,7 @@ const EMPIRE_EVENTS_MAX = 80;
 /** The pack the sim cooks with for this game: the career's library pack, or the full pack with Stars signatures. */
 export function packFor(meta: PathMeta): ContentPack {
   if (meta.mode === "career" && !meta.career?.handover) return careerContent;
-  return meta.stars ? withSignatures(content, meta.stars) : content;
+  return meta.stars ? withSignatures(cookingBase(), meta.stars) : content;
 }
 
 // ───────────────────────── career ─────────────────────────
@@ -300,7 +300,7 @@ export function eveningHooks(game: GameState, meta: PathMeta): { game: GameState
   }
 
   if (m.stars) {
-    const cooking = withSignatures(content, m.stars);
+    const cooking = withSignatures(cookingBase(), m.stars);
     // A 0-cover night that was not CLOSE_TODAY goes in as itself: a stock-out is a failed service (sim-stars SHORT_MENU).
     const r = stepStarsDay(cooking, m.stars, result.closed ? closedDay(result.day) : result, g);
     const fx = applyStarsEffects(g, r.stars);
