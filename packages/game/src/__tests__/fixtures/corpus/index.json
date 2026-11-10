@@ -1,0 +1,208 @@
+{
+ "about": "Round 11 save corpus (red-team T3). corpus.test.ts decodes each, checks re-encoding is stable, and plays a day. key: the localStorage key the save lived under (save = full-plate:save:v1, career = full-plate:career:v1). Legacy files are never regenerated.",
+ "files": [
+  {
+   "file": "r6-review-empire-board-tip.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/review/saves/empire-board-tip.json",
+   "what": "round 6 review: Empire, evening with a board tip"
+  },
+  {
+   "file": "r6-review-empire-premonthend.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/review/saves/empire-premonthend.json",
+   "what": "round 6 review: Empire, the day before month end"
+  },
+  {
+   "file": "r6-review-overstock-order.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/review/saves/overstock-order.json",
+   "what": "round 6 review: owner, over-stocked order"
+  },
+  {
+   "file": "r6c-dog.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/c/saves/dog.json",
+   "what": "round 6 C: owner, a 'dog' dish (biggest save, 602 kB)"
+  },
+  {
+   "file": "r6c-idle-chef.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/c/saves/idleChef.json",
+   "what": "round 6 C: owner, an idle chef"
+  },
+  {
+   "file": "r6c-overstock.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/c/saves/overstock.json",
+   "what": "round 6 C: owner, over-stocked"
+  },
+  {
+   "file": "r6c-rota.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/c/saves/rota.json",
+   "what": "round 6 C: owner, rota advice"
+  },
+  {
+   "file": "r6c-underpriced.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r6/c/saves/underpriced.json",
+   "what": "round 6 C: owner, under-priced menu"
+  },
+  {
+   "file": "r7-empire-board.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/empire-board.json",
+   "what": "round 7 audit: Empire, board meeting evening"
+  },
+  {
+   "file": "r7-empire.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/empire.json",
+   "what": "round 7 audit: Empire, planning"
+  },
+  {
+   "file": "r7-fork-evening.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/fork-evening.json",
+   "what": "round 7 audit: day 365 evening, fork card"
+  },
+  {
+   "file": "r7-gameover.json.gz",
+   "kind": "envelope",
+   "key": "career",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/gameover.json",
+   "what": "round 7 audit: bust owner game under the career key"
+  },
+  {
+   "file": "r7-owner-evening.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/owner-evening.json",
+   "what": "round 7 audit: owner, evening"
+  },
+  {
+   "file": "r7-owner-planning.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/owner-planning.json",
+   "what": "round 7 audit: owner, planning"
+  },
+  {
+   "file": "r7-stars-nights.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/stars-nights.json",
+   "what": "round 7 C: Stars, after some nights"
+  },
+  {
+   "file": "r7-stars.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/stars.json",
+   "what": "round 7 audit: Stars, planning"
+  },
+  {
+   "file": "r7-win.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/r7c/saves/win.json",
+   "what": "round 7 audit: a won ending (dynasty card)"
+  },
+  {
+   "file": "r9-savefile-mias-cafe-day4.json.gz",
+   "kind": "savefile",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r9/cloud/fullplate-mias-cafe-day4.fpsave.json",
+   "what": "round 9: a gzip save file (Save to a file)"
+  },
+  {
+   "file": "r9-savefile-home-diner-day1.json.gz",
+   "kind": "savefile",
+   "key": "save",
+   "origin": "reviewer corpus: scratchpad/shots/r9/device/fullplate-home-diner-day1.fpsave.json",
+   "what": "round 9: a save file from a device without an account"
+  },
+  {
+   "file": "r11-career-apprentice-d4.json.gz",
+   "kind": "envelope",
+   "key": "career",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "career, chef track, 4 days in"
+  },
+  {
+   "file": "r11-career-waiter-d5.json.gz",
+   "kind": "envelope",
+   "key": "career",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "career, waiter track, 5 days in"
+  },
+  {
+   "file": "r11-career-manager-d6.json.gz",
+   "kind": "envelope",
+   "key": "career",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "career, manager track, 6 days in"
+  },
+  {
+   "file": "r11-career-apprentice-evening.json.gz",
+   "kind": "envelope",
+   "key": "career",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "career, chef track, the evening after a worked shift"
+  },
+  {
+   "file": "r11-owner-staffed-normal-d40.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "owner, Normal, 3 hires, day ~40, planning"
+  },
+  {
+   "file": "r11-owner-hard-d15.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "owner, Hard, 2 hires, day ~15, planning"
+  },
+  {
+   "file": "r11-owner-decorated-d30.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "owner, Cosy, decor bought (floor, sign, seating) the evening before fitting"
+  },
+  {
+   "file": "r11-owner-decorated-fitted-d32.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "owner, Cosy, the same room two days later (fitted)"
+  },
+  {
+   "file": "r11-empire-y4-board.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "Empire, year 4, franchise style, the evening a board meeting is waiting"
+  },
+  {
+   "file": "r11-stars-y3.json.gz",
+   "kind": "envelope",
+   "key": "save",
+   "origin": "generated (scripts/corpus.gen.ts, round 11)",
+   "what": "Stars, two scripted years after the fork (year 3)"
+  }
+ ]
+}
