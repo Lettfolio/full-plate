@@ -14,10 +14,10 @@ import { TitleScreen } from "./screens/TitleScreen";
 import type { CareerStartOptions } from "./screens/StartPicker";
 import { Planning, type PlanningTab } from "./screens/Planning";
 import { Service } from "./screens/Service";
-import { Evening } from "./screens/Evening";
 import { EventModal } from "./screens/EventModal";
 import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
+import { RotateCard } from "./components/RotateCard";
 
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
@@ -45,6 +45,9 @@ const loadNewGame = () => import("./screens/NewGame");
 const StartPicker = lazy(() => loadStart().then((m) => ({ default: m.StartPicker })));
 const NewGame = lazy(() => loadNewGame().then((m) => ({ default: m.NewGame })));
 const GameOver = lazy(() => import("./screens/GameOver").then((m) => ({ default: m.GameOver })));
+// Round 12 (D, bundle relief): the owner's Evening is its own chunk, fetched while service runs (see the effect below).
+const loadEvening = () => import("./screens/Evening");
+const Evening = lazy(() => loadEvening().then((m) => ({ default: m.Evening })));
 /** Warm the new-game screens' chunks once the title has painted (a tablet shouldn't wait on "New game"). */
 function prefetchStartScreens(): void {
   const go = () => { void loadStart().catch(() => {}); void loadNewGame().catch(() => {}); };
@@ -108,6 +111,8 @@ export function App() {
   const [eventOpen, setEventOpen] = useState(false);
   const phase = game?.phase;
   useEffect(() => { if (phase !== "event") setEventOpen(false); }, [phase]);
+  // Round 12 (D): warm the Evening's chunk once a day is under way, so the evening never waits on the network.
+  useEffect(() => { if (phase === "planning" || phase === "service") void loadEvening().catch(() => {}); }, [phase]);
 
   const send = useCallback((cmd: Command) => dispatch({ type: "command", cmd }), []);
   const sendCareer = useCallback((cmd: CareerCommand) => dispatch({ type: "career", cmd }), []);
@@ -404,6 +409,8 @@ export function App() {
         )}
         </Suspense>
       </main>
+      {/* Round 12 (D): an upright phone is asked to turn sideways for a hands-on shift (holds the shift meanwhile). */}
+      {inService && meta.handsOn && <RotateCard />}
       {!career && game.phase === "event" && eventOpen && <EventModal game={game} send={send} />}
       {isEvening && !career && meta.fork.offered && !meta.fork.chosen && (
         <Suspense fallback={null}><ForkCard game={game} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} /></Suspense>

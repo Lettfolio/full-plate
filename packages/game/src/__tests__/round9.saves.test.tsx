@@ -2,7 +2,7 @@
  * Round 9: save slots across visits and devices — the store (state/saveStore.ts) with an in-memory db and a fake
  * localStorage, the slot picker, the title's Continue, the header's save mark and Save & quit.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { GameState } from "@full-plate/sim-core";
 import { appReducer, initialAppState } from "../state/gameReducer";
@@ -20,7 +20,10 @@ import { SlotPicker, playedAgo } from "../screens/SlotPicker";
 import { TitleScreen } from "../screens/TitleScreen";
 import { SaveIndicator } from "../components/SaveIndicator";
 import { saveExplain } from "../components/SaveSheet";
-import { SettingsMenu } from "../components/Settings";
+import { loadSettingsBody, SettingsMenu } from "../components/Settings";
+// Round 12 (D): the sheet body is a lazy chunk; fetch it once so the sheet opens synchronously, as it does in the game
+// after the header button has warmed it.
+beforeAll(() => loadSettingsBody());
 import { adoptSettings, getSettings, resetSettingsCache, setSettings } from "../lib/settings";
 import { adoptOnboardKeys, knownOnboardKeys, onboardKey, onboardSeen } from "../lib/onboarding";
 import { attachPrefs } from "../lib/prefsSync";

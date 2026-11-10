@@ -21,15 +21,16 @@
  *
  *   pnpm --filter @full-plate/game probe            # builds if needed, own preview on a free port, checks the baseline
  *   pnpm --filter @full-plate/game probe -- --update-baseline
- * Env: see harness.mjs; FP_PROBE_OUT (default scripts/.probe-out), FP_PROBE_VIEWPORTS ("1280x800,1024x768,768x1024"),
+ * Env: see harness.mjs; FP_PROBE_OUT (default scripts/.probe-out), FP_PROBE_VIEWPORTS ("1280x800,1024x768,768x1024,
+ *      390x844m,844x390m"; an "m" suffix is a phone: isMobile + hasTouch at the iPhone's 3× scale, Round 12 — D),
  *      FP_PROBE_TEXT ("normal,large").
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { canvasProbe, canvasSmall, checkBaseline, genSaves, HERE, loadPlaywright, settle, startPreview, walkScreens } from "./lib/harness.mjs";
+import { canvasProbe, canvasSmall, checkBaseline, contextFor, genSaves, HERE, loadPlaywright, parseViewports, settle, startPreview, walkScreens } from "./lib/harness.mjs";
 
 const OUT = process.env.FP_PROBE_OUT ?? join(HERE, ".probe-out");
-const VIEWPORTS = (process.env.FP_PROBE_VIEWPORTS ?? "1280x800,1024x768,768x1024").split(",").map((s) => s.split("x").map(Number));
+const VIEWPORTS = parseViewports(process.env.FP_PROBE_VIEWPORTS ?? "1280x800,1024x768,768x1024,390x844m,844x390m");
 const TEXTS = (process.env.FP_PROBE_TEXT ?? "normal,large").split(",");
 const MIN = 13;
 mkdirSync(OUT, { recursive: true });
@@ -182,9 +183,10 @@ const report = {};
 const totals = {};
 const browser = await chromium.launch();
 try {
-  for (const text of TEXTS) for (const [vw, vh] of VIEWPORTS) {
+  for (const text of TEXTS) for (const vp of VIEWPORTS) {
+    const [vw, vh] = [vp.width, vp.height];
     const tag = `${vw}x${vh}-${text}`;
-    const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1, hasTouch: true });
+    const ctx = await browser.newContext(contextFor(vp, { deviceScaleFactor: 1, hasTouch: true }));
     await ctx.addInitScript(canvasProbe);
     const page = await ctx.newPage();
     const errors = [];

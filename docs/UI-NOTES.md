@@ -946,3 +946,54 @@ not childish), "What a night!", "Let's cook!", promotion/win exclamations (earne
 - Playtest 1024×768 touch (shots `scratchpad/shots/r11b/`): Normal pre-picked; lease "Footfall" tap → tip; day 1 menu
   shows Pint of lager / Glass of house wine; Service "86" header tap → tip, 8 "86" buttons; Skip to evening; day 2;
   Settings drinks switch off; flipped → "Tall fizzy lemonade" on the menu and in the larder line at once; 0 errors.
+
+## Round 12 — D: phone layout and bundle relief
+
+Full audit, before/after per screen and the "not fixable in CSS" list with estimates: `docs/PHONE-AUDIT.md`.
+Tests: `round12.bundle.test.tsx` (2), `round12.phone.test.tsx` (6).
+
+### Bundle relief (main chunk 199.2 → 173.9 kB)
+
+- **Settings sheet body** → `components/SettingsBody.tsx` (5.1 kB chunk). `Settings.tsx` keeps the header gear, the
+  open flag and the "Save to a file" note; it warms the chunk on idle, hover and focus, and once loaded renders it
+  synchronously (no Suspense round trip; the tests call `loadSettingsBody()` once). **New Settings rows go in
+  SettingsBody.tsx** (before `.sheet__game`), not Settings.tsx.
+- **The owner's Evening** → its own chunk (`Evening`, 22.9 kB), `React.lazy` in App.tsx inside the existing Suspense,
+  fetched as soon as a day's planning or service is on screen. Evening.tsx itself is unchanged.
+- Evening's bank/decor rows were not needed: the two moves gave 26 kB of headroom.
+
+### Phone layout (`src/phone.css`)
+
+Loaded always (main.tsx after theme.css). Two blocks only, the same strings as `lib/layout.ts`:
+`PHONE_QUERY` `(max-width: 480px)` and `PHONE_LANDSCAPE_QUERY` `(max-height: 500px) and (orientation: landscape)`.
+Every selector starts with `html ` so a lazy chunk's CSS (staffRoom.css, career.css, map.css…) can't beat it by load
+order; a test fails if a rule sits outside the two blocks or loses the prefix. No screen's JSX changed.
+
+- Upright: page scrolls as one (header scrolls away; `.screen--fixed` service keeps its frame); compact header (name +
+  buttons, date, cash | loan, both bars on one row); planning tabs as a **bottom tab bar** with the dock on top of it
+  (`--tabbar-h` 62 px); one column for start picker, lease, districts, staff room, floor plan, career shift; KPI tiles
+  two a row; rows of buttons wrap; steppers keep 44 px; the larder table scrolls in its own box; dialogs are bottom
+  sheets, Settings and wide dialogs full screen, raised above dock and tab bar (`.status-wrap:has(.modal-back)`).
+- Sideways: header back on one row (per-day/sub lines hidden), service floor + panel side by side, the dock on one
+  row, hands-on gets the header's height (the header is hidden during a hands-on shift sideways; Pause/Skip stay in
+  the shift bar).
+- `theme.css`: `body { min-width: 1024px }` deleted (the only theme.css change).
+
+### Hands-on on an upright phone
+
+`components/RotateCard.tsx`, mounted by App.tsx during a hands-on shift: "Turn your phone sideways" + "Play it
+upright anyway". It is an `aria-modal` dialog, which HandsOnShift already treats as "a sheet is open" (lib/modal.ts),
+so the shift's clock holds while it shows. No motion, no sound. HandsOnShift.tsx is unchanged.
+
+### Probe
+
+`scripts/lib/harness.mjs`: `parseViewports` ("390x844m" = phone), `contextFor` (iPhone 14 flags: isMobile, hasTouch,
+3×, Mobile Safari UA, full-screen viewport), `FP_WALK_DEBUG=1` prints a failed step's whole Playwright call log, and
+the career walk measures the turn card ("62r-turn-sideways", upright phone only) before carrying on upright. The probe's
+default list adds `390x844m,844x390m`; the type audit accepts the same spelling (its default list is unchanged).
+
+### Left out
+
+The service panel's collapse toggle and a header "⋯" sheet (both need new buttons in A's/shared TSX; the compact
+scroll-away header does the job for now); a phone menu matrix; canvas density on the floor and in the kitchen; touch
+pan/pinch on the maps. Estimates in PHONE-AUDIT.md.

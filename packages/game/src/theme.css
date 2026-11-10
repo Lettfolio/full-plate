@@ -171,7 +171,6 @@ body {
   font-family: var(--font-body);
   font-size: var(--fs-base);
   line-height: 1.45;
-  min-width: 1024px;
   -webkit-font-smoothing: antialiased;
 }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; margin: 0; letter-spacing: 0.005em; }

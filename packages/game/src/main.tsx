@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./theme.css";
+import "./phone.css"; // Round 12 — D: phone layout (all rules behind phone-sized media queries)
 import { App } from "./App";
 import { CrashGuard } from "./components/CrashGuard";
 import { getSettings } from "./lib/settings";

@@ -39,6 +39,26 @@ export function genSaves() {
   execSync("npx vitest run --config scripts/vitest.audit.config.ts", { cwd: PKG, stdio: "inherit", env: { ...process.env, FP_AUDIT_SAVES: SAVES } });
 }
 
+/**
+ * Round 12 (D): "1280x800,390x844m" → [{ width, height, phone }]. An "m" suffix is a phone: Playwright's iPhone 14
+ * descriptor (isMobile, hasTouch, 3× scale, Mobile Safari's user agent) at that CSS size — 390×844 is the whole
+ * screen upright, 844×390 sideways.
+ */
+export function parseViewports(list) {
+  return list.split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
+    const phone = /m$/i.test(s);
+    const [width, height] = s.replace(/m$/i, "").split("x").map(Number);
+    return { width, height, phone };
+  });
+}
+export const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
+/** Browser-context options for one viewport: a phone gets the iPhone's mobile flags; others get `desktop` (scale, touch). */
+export function contextFor(vp, desktop = {}) {
+  const viewport = { width: vp.width, height: vp.height };
+  if (vp.phone) return { viewport, screen: viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent: IPHONE_UA };
+  return { viewport, ...desktop };
+}
+
 async function reachable(url) { try { return (await fetch(url)).ok; } catch { return false; } }
 function freePort() {
   return new Promise((res, rej) => { const s = createServer(); s.once("error", rej); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => res(p)); }); });
@@ -143,7 +163,8 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
   }
   const cont = async () => { await page.getByRole("button", { name: /^Continue/ }).first().click(); await page.waitForTimeout(700); };
   const tab = async (name) => { await page.getByRole("tab", { name }).first().click(); await page.waitForTimeout(400); };
-  const step = async (label, fn) => { try { await fn(); } catch (e) { log(`  ! ${label}: ${String(e).split("\n")[0]}`); } };
+  // FP_WALK_DEBUG=1 prints the whole error (Playwright's call log says which element got in the way).
+  const step = async (label, fn) => { try { await fn(); } catch (e) { log(`  ! ${label}: ${process.env.FP_WALK_DEBUG ? String(e) : String(e).split("\n")[0]}`); } };
   const esc = async () => { await page.keyboard.press("Escape"); await page.waitForTimeout(200); };
 
   await step("title", async () => {
@@ -234,6 +255,10 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     const play = page.getByRole("button", { name: /Play my shift/ });
     if (await play.count()) {
       await play.click(); await page.waitForTimeout(1500);
+      // Round 12 (D): an upright phone gets "Turn your phone sideways" first (it holds the shift); measure it, then
+      // carry on upright so the walk still reaches the kitchen.
+      const turn = page.getByRole("button", { name: "Play it upright anyway" });
+      if (await turn.count()) { await shot("62r-turn-sideways", { terms: false }); await turn.click(); await page.waitForTimeout(500); }
       if (await page.locator(".onboard").count()) {
         await shot("62a-onboarding", { terms: false });
         const sk = page.locator(".onboard").getByRole("button", { name: /^Skip/ }).first(); if (await sk.count()) { await sk.click(); await page.waitForTimeout(300); }
