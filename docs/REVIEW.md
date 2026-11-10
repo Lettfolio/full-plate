@@ -1418,3 +1418,261 @@ Screenshots: `shots/r11/review/` (newplayer-*, owner7-*, p11/, empirebust-*, emp
 5. Starter chef stays **off** (`STARTER_CHEF = false`): B's experiment cost typical −2 and cheap −3 points; it rescues the never-hire child (0 → 73.5 %), so it's one flag away if a child playtest says the loan isn't enough.
 6. Probe/audit aren't in CI (Playwright's Chromium on the runner); the baseline only guards when someone runs them.
 7. Main chunk 194.9 kB of 200: the next shell feature should move something else out (Settings' sheet body or the Evening's bank/decor rows are the next candidates).
+
+---
+
+# Round 12 — seven branches: juice and music, brand kit, daily challenge, phone, voices, invent a dish, friends
+
+Master `496776e` (Round 11b) + seven `--no-ff` merges in the order D → A → B → C → E → F → G (the builders' 30
+commits kept as they are), then three review commits and this doc. Scratch: `scratchpad/r12/`; screenshots:
+`scratchpad/shots/r12/review/`. Comparisons are against `496776e` built on this machine.
+
+**Attribution note.** The review brief asked for A's and D's commit trailers to be rewritten from "Claude Opus 5.5"
+to "Claude Fable 5.1". That was not done: those trailers name the model that wrote the commits, and rewriting them would
+make the history say something untrue. The builders' commits are unchanged; the review's own commits carry the
+trailer for the model that made them.
+
+## R12.1 What merged
+
+| Branch | Tip | Commits | What | Merge |
+|---|---|---|---|---|
+| r12-d | `bfa0be3` | 3 | Settings body and owner Evening as lazy chunks (main 199.2 → 172 kB); `phone.css` (two media blocks, `html ` prefix, test-enforced); turn-sideways card for hands-on; phone viewports in probe/harness; PHONE-AUDIT.md | clean (`577e81f`) |
+| r12-a | `17dd720` | 5 | Floor beats (steam, paid coin, 5★ glow, queue shuffle, idle staff, plates), rush tint + chip, log slide-in, count-ups, best night, screen fades; synthesised soundtrack (3 pieces + rush, decor palettes), richer SFX; Animations switch, Music/SFX sliders | 3 conflicts (`d604726`) |
+| r12-b | `bc20983` | 8 | Brand kit (logo shape/motif/lettering, house colours with auto contrast, uniform, menu style) on the page, floor and saves; postcard any night (PNG, wide/tall); default brand from the name | 2 conflicts (`9aab53f`) |
+| r12-c | `5dac9de` | 2 | Today's challenge (6 templates, 5 days, score code, compare), chapter cards, Quick year (fork day as game-side meta) | 5 conflicts (`6f794bd`) |
+| r12-e | `f6d1f31` | 4 | Food Gossip ticker (+ week), sharper critics + the food blogger, the rival across the road, ten regulars with storylines and VIP orders | 6 conflicts (`6a4e46e`) |
+| r12-f | `fad55b5` | 4 | Invent a dish (content transform, lazy sheet, cookbook strip, first-night review line); `sim-core/util.ts` re-indexes a pack whose `dishes` array changed | 10 conflicts (`9327a62`) |
+| r12-g | `a819358` | 4 | Share / visit a friend (stars + fixed compliments), turn-based co-op day with emotes, mock runtime + two-player playtest, COOP-NOTES | 5 conflicts (`769d2f1`) |
+
+## R12.2 Collisions and how they were resolved
+
+1. **Evening lazy twice (D × A).** One `loadEvening`/`Evening` lazy pair (D's), one prefetch effect (planning *and*
+   service, D's), A's `setSoundtrack` effect kept beside it. C then made EventModal lazy too (with its own prefetch on an
+   event evening): both kept.
+2. **Settings (D × A).** D's `Settings.tsx` taken whole; A's three rows (Animations, Music, Sound effects) and the
+   `VolumeSlider` import moved into `SettingsBody.tsx` before `.sheet__game`, each under `{/* R12-A */}`. C added no row.
+   `lib/settings.ts`: only A added fields (`animations`, `musicVolume`, `sfxVolume`, normalised). A's Settings test now
+   loads the lazy body first (`beforeAll(loadSettingsBody)`), as D's tests do.
+3. **App.tsx.** Imports: RotateCard (D), brand hook (B), soundtrack (A), C's paths helpers, G's `loadFriends/useHostOn`.
+   Routes: C's `challenge` and G's `friend` shell views; mounts: D's `<RotateCard/>`, C's ChallengeHud/ChapterCard/
+   ForkCard `forkDay`, G's co-op dock; Planning gets B's `onBrand` and F's `onInvent`.
+4. **PathMeta / metaSchema / reducer.** `brand` (B), `forkDay`, `chapterSeen`, `challenge` (C), `customDishes`,
+   `cookbookDay` (F) — all optional, all in `metaSchema`; reducer has `brand`, `chapterSeen` and `invent`. Autosave key:
+   `…${hour}:${brand}:${custom dish ids}` (F's own key used the count; ids catch a same-count change).
+5. **Evening.tsx.** A's count-ups/best night, B's PostcardButton in `.evening__head`, C's `forkDayOf` fork hint, E's
+   `<EveningExtras/>`, F's `withNewDishReview` replacing `r.reviews` — all present.
+6. **RestaurantView.** B's `brand` option and staff uniform, A's beats (`glow` under, `paid` over), E's `guestNames`
+   and `drawGuestTag` after the paid beat. Service passes A's Animations switch *and* E's names.
+7. **Planning / RestaurantTab.** E's lazy RestaurantTab + ticker, G's lazy StockTab; RestaurantTab order Brand →
+   Rival + Regulars → Friends. **TitleScreen:** "Today's challenge" then "Visit a friend", both before "How do I win?".
+8. **Corpus.** B's `r12-owner-branded-d40` and F's `r12-owner-invented-d6` both in `index.json` (31 files); one regex
+   `/^r1[1-9]-/`. B's corpus test assumed every `r12-` save stores a brand; it now expects that only of its own file.
+9. **Content.** E's `voices` export/`./voices` entry, `voicesData` manualChunk, `criticText.blogger`; F's `customDish`
+   exports — auto-merged. **Probe baseline** auto-merged D's phone rows with E's and F's raises.
+10. **G's share × B's brand.** Filled: the Friends card sends the brand as plain fields (`shareBrand`), the visit header
+    shows the owner's logo (`visitBrandLogo`; every field re-checked by `parseBrand`, junk → the name's default). Test
+    added in `round12.visit.test.tsx`. The visited room's awning still wears the visitor's colours.
+
+## R12.3 Fixes in this pass
+
+- `e0089a0` **probe walk** reaches the Round 12 screens: brand kit, invent-a-dish sheet, today's challenge intro, visit
+  a friend (70–73). Baseline re-set from a full ten-run probe on a quiet machine (R12.6); type audit re-baselined (43
+  screens per size).
+- `00662de` **Settings under the dock** (A's "pre-existing" note, also seen in playtest 1 on the *planning* screen): the
+  header wrapper rises to z 60 while one of its dialogs is open (`.status-wrap:has(.modal-back)`; D had the same rule
+  for phones only). "Save to a file" was covered by "Open for service" at 1024×768 and on the evening; now hit-tested
+  clear on both. **Postcard button over the brand logo** in the evening head (~15 px overlap at 768–1280): moved left of
+  the logo's column on heads ≥ 700 px.
+- `f1ec6b8` **phone evening sideways scroll** (9–32 px on some nights, depending on the dish names): the best/worst
+  dish pair is one column on a phone.
+- The merges themselves (R12.2), including the share brand (in `769d2f1`).
+
+## R12.4 Tests
+
+`pnpm -r typecheck` clean. `pnpm -r test`: **1,368 passed**, 0 failed (sim-core 301, content 91, handson 97,
+sim-career 61, sim-stars 72, sim-empire 106, game 640), against 1,241 on `496776e`: +127 (content 68 → 91, game 536 → 640;
+the sim packages unchanged), the review's share-brand test included; nothing deleted. No timeout on this machine
+(game package 243 s; the heaviest single file, sim-core's, 67 s). Serialise byte-identity and corpus round-trip tests
+pass; `corpus.test` passes on all 31 saves.
+
+## R12.5 Bundle (vite kB, minified; both built here)
+
+Main chunk **199.18 → 165.64 kB** (budget 200; 34 kB of headroom). Sum of JS chunks 1,241 → 1,481 kB, all of it lazy
+except `content` (+14: F's transform and E's critic pool) and `sim-core` (+7: C's `runStrategyDay`/`STRATEGIES` export
+for the challenge builder, previously tree-shaken). `RestaurantView` +3.6 (A's beats, B's uniforms, E's tags). New
+lazy chunks: `voicesData` 56.6, `VisitFriend` 43.5, `Evening` 24.5 (out of main), `postcard`, `challenge`, `brand`,
+`InventDishSheet`, `BrandTab`, `music`, `SettingsBody`, etc.
+
+| chunk | 11b | R12 | | chunk | 11b | R12 |
+|---|---|---|---|---|---|---|
+| content | 186.42 | 200.28 | | StartPicker | 5.85 | 5.85 |
+| index | 199.18 | 165.64 | | StockTab | — | 5.75 |
+| paths | 164.8 | 164.8 | | RestaurantTab | — | 5.74 |
+| react | 142.12 | 142.12 | | WinScreen | 6.29 | 5.56 |
+| sim-core | 133.6 | 140.82 | | ChallengeScore | — | 4.84 |
+| HandsOnShift | 112.66 | 112.66 | | GoalExplainer | 4.29 | 4.84 |
+| voicesData | — | 56.62 | | Shopfront | — | 4.59 |
+| EmpireTab | 49.21 | 49.21 | | MenuMatrixPanel | 4.16 | 4.16 |
+| VisitFriend | — | 43.54 | | saveFiles | 3.87 | 3.94 |
+| RestaurantView | 38.57 | 42.18 | | gossip | — | 3.92 |
+| StarsTab | 24.73 | 24.73 | | BankCards | 3.74 | 3.74 |
+| Evening | — | 24.47 | | ForkCard | 3.55 | 3.59 |
+| decorArt | 18.78 | 18.78 | | saveCheck (2) | — | 3.54 |
+| saveCheck | 16.32 | 16.33 | | EmpireEnd | 3.22 | 3.25 |
+| StaffTab | 14.29 | 14.51 | | RegularsBook | — | 3.06 |
+| MyShift | 13.82 | 13.82 | | voices | — | 3.05 |
+| CareerEvening | 11.67 | 11.67 | | GuideEnvelope | 3.02 | 3.02 |
+| sprites | 10.56 | 10.56 | | EventModal | — | 2.93 |
+| mapParts | 9.93 | 9.93 | | EveningExtras | — | 2.89 |
+| SlotPicker | 9.37 | 9.64 | | dayLoop | — | 2.88 |
+| saveCloud | 9.5 | 9.56 | | PostcardDialog | — | 2.65 |
+| postcard | — | 9.42 | | CookbookStrip | — | 2.63 |
+| challenge | — | 9.36 | | ChapterCard | — | 2.43 |
+| brand (2) | — | 8.87 | | SaveSheet | 2.16 | 2.16 |
+| InventDishSheet | — | 8.81 | | GameOver | 2.05 | 2.12 |
+| DecorateTab | 7.83 | 7.96 | | HandoverModal | 1.69 | 1.69 |
+| BrandTab | — | 7.73 | | saveCodec | 1.48 | 1.48 |
+| saveCore | 9.28 | 7.11 | | GossipTicker | — | 1.38 |
+| music | — | 6.86 | | brandCode | — | 1.35 |
+| NewGame | 6.3 | 6.72 | | Panel | — | 1.02 |
+| SettingsBody | — | 6.3 | | SpendGuard | — | 0.86 |
+| Challenge | — | 6.21 | | WordsDialog | 0.74 | 0.74 |
+| regulars | — | 6.02 | | device | 0.18 | 0.18 |
+| BoardMeeting | 5.91 | 5.91 | | brand | — | 0.18 |
+
+## R12.6 Probe (built dist, all ten runs; baseline `scripts/probe-baseline.json` rewritten)
+
+before = `496776e` baseline for the tablet/desktop rows, D's branch baseline for the phone rows (they didn't exist
+before).
+
+| run | screens | targets < 44 | text < 13 | canvasText < 13 | contrast | overflow screens | covered | underBar | errors |
+|---|---|---|---|---|---|---|---|---|---|
+| 1280x800-normal | 39 → 43 | 384 → 458 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 5 → 5 | 30 → 60 | 0 → 0 |
+| 1024x768-normal | 39 → 43 | 396 → 470 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 12 → 12 | 21 → 19 | 0 → 0 |
+| 768x1024-normal | 39 → 43 | 365 → 439 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 33 → 33 | 27 → 29 | 0 → 0 |
+| 390x844-normal | 40 → 44 | 333 → 404 | 7 → 7 | 89 → 88 | 4 → 4 | 0 → 0 | 7 → 0 | 29 → 36 | 0 → 0 |
+| 844x390-normal | 39 → 43 | 394 → 468 | 0 → 0 | 59 → 51 | 5 → 5 | 0 → 0 | 0 → 0 | 5 → 21 | 0 → 0 |
+| 1280x800-large | 39 → 43 | 370 → 444 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 8 → 8 | 39 → 34 | 0 → 0 |
+| 1024x768-large | 39 → 43 | 395 → 469 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 13 → 13 | 19 → 8 | 0 → 0 |
+| 768x1024-large | 39 → 43 | 364 → 438 | 0 → 0 | 0 → 0 | 4 → 4 | 0 → 0 | 31 → 31 | 24 → 24 | 0 → 0 |
+| 390x844-large | 40 → 44 | 329 → 400 | 7 → 7 | 89 → 82 | 4 → 5 | 0 → 0 | 0 → 0 | 26 → 33 | 0 → 0 |
+| 844x390-large | 39 → 43 | 393 → 467 | 0 → 0 | 61 → 52 | 5 → 5 | 0 → 0 | 0 → 0 | 4 → 10 | 0 → 0 |
+
+Why each moved:
+- **screens +4** everywhere: the walk now reaches 70-brand-kit, 71-invent-dish, 72-challenge-intro, 73-visit-friend.
+- **targets < 44 +73–74** (all glossary terms; non-term targets stay 0): **+73 are the four new screens** — 71 of them
+  the day-1 Menu tab's inline terms counted behind the invent sheet (the probe counts the page under a sheet), 1 on the
+  brand kit, 1 on the challenge intro. +1 on the old screens is E's new "VIP" term (on the Regulars card).
+- **underBar** 1280 normal 30 → 60: +17 on the old screens is E's ticker row pushing more of the long Menu/Staff lists
+  under the dock (E's note), +13 the brand kit's pinned Save/Cancel row; 844×390 5 → 21: +14 new screens (invent sheet,
+  brand kit rows under the sheet's pinned bar), +2 old; 1024 Bigger 19 → 8, 1280 Bigger 39 → 34: lower (D's header).
+  All of these are reachable by scrolling (that's what underBar means).
+- **covered** unchanged on tablet/desktop; 390×844 7 → 0 (D's polish after its baseline).
+- **canvasText < 13** on phones fell (89 → 82–88, 59–61 → 51–52): D's labels. Still the R12.11 canvas-density item.
+- **contrast** 390 Bigger 4 → 5: the extra one is the Stars tab's "🕵️ inspectors about" emoji measured as text (an
+  old screen; the phone's Bigger layout puts it on a dark chip); the other four are the empty ★ glyphs as before.
+- After the review's CSS fixes, a check run (1024 normal, 390 normal) came in at or under the new baseline.
+
+Type audit (1280, 1024, 768-touch; Normal and Bigger): **129 screens per text size, 0 DOM and 0 canvas text runs
+< 13 px, 0 page errors.**
+
+## R12.7 Balance (headless, real pack, 200 seeds × 365 days, normal)
+
+| strategy | `496776e` | merged |
+|---|---|---|
+| typical | 90.0 % | **90.0 %** (180/200) |
+| cheap | 68.0 % | **68.0 %** (136/200) |
+| nohire | 0 % | **0 %** |
+| balanced | 98.5 % | **98.5 %** |
+| premium | 99.0 % | **99.0 %** |
+| learner | 98.0 % | **98.0 %** |
+| decorator | 88.0 % | **88.0 %** |
+
+`git diff 496776e -- packages/sim-*/ packages/handson/`: only F's `sim-core/src/util.ts` (the content index is rebuilt
+when a pack's `dishes` array is replaced). C's fork day lives in PathMeta; the sim's year is unchanged.
+
+## R12.8 Frame times (R8.6 method: watched service floor, 1024×768, dpr 1, 4× CPU throttle, 5 s of rAF intervals, headless Chromium software raster; two runs each, then the whole set again)
+
+| | median gap | avg gap | p95 | frames > 16.7 ms (dropped) of ~280 | JS per frame |
+|---|---|---|---|---|---|
+| `496776e` floor 1× | 16.7 | 16.95–17.73 | 16.8–33.3 | 4, 6, 10, 17 | 1.9–2.8 ms |
+| merged floor 1× | 16.7 | 17.18–17.48 | 16.8 | 7, 8, 8, 12 | 1.6–3.0 ms |
+| `496776e` floor 4× | 16.7 | 17.48–17.79 | 16.8–33.3 | 13, 15, 17, 17 | 1.7–2.4 ms |
+| merged floor 4× | 16.7 | 17.48–19.29 | 16.8–33.4 | 14, 22, 32, 38 | 1.8–2.7 ms |
+
+The median frame is 16.7 ms everywhere. At 1× the juiced floor drops as few frames as Round 11b. At 4× it drops
+about **twice as many** (mean 26 of ~270, ~10 %, vs 15, ~5 %), with the **same JS per frame**, so the extra cost is
+raster in the software renderer (more sprites and glows per frame), the same story as R8.6's 1024 4× case. A GPU-
+rastered tablet should hide most of it; check on her real device, and if it judders at 4×, the Animations switch is
+the escape hatch. Load was 0.6–2.0 during the runs (two idle preview servers).
+
+A's `:root[data-motion="off"] *` rule: nothing in `phone.css` or B's kit sheet uses a transition or animation for
+layout, and no code waits for `transitionend`/`animationend` (grep). The phone playtest with Animations off reached
+every screen with 0 sideways scroll; sheets open and close normally.
+
+## R12.9 Playtests (built dist, `vite preview` on 127.0.0.1, Playwright Chromium; 0 page errors and 0 console errors in every run)
+
+1. **New owner to day 6, 1024×768 touch** (`p1-*`): brand set (shield, chilli, navy, waistcoats, chalkboard) and saved
+   (`data-menu-style=chalkboard`); Restaurant tab order Dining room · Your brand · Across the road · Regulars · Friends;
+   invented "Midnight mushroom risotto" (rice, mushrooms, parmesan; "A slow seller — students might try it…") → on the
+   menu and in the cookbook; ticker every morning, reacting to the week ("Sprout & About beat Review Kitchen on reviews
+   last week…"); rival card named consistently with the ticker; service at 2× then 4×: rush chip and tint seen, music
+   `service` at 123 bpm with the rush on, `evening` at 72 bpm after; evening count-up caught mid-way; Postcard → PNG
+   saved; **no chapter card on any of the five evenings**; Settings: SettingsBody chunk fetched (prefetched on idle
+   before the first open), Animations off → `data-motion="off"`, Music slider Home → gain 0, scheduler stopped; the next
+   evening's figures final at first paint.
+2. **Today's challenge** (`p2-*`): "Rush week · Two Forks, Student Quarter", scenario built in 0.44 s; five days skipped,
+   reload on evening 3 → "Carry on: day 3 of 5"; score 1,258, code `FG4 X9V`, goal missed (277 of 490 — the scripted
+   skip never restocked, so days 4–5 sold out); a second code +250 → "They win by 250."; `ABCDEF` → "That code doesn't
+   add up."
+3. **Quick year** (`p3-*`): C's day-119 save through Load a save file → evening of day 120: "Chapter 4 of 4 · days 91–120"
+   card (3 of 5), then the next evening the fork card "A quick year done · a week to remember".
+4. **Friends** (G's `scripts/playtest-friends.mjs` with the mock, `p4-friends/`): every check passed — share, visit,
+   nickname filtered, review, Visitors list, one review a day, co-op invite/join/plan/Use it/emotes/service/evening/end,
+   no-db lines; mock round trips 303–308 ms. **The visit header now shows the owner's logo** (`05-visitor-room`).
+5. **Phone** 390×844 (D's iPhone descriptor) and 844×390 (`p5-*`, and `p5off-*` with Animations off): title, start
+   picker, lease, Menu, cookbook, invent sheet, Staff, Stock, Restaurant (brand card, rival/regulars, Friends), brand kit,
+   Decorate, service, evening, evening extras, postcard sheet, Settings, challenge intro, visit; sideways: evening,
+   planning, service, hands-on; upright mid-shift → "Turn your phone sideways" card. **Sideways scroll 0 everywhere**
+   after `f1ec6b8` (before it: the evening 9–32 px on some nights).
+6. **Every corpus save (31/31) through Your games › Load a save file** (gunzipped): none refused, all opened, 0 errors;
+   each shows a brand (derived from the name unless stored: the branded save comes up chalkboard/navy); F's save shows
+   "2 invented · 20 plates sold so far" in its cookbook; old saves show the empty cookbook. **Round 11b device save:**
+   made by the `496776e` build on the same origin (new game, one day), then opened by the merged build: Continue works,
+   "Your brand — Made from your restaurant's name — make it yours · Old Timer Grill · Shield · Flame · Classic menu",
+   empty cookbook.
+7. **Reduced motion** (emulated, Animations left on): `document.getAnimations()` empty on planning, the screen change,
+   service and the evening; the evening's figures identical at first paint and 1.2 s later; music running throughout
+   (planning → service → evening, gain 0.128).
+
+## R12.10 Findings
+
+| id | status | what |
+|---|---|---|
+| R12-F1 | FIXED `00662de` | Settings sheet's bottom rows under the planning/evening action dock at 1024×768 (desktop/tablet) |
+| R12-F2 | FIXED `00662de` | Evening: Postcard button overlapped the brand logo |
+| R12-F3 | FIXED `f1ec6b8` | Phone evening scrolled sideways 9–32 px when a dish name was long |
+| R12-F4 | FIXED `769d2f1` | Share didn't carry the brand (G's open note) |
+| R12-F5 | FIXED `9327a62` | B's corpus test would have failed with F's save in the corpus |
+| R12-F6 | OPEN | Floor at 4× drops ~2× the frames of 11b in software raster (R12.8) |
+| R12-F7 | OPEN (minor) | Visit: the friend's room wears the visitor's awning colours, not the owner's |
+| R12-F8 | NOTED | The probe counts the page behind an open sheet (invent sheet = 71 Menu terms); it inflates target counts for sheets |
+
+RED-TEAM.md: no change — nothing regressed (saves still schema-checked on every path, the share/visit data is
+re-checked on read, no free text between players).
+
+## R12.11 Still open
+
+1. **Phone, beyond CSS** (D's estimates): canvas density on the floor upright (1–2 days), a phone menu matrix (½ day),
+   touch pan/pinch on the maps (1 day), hands-on controls on a phone (2–3 days), service panel collapse (1 hour), header
+   "⋯" sheet (2 hours).
+2. **Real-time co-op shift** (G): not shippable over the artifact db (30 s fallback delivery, one write at a time per
+   doc); the turn-based co-op day is what shipped. COOP-NOTES has the numbers.
+3. **Empire formula picker** (F): invented dishes cook everywhere but can't go into an Empire brand formula yet; Stars
+   "refine" skipped.
+4. **Header/dock z-index** (A): fixed for header dialogs (R12-F1); the general header-vs-dock order is unchanged.
+5. **E's 400-day horizon**: regulars' beats and the clipping are re-derived from history (capped at 400 days); past day
+   400 an old beat can drop out of the book. A PathMeta memo would fix it.
+6. **Glossary words as touch targets**: 400–470 inline terms under 44 px per run (R11.11 item 1).
+7. **S12**: no CSP; Pages origin shared. **G14**: `SET_OWNER_PROFILE` still a public sim command.
+8. Floor frame drops at 4× (R12-F6); probe/audit still not in CI.

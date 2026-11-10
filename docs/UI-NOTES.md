@@ -1513,8 +1513,10 @@ controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-st
   budget. `HandsOnShift` is unchanged (no `remote` prop).
 - Watching a pretend service in a friend's room: the visit draws the empty room only (no customers); simulating their
   night on the visitor's device would need their stock and RNG in the snapshot.
-- B's brand kit on the share: `ShareSnapshot.brand` is accepted and checked (plain data) but nothing fills it yet —
-  `meta.brand` isn't on master and the Restaurant tab gets `game` only.
+- ~~B's brand kit on the share~~ — done in the Round 12 review: the Friends card fills `ShareSnapshot.brand` from
+  `meta.brand` (as plain fields; `VisitShareCard.shareBrand`), and the visit header shows the owner's logo
+  (`VisitRoom.visitBrandLogo`, every field re-checked by `parseBrand`). The visited room's awning still wears the
+  visitor's own colours (the canvas reads the page's brand).
 - A word filter for nicknames (none exists for restaurant names either).
 
 ### Checks (built dist)
