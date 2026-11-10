@@ -138,7 +138,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
         <div className="planning__help"><HelpPopover /></div>
       </div>
-      {meta?.mode !== "career" && <Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense>}
+      {/* Round 12 (E): not on the wide Empire / Stars tabs, which need the height for their maps and tracks. */}
+      {meta?.mode !== "career" && !wide && <Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense>}
       {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
           {(lastDays || loanTip) && (

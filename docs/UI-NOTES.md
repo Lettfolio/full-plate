@@ -1015,3 +1015,21 @@ sends `content/src/voices.ts` and `data/{gossip,rival,regulars}.json` to `voices
 - The clipping is a badge, not a decor item: adding it to the decor catalogue would touch the decor content the sim
   reads (and the Decorate tab's counts).
 - Career mode has none of this (the employer's restaurant isn't the player's).
+
+### Checks (built dist)
+
+- Main JS **199.18 → 198.96 kB**. New lazy chunks: `voicesData` 56.4 kB (JSON + validator), `voices` 3.0 kB (libs),
+  `RestaurantTab` 5.0, `RegularsBook` 3.1, `EveningExtras` 2.9, `GossipTicker` 1.4; css `voices` 4.2 kB. `content`
+  186.4 → 190.3 kB (blogger text), `RestaurantView` 38.6 → 39.1 kB (the name tag).
+- The ticker is not shown on the wide Empire / Stars tabs (it pushed the stock warning under the sticky path strip:
+  probe `covered` 5 → 7; back to 5).
+- Probe baseline re-set: **term / targets<44 / targets<24 +1** in every run — the VIP term on the Restaurant tab's
+  Regulars card; `underBar` at 1280×800 Normal 30 → 47 (the ticker adds a row to the planning screens, so more of a
+  long menu sits under the dock until scrolled; every other run's `underBar` came in lower). Type audit Normal and
+  Bigger: 117 screens each, 0 text < 13 px, 0 errors.
+- Headless balance unchanged: typical 90.0 %, cheap 68.0 %, nohire 0 % (200 seeds × 365 days).
+- Playtest 1024×768 touch (shots `scratchpad/shots/r12/E/`): a new game through the UI to day 19 (starter menu, two
+  hires, restock each evening, Skip to evening): opening-day line, hire line, ran-out line, the 7-day list; Dev joins
+  day 2, Ray day 8; Ruth Lessley "spotted" the morning of day 9 and her 4★ "getting good, and it knows it" review that
+  evening; Ray's first VIP order met on day 16 (photo in the book); rival card "You're winning on reviews: 4.6 to their
+  3.4"; two reloads of the same save gave identical ticker, rival and book text; 0 page errors.
