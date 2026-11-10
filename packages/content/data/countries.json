@@ -140,7 +140,7 @@
     "kosher": {
       "name": "Kosher",
       "short": "No pork or shellfish; never meat with dairy.",
-      "explain": "Kosher kitchens never serve pork or shellfish, and never put meat and dairy in the same dish. A cheeseburger breaks two rules at once!"
+      "explain": "Kosher kitchens never serve pork or shellfish, and never put meat and dairy in the same dish. A cheeseburger breaks two rules at once."
     }
   },
   "_breakersNote": "Ingredient ids that break each rule. Superset of sim-empire model.ts DIET_BREAKERS, including the Round 3 fast-food and fine-dining ingredients. kosher also forbids any dish with one of kosherMeat AND one of kosherDairy.",
@@ -219,10 +219,10 @@
     "breaksRules": "Your menu breaks the food rules in {city}: {rules}. Customers will stay away until you localise.",
     "fits": "Good news: your menu already fits the food rules in {city}.",
     "localiseOffer": "Localise the menu for {city}? It costs {cost} and makes things a little less consistent there, but locals will finally come in.",
-    "localised": "{city} has its own local menu now. The queue is out the door!",
+    "localised": "{city} has its own local menu now. The queue is out the door.",
     "champion": "{champion} is the local favourite in {city}. Expect a tough fight for customers.",
     "championBeaten": "People in {city} are starting to say your name in the same breath as {champion}.",
-    "tradition": "Something funny happened in {city}: eating at {brand} has become a holiday tradition!",
+    "tradition": "Something funny happened in {city}: eating at {brand} has become a holiday tradition.",
     "firstInCountry": "First restaurant in {country}! Setting up costs extra: {cost} for permits, offices and a lot of paperwork."
   }
 }

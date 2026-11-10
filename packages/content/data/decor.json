@@ -199,7 +199,7 @@
    "id": "walls_damask",
    "slot": "walls",
    "name": "Silk damask",
-   "description": "Silky wallpaper with a swirly pattern. Very posh.",
+   "description": "Silky wallpaper with a swirly pattern. Black tie optional, but encouraged.",
    "price": 320000,
    "tags": [
     "posh"
@@ -461,7 +461,7 @@
    "id": "table_marble",
    "slot": "tables",
    "name": "Marble tops",
-   "description": "Cool, shiny marble. Heavy to carry in!",
+   "description": "Cool, shiny marble. The delivery driver is still recovering.",
    "price": 300000,
    "tags": [
     "posh",
@@ -474,7 +474,7 @@
    "fitTables": 2,
    "lifeDays": 600,
    "refreshCost": 18000,
-   "nightLine": "the marble tables looked very posh"
+   "nightLine": "the marble tables made it look expensive"
   },
   {
    "id": "sign_board",
@@ -528,7 +528,7 @@
    "id": "sign_neon",
    "slot": "signage",
    "name": "Neon sign",
-   "description": "Your name in glowing pink neon. You can see it from the end of the street!",
+   "description": "Your name in glowing pink neon. You can see it from the end of the street.",
    "price": 130000,
    "tags": [
     "fun"
@@ -577,7 +577,7 @@
    "id": "plant_herbs",
    "slot": "plants",
    "name": "Herb pots",
-   "description": "Little pots of basil and mint on the tables. They need watering!",
+   "description": "Pots of basil and mint on the tables. Somebody has to water them.",
    "price": 7000,
    "tags": [
     "cosy"
@@ -701,7 +701,7 @@
    "id": "music_jukebox",
    "slot": "music",
    "name": "Jukebox",
-   "description": "Put a coin in and pick a song!",
+   "description": "Put a coin in and pick a song. Someone always picks the same one.",
    "price": 150000,
    "tags": [
     "fun"
@@ -754,7 +754,7 @@
    "id": "window_cakes",
    "slot": "window",
    "name": "Cake display",
-   "description": "A stand of fresh cakes in the window. Yum!",
+   "description": "A stand of fresh cakes in the window. Hard to walk past.",
    "price": 12000,
    "tags": [
     "cosy"

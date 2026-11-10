@@ -137,7 +137,7 @@
       ],
       "premium": [
         "{owner} at {rival}: 'We only hire the best. We think that might be you. {rung}, {wage}.'",
-        "{rival}, the smart place in town, wants you as {rung}. The kitchen has copper pans!"
+        "{rival}, the smart place in town, wants you as {rung}. The kitchen has copper pans."
       ]
     },
     "letter": "Dear {name},\n\n{pitch}\n\nThe offer stays open for a week. Have a think, and let us know.\n\nBest wishes,\n{owner}\n{rival}",

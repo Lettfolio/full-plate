@@ -7,7 +7,7 @@
         "remake": {
           "label": "Cook it again",
           "description": "Your chef drops everything for a few minutes to make a better one.",
-          "outcome": "A fresh {dish} went out to table {table}. Much better!"
+          "outcome": "A fresh {dish} went out to table {table}. Much better."
         },
         "comp": {
           "label": "Make it free",
@@ -23,7 +23,7 @@
       "ignored": "Nobody went back to table {table}. They're grumbling about the {dish}."
     },
     "spill": {
-      "title": "Whoops, a spill!",
+      "title": "A drink goes flying",
       "body": "Someone knocked a drink over at table {table}. It's sticky and everyone's looking.",
       "options": {
         "mop": {
@@ -45,8 +45,8 @@
       "options": {
         "push": {
           "label": "Push two tables together",
-          "description": "Uses two free tables, and keeps a server busy for a few minutes. Big group, big bill!",
-          "outcome": "You pushed two tables together for the party of {size}. They cheered!"
+          "description": "Uses two free tables, and keeps a server busy for a few minutes. Big group, big bill.",
+          "outcome": "You pushed two tables together for the party of {size}. They cheered. Loudly."
         },
         "decline": {
           "label": "Sorry, we're too small",
@@ -57,7 +57,7 @@
       "ignored": "The party of {size} waited, then wandered off. They'll tell their friends."
     },
     "rush": {
-      "title": "Here comes a rush!",
+      "title": "Here comes a rush",
       "body": "A coach has just pulled up outside and the queue is getting long.",
       "options": {
         "callin": {
@@ -96,7 +96,7 @@
       "ignored": "You didn't replace the missing {ingredient}. It might run out later."
     },
     "equipment": {
-      "title": "The fryer has tripped!",
+      "title": "The fryer has tripped",
       "body": "There's a pop and the fryer goes dark. The kitchen is slowing down.",
       "options": {
         "fix": {
@@ -113,8 +113,8 @@
       "ignored": "Nobody fixed the fryer, so the kitchen limped on for ages."
     },
     "vip": {
-      "title": "A food critic is here!",
-      "body": "The person at table {table} is writing in a little notebook. It's a food critic!",
+      "title": "There's a critic in",
+      "body": "The person at table {table} is writing in a small notebook between bites. That's a food critic.",
       "options": {
         "best": {
           "label": "Send your best server",
@@ -124,7 +124,7 @@
         "freebie": {
           "label": "Send a free treat",
           "description": "A little something from the kitchen ({cost}).",
-          "outcome": "A free treat went out to the critic. They smiled!"
+          "outcome": "A free treat went out to the critic. They smiled, then wrote something down."
         },
         "normal": {
           "label": "Treat them like anyone else",
@@ -141,7 +141,7 @@
         "break": {
           "label": "Give them a break",
           "description": "{name} rests for half an hour. You're short-handed meanwhile.",
-          "outcome": "{name} had a sit-down and a cup of tea. Feeling better!"
+          "outcome": "{name} had a sit-down and a cup of tea. Back on form."
         },
         "push": {
           "label": "Ask them to push on",
@@ -153,7 +153,7 @@
     }
   },
   "INCIDENT_LINES": {
-    "vipVerdictGood": "The critic gave you {stars}★. Your restaurant's name is getting around!",
+    "vipVerdictGood": "The critic gave you {stars}★. Word is getting around.",
     "vipVerdictBad": "The critic gave you {stars}★. Ouch, that will hurt your reputation.",
     "vipVerdictMeh": "The critic gave you {stars}★. Not bad, not amazing.",
     "vipWalkout": "The critic got fed up and walked out. That review will sting.",

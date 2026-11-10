@@ -39,7 +39,7 @@
       "kind": "open_first_day",
       "tier": 0,
       "target": 1,
-      "title": "Open your doors!",
+      "title": "Open your doors",
       "hint": "Press Open for service when you're ready.",
       "reward": {
         "popularity": 1
@@ -96,7 +96,7 @@
       "tier": 2,
       "target": 1,
       "title": "Make a profit over a whole week",
-      "hint": "Add up the last 7 days. Days off for staff need cover!",
+      "hint": "Add up the last 7 days. Days off for staff need cover.",
       "reward": {
         "cash": 25000,
         "popularity": 2
@@ -177,7 +177,7 @@
       "tier": 3,
       "target": 10,
       "title": "Make a profit {target} days in a row",
-      "hint": "A steady team and a menu that sells. Watch your waste!",
+      "hint": "A steady team and a menu that sells. Watch your waste.",
       "reward": {
         "cash": 50000,
         "popularity": 3
@@ -185,7 +185,7 @@
     }
   ],
   "GOAL_LINES": {
-    "completed": "Goal done: {title}!",
-    "reward": "Goal done: {title}! Reward: {reward}."
+    "completed": "Goal done: {title}.",
+    "reward": "Goal done: {title}. Reward: {reward}."
   }
 }

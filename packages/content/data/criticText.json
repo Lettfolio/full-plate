@@ -30,7 +30,7 @@
     ],
     "3": [
       "{critic} calls {restaurant} 'a solid, honest night out'. The {dish} won't change your life, but it will make your Tuesday.",
-      "'Three stars, and a happy tummy,' says {critic}. The {dish} was the highlight.",
+      "'Three stars, and no complaints from my stomach,' says {critic}. The {dish} was the highlight.",
       "{critic} liked it: 'Nothing wrong, a few things very right, and a {dish} I'd order again.'",
       "'Reliable as a good umbrella,' writes {critic} of {restaurant}. That's a compliment round here."
     ],
@@ -41,7 +41,7 @@
       "'Confident, generous and properly delicious,' says {critic}. Chef {chef} is grinning in the kitchen."
     ],
     "5": [
-      "FIVE STARS! {critic} says {restaurant} is 'the best meal in {city} this year'. The phone has not stopped ringing.",
+      "Five stars. {critic} says {restaurant} is 'the best meal in {city} this year'. The phone has not stopped ringing.",
       "'I licked the plate. Don't tell my editor,' writes {critic} about the {dish}. Five stars.",
       "{critic} calls chef {chef} 'a genius with a whisk'. Five stars, and a queue down the street by lunchtime.",
       "'Book a table. Book two. Bring your granny,' says {critic}. Five stars for {restaurant}."
@@ -63,11 +63,11 @@
   "guideDay": {
     "envelope": "A thick envelope has arrived from {guide}. Your hands are shaking a little. Open it?",
     "gained": [
-      "Dear {restaurant}, it is our pleasure to award you {stars} {starWord}. Your kitchen sang all year long. Congratulations!",
+      "Dear {restaurant}, it is our pleasure to award you {stars} {starWord}. Your kitchen sang all year long. Congratulations.",
       "The guide is delighted to announce {stars} {starWord} for {restaurant}. Chef {chef} may now cry happily into a tea towel."
     ],
     "gainedFirst": [
-      "Dear {restaurant}, after many quiet visits, we are proud to award your very first star. Welcome to the guide!",
+      "Dear {restaurant}, after many quiet visits, we are proud to award your very first star. Welcome to the guide.",
       "One star for {restaurant}! The whole team is jumping up and down in the kitchen. Someone has dropped a whisk."
     ],
     "gainedThird": [

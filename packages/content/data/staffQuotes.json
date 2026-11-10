@@ -1,11 +1,11 @@
 {
-  "_note": "Round 10 (B): staff personality text. `quotes` are the one-line 'why me' a candidate says on the hiring sheet, by staffArchetypes id (a role id works as a fallback). `likes` / `dislikes` are the labels for sim-core personality.ts LIKE_IDS / DISLIKE_IDS (every id must be present). Keep lines short, friendly and readable by a 10-year-old.",
+  "_note": "Round 10 (B): staff personality text. `quotes` are the one-line 'why me' a candidate says on the hiring sheet, by staffArchetypes id (a role id works as a fallback). `likes` / `dislikes` are the labels for sim-core personality.ts LIKE_IDS / DISLIKE_IDS (every id must be present). Keep lines short, friendly and dry: written for a 12+ player (the owner's daughter is 14).",
   "quotes": {
     "chef_commis": [
-      "I've been cooking with my gran since I was six!",
+      "I've been cooking with my gran since I was six. She's still better.",
       "I'm new, but I learn really fast. Teach me anything.",
       "I can peel a whole sack of potatoes before lunch.",
-      "I want to be a head chef one day. This is step one!",
+      "Head chef one day. This is step one.",
       "I make the best scrambled eggs in my street."
     ],
     "chef_line": [
@@ -24,13 +24,13 @@
     ],
     "server": [
       "I remember every guest's name. And their pudding.",
-      "I can carry four plates without a wobble!",
+      "Four plates, one trip, no wobble.",
       "I love chatting to people. Grumpy guests leave smiling.",
       "I'm quick on my feet and I never forget an order.",
       "Big tables, little tables: I'll look after them all."
     ],
     "bar": [
-      "I make a fizzy lemonade that sparkles like magic.",
+      "My homemade lemonade has a waiting list.",
       "I can pour a drink while telling a joke.",
       "Behind the bar is my happy place.",
       "I know a hundred drinks. Well, ninety-nine.",

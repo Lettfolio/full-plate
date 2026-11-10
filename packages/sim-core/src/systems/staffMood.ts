@@ -183,7 +183,7 @@ export function staffMoodSystem(content: ContentPack, state: GameState, rng: Rng
   const events: SimEvent[] = [];
   const ownerFatigue = nextOwnerFatigue(state);
   if (ownerFatigue >= OWNER_FATIGUE_WARNING && ownerFatigue > (state.ownerFatigue ?? 0)) {
-    events.push(logEvent(state, "You're worn out from covering shifts. Tired owners cook and serve worse: hire some help!", "bad"));
+    events.push(logEvent(state, "You're worn out from covering shifts. Tired owners cook and serve worse. Time to hire some help.", "bad"));
   }
   const staffMoodDelta: Record<string, number> = {};
   const staff: Staff[] = [];

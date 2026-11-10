@@ -1,10 +1,10 @@
 {
   "1": [
     "We waited so long for the {dish} that my little brother learned to whistle. Sorry, {restaurant}, not our night.",
-    "The {dish} arrived cold and a bit sad. We were sad too.",
+    "The {dish} arrived cold and slightly defeated. So did we.",
     "I think the kitchen forgot about us. We had a lovely chat with the salt shaker.",
     "Not great, I'm afraid. The {dish} looked nothing like the picture in my head.",
-    "We left hungry and a little grumpy. Hope {restaurant} has a better day tomorrow.",
+    "We left hungry and quietly furious. {restaurant} owes us a better night.",
     "My {dish} was more 'oops' than 'ooh'. One star for the friendly smile at the door.",
     "Long queue, short temper, lukewarm {dish}. We'll maybe try again in a few months.",
     "As {segment}, we expected more. The chairs were comfy though."
@@ -13,10 +13,10 @@
     "The {dish} was okay, but we had to ask three times for the ketchup.",
     "A bit slow and a bit pricey for what it was. Nice music, though.",
     "Not bad, not good. The {dish} was very... beige.",
-    "{restaurant} has potential! The {dish} just needs a little more love.",
-    "Our server was lovely but the kitchen seemed to be having a wobbly day.",
-    "Two stars: one for the {dish}, one for the very cute bread basket.",
-    "We'd come back if the waiting time got shorter. Our tummies were rumbling.",
+    "{restaurant} has potential. The {dish} hasn't heard.",
+    "Our server was great. The kitchen was having a separate, worse evening.",
+    "Two stars: one for the {dish}, one for the bread basket, which carried the team.",
+    "We'd come back if the wait got shorter. We read the whole menu. Twice.",
     "Fine for a quick bite, but the {dish} didn't make us go 'wow'."
   ],
   "3": [
@@ -26,37 +26,37 @@
     "Nice spot for {segment} like us. Would pop in again if passing.",
     "The {dish} was tasty but the pudding menu was calling and we couldn't afford to answer.",
     "Not the best meal of my life, not the worst. A very respectable Tuesday.",
-    "Friendly staff and a {dish} that hit the spot. Room to grow!",
-    "Happy enough! My dad said 'mmm' twice, which is about average for him."
+    "Friendly staff and a {dish} that hit the spot. Room to grow.",
+    "Happy enough. My dad said 'mmm' twice, which is about average for him."
   ],
   "4": [
     "Really lovely! The {dish} was so good I nearly licked the plate (I didn't, Mum was watching).",
     "{restaurant} is our new favourite. Quick, warm and the {dish} was spot on.",
-    "Great food, kind staff, and the {dish} came out piping hot. We'll be back!",
+    "Great food, sharp service, and the {dish} came out piping hot. We'll be back.",
     "As {segment}, we're picky, and we were very impressed with the {dish}.",
     "Four stars, and the fifth is waiting for when they add more puddings.",
     "Cosy, cheerful and delicious. The {dish} is a must.",
-    "We came for a quick bite and stayed for dessert. Oops! Worth it.",
+    "We came for a quick bite and stayed for dessert. And coffee. Worth it.",
     "Brilliant {dish}. The whole table went quiet, which is the best compliment we've got."
   ],
   "5": [
     "WOW. The {dish} at {restaurant} is the best thing I've eaten all year. Possibly ever.",
     "Absolutely perfect. I want to give the chef a medal and a nice cup of tea.",
     "Five stars isn't enough! The {dish} made my grandad do a little happy dance.",
-    "Everything was magic: the welcome, the {dish}, the pudding, even the napkins.",
+    "Everything worked: the welcome, the {dish}, the pudding. Even the napkins were good, somehow.",
     "We're {segment} and we've eaten everywhere. {restaurant} is the one we'll tell our friends about.",
-    "I dreamed about the {dish} the night after. A very tasty dream.",
-    "Friendly, fast and fabulous. {restaurant}, you've got a fan for life!",
+    "I dreamed about the {dish} the night after. Not complaining.",
+    "Fast, friendly and properly good. {restaurant}, you've got a regular.",
     "The {dish} was so good we ordered another one to share. Then another. No regrets."
   ],
   "rough": [
-    "Our {dish} was lovely, but it was chaos in here tonight. Poor staff!",
+    "Our {dish} was lovely, but it was chaos in here tonight. The staff deserve a lie-down.",
     "We got lucky: the {dish} was great, even though the queue went out of the door.",
     "Good {dish} once it came. Lots of people gave up waiting, though.",
-    "I liked my {dish}! Shame so many people left before they got theirs.",
+    "I liked my {dish}. Shame half the room left before they got theirs.",
     "Tasty food, but {restaurant} felt very busy and a bit muddled tonight.",
     "Our table was happy. The people waiting by the door didn't look it.",
-    "The {dish} was a nice surprise on a messy night. Fingers crossed it's calmer next time!",
+    "The {dish} was a nice surprise on a messy night. Calmer next time, please.",
     "We were lucky and got fed. The {dish} was good, but lots of people were still waiting."
   ]
 }

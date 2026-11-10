@@ -308,7 +308,7 @@ const resolveEvent: Handler<"RESOLVE_EVENT"> = (content, state, cmd) => {
   const ev = content.events.find((e) => e.id === state.activeEvent?.eventId);
   if (!ev) {
     // The card no longer exists (old save, content changed): dismiss it with any choiceId and carry on.
-    const events: SimEvent[] = [logEvent(state, "The morning post got lost. Never mind!", "info")];
+    const events: SimEvent[] = [logEvent(state, "The morning post got lost. It happens.", "info")];
     const day = withAdviceLog(advanceDay(state, content), state, content);
     return { state: foldLog(day.state, events), events: [...events, ...day.events] };
   }
@@ -621,7 +621,7 @@ const starterLoan: Handler<"STARTER_LOAN"> = (content, state) => {
   const remaining = state.loan.remaining + amount;
   const days = state.loan.daysRemaining > 0 ? state.loan.daysRemaining : content.balance.loanTermDays;
   const loan = { ...state.loan, principal: state.loan.principal + amount, remaining, daysRemaining: days, dailyPayment: dailyInstalment(remaining, content.balance.loanApr, days) };
-  return ok({ ...state, cash: state.cash + amount, loan, starterLoan: true }, `The bank lent you ${pounds(amount)} for a first wage. Hire a chef!`, "money");
+  return ok({ ...state, cash: state.cash + amount, loan, starterLoan: true }, `The bank lent you ${pounds(amount)} for a first wage. Now hire a chef.`, "money");
 };
 
 const newGameCmd: Handler<"NEW_GAME"> = (_c, state) => reject(state, "Use newGame() to start a new game.");
