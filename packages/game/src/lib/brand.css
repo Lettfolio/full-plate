@@ -41,16 +41,16 @@
 
 /* ── the evening report header: a house-colour stripe and the logo ── */
 :root[data-brand] .evening__head {
-  position: relative; padding: 0 196px 6px 0; border-bottom: 5px solid var(--brand-primary);
-  box-shadow: 0 3px 0 var(--brand-accent);
+  /* the stripe is a shadow and the space is a right padding only: the head is exactly as tall as before */
+  position: relative; padding-right: 196px; box-shadow: 0 5px 0 var(--brand-primary), 0 8px 0 var(--brand-accent);
 }
 :root[data-brand] .evening__head::after {
-  content: ""; position: absolute; right: 4px; bottom: 8px; width: 48px; height: 48px;
+  content: ""; position: absolute; right: 4px; bottom: 0; width: 48px; height: 48px;
   background: var(--brand-logo) center / contain no-repeat;
 }
 
 /* the Postcard button sits beside the logo, in the space the padding keeps, not on a row of its own */
-:root[data-brand] .evening__head .postcard__open { position: absolute; right: 64px; bottom: 10px; }
+:root[data-brand] .evening__head .postcard__open { position: absolute; right: 64px; bottom: 2px; }
 
 /* ── Empire: every shop flies the brand (the strip), Stars: the group logo on the guide envelope ── */
 :root[data-brand] .pathstrip--empire .pathstrip__brand::before {
