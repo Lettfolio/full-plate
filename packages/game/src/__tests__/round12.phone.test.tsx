@@ -36,7 +36,7 @@ describe("phone.css (R12-D)", () => {
   it("prefixes every selector with html (so lazy chunks' CSS cannot override it by load order)", () => {
     const sels = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{};]+)\{/g)].map((m) => m[1]!.trim()).filter((x) => !x.startsWith("@"));
     expect(sels.length).toBeGreaterThan(40);
-    for (const s of sels) if (!s.startsWith(":root")) for (const part of s.split(",")) expect(part.trim()).toMatch(/^html /);
+    for (const s of sels) if (!s.startsWith(":root")) for (const part of s.split(",")) expect(part.trim()).toMatch(/^html( |$)/);
   });
 
   it("drops the old 1024 px body floor", () => {
