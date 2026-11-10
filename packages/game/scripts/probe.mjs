@@ -161,6 +161,9 @@ function termCheck() {
   const base = overOf(); // a screen that already scrolls sideways (portrait) isn't widened by its terms
   for (const t of document.querySelectorAll(".term[tabindex]")) {
     const r = t.getBoundingClientRect(); if (!r.width) continue;
+    // Round 11b: a term inside a closed <details> (the Evening's "Where the money went": VAT) is not on screen and
+    // can't take focus until the player opens it.
+    if (t.closest("details:not([open])")) continue;
     out.terms++;
     t.focus();
     const tip = t.querySelector(":scope > .term__tip");
