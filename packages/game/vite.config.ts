@@ -21,6 +21,8 @@ export default defineConfig({
           if (id.includes("node_modules/react") || id.includes("node_modules/scheduler")) return "react";
           // Round 11: the save schemas load with the save store, never in the main chunk.
           if (/\/packages\/sim-(core|empire|stars|career)\/src\/(schema|validate)\.ts$/.test(id)) return "saveCheck";
+          // Round 12 (E): the voices (gossip, rival, regulars) load with the lazy screens that use them, not at start.
+          if (/\/packages\/content\/(src\/voices\.ts|data\/(gossip|rival|regulars)\.json)$/.test(id)) return "voicesData";
           if (id.includes("/packages/content/")) return "content";
           if (id.includes("/packages/sim-core/")) return "sim-core";
           if (/\/packages\/sim-(empire|stars|career)\//.test(id)) return "paths";

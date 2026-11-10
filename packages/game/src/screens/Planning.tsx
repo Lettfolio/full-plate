@@ -19,7 +19,9 @@ const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m
 // Round 10: the Decorate tab (catalogue, live room preview) loads on first open too.
 const DecorateTab = lazy(() => import("./planning/DecorateTab").then((m) => ({ default: m.DecorateTab })));
 import { StockTab } from "./planning/StockTab";
-import { RestaurantTab } from "./planning/RestaurantTab";
+// Round 12 (E): the Restaurant tab (with the rival and the Regulars book) and the morning gossip load on demand.
+const RestaurantTab = lazy(() => import("./planning/RestaurantTab").then((m) => ({ default: m.RestaurantTab })));
+const GossipTicker = lazy(() => import("../components/GossipTicker").then((m) => ({ default: m.GossipTicker })));
 import { tiredSlots, tiredText } from "../lib/decor";
 import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
 import { StockWarning } from "./planning/StockWarning";
@@ -136,6 +138,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
         <div className="planning__help"><HelpPopover /></div>
       </div>
+      {meta?.mode !== "career" && <Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense>}
       {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
           {(lastDays || loanTip) && (
@@ -187,8 +190,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           {tab === "menu" && <MenuTab game={game} send={send} path={path} />}
           {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
           {tab === "stock" && <StockTab game={game} send={send} needs={needs} opening={opening} />}
-          {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
           <Suspense fallback={<div className="empty small muted">Loading…</div>}>
+            {tab === "restaurant" && <RestaurantTab game={game} send={send} />}
             {tab === "decorate" && <DecorateTab game={game} send={send} />}
             {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
             {tab === "stars" && meta?.stars && sendStars && <StarsTab game={game} meta={meta} stars={meta.stars} send={sendStars} onTastingMenu={onTastingMenu ?? (() => {})} />}

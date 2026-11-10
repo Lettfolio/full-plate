@@ -16,6 +16,7 @@ export interface GlossaryEntry {
 
 export const GLOSSARY = {
   // the restaurant
+  vip: { term: "VIP", plain: "Special guest", explain: "very important person: a guest you go out of your way for. A VIP order is the dish they've asked to find on the menu." },
   covers: { term: "covers", plain: "Guests", explain: "one cover is one guest's meal; restaurants count guests this way." },
   footfall: { term: "footfall", plain: "People walking past", explain: "how many people pass the door each day; more passers-by means more guests." },
   prestige: { term: "prestige", plain: "Fancy reputation", explain: "how posh and special people think you are; it lets you charge more." },

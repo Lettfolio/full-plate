@@ -2,6 +2,7 @@ import type { Command, GameState } from "@full-plate/sim-core";
 import { content, TABLE_COST } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { useSpendGuard } from "../../components/SpendGuard";
+import { RegularsCard, RivalCard } from "../../components/RivalCard";
 
 interface Props { game: GameState; send: (cmd: Command) => void }
 
@@ -41,6 +42,8 @@ export function RestaurantTab({ game, send }: Props) {
         </button>
         {dialog}
       </aside>
+      {/* Round 12 (E): the chef across the road and the Regulars book. */}
+      <div className="voices-row"><RivalCard game={game} /><RegularsCard game={game} /></div>
     </div>
   );
 }

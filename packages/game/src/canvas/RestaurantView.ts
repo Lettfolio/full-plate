@@ -62,6 +62,8 @@ export interface RenderOptions {
   preview?: boolean;
   /** Round 10 review: the career player (staff id) wears the look they picked (sim-core `playerAvatar`), as on My shift. */
   playerLook?: { id: string; skin: string; hair: string };
+  /** Round 12 (E): named guests (regulars, the food blogger); the selected party's name shows as a tag over its table. */
+  guestNames?: ReadonlyMap<CustomerId, string>;
 }
 
 export class RestaurantView {
@@ -154,6 +156,7 @@ export class RestaurantView {
     this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
+    this.drawGuestTag(game, L, opts);
     this.drawFloaties(opts.now);
     this.firstFrame = false;
   }
@@ -421,6 +424,21 @@ export class RestaurantView {
       for (const sp of seated) if (sp.y >= s.y - 1) this.drawGuest(sp, L, c!);
       if (waiting) moodFace(ctx, s.x, s.y + s.r * 0.7, Math.max(6, Math.min(9, s.r * 0.3)), c.patience);
     });
+  }
+
+  /** Round 12 (E): the tapped party's name ("Priya Nair") in an ink pill above its table, when it is a named guest. */
+  private drawGuestTag(game: GameState, L: Layout, opts: RenderOptions) {
+    const name = opts.selected ? opts.guestNames?.get(opts.selected) : undefined;
+    const c = name ? game.customers.find((x) => x.id === opts.selected) : undefined;
+    const s = c?.tableId ? L.tables.get(c.tableId) : undefined;
+    if (!name || !s) return;
+    const ctx = this.ctx;
+    ctx.font = "800 14px Nunito, system-ui, sans-serif";
+    const w = ctx.measureText(name).width + 18;
+    const x = Math.max(4, Math.min(this.w - w - 4, s.x - w / 2)), y = Math.max(4, s.y - s.r - L.person * 3.2 - 30);
+    ctx.fillStyle = alpha(C.ink, 0.9);
+    roundRect(ctx, x, y, w, 24, 12); ctx.fill();
+    label(ctx, name, x + w / 2, y + 17, { align: "center", size: 14, weight: 800, colour: C.paper });
   }
 
   /** Round 8: the selected table — a gold ring with four corner brackets, turning slowly (still under reduced motion). */
