@@ -6,6 +6,8 @@ import { playSfx } from "../../lib/sfx";
 
 interface Props {
   game: GameState;
+  /** Round 12 (C): a Quick-year game (the fork from day 120). */
+  forkDay?: number | undefined;
   onChoose: (choice: "snooze" | "empire" | "stars", brandName?: string) => void;
 }
 
@@ -13,20 +15,20 @@ interface Props {
  * The fork (BRIEF "Core loop & the shared first act"): a franchise consultant and a visiting critic both show interest
  * in the same week. "Think about it" brings the card back in a week.
  */
-export function ForkCard({ game, onChoose }: Props) {
+export function ForkCard({ game, onChoose, forkDay }: Props) {
   const [brand, setBrand] = useState("");
   const [explain, setExplain] = useState(false);
   const choose = (c: "snooze" | "empire" | "stars", b?: string) => { if (c !== "snooze") playSfx("win"); onChoose(c, b); };
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => { first.current?.focus(); }, []);
-  const m = forkMilestone(game);
+  const m = forkMilestone(game, forkDay);
   return (
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="fork-title">
       <div className="modal modal--wide fork">
         <div className="modal__banner">
           <span className="modal__stamp" aria-hidden="true">🍴</span>
           <div>
-            <div className="modal__kicker">Year two · a week to remember</div>
+            <div className="modal__kicker">{forkDay ? "A quick year done" : "Year two"} · a week to remember</div>
             <h2 id="fork-title">Two visitors, one question</h2>
           </div>
         </div>

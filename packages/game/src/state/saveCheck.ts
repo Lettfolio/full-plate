@@ -17,7 +17,7 @@ import { validateEmpireState, validateParkedSite } from "@full-plate/sim-empire/
 import { starsGuideResult, starsVisit, validateStarsState } from "@full-plate/sim-stars/validate";
 import { deserialize, serialize } from "../sim";
 import { decodeSave, type Loaded } from "./save";
-import type { PathMeta } from "./paths";
+import { FORK_DAY, QUICK_FORK_DAY, type PathMeta } from "./paths";
 import { CHUNK_SIZE, MAX_CHUNKS, MAX_PACKED, type CloudHeader } from "./saveStore";
 
 export { SchemaError };
@@ -56,6 +56,10 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   })),
   lastPathDay: day,
   morningDay: opt(day),
+  // Round 12 (C): Quick year, the chapter cards, a daily challenge's start.
+  forkDay: opt(int(QUICK_FORK_DAY, FORK_DAY)),
+  chapterSeen: opt(int(0, 12)),
+  challenge: opt(obj({ date: (v, at) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fail(at, "not a date")), startDay: day, startCash: money, startPopularity: n, target: n })),
 }, false);
 
 /** A decoded save, checked and cleaned. Throws a SchemaError naming the first bad field. */
