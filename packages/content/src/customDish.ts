@@ -8,10 +8,11 @@
  * no wall clock):
  *
  * - **cost** is the real ingredient cost; the **suggested price** is that cost at the pack's usual food-cost share for
- *   the course (the median of the real dishes), rounded up to 5p. Guests judge the menu price against it as usual.
- * - **skill** and **prep time** come from the real dishes that use each ingredient (skill: 80% the mean, 20% the
- *   hardest one's; prep: the mean), and rise with every ingredient (+2 skill, +¼ tick each, counted from three). Run on
- *   the shipped dishes' own recipes this lands within a few points of their real skill on average (CONTENT-NOTES).
+ *   the course (the median of the real dishes), rounded up to the next price ending in 45p or 95p. Guests judge the
+ *   menu price against it as usual.
+ * - **skill** and **prep time** come from the real dishes that use each ingredient (the median skill and the mean prep
+ *   of each ingredient's dishes, averaged), and rise with every ingredient (+2 skill, +¼ tick each, counted from three).
+ *   Run on the shipped dishes' own recipes this lands within a couple of points of their real skill on average.
  * - **quality ceiling** is the ingredients' mean, held between the course's 25th percentile and its median.
  * - **appeal** per guest type is the mean of three readings of the pack's own tag model — real dishes of the same course
  *   and cuisine, real dishes using these ingredients, real dishes of the same course that are (or aren't) vegetarian —
@@ -128,7 +129,7 @@ function modelOf(ref: ContentPack): Model {
     const cuisine: Record<string, number> = {};
     for (const d of uses) cuisine[d.cuisine] = (cuisine[d.cuisine] ?? 0) + 1 / uses.length;
     byIngredient.set(ing.id, {
-      skill: mean(uses.map((d) => d.skillRequired)),
+      skill: quantile(uses.map((d) => d.skillRequired), 0.5),
       prep: mean(uses.map((d) => d.prepTicks)),
       ceiling: mean(uses.map((d) => d.qualityCeiling)),
       appeal: Object.fromEntries(segments.map((s) => [s, mean(uses.map((d) => d.baseAppeal[s] ?? 0))])),
@@ -203,7 +204,8 @@ export interface CustomDishFacts {
   portion: number;
 }
 
-const ceil5 = (p: number) => Math.ceil(p / 5) * 5;
+/** Up to the next price ending in 45p or 95p, the way the shipped menu is priced. */
+const ceil5 = (p: number) => Math.ceil((p + 5) / 50) * 50 - 5;
 
 /** Turns a recipe into a DishDef, from the reference pack's real dishes. Pure. */
 export function customDishFacts(spec: CustomDishSpec, ref: ContentPack): CustomDishFacts {
@@ -216,7 +218,7 @@ export function customDishFacts(spec: CustomDishSpec, ref: ContentPack): CustomD
   // The shipped dishes have three to five ingredients; each one past three makes it harder and slower (and fewer, easier).
   const extra = n - 3;
   const skills = stats.map((x) => x.skill);
-  const skillRequired = Math.round(clamp(0.2 * Math.max(0, ...skills) + 0.8 * mean(skills) + 2 * extra, 5, 95));
+  const skillRequired = Math.round(clamp(mean(skills) + 2 * extra, 5, 95));
   const prepTicks = Math.round(clamp(mean(stats.map((x) => x.prep)) + 0.25 * extra, 1, 12));
   const qualityCeiling = Math.round(clamp(mean(stats.map((x) => x.ceiling)), course.ceilingLo, course.ceilingHi));
   // Cuisine: whose real dishes use these ingredients most (ties go to the earlier cuisine in the list).
