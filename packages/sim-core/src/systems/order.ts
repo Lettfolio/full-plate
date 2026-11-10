@@ -118,7 +118,7 @@ function pullDish(content: ContentPack, k: Kitchen, dish: DishDef): void {
   k.state = { ...k.state, stock: k.stock, eightySixed: [...(k.state.eightySixed ?? []), dish.id] };
   k.tally = { ...k.tally, arrivals: planArrivals(content, k.state) };
   k.offered = offeredDishes(content, k.state);
-  k.events.push(logEvent(k.state, `${dish.name} has run out — taken off tonight.`, "bad"));
+  k.events.push(logEvent(k.state, `${dish.name} has run out — 86'd for today.`, "bad"));
 }
 
 /** The active set menu's dishes, when this segment orders it (GameState.setMenu; round 3). */

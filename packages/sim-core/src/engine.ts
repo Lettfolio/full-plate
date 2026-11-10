@@ -87,7 +87,7 @@ function autoEightySix(content: ContentPack, state: GameState): { pulled: string
     const dish = findDish(content, m.dishId);
     if (!m.active || !dish || pulled.includes(dish.id) || canPlate(state.stock, dish)) continue;
     pulled.push(dish.id);
-    events.push(logEvent(state, `No stock for ${dish.name} — taken off tonight.`, "bad"));
+    events.push(logEvent(state, `No stock for ${dish.name} — 86'd for today.`, "bad"));
   }
   return { pulled, events };
 }

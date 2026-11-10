@@ -284,10 +284,10 @@ const eightySix: Handler<"EIGHTY_SIX"> = (content, state, cmd) => {
   const bad = requirePhase(state, ["planning", "service"], "86 a dish");
   if (bad) return bad;
   if (!state.menu.some((m) => m.dishId === cmd.dishId)) return reject(state, "That dish isn't on the menu.");
-  if ((state.eightySixed ?? []).includes(cmd.dishId)) return reject(state, "That dish is already off tonight.");
+  if ((state.eightySixed ?? []).includes(cmd.dishId)) return reject(state, "That dish is already 86'd.");
   let next: GameState = { ...state, eightySixed: [...(state.eightySixed ?? []), cmd.dishId] };
   if (state.phase === "service") next = { ...next, service: { ...tallyOf(next), arrivals: planArrivals(content, next) } };
-  return ok(next, `${findDish(content, cmd.dishId)?.name ?? cmd.dishId} is taken off tonight.`);
+  return ok(next, `${findDish(content, cmd.dishId)?.name ?? cmd.dishId} is 86'd for today.`);
 };
 
 const endDay: Handler<"END_DAY"> = (content, state) => {

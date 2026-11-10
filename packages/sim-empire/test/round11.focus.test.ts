@@ -40,9 +40,9 @@ describe("G1: HQ backs the hands-on till", () => {
     const e = forked();
     const r = applyEmpireCommand(content, e, { type: "TRANSFER_TO_FOCUSED", amount: 123_456, why: "topUp" });
     expect(r.empire.hq.cash).toBe(e.hq.cash - 123_456);
-    expect(r.events.find((x) => x.kind === "topUp")!.text).toBe("Head office topped up the till £1,235.");
+    expect(r.events.find((x) => x.kind === "topUp")!.text).toBe("HQ topped up the till £1,235.");
     const big = spendable(e) + 1;
-    expect(rejected(e, { type: "TRANSFER_TO_FOCUSED", amount: big })).toMatch(/Head office can only spend/);
+    expect(rejected(e, { type: "TRANSFER_TO_FOCUSED", amount: big })).toMatch(/HQ can only spend/);
     expect(must(e, { type: "TRANSFER_TO_FOCUSED", amount: big, why: "close" }).hq.cash).toBe(e.hq.cash - big);
     for (const amount of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) expect(rejected(e, { type: "TRANSFER_TO_FOCUSED", amount })).toBeTruthy();
     const { focusedSiteId: _f, ...unfocused } = e;
@@ -80,7 +80,7 @@ describe("G6: HQ pays for a visited till (no free £20,000)", () => {
     const broke = { ...e, hq: { ...e.hq, cash: -developmentFacilityOf(e) } };
     const p3 = openTill(content, broke, g);
     expect(p3.ok).toBe(false);
-    if (!p3.ok) expect(p3.reason).toMatch(/Head office can't open the till at Campus: it needs £[\d,]+ .* and can spend £0\./);
+    if (!p3.ok) expect(p3.reason).toMatch(/HQ can't open the till at Campus: it needs £[\d,]+ .* and can spend £0\./);
     const p4 = openTill(content, broke, g, true);
     expect(p4.ok && p4.cash).toBe(0);
     expect(p4.ok && p4.hqPays).toBe(plan.larder);
@@ -176,7 +176,7 @@ describe("switching restaurants (switchSite / closeAndMoveOn / backTill)", () =>
     expect(a.empire.focusedSiteId).toBe("s7");
     expect(Object.keys(a.parked)).toEqual(["s1"]);
     const float = a.events.find((x) => x.kind === "topUp")!;
-    expect(float.text).toMatch(/^Head office paid £[\d,]+ to open Campus/);
+    expect(float.text).toMatch(/^HQ paid £[\d,]+ to open Campus/);
     // HQ: + the flagship's till and tomorrow's deliveries, − the new float and larder.
     const larder = larderCost(content, a.game.stock);
     expect(a.empire.hq.cash).toBe(e.hq.cash + settleTill(g) - a.game.cash - larder);

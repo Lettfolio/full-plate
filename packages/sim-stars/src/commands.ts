@@ -101,7 +101,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       // Round 11 (G11): only the kinds you can open (a "backed" place is the head chef's, via BACK_HEAD_CHEF).
       if (cmd.kind !== "bar" && cmd.kind !== "bistro" && cmd.kind !== "ticketed") return reject(stars, "That isn't a kind of place you can open.");
       if (cmd.name !== undefined && typeof cmd.name !== "string") return reject(stars, "A name must be words.");
-      if (stars.satellites.length >= MAX_SATELLITES) return reject(stars, `The group is already ${MAX_SATELLITES} sister restaurants big.`);
+      if (stars.satellites.length >= MAX_SATELLITES) return reject(stars, `The group is already ${MAX_SATELLITES} satellites wide.`);
       const cost = satelliteCost(stars, cmd.kind);
       const s = spend(stars, ctx, cost);
       if (!s) return reject(stars, `Opening a ${SATELLITES[cmd.kind].label.toLowerCase()} costs ${pounds(cost)}.`);
@@ -121,7 +121,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
     }
     case "TRAIN_SATELLITE_CHEF": {
       const sat = stars.satellites.find((x) => x.id === cmd.satelliteId);
-      if (!sat) return reject(stars, "No such sister restaurant.");
+      if (!sat) return reject(stars, "No such satellite.");
       if (sat.headChefTrained || sat.trainingDaysLeft !== undefined) return reject(stars, "That kitchen already has (or is training) its own head chef.");
       const s = spend(stars, ctx, SATELLITE_TRAINING_COST);
       if (!s) return reject(stars, `Training a head chef costs ${pounds(SATELLITE_TRAINING_COST)}.`);
@@ -131,8 +131,8 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       };
     }
     case "CLOSE_SATELLITE": {
-      if (!stars.satellites.some((x) => x.id === cmd.satelliteId)) return reject(stars, "No such sister restaurant.");
-      return { stars: { ...stars, satellites: stars.satellites.filter((x) => x.id !== cmd.satelliteId) }, events: [log("A sister restaurant closes. The group is smaller and the flagship steadier.")] };
+      if (!stars.satellites.some((x) => x.id === cmd.satelliteId)) return reject(stars, "No such satellite.");
+      return { stars: { ...stars, satellites: stars.satellites.filter((x) => x.id !== cmd.satelliteId) }, events: [log("A satellite closes. The group is smaller and the flagship steadier.")] };
     }
     case "UNLOCK_TICKETING": {
       if (stars.ticketing.unlocked) return reject(stars, "Ticketing is already set up.");

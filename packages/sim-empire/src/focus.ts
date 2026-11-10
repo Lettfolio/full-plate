@@ -74,7 +74,7 @@ export function openTill(content: ContentPack, e: EmpireState, g: GameState, for
     const cash = Math.max(0, can - larder);
     return { ok: true, cash, hqPays: cash + larder, float, larder, short: true };
   }
-  return { ok: false, need: float + larder, can, reason: `Head office can't open the till at ${g.restaurantName}: it needs ${pounds(float + larder)} (a week's rent and wages, and the food) and can spend ${pounds(can)}.` };
+  return { ok: false, need: float + larder, can, reason: `HQ can't open the till at ${g.restaurantName}: it needs ${pounds(float + larder)} (a week's rent and wages, and the food) and can spend ${pounds(can)}.` };
 }
 
 /** Tonight's top-up: how much of the till's overdraft HQ can cover (0 when the till is in credit or HQ can't spend). */

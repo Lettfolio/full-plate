@@ -120,7 +120,7 @@ export function generateReview(career: CareerState, week: WeekTally, ctx: Review
   if (career.fatigue > 60) notes.push("You look shattered. Take a day off when you can.");
   else if (career.mood < 35) notes.push("You don't seem happy. Is something up?");
   if (ctx.reviewerRole === "mentor" && week.mentorShifts) notes.push(`(${ctx.reviewer} worked ${week.mentorShifts} shift${week.mentorShifts === 1 ? "" : "s"} with you.)`);
-  if (week.tips) notes.push(`Your share of the tips: ${pounds(week.tips)}.`);
+  if (week.tips) notes.push(`Your share of the tronc: ${pounds(week.tips)}.`);
   if (notes.length === 0) notes.push(`A steady week as ${rungDef(career.track, career.rung).title.toLowerCase()}.`);
   return {
     day: career.day,
