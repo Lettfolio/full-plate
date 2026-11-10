@@ -1932,8 +1932,6 @@ kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(-
 /* (fill "backwards", not "both": a filled opacity animation would leave every screen a stacking context, and the dialogs
    inside it would sit under the header) */
 .screen > * { animation: r12a-in 180ms ease-out backwards; }
-/* the header's Settings sheet sits over the pinned action dock (z 6), with or without the fade (it didn't, before) */
-.status-wrap { z-index: 7; }
 
 /* the "What's happening" log: each new line slides in from the left (keys are stable, so old lines stay put) */
 .ticker__line { animation: r12a-slide 220ms ease-out both; }
