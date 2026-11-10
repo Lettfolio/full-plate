@@ -2,9 +2,12 @@
  * Round 7 (C): the shell — settings sheet (persistence, text size on <html>), the goal explainer, and the
  * "are you sure?" confirmations before a new game.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { SettingsMenu } from "../components/Settings";
+import { loadSettingsBody, SettingsMenu } from "../components/Settings";
+// Round 12 (D): the sheet body is a lazy chunk; fetch it once so the sheet opens synchronously, as it does in the game
+// after the header button has warmed it.
+beforeAll(() => loadSettingsBody());
 import { TitleScreen } from "../screens/TitleScreen";
 import { GoalExplainer } from "../components/GoalExplainer";
 import { ConfirmDialog } from "../components/Dialog";

@@ -5,11 +5,14 @@
  *   S9  no dev/preview server listens on the LAN unless asked (`dev:lan`); Node ≥ 22 is declared
  *   S13 the self-hosted fonts' licence ships with the game and Settings credits it
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { SettingsMenu } from "../components/Settings";
+import { loadSettingsBody, SettingsMenu } from "../components/Settings";
+// Round 12 (D): the sheet body is a lazy chunk; fetch it once so the sheet opens synchronously, as it does in the game
+// after the header button has warmed it.
+beforeAll(() => loadSettingsBody());
 
 const ROOT = join(__dirname, "../../../..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
