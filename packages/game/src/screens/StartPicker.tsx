@@ -61,7 +61,7 @@ interface Props {
 /** Title → "Start as…": pick a rung, a difficulty and a district. Owner continues to the lease screen. */
 export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
   const [start, setStart] = useState<StartKind>("owner");
-  const [difficulty, setDifficulty] = useState<Difficulty>("cosy");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [districtId, setDistrictId] = useState(content.districts[0]?.id ?? "");
   const [strategy, setStrategy] = useState<OwnerStrategy>("balanced");
   const [name, setName] = useState("");

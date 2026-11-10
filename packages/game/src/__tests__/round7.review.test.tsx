@@ -135,7 +135,7 @@ describe("(h) start picker and lease", () => {
     fireEvent.click(screen.getByRole("radio", { name: /^Apprentice chef/ }));
     const dock = document.querySelector(".startpick__go.actiondock") as HTMLElement;
     expect(within(dock).getByRole("button", { name: /Start as apprentice chef/ })).toBeTruthy();
-    expect(dock.textContent).toMatch(/Apprentice chef · Cosy · /);
+    expect(dock.textContent).toMatch(/Apprentice chef · Normal · /); // Round 11b: Normal by default
   });
   it("the lease screen reminds the difficulty picked on the picker (Change opens the picker); asks when it came without one", () => {
     render(<NewGame content={content} initialSeed={1} initialDifficulty="normal" onStart={noop} onBack={noop} />);

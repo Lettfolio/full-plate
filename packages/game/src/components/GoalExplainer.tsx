@@ -91,8 +91,9 @@ export function GoalExplainer({ onClose, atFork = false }: { onClose: () => void
       {/* Round 11 (D, U10): the honest length, so nobody expects the fork after one evening. */}
       <p className="small goals-explain__time">
         <b>How long does it take?</b> The first year is 365 days in the game. A day takes about a minute if you play
-        at 4× or tap Skip to evening, so the big choice comes after about 3 to 6 hours of playing in all. Short
-        sessions are fine: your game saves itself every morning and evening.
+        at 4× or tap Skip to evening, so the big choice comes after about 3 to 6 hours of playing in all (nearer ten
+        if you watch every service at 1×; the speed you pick is remembered). Short sessions are fine: your game saves
+        itself every morning and evening.
       </p>
       <button className="btn btn--primary btn--tap goals-explain__ok" data-autofocus onClick={onClose}>Got it</button>
     </Dialog>

@@ -46,7 +46,7 @@ describe("start picker routing", () => {
     fireEvent.click(screen.getByRole("radio", { name: /^Normal/ }));
     fireEvent.click(screen.getByRole("radio", { name: /Seaside/ }));
     fireEvent.click(screen.getByRole("button", { name: /Start as apprentice chef/ }));
-    expect(calls[0]).toMatch(/^owner:cosy:/);
+    expect(calls[0]).toMatch(/^owner:normal:/); // Round 11b: Normal is the default (the player is 14)
     expect(calls[1]).toBe("career:chef:balanced:normal:seaside");
   });
 
