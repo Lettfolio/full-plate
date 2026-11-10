@@ -494,7 +494,7 @@
   {
     "id": "oven_fault",
     "title": "The oven is making a funny noise",
-    "body": "It's not a nice noise. It's more of a 'clunk... wheeee'. The engineer can come today, for a fee for coming out.",
+    "body": "It's not a nice noise. It's more of a 'clunk... wheeee'. The engineer can come today for a call-out fee.",
     "weight": 4,
     "choices": [
       {
@@ -619,8 +619,8 @@
   },
   {
     "id": "tax_refund",
-    "title": "A brown envelope from the tax office",
-    "body": "Good news for once: you paid too much tax last quarter and they're giving it back.",
+    "title": "A brown envelope from HMRC",
+    "body": "Good news for once: you overpaid VAT last quarter and they're giving it back.",
     "weight": 2,
     "when": {
       "minDay": 100

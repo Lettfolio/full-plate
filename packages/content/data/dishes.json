@@ -2505,7 +2505,7 @@
       "tourists": 0.65
     },
     "suggestedPrice": 550,
-    "blurb": "Red or white, friendly and fuss-free. (Grown-ups only.)"
+    "blurb": "Red or white, friendly and fuss-free. (Over-18s only.)"
   },
   {
     "id": "fine_red",
@@ -2529,7 +2529,7 @@
       "tourists": 0.45
     },
     "suggestedPrice": 1095,
-    "blurb": "Picked by someone who uses the word 'tannins'. (Grown-ups only.)"
+    "blurb": "Picked by someone who uses the word 'tannins'. (Over-18s only.)"
   },
   {
     "id": "prosecco",
@@ -2553,7 +2553,7 @@
       "tourists": 0.65
     },
     "suggestedPrice": 750,
-    "blurb": "Bubbles for celebrating, or for Tuesday. (Grown-ups only.)"
+    "blurb": "Bubbles for celebrating, or for Tuesday. (Over-18s only.)"
   },
   {
     "id": "lager",
@@ -2577,7 +2577,7 @@
       "tourists": 0.6
     },
     "suggestedPrice": 550,
-    "blurb": "Cold, crisp and poured with a proper head. (Grown-ups only.)"
+    "blurb": "Cold, crisp and poured with a proper head. (Over-18s only.)"
   },
   {
     "id": "local_ale",
@@ -2601,7 +2601,7 @@
       "tourists": 0.8
     },
     "suggestedPrice": 595,
-    "blurb": "Brewed three streets away by a man with a magnificent beard. (Grown-ups only.)"
+    "blurb": "Brewed three streets away by a man with a magnificent beard. (Over-18s only.)"
   },
   {
     "id": "gin_tonic",
@@ -2633,7 +2633,7 @@
       "tourists": 0.6
     },
     "suggestedPrice": 750,
-    "blurb": "Ice, a slice, and a satisfying fizz. (Grown-ups only.)"
+    "blurb": "Ice, a slice, and a satisfying fizz. (Over-18s only.)"
   },
   {
     "id": "espresso_martini",
@@ -2665,7 +2665,7 @@
       "tourists": 0.4
     },
     "suggestedPrice": 950,
-    "blurb": "Shaken hard until it's frothy on top. (Grown-ups only.)"
+    "blurb": "Shaken hard until it's frothy on top. (Over-18s only.)"
   },
   {
     "id": "ff_classic_stacker",
@@ -4329,7 +4329,7 @@
       "tourists": 0.6
     },
     "suggestedPrice": 1050,
-    "blurb": "Tiny bubbles from chalky hills, for celebrating. (Grown-ups only.)"
+    "blurb": "Tiny bubbles from chalky hills, for celebrating. (Over-18s only.)"
   },
   {
     "id": "fd_wine_loire",
@@ -4353,7 +4353,7 @@
       "tourists": 0.6
     },
     "suggestedPrice": 880,
-    "blurb": "Crisp and zesty, best friends with fish. (Grown-ups only.)"
+    "blurb": "Crisp and zesty, best friends with fish. (Over-18s only.)"
   },
   {
     "id": "fd_wine_riesling",
@@ -4377,7 +4377,7 @@
       "tourists": 0.5
     },
     "suggestedPrice": 990,
-    "blurb": "Smells like apples and flowers; sings next to spicy things. (Grown-ups only.)"
+    "blurb": "Smells like apples and flowers; sings next to spicy things. (Over-18s only.)"
   },
   {
     "id": "fd_wine_white_burgundy",
@@ -4401,7 +4401,7 @@
       "tourists": 0.5
     },
     "suggestedPrice": 1350,
-    "blurb": "Rich and buttery, made for lobster. (Grown-ups only.)"
+    "blurb": "Rich and buttery, made for lobster. (Over-18s only.)"
   },
   {
     "id": "fd_wine_rose",
@@ -4425,7 +4425,7 @@
       "tourists": 0.7
     },
     "suggestedPrice": 800,
-    "blurb": "Pale pink and sunny. (Grown-ups only.)"
+    "blurb": "Pale pink and sunny. (Over-18s only.)"
   },
   {
     "id": "fd_wine_rioja",
@@ -4449,7 +4449,7 @@
       "tourists": 0.65
     },
     "suggestedPrice": 1010,
-    "blurb": "Warm and spicy, aged in oak barrels for years. (Grown-ups only.)"
+    "blurb": "Warm and spicy, aged in oak barrels for years. (Over-18s only.)"
   },
   {
     "id": "fd_wine_red_burgundy",
@@ -4473,7 +4473,7 @@
       "tourists": 0.5
     },
     "suggestedPrice": 1510,
-    "blurb": "Light, silky and fussy to grow: the wine expert's favourite. (Grown-ups only.)"
+    "blurb": "Light, silky and fussy to grow: the sommelier's favourite. (Over-18s only.)"
   },
   {
     "id": "fd_wine_sauternes",
@@ -4497,6 +4497,6 @@
       "tourists": 0.5
     },
     "suggestedPrice": 1120,
-    "blurb": "Golden and honey-sweet, for pudding. (Grown-ups only.)"
+    "blurb": "Golden and honey-sweet, for pudding. (Over-18s only.)"
   }
 ]

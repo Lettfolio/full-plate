@@ -1,5 +1,6 @@
 /**
  * Round 11 (D): the "No grown-up drinks" content view (red-team U8) and the plain-words pass over the content JSON (U7).
+ * Round 11b: the player is 14 — the content trade words (HMRC, VAT, call-out fee, sommelier) are back; the game tips them.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -63,11 +64,19 @@ describe("No grown-up drinks (content view)", () => {
   });
 });
 
-describe("Plain words in the content JSON", () => {
+describe("Trade words in the content JSON (R11b: the player is 14)", () => {
   const all = files.flatMap((f) => strings(JSON.parse(readFileSync(join(DATA, f), "utf8"))).map((s) => [f, s] as const));
-  it("no tax-office, call-out, sommelier, wholesaler or 86 jargon in any shipped line", () => {
-    const banned = /\b(HMRC|VAT|call-out fee|sommeliers?|wholesalers?|86'd|tronc|footfall)\b/i;
-    expect(all.filter(([, s]) => banned.test(s))).toEqual([]);
+  it("the real words are back where R11-D had swapped them (the game tips each one on screen)", () => {
+    const has = (f: string, re: RegExp) => all.some(([g, s]) => g === f && re.test(s));
+    expect(has("events.json", /A brown envelope from HMRC/)).toBe(true);
+    expect(has("events.json", /overpaid VAT/)).toBe(true);
+    expect(has("events.json", /call-out fee/)).toBe(true);
+    expect(has("criticText.json", /The sommelier is now very nervous/)).toBe(true);
+    expect(has("wineList.json", /sommeliers sigh/)).toBe(true);
+  });
+
+  it("only the trade words the game's glossary covers appear (no 86'd, tronc, footfall or wholesaler in content lines)", () => {
+    expect(all.filter(([, s]) => /\b(wholesalers?|86'd|tronc|footfall)\b/i.test(s))).toEqual([]);
   });
 
   it("the burnout line no longer has a chef sitting in the walk-in fridge", () => {

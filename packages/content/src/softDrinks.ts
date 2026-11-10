@@ -1,5 +1,5 @@
 /**
- * Round 11 (D, red-team U8): the "No grown-up drinks" setting (on by default in the game).
+ * Round 11 (D, red-team U8): the "No grown-up drinks" setting (off by default since Round 11b; a parent can switch it on in Settings).
  *
  * A content VIEW, applied when the game loads (and again if the player flips the setting): every alcoholic drink, the
  * ingredients they pour from, the Stars wine list and the few lines that mention them are re-worded as soft drinks of
@@ -17,21 +17,21 @@ export const SOFT_DISHES: Readonly<Record<string, { from: [string, string]; to: 
   steak_ale_pie: { from: ["Steak & ale pie", ""], to: ["Steak & onion pie", ""] },
   duck_breast: { from: ["Duck breast, red wine jus", ""], to: ["Duck breast, cherry jus", ""] },
   onion_rings: { from: ["Beer-battered onion rings", ""], to: ["Crispy battered onion rings", ""] },
-  house_wine: { from: ["Glass of house wine", "Red or white, friendly and fuss-free. (Grown-ups only.)"], to: ["Glass of sparkling elderflower", "Cold, fizzy and flowery, friendly and fuss-free."] },
-  fine_red: { from: ["Glass of good red", "Picked by someone who uses the word 'tannins'. (Grown-ups only.)"], to: ["Glass of blackcurrant crush", "Deep purple, picked by someone who says 'zingy' a lot."] },
-  prosecco: { from: ["Glass of prosecco", "Bubbles for celebrating, or for Tuesday. (Grown-ups only.)"], to: ["Glass of fizzy apple", "Bubbles for celebrating, or for Tuesday."] },
-  lager: { from: ["Pint of lager", "Cold, crisp and poured with a proper head. (Grown-ups only.)"], to: ["Tall fizzy lemonade", "Cold, crisp and poured with a proper froth on top."] },
-  local_ale: { from: ["Pint of local ale", "Brewed three streets away by a man with a magnificent beard. (Grown-ups only.)"], to: ["Tall local dandelion & burdock", "Brewed three streets away by a man with a magnificent beard."] },
-  gin_tonic: { from: ["Gin & tonic", "Ice, a slice, and a satisfying fizz. (Grown-ups only.)"], to: ["Tonic & lime", "Ice, a slice, and a satisfying fizz."] },
-  espresso_martini: { from: ["Espresso martini", "Shaken hard until it's frothy on top. (Grown-ups only.)"], to: ["Iced mocha", "Shaken hard until it's frothy on top."] },
-  fd_wine_sparkling: { from: ["Glass of Downs sparkling", "Tiny bubbles from chalky hills, for celebrating. (Grown-ups only.)"], to: ["Glass of Downs pressed apple", "Tiny bubbles from chalky hills, for celebrating."] },
-  fd_wine_loire: { from: ["Glass of Loire white", "Crisp and zesty, best friends with fish. (Grown-ups only.)"], to: ["Glass of lemon & thyme cordial", "Crisp and zesty, best friends with fish."] },
-  fd_wine_riesling: { from: ["Glass of Alsace Riesling", "Smells like apples and flowers; sings next to spicy things. (Grown-ups only.)"], to: ["Glass of apple blossom press", "Smells like apples and flowers; sings next to spicy things."] },
-  fd_wine_white_burgundy: { from: ["Glass of white Burgundy", "Rich and buttery, made for lobster. (Grown-ups only.)"], to: ["Glass of peach & vanilla nectar", "Rich and smooth, made for lobster."] },
-  fd_wine_rose: { from: ["Glass of Provence rosé", "Pale pink and sunny. (Grown-ups only.)"], to: ["Glass of pink lemonade", "Pale pink and sunny."] },
-  fd_wine_rioja: { from: ["Glass of Rioja reserva", "Warm and spicy, aged in oak barrels for years. (Grown-ups only.)"], to: ["Glass of spiced cherry cordial", "Warm and spicy, steeped with cinnamon for days."] },
-  fd_wine_red_burgundy: { from: ["Glass of red Burgundy", "Light, silky and fussy to grow: the wine expert's favourite. (Grown-ups only.)"], to: ["Glass of red grape juice", "Light, silky and fussy to grow: the drinks expert's favourite."] },
-  fd_wine_sauternes: { from: ["Small glass of Sauternes", "Golden and honey-sweet, for pudding. (Grown-ups only.)"], to: ["Small glass of honey & pear nectar", "Golden and honey-sweet, for pudding."] },
+  house_wine: { from: ["Glass of house wine", "Red or white, friendly and fuss-free. (Over-18s only.)"], to: ["Glass of sparkling elderflower", "Cold, fizzy and flowery, friendly and fuss-free."] },
+  fine_red: { from: ["Glass of good red", "Picked by someone who uses the word 'tannins'. (Over-18s only.)"], to: ["Glass of blackcurrant crush", "Deep purple, picked by someone who says 'zingy' a lot."] },
+  prosecco: { from: ["Glass of prosecco", "Bubbles for celebrating, or for Tuesday. (Over-18s only.)"], to: ["Glass of fizzy apple", "Bubbles for celebrating, or for Tuesday."] },
+  lager: { from: ["Pint of lager", "Cold, crisp and poured with a proper head. (Over-18s only.)"], to: ["Tall fizzy lemonade", "Cold, crisp and poured with a proper froth on top."] },
+  local_ale: { from: ["Pint of local ale", "Brewed three streets away by a man with a magnificent beard. (Over-18s only.)"], to: ["Tall local dandelion & burdock", "Brewed three streets away by a man with a magnificent beard."] },
+  gin_tonic: { from: ["Gin & tonic", "Ice, a slice, and a satisfying fizz. (Over-18s only.)"], to: ["Tonic & lime", "Ice, a slice, and a satisfying fizz."] },
+  espresso_martini: { from: ["Espresso martini", "Shaken hard until it's frothy on top. (Over-18s only.)"], to: ["Iced mocha", "Shaken hard until it's frothy on top."] },
+  fd_wine_sparkling: { from: ["Glass of Downs sparkling", "Tiny bubbles from chalky hills, for celebrating. (Over-18s only.)"], to: ["Glass of Downs pressed apple", "Tiny bubbles from chalky hills, for celebrating."] },
+  fd_wine_loire: { from: ["Glass of Loire white", "Crisp and zesty, best friends with fish. (Over-18s only.)"], to: ["Glass of lemon & thyme cordial", "Crisp and zesty, best friends with fish."] },
+  fd_wine_riesling: { from: ["Glass of Alsace Riesling", "Smells like apples and flowers; sings next to spicy things. (Over-18s only.)"], to: ["Glass of apple blossom press", "Smells like apples and flowers; sings next to spicy things."] },
+  fd_wine_white_burgundy: { from: ["Glass of white Burgundy", "Rich and buttery, made for lobster. (Over-18s only.)"], to: ["Glass of peach & vanilla nectar", "Rich and smooth, made for lobster."] },
+  fd_wine_rose: { from: ["Glass of Provence rosé", "Pale pink and sunny. (Over-18s only.)"], to: ["Glass of pink lemonade", "Pale pink and sunny."] },
+  fd_wine_rioja: { from: ["Glass of Rioja reserva", "Warm and spicy, aged in oak barrels for years. (Over-18s only.)"], to: ["Glass of spiced cherry cordial", "Warm and spicy, steeped with cinnamon for days."] },
+  fd_wine_red_burgundy: { from: ["Glass of red Burgundy", "Light, silky and fussy to grow: the sommelier's favourite. (Over-18s only.)"], to: ["Glass of red grape juice", "Light, silky and fussy to grow: the drinks expert's favourite."] },
+  fd_wine_sauternes: { from: ["Small glass of Sauternes", "Golden and honey-sweet, for pudding. (Over-18s only.)"], to: ["Small glass of honey & pear nectar", "Golden and honey-sweet, for pudding."] },
 };
 
 /** Ingredient id → soft name (same unit cost and shelf life). */
@@ -59,13 +59,13 @@ export const SOFT_WINES: Readonly<Record<string, { from: [string, string, string
   bottle_white_burgundy: { from: ["White Burgundy", "Burgundy (Côte de Beaune)", "Rich, nutty and buttery; lobster's best friend."], to: ["Peach & vanilla nectar", "A farm near Beaune", "Rich, smooth and creamy; lobster's best friend."] },
   bottle_rose: { from: ["Provence rosé", "Provence", "Pale pink and sunny, like a summer holiday in a glass."], to: ["Pink lemonade", "Provence", "Pale pink and sunny, like a summer holiday in a glass."] },
   bottle_rioja: { from: ["Rioja reserva", "Rioja", "Warm vanilla and red berries from years asleep in oak barrels."], to: ["Spiced cherry cordial", "A cherry farm in northern Spain", "Warm vanilla and red berries, steeped with cinnamon for days."] },
-  bottle_red_burgundy: { from: ["Red Burgundy", "Burgundy (Côte de Nuits)", "Light, silky and famously fussy to grow; wine experts sigh over it."], to: ["Red grape juice", "A vineyard near Nuits", "Light, silky and famously fussy to grow; drinks experts sigh over it."] },
+  bottle_red_burgundy: { from: ["Red Burgundy", "Burgundy (Côte de Nuits)", "Light, silky and famously fussy to grow; sommeliers sigh over it."], to: ["Red grape juice", "A vineyard near Nuits", "Light, silky and famously fussy to grow; drinks experts sigh over it."] },
   bottle_sauternes: { from: ["Sauternes", "Sauternes, Bordeaux", "Golden and honey-sweet; made from grapes that are allowed to go wrinkly."], to: ["Honey & pear nectar", "A beekeeper near Bordeaux", "Golden and honey-sweet; made from pears that are allowed to go extra ripe."] },
 };
 
 /** Other lines that mention drink, swapped whole. */
 export const SOFT_LINES: Readonly<Record<string, string>> = {
-  "A guest ate alone, slowly, and asked for the wine list twice. The wine expert is now very nervous.":
+  "A guest ate alone, slowly, and asked for the wine list twice. The sommelier is now very nervous.":
     "A guest ate alone, slowly, and asked for the drinks list twice. The drinks expert is now very nervous.",
   "No alcohol on the menu.": "No grown-up drinks on the menu.",
   "No pork, no alcohol, halal meat only.": "No pork, no grown-up drinks, halal meat only.",
@@ -85,7 +85,7 @@ export function softDrinkSwaps(): Map<string, string> {
 }
 
 /** Words that must not appear on screen with the setting on (whole words, any case). */
-export const GROWN_UP_WORDS = /\b(lager|ales?|wines?|prosecco|gin|martini|beers?|beer-battered|sommeliers?|pints?|alcohol(ic)?|riesling|burgundy|rioja|sauternes|champagne|grown-ups only)\b/i;
+export const GROWN_UP_WORDS = /\b(lager|ales?|wines?|prosecco|gin|martini|beers?|beer-battered|sommeliers?|pints?|alcohol(ic)?|riesling|burgundy|rioja|sauternes|champagne|over-18s only)\b/i;
 
 /** Walks plain data (objects and arrays) and replaces every string that `map` has a key for. In place. */
 export function swapStrings(root: unknown, map: ReadonlyMap<string, string>): number {

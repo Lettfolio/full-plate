@@ -131,7 +131,7 @@ describe("fine-dining set (Path B)", () => {
       expect(w.region.length).toBeGreaterThan(2);
       expect(w.note.length).toBeGreaterThan(10);
       expect(tagsOf(w.glassDishId)).toContain("wine");
-      expect(dish(w.glassDishId).blurb).toMatch(/Grown-ups only/);
+      expect(dish(w.glassDishId).blurb).toMatch(/Over-18s only/);
     }
     const sorted = [...wineList].sort((a, b) => a.bottleCost - b.bottleCost);
     expect(sorted[0]!.bottlePrice / sorted[0]!.bottleCost).toBeGreaterThan(sorted.at(-1)!.bottlePrice / sorted.at(-1)!.bottleCost);
