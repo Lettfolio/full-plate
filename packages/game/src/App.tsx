@@ -56,6 +56,10 @@ const ChapterCard = lazy(() => import("./screens/ChapterCard").then((m) => ({ de
 // Round 12 (C, bundle): the morning post is its own chunk, fetched as soon as an event evening starts.
 const loadEvent = () => import("./screens/EventModal");
 const EventModal = lazy(() => loadEvent().then((m) => ({ default: m.EventModal })));
+// Round 12 (G): Visit a friend (a shared restaurant or a co-op day), and the host's co-op panel.
+const VisitFriend = lazy(() => loadFriends().then((m) => ({ default: m.VisitFriend })));
+const CoopShiftDock = lazy(() => loadFriends().then((m) => ({ default: m.CoopShiftDock })));
+import { loadFriends, useHostOn } from "./lib/coop/flag";
 /** Warm the new-game screens' chunks once the title has painted (a tablet shouldn't wait on "New game"). */
 function prefetchStartScreens(): void {
   const go = () => { void loadStart().catch(() => {}); void loadNewGame().catch(() => {}); };
@@ -78,7 +82,8 @@ export type Shell =
   | { view: "pick" }
   | { view: "challenge" }
   | { view: "newgame"; seed?: number; districtId?: string; difficulty?: Difficulty }
-  | { view: "game" };
+  | { view: "game" }
+  | { view: "friend" };
 
 /**
  * Round 11 (G2): new owner games *could* open with a starter chef (sim-core NEW_GAME.starterChef). Off: the balancer
@@ -94,6 +99,7 @@ export function randomSeed(): number {
 export function App() {
   const [app, dispatch] = useReducer(appReducer, initialAppState);
   const [shell, setShell] = useState<Shell>({ view: "title" });
+  const coop = useHostOn();
   const game = app.game;
   const meta = app.meta;
 
@@ -237,6 +243,7 @@ export function App() {
           onYourGames={() => { setTitleNote(null); setPicker("browse"); }}
           onChallenge={() => { setTitleNote(null); setShell({ view: "challenge" }); }}
           onContinue={() => { const s0 = slots.find((x) => !x.archived); if (s0) void continueSlot(s0.slotId); }}
+          onVisit={() => setShell({ view: "friend" })}
         />
         <Suspense fallback={null}>
           {picker && !conflict && (
@@ -259,6 +266,7 @@ export function App() {
   if (shell.view === "challenge") {
     return <Suspense fallback={<Loading />}><Challenge onBack={() => setShell({ view: "title" })} onPlay={playChallenge} /></Suspense>;
   }
+  if (shell.view === "friend") return <Suspense fallback={<Loading />}><VisitFriend onBack={() => setShell({ view: "title" })} /></Suspense>;
 
   if (shell.view === "pick") {
     return (
@@ -461,6 +469,7 @@ export function App() {
         {chapter > 0 && <ChapterCard game={game} n={chapter} chapters={Math.floor(forkDayOf(meta) / CHAPTER_DAYS)} onClose={() => dispatch({ type: "chapterSeen", n: chapter })} />}
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
+      {coop && !career && <Suspense fallback={null}><CoopShiftDock game={game} send={send} /></Suspense>}
       <Toast toast={app.toast} onDismiss={dismissToast} />
       <WordsSheet />
     </div>

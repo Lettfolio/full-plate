@@ -5,6 +5,9 @@ import { content, TABLE_COST } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { useSpendGuard } from "../../components/SpendGuard";
 import { RegularsCard, RivalCard } from "../../components/RivalCard";
+import { loadFriends } from "../../lib/coop/flag";
+// Round 12 (G): share this restaurant, its visitors, and the co-op invite (lazy).
+const VisitShareCard = lazy(() => loadFriends().then((m) => ({ default: m.VisitShareCard })));
 
 // Round 12 (B): the brand kit card (and its editor sheet and the postcard) is its own chunk.
 const BrandCard = lazy(() => import("./BrandTab").then((m) => ({ default: m.BrandCard })));
@@ -50,6 +53,7 @@ export function RestaurantTab({ game, send, meta, onBrand }: Props) {
       {meta && <Suspense fallback={null}><BrandCard game={game} meta={meta} onBrand={onBrand} /></Suspense>}
       {/* Round 12 (E): the chef across the road and the Regulars book. */}
       <div className="voices-row"><RivalCard game={game} /><RegularsCard game={game} /></div>
+      <Suspense fallback={null}><VisitShareCard game={game} brand={meta?.brand} /></Suspense>
     </div>
   );
 }

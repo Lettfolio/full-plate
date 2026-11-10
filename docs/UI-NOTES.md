@@ -1460,3 +1460,78 @@ the icon toggles have no transitions. No sound.
   £196.45: "A hard sell"); both on the menu with their plates; two days; day 1's reviews open with the first-night line
   for the risotto; the sim's own reviews name it on day 2; the cookbook shows 2 and 0 sold; Save to a file → a fresh
   browser profile → Load a save file → Continue: both dishes in the cookbook and on the menu. 0 page errors.
+
+## Round 12 — G: visit a friend, and an invite-only co-op day
+
+Social play without chat or strangers: everything opens with a code someone gave you, and nothing a visitor or guest
+sends is free text. Over the artifact runtime's `db` (no server); on GitHub Pages or signed out every entry point says
+"Sharing needs the Claude link…" (or "Sign in to claude.ai…") in one line. Design, data layout, safety and the co-op
+decision with its numbers: **`docs/COOP-NOTES.md`**. Tests: `round12.visit.test.tsx` (17).
+
+### On screen
+
+- **Title › Visit a friend** (ghost button under New game). One code box (`ABCDE-23456`; case, spaces and dashes
+  ignored) and a nickname (letters, digits, spaces, ≤ 16; filtered while typing, remembered on the device). The code
+  opens whichever it is: a shared restaurant or a co-op day.
+- **A visit** (read-only): the friend's dining room drawn by the real floor renderer in its empty-room preview (their
+  tables, decor and sign), **This week** (nights open, covers, takings, profit, average rating — tipped terms), the
+  **Menu** (dishes on, prices), **The team**, **What guests said** (the sim's reviews), and **Leave a review**: five 44 px
+  star buttons and eight compliment chips (pick up to three), Send. "You've reviewed X today. Come back tomorrow."
+  after one; "This is your own restaurant…" on your own code.
+- **Restaurant tab › Friends** card (lazy): **Share my restaurant** → the code large, **Copy**, **Update**
+  (re-share, same code), **Stop sharing** (the snapshot and its reviews go; the next share gets a new code). Under it,
+  **Visitors**: stars, nickname, date and compliments, newest first (≤ 50 kept). Then **Plan tonight with a friend**:
+  your nickname and **Invite a friend**.
+- **Co-op panel** (host, bottom left, folds to a pill; lazy; mounted by App while this device hosts): the code until
+  someone joins, then "Alice (you) with Bob · link N ms", the friend's last emote for 4 s, the plan when one comes in
+  ("Bob sent a plan for tonight: Take off Margherita · Lasagne at £11.50 · Sam has tonight off") with **Use it** /
+  **Not this time**, the six emotes, **End the co-op day**. It follows the game through service and the evening.
+- **Co-op guest screen**: "Co-op day · you're Bob", "Chez Alice with Alice", emotes, then by stage: **Plan tonight
+  for Alice** (each dish a toggle plus a price stepper; each staff member a toggle for tonight; "Send plan to Alice";
+  "Alice used your plan." / "…kept their own plan this time."), "Alice is running tonight's service", **Tonight at …**
+  (covers, walkouts, takings, profit, rating, best dish), or "Alice ended the co-op day" / "The two hours are up".
+
+### Where the code lives
+
+`state/share.ts` (db access, codes, names, the snapshot and its checks, reviews, the private record), `lib/visit.ts`
+(the visit's throwaway room state, week totals), `lib/coop/protocol.ts` (documents, emotes, board/evening, plan →
+commands), `lib/coop/session.ts` (DocWriter, join/resume, watchers, RttMeter), `lib/coop/hostFlag.ts` (the host flag,
+lazy) and `lib/coop/flag.ts` (main chunk: `useHostOn`, `loadFriends`), `lib/coop/hand.ts`; screens `VisitFriend.tsx`
+(entry; re-exports the dock and the card so all three share one chunk and one import site), `VisitRoom.tsx`,
+`VisitShareCard.tsx`, `CoopShiftDock.tsx`, `CoopShiftGuest.tsx`, `CoopShiftParts.tsx`, `visit.css`. App: a `friend`
+shell view and the dock mount; TitleScreen: `onVisit`; RestaurantTab: one lazy card; Planning: **the Stock tab is now
+lazy** (see Checks). `scripts/lib/mockClaude.mjs` (the mock runtime, reusable) and `scripts/playtest-friends.mjs`.
+
+### Settings, motion, sound
+
+No new switch: nothing moves (an emote appears and goes after 4 s; no animation) and nothing makes a sound. All
+controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-state buttons, the chips too).
+
+### Left out, and why
+
+- The real-time shared hands-on shift (COOP-NOTES "Why not"): the db's documented 30 s fallback delivery and write
+  budget. `HandsOnShift` is unchanged (no `remote` prop).
+- Watching a pretend service in a friend's room: the visit draws the empty room only (no customers); simulating their
+  night on the visitor's device would need their stock and RNG in the snapshot.
+- B's brand kit on the share: `ShareSnapshot.brand` is accepted and checked (plain data) but nothing fills it yet —
+  `meta.brand` isn't on master and the Restaurant tab gets `game` only.
+- A word filter for nicknames (none exists for restaurant names either).
+
+### Checks (built dist)
+
+- Main JS 199.18 → **195.14 kB**. The friends entry points alone took it to 200.74 kB (each `lazy(import())` site
+  carries a preload list); after merging the three into one import site (`loadFriends` in `lib/coop/flag.ts`) and
+  moving the host flag out, 200.26 kB, so **the Stock tab became a lazy chunk** (5.68 kB, "Opening the store room…"
+  fallback, like Staff and Decorate). New chunks: `VisitFriend` 42.8 kB JS + 4.7 kB CSS (the visit, both co-op screens,
+  the Friends card, the data layer), `StockTab` 5.7 kB.
+- Tests 1,241 → 1,258 (+17, `round12.visit.test.tsx`). Type audit normal and Bigger: 117 screens each, 0 text < 13 px,
+  0 errors, within baseline. Headless typical / cheap / nohire unchanged (sim packages byte-identical to master).
+- Probe: normal runs equal to the baseline; the Bigger runs' `covered` rose 4–5, all on the live `21-service-4x` frame
+  (the speed buttons under a status popup that depends on how many ticks a loaded machine ran in 6 s; nothing here is
+  mounted there). Baseline not updated. The Friends card on `13-planning-restaurant` (off-db: one line) adds no counts.
+- Playtest (`scripts/playtest-friends.mjs`, two contexts on the mock runtime, 1024×768 touch; shots
+  `scratchpad/shots/r12/G/`): share → code; visit (room, week, menu, team, reviews) → 4★ + two compliments → the
+  owner's Visitors list; second review the same day refused; invite → join → nicknames both ways, "link N ms"; the
+  guest's plan (dish off, price up, staff toggled) → "Use it" → the host's menu changed, guest told; emotes both ways;
+  service → the guest sees "running tonight's service" → Skip to evening → the guest sees the numbers; End → the guest
+  sees it, the panel goes; no-db context: both entry points show the one line. 0 page errors.
