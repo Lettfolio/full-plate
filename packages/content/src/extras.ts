@@ -135,6 +135,19 @@ export interface CriticText {
     backChoice: string; letGoChoice: string; backed: string; leftForRival: string; newHeadChef: string; rivalStar: string;
   };
   endings: Record<"elBulli" | "dynasty" | "handedBack", { title: string; body: string[] }>;
+  /** Round 12 (E): the food blogger who visits every ~3 weeks (game-side only, packages/game/src/lib/blogger.ts). */
+  blogger?: BloggerText;
+}
+/** Round 12 (E): "rude but fair". Headlines and reviews keyed "1".."5" by her rating. */
+export interface BloggerText {
+  name: string;
+  blog: string;
+  tagline: string;
+  headlines: Record<string, string[]>;
+  reviews: Record<string, string[]>;
+  spotted: string[];
+  closed: string[];
+  signoff: string[];
 }
 
 // ───────── Career text ─────────
@@ -405,6 +418,15 @@ export function validateExtras(x: Extras, pack: ContentPack): string[] {
     nonEmptyStrings(p, `criticText.endings.${k}.body`, ct.endings?.[k]?.body);
   }
   nonEmptyStrings(p, "criticText.headChef.wantsOwnPlace", ct.headChef?.wantsOwnPlace);
+  if (ct.blogger) {
+    const b = ct.blogger;
+    for (const k of ["name", "blog", "tagline"] as const) if (!isStr(b[k])) p.push(`criticText.blogger.${k}: expected a string`);
+    for (const k of ["1", "2", "3", "4", "5"]) {
+      nonEmptyStrings(p, `criticText.blogger.headlines.${k}`, b.headlines?.[k]);
+      nonEmptyStrings(p, `criticText.blogger.reviews.${k}`, b.reviews?.[k]);
+    }
+    for (const k of ["spotted", "closed", "signoff"] as const) nonEmptyStrings(p, `criticText.blogger.${k}`, b[k]);
+  }
   checkPlaceholders(p, "criticText", ct, PLACEHOLDERS.critic);
 
   // career text

@@ -1,0 +1,61 @@
+/* Round 12 (E): Food Gossip, the rival card, the Regulars book and the evening extras. Loaded with their lazy chunk. */
+
+/* ── the morning ticker ── */
+.gossip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3); background: var(--surface-ink); color: var(--on-ink); border-radius: var(--radius-md);
+  border: 2px solid var(--border-ink); }
+.gossip__station { display: inline-flex; align-items: center; gap: 6px; font-weight: var(--fw-label); color: var(--on-ink-soft);
+  font-size: var(--fs-sm); white-space: nowrap; }
+.gossip__line { flex: 1 1 320px; min-width: 0; font-size: var(--fs-sm); line-height: var(--lh-small); }
+.gossip .btn { color: var(--ink); }
+.gossip__week { flex-basis: 100%; margin: var(--space-1) 0 0; padding: 0; list-style: none; display: grid; gap: var(--space-2);
+  border-top: 1px solid var(--on-ink-soft); padding-top: var(--space-2); }
+.gossip__week li { display: grid; grid-template-columns: 7.5em 1fr; gap: var(--space-2); font-size: var(--fs-sm); line-height: var(--lh-small); }
+.gossip__when { color: var(--on-ink-soft); font-weight: var(--fw-label); }
+
+/* ── evening cards ── */
+.voicecard__line { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
+.blogpost__head { font-family: Fredoka, Nunito, system-ui, sans-serif; font-size: var(--fs-heading); line-height: var(--lh-heading); margin: 0 0 var(--space-1); }
+.blogpost__by { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.blogpost__text { margin: 0 0 var(--space-2); line-height: var(--lh-body); }
+.blogpost__sign { margin: 0; font-style: italic; }
+.beatlist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.beatlist__row { display: grid; grid-template-columns: 48px 1fr; gap: var(--space-3); align-items: start; }
+
+/* ── rival ── */
+.rival { display: grid; gap: var(--space-3); }
+.rival__who { display: grid; grid-template-columns: 64px 1fr; gap: var(--space-3); align-items: center; }
+.rival__name { font-weight: 800; }
+.rival__score { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding: var(--space-2) var(--space-3);
+  background: var(--surface-inset); border-radius: var(--radius-sm); font-size: var(--fs-sm); }
+.rival__feed { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.rival__post { padding: var(--space-2) var(--space-3); border-left: 5px solid var(--border-strong); background: var(--surface-raised);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: var(--fs-sm); line-height: var(--lh-small); }
+.rival__post b { display: block; font-size: var(--fs-xs); color: var(--ink-soft); }
+.clipping { display: flex; gap: var(--space-3); align-items: center; padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--ink); border-radius: var(--radius-sm); background: var(--surface-raised); box-shadow: 3px 3px 0 var(--ink); }
+.clipping__frame { font-size: 30px; line-height: 1; }
+.voices-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.floorplan > .voices-row { grid-column: 1 / -1; }
+@media (max-width: 900px) { .voices-row { grid-template-columns: 1fr; } }
+
+/* ── regulars book ── */
+.regbook { display: grid; gap: var(--space-4); }
+.regbook__person { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-3); padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle); }
+.regbook__person:last-child { border-bottom: 0; padding-bottom: 0; }
+.regbook__name { font-weight: 800; font-size: var(--fs-heading); }
+.regbook__story { margin: var(--space-2) 0; padding-left: 1.2em; display: grid; gap: var(--space-1); line-height: var(--lh-small); }
+.regbook__story li { font-size: var(--fs-sm); }
+.regbook__story .is-bad { color: var(--ink-soft); }
+.regbook__order { padding: var(--space-2) var(--space-3); border: 1.5px solid var(--warning); border-left-width: 5px;
+  background: var(--warning-wash); border-radius: var(--radius-sm); font-size: var(--fs-sm); line-height: var(--lh-small); }
+.regbook__order.is-ready { border-color: var(--success); background: var(--success-wash); }
+.regbook__photos { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.polaroid { width: 128px; padding: 8px 8px 6px; background: var(--surface-raised); border: 1.5px solid var(--border-strong); box-shadow: var(--elev-1);
+  text-align: center; transform: rotate(-1.5deg); }
+.polaroid:nth-child(even) { transform: rotate(1.5deg); }
+.polaroid__pic { display: grid; place-items: center; height: 72px; background: var(--surface-inset); font-size: 36px; margin-bottom: 4px; }
+.polaroid__cap { font-size: var(--fs-xs); line-height: 1.25; color: var(--ink); }
+.regbook__soon { font-size: var(--fs-sm); color: var(--ink-soft); }
+.voices-row .btn { max-width: 100%; white-space: normal; }

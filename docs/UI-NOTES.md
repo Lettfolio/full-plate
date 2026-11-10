@@ -1295,3 +1295,90 @@ row's position the style follows the first row), `canvas/RestaurantView.ts` (imp
   day 1. A quick-year save at day 120 (typical owner): chapter 4 card (3 of 5, "That's the year…") → closed in one
   tap → next evening the fork card, kicker "A quick year done". Text ≥ 14 px and no control < 44 px on the challenge
   screens, no sideways scroll, 0 page errors.
+
+## Round 12 — E: a voice with an edge, a rival with attitude, regulars with storylines
+
+Humour that treats a 14-year-old as clever, and people instead of market segments. Everything below is worked out
+from the seed, the day and the sim's own results (`GameState.history`, `log`, `staff`, `menu`; Stars' critic reviews),
+so a save says the same thing on every load and on every device. **Nothing is stored** (no new save field, no
+PathMeta key, no localStorage) and the sim is untouched. Tests: `round12.voices.test.tsx` (game),
+`content/test/round12.voices.test.ts`.
+
+### On screen
+
+| Where | What | Code |
+| --- | --- | --- |
+| Planning, top (owner games) | **Food Gossip**: the district's station (Pier 104, Campus 87.6, High Street FM, Park & Ride Radio) and one line for this morning. **More** (44 px, `aria-expanded`) lists the last seven mornings, newest first. Text only: no motion, no sound. | `components/GossipTicker.tsx`, `lib/gossip.ts` |
+| Evening | **Plate Expectations** — Ruth Lessley's review on her visit nights (headline, stars, review, sign-off); **Your regulars tonight** (a newcomer's intro, a VIP order met with its photo, or the bad branch); the **framed clipping** on the night it's earned; **Tomorrow on Pier 104** — the line tomorrow's ticker will open with. One mount, after "What people said". | `components/EveningExtras.tsx` |
+| Restaurant tab | **Across the road**: the rival's portrait, name, restaurant and personality; "who's winning on reviews" for the last complete week, the winning streak, their last three posts; the **framed clipping** badge once earned. Beside it, **Regulars** (who's a regular, open VIP orders) and **Open the Regulars book**. | `components/RivalCard.tsx` (`RivalCard`, `RegularsCard`), `lib/rival.ts` |
+| Regulars book (sheet) | Each regular so far: portrait, job, usual dish, the story so far (bad-branch beats in soft ink), the open **VIP** order with "on your menu" / "not on your menu" and what meets it, and the photos (polaroids) they've left. | `components/RegularsBook.tsx`, `lib/regulars.ts` |
+| Service floor | Regulars due tonight and the blogger are named guests: tap their table and a name tag ("Priya Nair", "Ruth Lessley (food blogger)") shows over it. | `lib/regulars.ts floorNames`, canvas `guestNames` |
+
+### How each voice works
+
+- **Gossip** (`gossipFor(game, day)`): a line for the morning of `day` reads only results up to `day − 1`, so past
+  mornings never change. Precedence: opening day → the clipping → a regular's beat (its gossip line is the beat's
+  reward) → the blogger's verdict → "Ruth Lessley is in the area" (her visit morning) → the guide critic (Stars: a
+  rewritten `criticText.localCritic` line) → hard news (closed, a 1★ review, a hire, a dish ran out, a loan, new decor; demoted to soft news when the
+  same kind also happened the morning before, so a dish running out every night isn't the headline every day)
+  → Monday's rival result → soft news on 60 % of mornings (5+ walk-outs, a 5★ review, a rush ≥ 20 and 1.3× the recent
+  average, a strong day, a loss, a quiet night ≤ 15 and < 0.6×, the best dish, a sorted problem) → a running joke every
+  third morning on its day (Clive Halfway, the critic who never finishes; the council's bin lorry; episodes in order)
+  → patter. A reaction quotes the real numbers ({covers}, {walkouts}, {dish}, {staff}).
+- **Rival** (`rivalFor(seed, district)`): name from 16 × 12 names, one of **8 personalities** (Showman, Purist,
+  Influencer, Penny-Pincher, Old Pro, Health Nut, Grill Boss, Fusion Fanatic), a restaurant from the personality's
+  patterns. Weekly score = 3.3 + district lean (±0.1) + a seeded wobble (±0.3) + 0.006 × (the player's standing − 50),
+  where standing is 20 × their average night over the four weeks before (worked out from saved results, never from
+  live popularity, so a week's score never moves later). The player's score is their real nightly average that week
+  (Monday–Sunday); a week with no open night is a forfeit ("You were shut all last week, so … wins by default"). Posts on 2–3 seeded mornings a week: "your bad night" (4+ walk-outs or
+  under 3★), "your good night" (4.3★+ or a rush), else who led last week (or "close"). **Three weeks running** ahead
+  earns the clipping, once, the Monday after: a gossip line and a badge on the Restaurant tab (cosmetic: not a decor
+  item, so no sim number can move).
+- **Blogger** (`lib/blogger.ts`): first visit day 8–12, then every 18–24 days (seeded). Her stars: the night's real
+  average − 0.25, − 0.5 more if 3+ and over 15 % walked out, rounded, 1–5; open but nobody served (no stock) is 1★.
+  A day shut with Close tonight gets its own (rude) post about the door.
+- **Regulars** (`regularsFrom(seed, history)`): ten people join in a seeded order — the first on day 1, then 4–7 days
+  apart — each on their first open day from their planned day, one a day, and only while fewer than **3** stories are
+  running. The intro is beat 1; beats 2–5 are VIP orders: a dish from the beat's list (one that sold that day if any) on
+  a weekday 5–8 days ahead. Met on that weekday (or a later one) when the dish sold and the night averaged **3.5★+**:
+  the story moves on, a photo goes in the book and the beat's gossip line plays next morning. A beat with a `bad` branch
+  moves on after a poorer night too (no photo: the date talked about his car); one without waits for next week ("they
+  came but it wasn't a good night").
+
+### Bundle
+
+All of it is lazy. Main chunk **199.18 → 198.95 kB** (the three mounts and the VIP glossary entry cost ≈ 0.6 kB;
+making `RestaurantTab` a lazy chunk paid for them). The voices data and libs are their own chunks (`vite.config.ts`
+sends `content/src/voices.ts` and `data/{gossip,rival,regulars}.json` to `voicesData` instead of the start-up
+`content` chunk); `content` grew 186.4 → 190.3 kB for the blogger's text in `criticText.json`.
+
+### Left out, and why
+
+- **No stored state.** The 400-day history cap (sim-core `HISTORY_MAX`) is the horizon: in a game past day 400 a
+  beat or the clipping earned more than 400 days ago is re-derived from what the history still holds, and can drop
+  out of the book. A memo in PathMeta (written by the reducer at END_DAY) would fix it, but the libs would have to be
+  in the main chunk, which has no room. Same save, same text holds regardless.
+- **Floor names are cosmetic memory**: a name stays on the party it was first given to for the day; a reload
+  mid-service may give it to another party of the same kind.
+- **No tag without a tap**, and the Service side panel doesn't name the guest (Service.tsx is Builder A's this round).
+- The clipping is a badge, not a decor item: adding it to the decor catalogue would touch the decor content the sim
+  reads (and the Decorate tab's counts).
+- Career mode has none of this (the employer's restaurant isn't the player's).
+
+### Checks (built dist)
+
+- Main JS **199.18 → 198.96 kB**. New lazy chunks: `voicesData` 56.4 kB (JSON + validator), `voices` 3.0 kB (libs),
+  `RestaurantTab` 5.0, `RegularsBook` 3.1, `EveningExtras` 2.9, `GossipTicker` 1.4; css `voices` 4.2 kB. `content`
+  186.4 → 190.3 kB (blogger text), `RestaurantView` 38.6 → 39.1 kB (the name tag).
+- The ticker is not shown on the wide Empire / Stars tabs (it pushed the stock warning under the sticky path strip:
+  probe `covered` 5 → 7; back to 5).
+- Probe baseline re-set: **term / targets<44 / targets<24 +1** in every run — the VIP term on the Restaurant tab's
+  Regulars card; `underBar` at 1280×800 Normal 30 → 47 (the ticker adds a row to the planning screens, so more of a
+  long menu sits under the dock until scrolled; every other run's `underBar` came in lower). Type audit Normal and
+  Bigger: 117 screens each, 0 text < 13 px, 0 errors.
+- Headless balance unchanged: typical 90.0 %, cheap 68.0 %, nohire 0 % (200 seeds × 365 days).
+- Playtest 1024×768 touch (shots `scratchpad/shots/r12/E/`): a new game through the UI to day 19 (starter menu, two
+  hires, restock each evening, Skip to evening): opening-day line, hire line, ran-out line, the 7-day list; Dev joins
+  day 2, Ray day 8; Ruth Lessley "spotted" the morning of day 9 and her 4★ "getting good, and it knows it" review that
+  evening; Ray's first VIP order met on day 16 (photo in the book); rival card "You're winning on reviews: 4.6 to their
+  3.4"; two reloads of the same save gave identical ticker, rival and book text; 0 page errors.

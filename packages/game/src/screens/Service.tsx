@@ -217,6 +217,9 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       fit();
     });
 
+    // Round 12 (E): regulars and the food blogger are named guests on the owner's floor (a tag when tapped).
+    let names: ((g: GameState) => ReadonlyMap<CustomerId, string>) | undefined;
+    if (app.meta.mode !== "career") void import("../lib/regulars").then((m) => { names = m.floorNames; });
     // Round 8: `?perf=1` draws a frame-time counter in the corner (off by default)
     const perf = perfEnabled() ? createPerfMeter("floor") : undefined;
     let raf = 0;
@@ -229,7 +232,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() || !getSettings().animations });
+      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() || !getSettings().animations, ...(names ? { guestNames: names(L.game) } : {}) });
       if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
       raf = requestAnimationFrame(frame);
     };

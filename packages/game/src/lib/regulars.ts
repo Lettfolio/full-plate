@@ -1,0 +1,202 @@
+/**
+ * Round 12 (E): the regulars. Ten people (regulars.json) join one by one in an order and on days set by the seed —
+ * the first on day 1, then every 4–7 days — each on their first open day. After the intro, each has a VIP order: one
+ * dish on one weekday. It is met on that weekday when the dish sold and the night averaged 3.5★ or better: the story
+ * moves on a beat and a photo goes in the Regulars book. A beat with a `bad` branch also moves on after a poorer night
+ * (no photo); one without waits for the next matching weekday.
+ *
+ * All of it is a fold over the day results in the save (GameState.history), so the same save always gives the same
+ * book. Limit: the sim keeps the last 400 days of results (sim-core HISTORY_MAX), so a beat earned more than 400 days
+ * ago is re-derived from what is left (UI-NOTES "Round 12 — E").
+ */
+import type { Customer, CustomerId, DayResult, GameState } from "@full-plate/sim-core";
+import type { RegularBeat, RegularDef } from "@full-plate/content/voices";
+import { weekdayIndex } from "./calendar";
+import { visitsOn, blogger } from "./blogger";
+import { dishLabel, districtName, fill, h32, sold, voices, wasOpen, weekdayName } from "./voiceKit";
+
+/** A night at or above this average counts as "a good review" for a VIP order. */
+export const GOOD_NIGHT = 3.5;
+/** The first regular's planned day, and the gap to the next (4 + 0..3 days). */
+export const FIRST_JOIN = 1;
+export const JOIN_GAP = [4, 7] as const;
+/** At most this many stories run at once: the next regular waits for a story to finish (pacing; the book fills over months). */
+export const ACTIVE_MAX = 3;
+/** A VIP order is for a weekday 5–8 days after it is set, so a story moves on about once a week at most. */
+export const ORDER_LEAD = [5, 8] as const;
+
+export interface BeatDone {
+  /** 0 = the intro; 1..4 the VIP beats. */
+  beat: number;
+  day: number;
+  good: boolean;
+}
+export interface VipOrder {
+  /** The beat it unlocks (1..4). */
+  beat: number;
+  dishId: string;
+  /** 0 = Monday … 6 = Sunday. */
+  weekday: number;
+  /** The day it was set. */
+  since: number;
+  /** The first day it can be met (its weekday, 5–8 days after `since`); after that, any later day on that weekday. */
+  from: number;
+  /** Last matching day they came and the night wasn't good enough (a beat with no bad branch). */
+  triedDay?: number;
+}
+export interface RegularState {
+  def: RegularDef;
+  /** Planned first day (they join on the first open day from here). */
+  plannedDay: number;
+  joined?: number;
+  done: BeatDone[];
+  open?: VipOrder;
+}
+
+/** The cast in this game's order, with each one's planned first day. */
+export function cast(seed: number): { def: RegularDef; plannedDay: number }[] {
+  const defs = [...voices.regulars.regulars].sort((a, b) => h32(seed, "reg:order", a.id) - h32(seed, "reg:order", b.id));
+  let day = FIRST_JOIN;
+  return defs.map((def, i) => {
+    if (i > 0) day += JOIN_GAP[0] + (h32(seed, "reg:gap", def.id) % (JOIN_GAP[1] - JOIN_GAP[0] + 1));
+    return { def, plannedDay: day };
+  });
+}
+
+function orderAfter(seed: number, def: RegularDef, beat: number, d: DayResult): VipOrder {
+  const b = def.beats[beat - 1]!;
+  const rot = h32(seed, "reg:dish", def.id, beat) % b.dishes.length;
+  const dishes = [...b.dishes.slice(rot), ...b.dishes.slice(0, rot)];
+  // Prefer a dish that sold today (so it's likely on the menu); otherwise the seed's pick.
+  const dishId = dishes.find((x) => sold(d, x)) ?? dishes[0]!;
+  const from = d.day + ORDER_LEAD[0] + (h32(seed, "reg:day", def.id, beat) % (ORDER_LEAD[1] - ORDER_LEAD[0] + 1));
+  return { beat, dishId, weekday: weekdayIndex(from), since: d.day, from };
+}
+
+/** Every regular's story so far, from the results in `history` (oldest first). */
+export function regularsFrom(seed: number, history: readonly DayResult[]): RegularState[] {
+  const states: RegularState[] = cast(seed).map(({ def, plannedDay }) => ({ def, plannedDay, done: [] }));
+  for (const d of history) {
+    if (!wasOpen(d)) continue;
+    for (const s of states) {
+      if (s.joined === undefined) {
+        if (d.day < s.plannedDay) continue;
+        // One newcomer a day, in cast order, and only while fewer than ACTIVE_MAX stories are running.
+        if (states.find((x) => x.joined === undefined) !== s || states.filter((x) => x.open).length >= ACTIVE_MAX || states.some((x) => x.joined === d.day)) continue;
+        s.joined = d.day;
+        s.done.push({ beat: 0, day: d.day, good: true });
+        s.open = orderAfter(seed, s.def, 1, d);
+        continue;
+      }
+      const o = s.open;
+      if (!o || d.day < o.from || weekdayIndex(d.day) !== o.weekday || !sold(d, o.dishId)) continue;
+      const good = d.averageRating >= GOOD_NIGHT;
+      const beat = s.def.beats[o.beat - 1]!;
+      if (!good && beat.bad === undefined) { s.open = { ...o, triedDay: d.day }; continue; }
+      s.done.push({ beat: o.beat, day: d.day, good });
+      if (o.beat < s.def.beats.length) s.open = orderAfter(seed, s.def, o.beat + 1, d);
+      else delete s.open;
+    }
+  }
+  return states;
+}
+
+export const regularsOf = (game: GameState): RegularState[] => regularsFrom(game.seed, game.history);
+
+// ───────── words ─────────
+const first = (def: RegularDef) => def.name.split(" ")[0]!;
+
+export function vars(game: Pick<GameState, "restaurantName" | "districtId">, def: RegularDef, dishId?: string, weekday?: number): Record<string, string | undefined> {
+  return {
+    name: first(def),
+    dish: dishLabel(dishId) ?? "special",
+    weekday: weekday === undefined ? undefined : WEEKDAY[weekday],
+    restaurant: game.restaurantName,
+    district: districtName(game.districtId),
+    blogger: blogger().name,
+  };
+}
+const WEEKDAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export interface BeatText { beat: number; day: number; good: boolean; text: string; photo?: { emoji: string; caption: string }; dishId?: string }
+
+/** The story so far, in words: the intro, then each beat's good or bad line. */
+export function storyOf(game: GameState, s: RegularState): BeatText[] {
+  const days = new Map(game.history.map((d) => [d.day, d]));
+  return s.done.map((b) => {
+    if (b.beat === 0) return { beat: 0, day: b.day, good: true, text: s.def.intro };
+    const beat: RegularBeat = s.def.beats[b.beat - 1]!;
+    const dishId = beat.dishes.find((x) => { const d = days.get(b.day); return d ? sold(d, x) : false; }) ?? beat.dishes[0];
+    const v = vars(game, s.def, dishId, weekdayIndex(b.day));
+    return {
+      beat: b.beat, day: b.day, good: b.good, dishId,
+      text: fill(b.good ? beat.good : beat.bad!, v),
+      ...(b.good ? { photo: { emoji: beat.photo.emoji, caption: fill(beat.photo.caption, v) } } : {}),
+    };
+  });
+}
+
+/** The open VIP order as a sentence ("Priya has a first date on Friday and wants the Chicken katsu curry…"). */
+export function orderText(game: GameState, s: RegularState): string | undefined {
+  if (!s.open) return undefined;
+  return fill(s.def.beats[s.open.beat - 1]!.order, vars(game, s.def, s.open.dishId, s.open.weekday));
+}
+
+/** Gossip for a beat that was met well on `day` (the morning after reads it out). */
+export function beatGossip(game: GameState, regulars: readonly RegularState[], day: number): string | undefined {
+  for (const s of regulars) {
+    const b = s.done.find((x) => x.day === day && x.beat > 0 && x.good);
+    if (!b) continue;
+    const beat = s.def.beats[b.beat - 1]!;
+    const d = game.history.find((x) => x.day === day);
+    const dishId = beat.dishes.find((x) => (d ? sold(d, x) : false)) ?? beat.dishes[0];
+    return fill(beat.gossip, vars(game, s.def, dishId, weekdayIndex(day)));
+  }
+  return undefined;
+}
+
+export const lines = () => voices.regulars.lines;
+export { weekdayName };
+
+// ───────── names on the floor ─────────
+const seated = (c: Customer) => c.stage !== "queue" && c.stage !== "left";
+const byArrival = (a: Customer, b: Customer) => a.arrivedTick - b.arrivedTick || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/** Names stay on the party they were first given to for the rest of the day (and a new day starts afresh). */
+let memo: { key: string; names: Map<CustomerId, string>; given: Set<string>; regs?: RegularState[] } = { key: "", names: new Map(), given: new Set() };
+/** Tests: forget the floor names. */
+export function resetFloorNames(): void { memo = { key: "", names: new Map(), given: new Set() }; }
+
+/**
+ * Today's named guests during service: a regular whose VIP order is for today sits with the first party that ordered
+ * the dish; a regular joining today with the first party of their kind; Ruth Lessley on a visit day with the first small
+ * party seated after mid-afternoon. A name tag shows when the table is tapped (canvas `guestNames`).
+ */
+export function floorNames(game: GameState): ReadonlyMap<CustomerId, string> {
+  const key = `${game.seed}:${game.day}:${game.history.length}`;
+  if (memo.key !== key) memo = { key, names: new Map(), given: new Set() };
+  if (game.phase !== "service" || !game.customers.length) return memo.names;
+  const today = weekdayIndex(game.day);
+  const menu = new Set(game.menu.filter((m) => m.active).map((m) => m.dishId));
+  const wants: { who: string; ok: (c: Customer) => boolean }[] = [];
+  const regs = (memo.regs ??= regularsOf(game));
+  const joining = regs.find((s) => s.joined === undefined && s.plannedDay <= game.day);
+  for (const s of regs) {
+    const o = s.open;
+    if (o && o.weekday === today && o.from <= game.day && menu.has(o.dishId)) wants.push({ who: s.def.name, ok: (c) => c.order.includes(o.dishId) });
+  }
+  if (joining) wants.push({ who: joining.def.name, ok: (c) => c.segment === joining.def.segment });
+  if (visitsOn(game.seed, game.day)) {
+    const after = 40 + (h32(game.seed, "blogger:tick", game.day) % 60);
+    wants.push({ who: `${blogger().name} (food blogger)`, ok: (c) => c.arrivedTick >= after && c.partySize <= 2 });
+  }
+  const free = [...game.customers].filter(seated).sort(byArrival);
+  for (const w of wants) {
+    if (memo.given.has(w.who)) continue;
+    const c = free.find((x) => !memo.names.has(x.id) && w.ok(x));
+    if (!c) continue;
+    memo.names.set(c.id, w.who);
+    memo.given.add(w.who);
+  }
+  return memo.names;
+}

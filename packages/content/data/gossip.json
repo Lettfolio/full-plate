@@ -1,0 +1,212 @@
+{
+  "_note": "Round 12 (E): the morning 'Food Gossip' line and the Evening's 'tomorrow on the radio' card. Game-side only (packages/game/src/lib/gossip.ts picks a line from the seed, the day and yesterday's real results); the sim never reads this file. Reactions only fire when the thing they describe really happened yesterday, so they never contradict the numbers. Patter and the two running jokes say nothing about how the player's restaurant is doing. No grown-up drinks, no 86'd (see CONTENT-NOTES 'Round 12 — E').",
+  "_placeholders": "{restaurant} {district} {station} {dish} {staff} {rival} {rivalPlace} {blogger} {covers} {walkouts} {weekday}",
+  "stations": {
+    "student_quarter": "Campus 87.6",
+    "high_street": "High Street FM",
+    "business_park": "Park & Ride Radio",
+    "seaside": "Pier 104"
+  },
+  "opening": [
+    "New on {district} today: {restaurant}. The paint is dry, mostly. Do not lean on the door frame.",
+    "{station} can confirm a new restaurant opens on {district} this {weekday}. The previous tenant sold phone cases. We are cautiously optimistic.",
+    "Opening today: {restaurant}. Locals report the smell of onions and nerves."
+  ],
+  "patter": [
+    "Good morning, {district}. It's {weekday}, the kettle's on and somebody has parked across two spaces again.",
+    "Traffic news: the roundabout is still a roundabout. Plan accordingly.",
+    "A pigeon on the bus shelter has been there so long it now has its own postcode.",
+    "Weather today: weather. Bring a coat you can blame later.",
+    "The pound shop has put everything up to one pound twenty. The sign has not been updated. Nobody is coping.",
+    "Lost: one umbrella, black, extremely ordinary. Answers to nothing.",
+    "The parish noticeboard has a new notice asking people to stop putting notices on the noticeboard.",
+    "Scientists confirm the queue at the post office is moving. Very slowly. But it is moving.",
+    "This week's top-selling crisp flavour on {district}: 'Roast Dinner'. We have questions.",
+    "A man on {district} has been jogging every morning for six years and has never once looked happy about it.",
+    "The library's book of the week is about mindfulness. It is overdue.",
+    "Reminder: the clocks don't change this week. Your oven clock is still wrong, though.",
+    "The new bus timetable is out. It is a work of fiction and should be shelved as such.",
+    "The charity shop has six fondue sets and no fondue. Supply and demand, everyone.",
+    "Local dog Biscuit has learned to open the café door. Management are drawing up a staff contract.",
+    "Today's word on {station} is 'gazump'. Use it at lunch. Watch people pretend they know what it means.",
+    "Tip of the day: a mug of tea fixes most things, except the actual thing.",
+    "Somebody has knitted a hat for the postbox again. It looks warmer than most of us.",
+    "Roadworks on {district} enter their third month. The hole has been given a name: Gary.",
+    "Gary the hole is now fenced off with four cones and a sense of purpose.",
+    "Our phone-in topic: is a jacket potato a meal or a cry for help? Lines are open.",
+    "A seagull stole an entire sausage roll on {district} yesterday. Witnesses describe it as 'brazen' and 'honestly quite impressive'.",
+    "The cash machine outside the bank is working today. Make the most of it.",
+    "Fact: the average person spends four months of their life deciding what to have for tea. {station} is here to help. Have the soup.",
+    "The town clock is five minutes fast, so everyone is five minutes early, so nobody is ever late. It's the best thing about living here.",
+    "Lollipop lady Doreen is back from holiday and has never looked more ready to stop traffic.",
+    "Breaking: the vending machine at the leisure centre has returned someone's coin. The town is in shock.",
+    "Our gardening expert says now is a good time to do nothing to your garden. Finally, advice we can follow.",
+    "The quiz at the community hall was won by a team called 'Quiz Team Aguilera'. The puns are getting worse. Keep going.",
+    "The leisure centre's water slide is closed for 'maintenance'. It has been closed for 'maintenance' since spring.",
+    "Today on {district}: a sale on rugs at the shop that has had a 'closing down' sale since 2009.",
+    "Overheard on {district}: 'I'm not hungry, I'll just have some of yours.' Every chef within a mile flinched.",
+    "Market stall prices this morning: apples up, pears down, the man selling phone cables mysteriously everywhere.",
+    "The ice-cream van now plays its tune in a minor key. Nobody knows why. Everyone is unsettled.",
+    "The cinema is showing a film about a chef who shouts. Real chefs say it's a documentary.",
+    "Fun fact: the word 'restaurant' comes from French for 'restore'. Not 'queue for forty minutes'. Just saying.",
+    "A survey says people on {district} eat out more on {weekday}s than any other day. The survey was three people. They were very sure.",
+    "The bakery has invented a croissant-doughnut-muffin. They call it a 'cronuffin'. We call it 'too much'.",
+    "Lost cat Mr Whiskers has been found. He was in the next-door kitchen the whole time, eating very well.",
+    "Thought for the day: nobody ever remembers a beige meal. Season your food, {district}."
+  ],
+  "jokes": {
+    "critic": [
+      "Clive Halfway of the Gazette has reviewed another restaurant. He left after the starter. Four stars. Nobody knows how.",
+      "Clive Halfway update: he ordered a three-course meal, ate one and a half courses and called it 'a complete experience'.",
+      "Clive Halfway was spotted at the chip shop. He bought chips. He ate six. He wrote eight hundred words.",
+      "Clive Halfway's editor has asked him to finish a meal 'just once, for the readers'. He says he'll think about it after the starter.",
+      "Clive Halfway has started a podcast. Every episode ends halfway through.",
+      "Clive Halfway was seen holding a pudding spoon. Witnesses say he put it down again. Experts call it 'a breakthrough'.",
+      "Clive Halfway's new column: 'Half a Pie'. It is about half of a pie.",
+      "Clive Halfway was asked why he never finishes. 'If you finish,' he said, 'what would you have to look forward to?' Then he left mid-sentence.",
+      "Clive Halfway reviewed a buffet. He describes it as 'mostly unexplored'.",
+      "Clive Halfway has finished a meal. Repeat: Clive Halfway has finished a meal. It was a single mint. He gave it two stars, 'a bit much'."
+    ],
+    "bins": [
+      "The council's bin lorry came at five this morning, reversing and beeping the whole way down {district}. It did not collect any bins.",
+      "Bin lorry update: it came back. It beeped. It took one bin. Just the one. Everyone is asking why that bin.",
+      "The council says the bin lorry is 'on a new route for efficiency'. The new route is the old route, backwards.",
+      "The bin lorry was seen parked outside the bakery for twenty minutes. The driver was not collecting bins. He was collecting a sausage roll.",
+      "A petition to rename the bin lorry 'Beepy McBinface' has passed four hundred signatures. The council is 'reviewing it'.",
+      "The bin lorry now plays a jingle while reversing. It is the ice-cream van's jingle. Children are devastated.",
+      "The council has apologised for the bin lorry. The apology letter was put in the recycling. Which was not collected.",
+      "The bin lorry has a new driver, and he collects every single bin. {district} doesn't know how to feel. Somebody cried.",
+      "The old bin lorry driver is back. Normal service has resumed. One bin, much beeping.",
+      "Beepy McBinface is official. The council has painted the name on the side, spelled wrong. Somehow, this feels right."
+    ]
+  },
+  "reactions": {
+    "oneStar": [
+      "Someone gave {restaurant} one star yesterday. In fairness, someone also gave the post office one star. Chin up.",
+      "A one-star review for {restaurant} has gone up online. It mentions the {dish}. It uses the word 'regret'.",
+      "One star for {restaurant} last night. Every great chef has a review they keep in a drawer. This might be yours.",
+      "Word on {district}: one diner at {restaurant} left a single star and a very long paragraph. Read it once, learn one thing, move on.",
+      "One star yesterday for {restaurant}. Over the road, {rival} is pretending not to have seen it. They've seen it.",
+      "A one-star review landed at {restaurant}. Doreen the lollipop lady says she's had worse reviews and she just stands in the road."
+    ],
+    "fiveStar": [
+      "Five stars for {restaurant} last night, and the {dish} got a mention. Somebody's printing it out for the fridge.",
+      "A five-star review for {restaurant} yesterday. The word used was 'unreal'. We checked. It was real.",
+      "Someone on {district} has given {restaurant} five stars and the {dish} 'a standing ovation'. They did not actually stand. We asked.",
+      "Five stars at {restaurant}. {rival} has been seen staring at the reviews page for a worrying length of time.",
+      "Five-star review for {restaurant}. Clive Halfway has asked for a table. He'll probably leave after the starter, but still.",
+      "A five-star night at {restaurant}. The {dish} is officially the talk of {district}. Well, the talk of the bus stop."
+    ],
+    "rush": [
+      "{restaurant} served {covers} guests yesterday. The queue went past the chemist. The chemist was thrilled.",
+      "{covers} guests through the door at {restaurant} yesterday. Somebody check the floor's still there.",
+      "Big night at {restaurant}: {covers} served. The washing-up is still being discussed in hushed voices.",
+      "{covers} people ate at {restaurant} yesterday. That's more than went to the council meeting. By a lot.",
+      "Rush hour at {restaurant} last night: {covers} guests. The bin lorry slowed down just to look.",
+      "{restaurant} had {covers} in yesterday. {rival} over the road had an 'early night'. Sure they did."
+    ],
+    "quiet": [
+      "A quiet one at {restaurant} yesterday: {covers} guests. Good night for practising, bad night for the till.",
+      "{restaurant} served {covers} yesterday. Quiet nights happen. So do busy ones. Usually after someone tells their mates.",
+      "Only {covers} through the door at {restaurant} last night. The chairs got a rest, at least.",
+      "Yesterday was a quiet one on {district}. {restaurant} served {covers}. Gary the hole had more visitors.",
+      "{covers} guests at {restaurant} yesterday. Not a crowd. A gathering. A select few. You get the idea."
+    ],
+    "walkouts": [
+      "{walkouts} people got fed up of waiting at {restaurant} yesterday and walked out. They went to the chip shop. The chip shop says thanks.",
+      "{walkouts} walked out of {restaurant} last night before they were served. That's {walkouts} people telling their friends about the wait.",
+      "Spotted: {walkouts} hungry people leaving {restaurant} empty-handed yesterday. More tables? More staff? Fewer queues, anyway.",
+      "{walkouts} walk-outs at {restaurant}. {rival} says they 'don't believe in queues'. They also don't believe in customers, judging by Tuesday.",
+      "The queue at {restaurant} lost {walkouts} people yesterday. A queue that shrinks from the front is good. From the back, less so.",
+      "Yesterday {walkouts} people gave up on {restaurant} and left. A busy place is good. A busy pavement, less so."
+    ],
+    "ranOut": [
+      "{restaurant} ran out of the {dish} yesterday. A sell-out, or a shopping list problem? Only the larder knows.",
+      "No {dish} left at {restaurant} by the end of last night. Somebody check the stock before the regulars notice.",
+      "Overheard on {district}: 'They'd run out of the {dish}.' Said in the tone usually kept for a cancelled train.",
+      "The {dish} at {restaurant} sold out yesterday. Supply and demand: the demand turned up, the supply did not.",
+      "{restaurant} took the {dish} off part-way through yesterday. The menu looked a bit gappy. Like a smile missing a tooth.",
+      "Yesterday the {dish} ran out at {restaurant}. Somewhere, a delivery van is wondering what it did wrong."
+    ],
+    "hire": [
+      "{staff} has joined the team at {restaurant}. First day nerves, new shoes, someone else's apron. A classic.",
+      "New face at {restaurant}: {staff}. Early reports say they can carry three plates. The bar is high.",
+      "{restaurant} has hired {staff}. {rival} has been seen trying to hire them back. Too late.",
+      "Welcome to the trade, {staff}. You'll learn where everything is in a week, and why it's there in a year.",
+      "{staff} starts at {restaurant} this week. The staff room has been tidied. Briefly.",
+      "Hiring news: {staff} joins {restaurant}. We're told the interview went well and nobody cried. A good sign."
+    ],
+    "decor": [
+      "{restaurant} has had the decorators in. {district} is impressed. Gary the hole, less so.",
+      "Something new in the window at {restaurant}. Passers-by have been seen slowing down. Two of them stopped.",
+      "{restaurant} is looking smart this week. {rival} has started measuring their own walls. Suspicious.",
+      "New look at {restaurant}. A new room changes the mood. It doesn't change the cooking, but it helps the photos.",
+      "The fitters have been at {restaurant}. Locals report a new thing. They can't agree what it is. They agree they like it.",
+      "{restaurant} has a new bit of decor. Over the road, {rival} has hung a new mirror. Nobody asked them to."
+    ],
+    "loan": [
+      "{restaurant} has been to the bank. The bank said yes. The bank always sounds very cheerful when it says yes.",
+      "News from the bank: {restaurant} has a loan. Every great restaurant started by owing someone money. Nearly every.",
+      "{restaurant} has borrowed some money to keep things going. Pay it back and nobody will remember. Except the bank.",
+      "Bank news: a loan for {restaurant}. Spend it on things that make money: people, food, tables. Not a fountain.",
+      "{restaurant} took a loan yesterday. {rival} says they've 'never borrowed a penny'. Their uncle owns the building."
+    ],
+    "bigProfit": [
+      "Word is {restaurant} had a very good day at the till yesterday. Somebody is going to ask for a pay rise.",
+      "Good news for the till at {restaurant}: a strong day yesterday. Bank it before you buy a fountain.",
+      "{restaurant} made proper money yesterday. {rival} has gone very quiet on the internet. Coincidence.",
+      "The till at {restaurant} was singing yesterday. In tune, too, for once.",
+      "Yesterday was a good day for {restaurant}'s bank balance. Remember this feeling. Frame it."
+    ],
+    "loss": [
+      "{restaurant} lost money yesterday. Most new places do, early on. The trick is to know why.",
+      "A day in the red for {restaurant}. Look at the sums tonight: wages, food or rent? One of them is the culprit.",
+      "{restaurant} came out behind yesterday. {rival} would like you to know they 'never have bad days'. They have bad days.",
+      "Money went out faster than it came in at {restaurant} yesterday. Happens to the best. Happens to the bin lorry daily.",
+      "Yesterday cost {restaurant} more than it made. One bad day is weather. A bad week is a pattern."
+    ],
+    "closed": [
+      "{restaurant} kept its doors shut yesterday. A day off for everyone, except the rent.",
+      "The lights were off at {restaurant} yesterday. Gary the hole kept watch.",
+      "{restaurant} was closed yesterday. {rival} put a sign up saying 'We're open!' which, to be fair, they were.",
+      "No service at {restaurant} yesterday. The chairs were very well rested."
+    ],
+    "bestDish": [
+      "Dish of the day on {district}: the {dish} at {restaurant}. People were tapping their phones at it.",
+      "The {dish} at {restaurant} was the star yesterday. Fame is fleeting. Get it while it's hot.",
+      "If you only eat one thing on {district} this week, it's the {dish} at {restaurant}. That's not an advert. We'd tell you.",
+      "Yesterday's top plate on {district}: {restaurant}'s {dish}. {rival} has been seen 'researching' it.",
+      "Hot tip from {station}: the {dish} at {restaurant}. People keep saying it, so it's either very good or a cult.",
+      "A diner described the {dish} at {restaurant} as 'like a hug'. A hug with gravy. Fine by us."
+    ],
+    "incident": [
+      "Bit of a drama at {restaurant} yesterday, but the doors stayed open. That's the job, really.",
+      "Something went wrong at {restaurant} yesterday and somebody fixed it. Nobody writes songs about that. They should.",
+      "We hear yesterday at {restaurant} had a wobble. Wobbles are normal. Wobbling and carrying on is the trick.",
+      "A problem at {restaurant} yesterday, sorted before most diners noticed. Restaurants are mostly this, it turns out.",
+      "Behind-the-scenes chaos at {restaurant} yesterday, apparently. Front of house, all smiles. Classic."
+    ],
+    "critic": [
+      "The Gazette's critic has written up {restaurant}. Read it once, out loud, in a silly voice. It helps.",
+      "A proper review for {restaurant} in the paper this morning. Clive Halfway is furious it wasn't him.",
+      "The critic's column on {restaurant} is out. Somebody in the kitchen has already highlighted the nice bits.",
+      "{restaurant} is in the paper. The critic's opinion is printed below, in small, serious letters."
+    ]
+  },
+  "rival": {
+    "youWon": [
+      "Reviews this week: {restaurant} beat {rivalPlace}. {rival} says the scores 'don't count in the first week of the month'. They do.",
+      "{restaurant} out-scored {rivalPlace} on reviews last week. {rival} has posted a picture of a sunset. Subtle.",
+      "The weekly reviews are in: {restaurant} ahead of {rivalPlace}. Over the road, someone is rearranging the menu angrily."
+    ],
+    "theyWon": [
+      "Reviews last week: {rivalPlace} edged {restaurant}. {rival} has been unbearable about it since breakfast.",
+      "{rivalPlace} beat {restaurant} on reviews last week. {rival} has bought a trophy. For themselves. From the pound shop.",
+      "Last week's reviews went to {rivalPlace}. {rival} is doing a lap of honour round the car park."
+    ]
+  },
+  "clipping": [
+    "Three weeks running, {restaurant} has out-reviewed {rivalPlace}. The Gazette ran it on page six. Someone has framed it. {rival} has not commented. Loudly.",
+    "It's official: three weeks on top of {rivalPlace}. The clipping from the Gazette is going on the wall at {restaurant}. {rival} has gone for a long walk."
+  ]
+}

@@ -1,0 +1,423 @@
+{
+  "_note": "Round 12 (E): the regulars. Each has a face (sim-core avatarFor on their id, in their own clothes colour), a job, a favourite dish and five beats: an intro (their first visit, on an open day) and four VIP orders. A VIP order names one of `dishes` and a weekday; it is met on that weekday when the dish sold and the night averaged at least 3.5 stars. A beat with `bad` also moves on after a poorer night (the story branches; no photo); a beat without one waits for next week. Everything is worked out from the seed and the day results by packages/game/src/lib/regulars.ts; the sim never reads this file. Dish ids are all from the starter library.",
+  "_placeholders": "{name} {dish} {weekday} {restaurant} {district} {blogger}",
+  "regulars": [
+    {
+      "id": "priya",
+      "name": "Priya Nair",
+      "job": "Dental nurse",
+      "segment": "business",
+      "favourite": "chicken_katsu",
+      "colour": "#d9534f",
+      "intro": "Priya came in alone with a paperback and ordered the katsu without looking at the menu. She'll be back. She has the look.",
+      "beats": [
+        {
+          "order": "{name} has a first date on {weekday} and wants the {dish}: 'the one thing I can't spill down myself'.",
+          "dishes": ["chicken_katsu", "mushroom_risotto", "salmon_fillet"],
+          "good": "The date went brilliantly. They split a pudding. Nobody splits a pudding on a bad date.",
+          "bad": "The date talked about his car for an hour. Priya ate the {dish} in silence and says it was the best part of the night.",
+          "photo": { "emoji": "🍰", "caption": "Two forks, one pudding" },
+          "gossip": "Love is in the air at {restaurant}: a first date on {weekday} went so well they shared a pudding. Two spoons. Disgusting. Lovely."
+        },
+        {
+          "order": "{name} wants a table for two on {weekday}. Second date, or a brand-new one: she won't say. Just make sure the {dish} is on.",
+          "dishes": ["steak_frites", "seafood_linguine", "tikka_masala"],
+          "good": "Date number two. She's started saying 'we'. The {dish} has been named 'our dish'. Steady on.",
+          "bad": "It turned out he hates sharing food. Priya has decided she is 'focusing on her career now'.",
+          "photo": { "emoji": "📸", "caption": "A blurry selfie by the window" },
+          "gossip": "Sources at {restaurant} confirm a second date went well. The {dish} is now 'their dish'. Brace yourselves, {district}."
+        },
+        {
+          "order": "{name} is bringing her mum on {weekday} to 'meet the restaurant'. It's a test. The {dish} is the test.",
+          "dishes": ["roast_chicken", "shepherds_pie", "fish_and_chips"],
+          "good": "Priya's mum asked for the recipe, which is the highest honour a mum can give. Priya looked very relieved.",
+          "photo": { "emoji": "👩‍👧", "caption": "Priya and her mum, both pointing at the pudding menu" },
+          "gossip": "A mum at {restaurant} on {weekday} asked for a recipe. In mum terms, that's five stars."
+        },
+        {
+          "order": "{name} has news and wants to tell everyone over the {dish} on {weekday}. She's practising her surprised face.",
+          "dishes": ["sticky_toffee", "creme_brulee", "tiramisu"],
+          "good": "She's been promoted to practice manager. The whole table cheered. A man at the next table cheered too, for no reason.",
+          "photo": { "emoji": "🎉", "caption": "Priya's promotion night" },
+          "gossip": "Congratulations to Priya, newly promoted, who celebrated at {restaurant} with a {dish}. We don't know her. We're proud anyway."
+        }
+      ]
+    },
+    {
+      "id": "marcus",
+      "name": "Marcus Webb",
+      "job": "Fixes laptops",
+      "segment": "students",
+      "favourite": "beef_burger",
+      "colour": "#4a7bb7",
+      "intro": "Marcus came in looking at his phone, sighed at his phone, and ordered a burger. His phone is the problem, we suspect.",
+      "beats": [
+        {
+          "order": "{name} has been dumped by text. He's coming in on {weekday} to eat the {dish} and 'process'.",
+          "dishes": ["beef_burger", "cheesy_chips", "mac_and_cheese"],
+          "good": "He arrived heartbroken and left with a full stomach and a plan. The plan is 'get a new phone'. Progress.",
+          "bad": "The night was slow and so was the food. He read old messages over the {dish}. Somebody take his phone.",
+          "photo": { "emoji": "📱", "caption": "Marcus's phone, face down. A brave choice." },
+          "gossip": "Heartbreak at table four on {weekday}. Marcus, if you're listening: the {dish} believes in you."
+        },
+        {
+          "order": "{name}'s ex wants to 'talk' on {weekday}. He's picked {restaurant} for the moral support. And the {dish}.",
+          "dishes": ["margherita", "spag_bol", "chicken_burger"],
+          "good": "They agreed to be friends. Actual friends. She even let him have the last bit of the {dish}.",
+          "bad": "They did not agree to be friends. She took the last of the {dish}. Marcus says that's 'exactly the problem'.",
+          "photo": { "emoji": "🤝", "caption": "A handshake. Awkward, but a handshake." },
+          "gossip": "Peace talks at {restaurant} on {weekday}. A break-up has become a friendship. The {dish} brokered the deal."
+        },
+        {
+          "order": "{name} has started running. He's rewarding himself with the {dish} on {weekday}, which rather undoes the running.",
+          "dishes": ["caesar_salad", "salmon_fillet", "house_salad"],
+          "good": "He ran five kilometres and ate one {dish}. He says it's 'balance'. We say it's lunch.",
+          "photo": { "emoji": "👟", "caption": "Muddy trainers under table four" },
+          "gossip": "Marcus from table four ran his first five kilometres this week. He celebrated with the {dish}. Balance."
+        },
+        {
+          "order": "{name} met someone at the Saturday run. He wants to bring her on {weekday}. The {dish}, and no phones.",
+          "dishes": ["seafood_linguine", "green_curry", "steak_frites"],
+          "good": "Two phones stayed in two pockets all night. They talked about running for three hours. They're perfect for each other.",
+          "photo": { "emoji": "🏃", "caption": "Marcus and Jo, both in running tops, both very pleased" },
+          "gossip": "Remember Marcus, dumped by text? He's met someone. At a run. On purpose. Good lad."
+        }
+      ]
+    },
+    {
+      "id": "dev",
+      "name": "Dev Okafor",
+      "job": "Ex-food blogger",
+      "segment": "foodies",
+      "favourite": "pork_ramen",
+      "colour": "#7b4fa8",
+      "intro": "Dev photographed his ramen from four angles, then didn't post any of them. He used to run a food blog. He doesn't talk about it.",
+      "beats": [
+        {
+          "order": "{name} is thinking of starting his blog again. He's 'testing' himself on the {dish} on {weekday}.",
+          "dishes": ["pork_ramen", "chicken_gyoza", "green_curry"],
+          "good": "He wrote three paragraphs on the {dish} on a napkin and didn't throw it away. That's the first post.",
+          "bad": "The food was slow and he wrote 'meh' on a napkin. He crossed it out. 'Too harsh,' he said. 'I've been there.'",
+          "photo": { "emoji": "📝", "caption": "A napkin with very small handwriting" },
+          "gossip": "Food blogger Dev Okafor is back! He wrote about the {dish} at {restaurant} on a napkin. It's online now. The napkin is framed."
+        },
+        {
+          "order": "{name} needs a 'big' post for the relaunch. He'd like the {dish} on {weekday}, lit nicely.",
+          "dishes": ["duck_breast", "lamb_shoulder", "scallops_pea"],
+          "good": "The relaunch post has a hundred readers. Ninety-nine are strangers. One is his mum, who commented 'lovely'.",
+          "photo": { "emoji": "💻", "caption": "Dev's blog, open on a laptop, on table six" },
+          "gossip": "Dev's blog is back with a post about {restaurant}'s {dish}. His mum says it's lovely. She's right."
+        },
+        {
+          "order": "{name} has heard {blogger} might be about. He wants the {dish} on {weekday} 'to see how a professional does it'.",
+          "dishes": ["moules_frites", "seafood_linguine", "salmon_fishcakes"],
+          "good": "He worked out that {blogger} never writes the word 'delicious'. He's banned it from his blog too. It's harder than it sounds.",
+          "bad": "He tried to review the {dish} like {blogger} would and made himself sad. 'She's rude,' he said, 'but she's right.'",
+          "photo": { "emoji": "🔍", "caption": "Dev taking notes on someone else's notes" },
+          "gossip": "Dev Okafor has banned the word 'delicious' from his blog. Bold. Tasty. Er, flavourful."
+        },
+        {
+          "order": "{name} is celebrating a thousand readers with the {dish} on {weekday}. Same table as the first time.",
+          "dishes": ["pork_ramen", "chicken_katsu", "tikka_masala"],
+          "good": "A thousand readers. And this morning, a follow from {blogger}. Dev hasn't stopped smiling. It's slightly worrying.",
+          "photo": { "emoji": "🍜", "caption": "Same table, same ramen, a thousand readers" },
+          "gossip": "Dev Okafor's comeback is complete: a thousand readers and a follow from {blogger}. He celebrated at {restaurant}. Of course he did."
+        }
+      ]
+    },
+    {
+      "id": "ellie",
+      "name": "Ellie Chen",
+      "job": "Sixth-former",
+      "segment": "students",
+      "favourite": "mac_and_cheese",
+      "colour": "#2f9e8f",
+      "intro": "Ellie spread revision cards over the whole table and ordered mac & cheese 'for brain power'. The science on that is unclear.",
+      "beats": [
+        {
+          "order": "{name} has mock exams. She wants to revise over the {dish} on {weekday}. Quiet table, please.",
+          "dishes": ["mac_and_cheese", "jacket_potato", "margherita"],
+          "good": "She learned the whole of the water cycle between two forkfuls. The {dish} is now officially study food.",
+          "bad": "It was too noisy to think. She learned one fact about glaciers and dropped cheese on it.",
+          "photo": { "emoji": "📚", "caption": "Revision cards, slightly cheesy" },
+          "gossip": "Exam season on {district}: a student revised the water cycle over the {dish} at {restaurant} on {weekday}. It rained. Topical."
+        },
+        {
+          "order": "{name}'s friends want in. Five of them, {weekday}, the {dish}, and a promise to 'actually revise'.",
+          "dishes": ["chunky_chips", "cheesy_chips", "garlic_bread"],
+          "good": "They actually revised. For eleven minutes. Then they quizzed each other on the menu. Ellie won.",
+          "photo": { "emoji": "🧠", "caption": "Five people, one highlighter" },
+          "gossip": "A study group at {restaurant} on {weekday} revised for eleven whole minutes. A record for {district}."
+        },
+        {
+          "order": "{name} has her last exam on {weekday} morning. She'd like the {dish} the night before 'for luck'.",
+          "dishes": ["spag_bol", "kids_pasta", "carbonara"],
+          "good": "She ate, went home and slept nine hours. The exam had a question on glaciers. She knew it.",
+          "bad": "Dinner ran late and she got home after ten. She says the exam was 'fine'. Teenagers say 'fine' about everything.",
+          "photo": { "emoji": "🍀", "caption": "A four-leaf clover drawn on a napkin" },
+          "gossip": "Good luck to every student on {district} with exams this week. One of them prepared with the {dish}. Science."
+        },
+        {
+          "order": "Results day! {name} wants the {dish} on {weekday}, whatever the envelope says.",
+          "dishes": ["sundae", "brownie", "milkshake"],
+          "good": "Top grades. She opened the envelope at the table and screamed. So did the people at table three, on her behalf.",
+          "photo": { "emoji": "🎓", "caption": "Ellie, an envelope and a very tall {dish}" },
+          "gossip": "Results day joy at {restaurant}: one student, top grades, one {dish} the size of her head."
+        }
+      ]
+    },
+    {
+      "id": "arthur",
+      "name": "Arthur Pembridge",
+      "job": "Retired train driver",
+      "segment": "families",
+      "favourite": "roast_chicken",
+      "colour": "#a0522d",
+      "intro": "Arthur sat by the window, set his watch by the clock on the wall, and told the server it was two minutes slow. It was.",
+      "beats": [
+        {
+          "order": "{name}'s granddaughter is 'scouting' for his ninetieth. She's coming on {weekday} to try the {dish}.",
+          "dishes": ["roast_chicken", "shepherds_pie", "sausage_and_mash"],
+          "good": "She's booked the long table. 'Grandad will love it,' she said. 'He'll say he doesn't. He will.'",
+          "photo": { "emoji": "🗓️", "caption": "A booking, written in very large letters" },
+          "gossip": "Big birthday coming at {restaurant}: someone on {district} is about to turn ninety. Practise your singing."
+        },
+        {
+          "order": "{name} insists on a 'test run' of the {dish} on {weekday}. He doesn't trust anything he hasn't tested.",
+          "dishes": ["fish_and_chips", "roast_chicken", "cornish_pasty"],
+          "good": "He ate every bit, checked his watch and said, 'Adequate.' His granddaughter says that's his highest mark ever.",
+          "bad": "The {dish} took ages. He timed it. He'll mention it. For years.",
+          "photo": { "emoji": "⌚", "caption": "Arthur's pocket watch, open on the table" },
+          "gossip": "A retired train driver called the {dish} at {restaurant} 'adequate' on {weekday}. Locals say that's a rave review."
+        },
+        {
+          "order": "The ninetieth! Fourteen of the family on {weekday}. Arthur wants the {dish}. The cake is a secret.",
+          "dishes": ["roast_chicken", "lamb_shoulder", "steak_frites"],
+          "good": "Fourteen people sang. Arthur pretended to hate it and wiped his eyes 'because of the candles'.",
+          "bad": "The cake arrived before the mains. Arthur ate it anyway. 'At ninety,' he said, 'pudding first is allowed.'",
+          "photo": { "emoji": "🎂", "caption": "Ninety candles (well, a nine and a zero)" },
+          "gossip": "Happy ninetieth, Arthur! Fourteen people sang at {restaurant} on {weekday}. Arthur says he didn't cry. Arthur cried."
+        },
+        {
+          "order": "{name} would like 'his' table on {weekday}, the {dish}, and for nobody to make a fuss. Make a small fuss.",
+          "dishes": ["apple_crumble", "sticky_toffee", "pot_of_tea"],
+          "good": "Same table, same time, a small fuss. He's booked every {weekday} for the rest of the year.",
+          "photo": { "emoji": "🚂", "caption": "A model train, left 'for the window'" },
+          "gossip": "Arthur, ninety, has a standing booking at {restaurant} every {weekday}. The table has a little brass train on it now."
+        }
+      ]
+    },
+    {
+      "id": "sandy",
+      "name": "Sandy Okoye",
+      "job": "Runs a food truck",
+      "segment": "tourists",
+      "favourite": "halloumi_fries",
+      "colour": "#e8a33d",
+      "intro": "Sandy parked her food truck, Wheely Good Food, outside, came in, and ordered 'whatever's your bestseller'. Checking out the competition, we reckon.",
+      "beats": [
+        {
+          "order": "{name} wants to taste your {dish} on {weekday}. 'For research,' she says, meaning nicking ideas.",
+          "dishes": ["halloumi_fries", "sticky_chicken_bites", "potato_skins"],
+          "good": "She ate it, nodded slowly, and wrote 'they're good' on her hand. Professional respect.",
+          "photo": { "emoji": "🚚", "caption": "Wheely Good Food, parked a bit too close" },
+          "gossip": "The food truck parked on {district} has been 'researching' the {dish} at {restaurant}. Imitation is flattery. Or theft."
+        },
+        {
+          "order": "{name} is thinking of selling the truck. She'd like to think about it over the {dish} on {weekday}.",
+          "dishes": ["fish_and_chips", "beef_burger", "chicken_burger"],
+          "good": "She made a list: 'sell' on one side, 'keep' on the other. 'Keep' has one word on it: 'freedom'. She's still thinking.",
+          "bad": "A slow night at the restaurant made her miss her own slow nights. 'At least the truck has wheels,' she said.",
+          "photo": { "emoji": "📋", "caption": "A list, mostly crossings-out" },
+          "gossip": "Rumour on {district}: the Wheely Good Food truck could be for sale. Sandy was seen thinking hard over a {dish}."
+        },
+        {
+          "order": "A buyer is meeting {name} on {weekday}. Neutral ground, she says. Your {dish} is the neutral ground.",
+          "dishes": ["margherita", "steak_frites", "tikka_masala"],
+          "good": "The buyer offered a good price. Sandy shook his hand, then said she'd 'sleep on it'. She's slept on it six times.",
+          "bad": "The buyer complained about the {dish} for ten minutes. Sandy decided she wouldn't sell him a sandwich, let alone a truck.",
+          "photo": { "emoji": "🤝", "caption": "An offer, written on the back of a menu" },
+          "gossip": "Big deal over lunch at {restaurant} on {weekday}: a food truck might be changing hands. Sandy says nothing. Loudly."
+        },
+        {
+          "order": "{name} has decided. She'll tell you over the {dish} on {weekday}. She's grinning, which is either good or terrifying.",
+          "dishes": ["halloumi_fries", "chunky_chips", "onion_rings"],
+          "good": "She's keeping the truck, and parking it outside {restaurant} on Saturdays: 'You do the sit-down, I'll do the queue.' A deal.",
+          "photo": { "emoji": "🌭", "caption": "Sandy and the truck, staying put" },
+          "gossip": "Wheely Good Food is staying on {district}! Sandy will park by {restaurant} on Saturdays. The queues are going to be enormous."
+        }
+      ]
+    },
+    {
+      "id": "ray",
+      "name": "Ray Duffy",
+      "job": "Drives the number 42 bus",
+      "segment": "families",
+      "favourite": "full_english",
+      "colour": "#3c8d3c",
+      "intro": "Ray ordered the all-day breakfast at seven in the evening. 'My day started at four,' he said. Fair.",
+      "beats": [
+        {
+          "order": "{name} is writing a novel about a bus driver. He'd like to 'work on chapter one' over the {dish} on {weekday}.",
+          "dishes": ["full_english", "jacket_potato", "sausage_and_mash"],
+          "good": "Chapter one is done. The bus driver is called Roy. Roy is definitely not Ray. Roy also loves the {dish}.",
+          "photo": { "emoji": "📖", "caption": "Chapter one, page one, a gravy stain" },
+          "gossip": "A local bus driver is writing a novel at {restaurant}. The hero is a bus driver. Bold choice."
+        },
+        {
+          "order": "{name} is stuck on chapter seven. He wants the {dish} on {weekday} and 'no plot twists, please'.",
+          "dishes": ["shepherds_pie", "cornish_pasty", "fish_and_chips"],
+          "good": "He got Roy through chapter seven by sending him down a diversion. 'Like life,' Ray said. Deep.",
+          "bad": "The night was chaos and Ray wrote it all down. Chapter seven is now about a restaurant. Uh oh.",
+          "photo": { "emoji": "🚌", "caption": "A bus ticket used as a bookmark" },
+          "gossip": "Chapter seven of the bus novel was written at {restaurant} on {weekday}. Ray says it has 'a twist'. It's a diversion."
+        },
+        {
+          "order": "{name} is reading chapter one to his book club on {weekday}. They're coming for the {dish}. He's terrified.",
+          "dishes": ["roast_chicken", "spag_bol", "apple_crumble"],
+          "good": "The book club laughed in all the right places and none of the wrong ones. Ray had to go outside for a minute.",
+          "photo": { "emoji": "👏", "caption": "Ray, reading, holding the page very tight" },
+          "gossip": "The {district} book club heard the first chapter of a bus driver's novel at {restaurant}. Reviews: 'fun', 'loud', 'more Roy'."
+        },
+        {
+          "order": "A publisher wrote back to {name}! He's celebrating with the {dish} on {weekday}. His treat. Very much his treat.",
+          "dishes": ["steak_frites", "full_english", "sticky_toffee"],
+          "good": "They want the book. Roy goes to print next spring. There's a scene set in a restaurant that looks a lot like this one.",
+          "photo": { "emoji": "📚", "caption": "A signed copy, 'for the kitchen'" },
+          "gossip": "Ray from the number 42 is getting his novel published. There's a restaurant in it. Somebody check it's a nice one."
+        }
+      ]
+    },
+    {
+      "id": "bola",
+      "name": "Bola Adeyemi",
+      "job": "Nurse on nights",
+      "segment": "business",
+      "favourite": "tikka_masala",
+      "colour": "#c2185b",
+      "intro": "Bola came in still in scrubs, ate a curry in eleven minutes flat and thanked everyone like they'd saved her life. It's usually the other way round.",
+      "beats": [
+        {
+          "order": "{name} has a promotion interview on {weekday}. She'd like the {dish} and five quiet minutes beforehand.",
+          "dishes": ["tikka_masala", "green_curry", "tomato_soup"],
+          "good": "She ate, read her notes once and walked out like she owned the hospital. Fingers crossed.",
+          "bad": "It was too busy for five quiet minutes. She went in flustered. 'I've done harder things on less sleep,' she said.",
+          "photo": { "emoji": "🩺", "caption": "Interview notes, folded into a tiny square" },
+          "gossip": "Good luck to a nurse from {district} with a big interview this week. She prepared over the {dish} at {restaurant}."
+        },
+        {
+          "order": "{name} got the job. She's bringing her whole night shift in on {weekday}. Eight people. They want the {dish}.",
+          "dishes": ["chicken_katsu", "beef_burger", "margherita"],
+          "good": "Eight nurses, one table, a lot of laughing about things we didn't understand. They left a card for the kitchen.",
+          "photo": { "emoji": "💐", "caption": "A thank-you card signed by a whole ward" },
+          "gossip": "A whole night shift of nurses had dinner at {restaurant} on {weekday}. They left a thank-you card. We're not crying, you're crying."
+        },
+        {
+          "order": "{name} has a rare weekend off and wants to do 'absolutely nothing' with the {dish} on {weekday}.",
+          "dishes": ["mushroom_risotto", "seafood_linguine", "caesar_salad"],
+          "good": "She did absolutely nothing for two hours. She says it's the best two hours of her year.",
+          "photo": { "emoji": "☕", "caption": "Bola, feet up (on the chair opposite, sorry)" },
+          "gossip": "A nurse from {district} sat at {restaurant} for two hours on {weekday} doing absolutely nothing. She's earned it."
+        },
+        {
+          "order": "{name}'s mum is visiting from Lagos. {weekday}, the {dish}, and please be nice: she cooks better than anyone.",
+          "dishes": ["lamb_shoulder", "roast_chicken", "steak_frites"],
+          "good": "Bola's mum tasted the {dish}, thought for a long time and said, 'Not bad.' Bola says that's practically a medal.",
+          "photo": { "emoji": "👩‍🍳", "caption": "Bola's mum, inspecting the kitchen" },
+          "gossip": "A visiting mum said 'not bad' about the {dish} at {restaurant}. Chefs on {district} are framing the quote."
+        }
+      ]
+    },
+    {
+      "id": "margaret",
+      "name": "Margaret Doyle",
+      "job": "Retired teacher",
+      "segment": "foodies",
+      "favourite": "tomato_soup",
+      "colour": "#5c6bc0",
+      "intro": "Margaret did the crossword in ink, in nine minutes, and corrected the spelling on the specials board. Politely. Correctly.",
+      "beats": [
+        {
+          "order": "{name} has entered the county crossword championship. She trains over the {dish} on {weekday}.",
+          "dishes": ["tomato_soup", "ploughmans", "cheese_board"],
+          "good": "Two crosswords in the time it took to eat the {dish}. She's 'cautiously confident'. That means terrifyingly good.",
+          "photo": { "emoji": "✏️", "caption": "A finished crossword, in pen, no crossings-out" },
+          "gossip": "A retired teacher finished two crosswords at {restaurant} on {weekday}. In pen. Without asking anyone. Legend."
+        },
+        {
+          "order": "{name} is through to the regional final. She'd like the {dish} on {weekday} and, quietly, a clue for nine across.",
+          "dishes": ["salmon_fishcakes", "prawn_cocktail", "asparagus_hollandaise"],
+          "good": "Nine across was 'restaurant'. She got it from looking round. She says it's the easiest clue she's ever been given.",
+          "bad": "A noisy night put her off. She says she 'never loses her concentration'. She lost it on four down.",
+          "photo": { "emoji": "🏆", "caption": "A regional finalist's badge, pinned to a cardigan" },
+          "gossip": "{restaurant} has its own crossword champion. Well, finalist. Well, she eats here. Still counts."
+        },
+        {
+          "order": "{name}'s old pupils have tracked her down. Six of them, {weekday}, the {dish}. She's pretending not to be thrilled.",
+          "dishes": ["fish_and_chips", "shepherds_pie", "mac_and_cheese"],
+          "good": "One of them is a doctor now, one's a pilot, and one is 'in crisps'. She remembered all their spellings.",
+          "bad": "Dinner was slow and she made them do a spelling test while they waited. They loved it, which is the worrying part.",
+          "photo": { "emoji": "🍎", "caption": "An apple for the teacher, left on table two" },
+          "gossip": "Six former pupils took their old teacher out to {restaurant} on {weekday}. She marked the menu. A-minus."
+        },
+        {
+          "order": "The final is on {weekday}. {name} wants the {dish} afterwards, win or lose. (Win.)",
+          "dishes": ["sticky_toffee", "eton_mess", "creme_brulee"],
+          "good": "County crossword champion. She'd like everyone to know she didn't use a pencil once.",
+          "photo": { "emoji": "🥇", "caption": "Champion. In ink." },
+          "gossip": "Margaret Doyle is county crossword champion and she celebrated at {restaurant}. Clue: rhymes with 'legend'. It's 'legend'."
+        }
+      ]
+    },
+    {
+      "id": "kai",
+      "name": "Kai Thompson",
+      "job": "Drummer in Hollow Spoons",
+      "segment": "students",
+      "favourite": "bacon_mushroom_pizza",
+      "colour": "#455a64",
+      "intro": "Kai tapped a rhythm on the table with two breadsticks for an hour. His band is called Hollow Spoons. Of course it is.",
+      "beats": [
+        {
+          "order": "Hollow Spoons have their first gig on {weekday}. {name} wants the {dish} for the whole band beforehand.",
+          "dishes": ["bacon_mushroom_pizza", "margherita", "chunky_chips"],
+          "good": "They ate, they played, twelve people came. Eleven were family. One was the bin lorry driver. He danced.",
+          "bad": "Dinner ran late and they went on stage still chewing. The singer says it 'added texture'.",
+          "photo": { "emoji": "🥁", "caption": "Two breadsticks, retired from drumming" },
+          "gossip": "Local band Hollow Spoons played their first gig on {weekday}. The bin lorry driver was seen dancing. Of course he was."
+        },
+        {
+          "order": "{name} wants to record a demo in the back room on {weekday}. Just kidding. He wants the {dish} and to talk about it a lot.",
+          "dishes": ["halloumi_burger", "beef_burger", "potato_skins"],
+          "good": "They talked about the demo for three hours. They have a name for it: 'Pass the Salt'. No songs yet.",
+          "photo": { "emoji": "🎧", "caption": "A set list on the back of a receipt" },
+          "gossip": "Hollow Spoons' first demo will be called 'Pass the Salt'. It was planned at {restaurant}. It doesn't exist yet."
+        },
+        {
+          "order": "Battle of the bands on {weekday}! {name} needs the {dish} 'for stamina'. The singer needs 'something soft for the voice'.",
+          "dishes": ["spag_bol", "carbonara", "tomato_soup"],
+          "good": "Second place! The winners were a brass band of nine-year-olds. 'Fair,' said Kai. 'They were tight.'",
+          "bad": "They came last. The judges said 'loud'. Kai says loud is the point.",
+          "photo": { "emoji": "🎸", "caption": "A runner-up rosette taped to a guitar" },
+          "gossip": "Hollow Spoons came second at the battle of the bands, behind a brass band of nine-year-olds. Respect the brass."
+        },
+        {
+          "order": "Hollow Spoons are supporting a real band on {weekday}. {name} wants the {dish} and to stop shaking.",
+          "dishes": ["pork_ramen", "chicken_katsu", "beef_burger"],
+          "good": "They played the big hall. They've written a song about {restaurant}. It's mostly about the {dish}. It slaps, apparently.",
+          "photo": { "emoji": "🎤", "caption": "A gig poster: Hollow Spoons (small letters, still counts)" },
+          "gossip": "Hollow Spoons have written a song about {restaurant}. Kai says it 'slaps'. We've been told that's good."
+        }
+      ]
+    }
+  ],
+  "lines": {
+    "open": "Open order",
+    "waiting": "Waiting for a {weekday} with the {dish} on and a good night (3.5★ or better).",
+    "notOnMenu": "The {dish} isn't on your menu.",
+    "onMenu": "The {dish} is on your menu.",
+    "tryAgain": "They came on {weekday} but it wasn't a good night. They'll try again next {weekday}.",
+    "finished": "Story complete. They're one of the family now.",
+    "newRegular": "{name} is a regular now."
+  }
+}

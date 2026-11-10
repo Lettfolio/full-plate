@@ -5,6 +5,8 @@ import { BankCard, bankDue, hirePromptText, loanDue, StarterLoanTip } from "../c
 import { lazy, Suspense } from "react";
 // Round 12 (B): the postcard button and its sheet are their own chunk.
 const PostcardButton = lazy(() => import("../components/PostcardDialog").then((m) => ({ default: m.PostcardButton })));
+// Round 12 (E): the blogger's review, the regulars tonight and tomorrow's gossip (lazy; components/EveningExtras.tsx).
+const EveningExtras = lazy(() => import("../components/EveningExtras").then((m) => ({ default: m.EveningExtras })));
 import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
 import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
@@ -401,6 +403,8 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
               </div>
             )}
           </Panel>
+
+          {meta?.mode !== "career" && <Suspense fallback={null}><EveningExtras game={game} result={r} meta={meta} /></Suspense>}
 
           <Panel title="How the team feels">
             {/* Round 10: a level-up line for anyone who finished a training level today (sim-core logs "Level up! …"). */}

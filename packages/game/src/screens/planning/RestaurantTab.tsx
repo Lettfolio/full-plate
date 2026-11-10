@@ -4,6 +4,7 @@ import type { PathMeta } from "../../state/paths";
 import { content, TABLE_COST } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { useSpendGuard } from "../../components/SpendGuard";
+import { RegularsCard, RivalCard } from "../../components/RivalCard";
 
 // Round 12 (B): the brand kit card (and its editor sheet and the postcard) is its own chunk.
 const BrandCard = lazy(() => import("./BrandTab").then((m) => ({ default: m.BrandCard })));
@@ -47,6 +48,8 @@ export function RestaurantTab({ game, send, meta, onBrand }: Props) {
         {dialog}
       </aside>
       {meta && <Suspense fallback={null}><BrandCard game={game} meta={meta} onBrand={onBrand} /></Suspense>}
+      {/* Round 12 (E): the chef across the road and the Regulars book. */}
+      <div className="voices-row"><RivalCard game={game} /><RegularsCard game={game} /></div>
     </div>
   );
 }
