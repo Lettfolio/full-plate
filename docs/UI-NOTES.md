@@ -946,3 +946,89 @@ not childish), "What a night!", "Let's cook!", promotion/win exclamations (earne
 - Playtest 1024×768 touch (shots `scratchpad/shots/r11b/`): Normal pre-picked; lease "Footfall" tap → tip; day 1 menu
   shows Pint of lager / Glass of house wine; Service "86" header tap → tip, 8 "86" buttons; Skip to evening; day 2;
   Settings drinks switch off; flipped → "Tall fizzy lemonade" on the menu and in the larder line at once; 0 errors.
+
+
+## Round 12 — C: daily challenge, chapters and Quick year
+
+### Today's challenge
+
+- **Title › Today's challenge** (one button, under Your games / New game) opens a lazy intro screen
+  (`screens/Challenge.tsx`): the date ("Tue 10 Nov · same for everyone today"), the scenario's name and one line, the
+  restaurant and street, the goal in words, the scoring rule, **Start** / **Carry on: day N of 5** / **Start again**
+  (confirm), today's best with its code, and **Your best days** (top ten).
+- **One scenario per UTC date** (`lib/challenge.ts`): FNV-1a of the date picks the seed, street, name and start day
+  (28–48); `dayNumber % 6` rotates six templates — Rescue the café, Rush week, Inspector due, Staff walked out, New
+  rival opened, Festival weekend (Thu–Mon). `buildChallenge` runs the real sim with sim-core's scripted owner
+  (`runStrategyDay`, `typical`, or `cheap` for Rescue) to the start day, a few days per slice behind a progress bar
+  (≈0.1–0.7 s), then sets the problem up with ordinary commands only: REMOVE_MENU_ITEM (the best seller, Rescue), FIRE
+  (all but one chef, Walkout), SET_MENU_ITEM ×1.2 prices (Rival), SET_ROTA weekend off for half the team (Festival).
+  The goal's number comes from the restaurant's last week and is stored in the run (`ChallengeMeta.target`). Same date
+  ⇒ byte-identical state (tested).
+- **Play**: the normal game view on Normal, with a bar under the header (`ChallengeHud`): name, "Day 2 of 5", the goal,
+  a meter, where it stands; on the fifth evening "Last night done. Next day shows your score." Any service can be
+  watched, skipped or played hands-on. No save slot is touched: the run is packed (saveCodec) into
+  `full-plate:challenge:v1:run` every morning, evening and service start, and goes through `saveCheck` on load.
+  Reloading and pressing Today's challenge → **Carry on** resumes (tested in the app and in the playtest). A run from
+  an earlier date is cleared ("Yesterday's run ended at midnight (UTC)"); only today's date is playable. Dev builds
+  accept `?challengeDate=YYYY-MM-DD`; the shipped build ignores it.
+- **Score screen** (`screens/ChallengeScore.tsx`, after the fifth evening's Next day, or a bust): the goal line
+  (done / missed; Inspector says which night it was), Goal (1,000 if met, else up to 600 for how close) + Takings
+  (1 per £5) + Reviews (guest-weighted rating × 100) − Losses (1 per £5 binned or spent on incidents, 10 per walkout,
+  300 if the bank closed it). Scripted owners score ≈1,000–2,800. A **six-character code** (Crockford base 32: date
+  mod 64, score 17 bits, 7-bit check; shown "FG4 X9V", Copy button) and **Compare**: type a code (any case, spaces or
+  dashes; I/L read 1, O 0) → You vs Their code side by side with the day each was from and "They win by 250."; a wrong
+  letter is caught ("That code doesn't add up."). Try again → the intro; Title screen.
+- **Bests**: `full-plate:challenge:v1:best` (best per date, last 120 dates); a score that enters the all-time top five
+  is also written as an onboarding-flag key (`full-plate:onboard:v1:challenge:<date>:<score>`), which the existing
+  prefs sync already mirrors to the account (cap 50 flags, so at most a handful of these); the list merges both.
+
+### Chapters
+
+- Owner games, year 1, before the fork, not in a challenge: on the evening day 30·N ends, a lazy dialog
+  (`screens/ChapterCard.tsx`) "Chapter N done · Chapter N of 12 · days …": 1–5 stars (1 + month in profit + average
+  ≥ 3.5★ + ≥ 4.2★ + popularity up), profit / reviews / covers / popularity tiles, one "Next: …" line (the first thing
+  missing; the last chapter says the visitors are coming), one button. Dismissed = `PathMeta.chapterSeen` (saved, in
+  the schema). `paths.ts chapterDue` decides. Presentation only.
+
+### Quick year
+
+- Lease screen switch **Quick year** (off by default): `PathMeta.forkDay = 120` (`QUICK_FORK_DAY`). The fork turned out
+  to be game-side state, not a sim rule, so **no sim package changed**: modules that read the fork day are
+  `state/paths.ts` (`forkDayOf`, `forkDue`, `forkMilestone` — profitable days asked scale 90 → 30), `gameReducer.ts`
+  (`settle`, the `fork` action), `screens/Evening.tsx` (the Sunday fork hint), `screens/paths/ForkCard.tsx` (kicker "A
+  quick year done") and the chapter count (4). Unset ⇒ 365 exactly as before (sim state identical, tested). "Start over
+  with the same restaurant" keeps it. Validated in `saveCheck` (120–365). Scripts `corpus.gen.ts` / `audit-saves.gen.ts`
+  still use `FORK_DAY` (they build 365-day saves on purpose).
+- "How do I win?" adds the chapters, Quick year and Today's challenge.
+
+### Bundle
+
+- Main chunk 199.18 → **199.02 kB**: the morning post (`EventModal`) is now a lazy chunk (2.9 kB, fetched as soon as
+  an event evening starts), which pays for the title button, the routes and the fork-day plumbing. New chunks:
+  `Challenge` 6.2 kB, `ChallengeScore` 4.8 kB, `challenge` (lib) 9.4 kB, `ChapterCard` 2.4 kB, `challenge.css` 6.8 kB.
+  Never import `lib/challenge.ts` or the three screens statically from main-chunk code.
+
+### Left out
+
+- No Settings row (chapter cards are one tap to close; a switch would have cost main-chunk bytes).
+- The probe/audit walk doesn't visit the challenge screens (that harness is D's this round); the playtest checked them
+  for text < 13 px, controls < 44 px and sideways scroll instead (none).
+- The code holds only the total, so Compare can't show the other player's breakdown.
+
+### Checks (built dist)
+
+- Tests: game +14 (`round12.challenge.test.tsx`: determinism and rotation, set-ups, score sum, code round-trip and
+  typo, bests and the account mirror, run save + schema, Quick year fork at 120 (and not at 120 in a normal game) with
+  both paths stepping on, chapters due/seen/stars, title button, score + compare, the app flow including resume and
+  "Next day → score"). One copy change kept (`r7shell` pins the fork's "for a whole year" line).
+- Headless balance unchanged: typical 90.0 %, cheap 68.0 %, nohire 0 % (200 seeds).
+- Type audit normal and Bigger: 117 screens each, 0 text < 13 px, 0 errors, within baseline. Probe: within baseline,
+  no baseline change (two full runs on a loaded machine showed a 768-px `21-service-4x` "covered 4" and a crashed
+  1280 tab; reruns of this branch and a master build gave the baseline exactly, so both were timing).
+- Playtest 1024×768 touch (shots `scratchpad/shots/r12/C/`): title → Today's challenge (Rush week, Two Forks) →
+  Start → bar "Day 1 of 5 · Serve 490 guests"; reload → Carry on day 1; five days skipped (reload on evening 3 →
+  Carry on day 3); fifth evening says Next day shows the score → 1,258, code FG4 X9V; a typed "FG5-whq" → "They win
+  by 250."; "ABCDEF" → "doesn't add up"; Try again → intro with today's best. Lease: Quick year off by default, on →
+  day 1. A quick-year save at day 120 (typical owner): chapter 4 card (3 of 5, "That's the year…") → closed in one
+  tap → next evening the fork card, kicker "A quick year done". Text ≥ 14 px and no control < 44 px on the challenge
+  screens, no sideways scroll, 0 page errors.
