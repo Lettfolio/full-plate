@@ -15,145 +15,28 @@
  * frame; only people, tickets, plates, flames, rings and the evening light are drawn per frame. Colours come from
  * `floorPalette.ts` (theme tokens read from the canvas on resize + art colours).
  */
-import type { ContentPack, Customer, CustomerId, GameState, Staff, Table, TableId } from "@full-plate/sim-core";
-import { facingFrom, guestLook, SpriteCache, type Facing, type Look } from "@full-plate/handson/sprites";
-import { avatarFor } from "@full-plate/sim-core";
+import type { ContentPack, Customer, CustomerId, GameState, Staff, TableId } from "@full-plate/sim-core";
+import { facingFrom, guestLook, SpriteCache, type Look } from "@full-plate/handson/sprites";
 import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { weekdayIndex } from "../lib/calendar";
-import { FLOOR_DEFAULTS, readFloorPalette, type FloorPalette } from "./floorPalette";
+import { readFloorPalette } from "./floorPalette";
 import type { RoomLook } from "./decorArt";
+import { art, C, D, loadDecorArt, motion, PLAIN, setFrame, setPalette } from "./frame";
+import { aislePath, clamp, computeLayout, dist, lerp, type Layout, type Pt, type TableSlot } from "./layout";
+import { L_PERSON_STAFF, SEATED, staffLook, type Floaty, type Sprite, type StaffSprite } from "./people";
+import { pickTable } from "./interaction";
+import { alpha, label, menu, moodFace, patienceColour, plate, radial, roundRect, setting, tableTop } from "./paint";
+import { paintFloor, paintFurniture, paintLight } from "./scene";
 
-/** The live palette (replaced on resize from the canvas's CSS variables). */
-let C: FloorPalette = { ...FLOOR_DEFAULTS };
-
-/**
- * Round 10: the decor art (decorArt.ts) is its own small chunk, loaded the first time a decorated room is drawn (or
- * by the Decorate tab). Until it lands — and always for a room that was never decorated — the round-8 picture is
- * drawn; `D.key` joins the static-layer key, so the scene rebuilds once when it arrives.
+/*
+ * Round 11 (pipeline): this file was 1,217 lines; it is now the coordinator (the class: frame order, people movement,
+ * per-frame drawing). Geometry lives in layout.ts, the shared per-frame state in frame.ts, sprite records and staff
+ * looks in people.ts, colour maths and drawing helpers in paint.ts, the static scene and its decor hooks in scene.ts,
+ * hit-testing in interaction.ts. Everything this module exported before is still exported from here.
  */
-let art: typeof import("./decorArt") | null = null;
-let artLoad: Promise<void> | null = null;
-export function loadDecorArt(): Promise<void> {
-  return (artLoad ??= import("./decorArt").then((m) => { art = m; }));
-}
-const PLAIN: Pick<RoomLook, "key" | "closed"> & { items: Partial<RoomLook["items"]> } = { key: "", closed: [], items: {} };
-/** What the room is decorated with (set per frame). */
-let D: RoomLook = PLAIN as RoomLook;
-/** 1, or 0 under reduced motion (no bob, sway, pulse or flicker). Set per frame. */
-let motion = 1;
-
-// ───────────────────────── geometry ─────────────────────────
-interface Pt { x: number; y: number }
-interface TableSlot { id: TableId; x: number; y: number; r: number; seats: (Pt & { a: number })[] }
-
-export interface Layout {
-  w: number;
-  h: number;
-  kitchen: { x: number; y: number; w: number; h: number };
-  pass: { x: number; y: number; w: number; h: number };
-  stoves: Pt[];
-  dining: { x: number; y: number; w: number; h: number };
-  wallY: number;
-  door: { x: number; w: number };
-  doorIn: Pt;
-  doorOut: Pt;
-  pavement: { y: number; h: number };
-  tables: Map<TableId, TableSlot>;
-  person: number; // person radius
-  tablesKey: string;
-  /** Round 8: walkways (y) between table rows — staff and guests walk along these. */
-  aisles: number[];
-  /** Round 8: a bar counter on the right of the dining room when the tables leave room for it. */
-  bar?: { x: number; y: number; w: number; h: number };
-}
-
-function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
-function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
-function dist(a: Pt, b: Pt) { return Math.hypot(a.x - b.x, a.y - b.y); }
-
-export function computeLayout(w: number, h: number, tables: Table[]): Layout {
-  const kitchenH = clamp(h * 0.2, 96, 136);
-  const paveH = clamp(h * 0.18, 84, 120);
-  const wallY = h - paveH;
-  const passH = 22;
-  const kitchen = { x: 0, y: 0, w, h: kitchenH };
-  const pass = { x: w * 0.06, y: kitchenH - passH, w: w * 0.62, h: passH };
-  const stoveCount = 4;
-  const stoves = Array.from({ length: stoveCount }, (_, i) => ({ x: w * 0.12 + i * (w * 0.5 / (stoveCount - 1)), y: 26 }));
-  const door = { x: w * 0.8, w: Math.max(54, w * 0.07) };
-  const dining = { x: 16, y: kitchenH + 18, w: w - 32, h: wallY - kitchenH - 30 };
-  const doorIn = { x: door.x + door.w / 2, y: wallY - 26 };
-  const doorOut = { x: door.x + door.w / 2, y: wallY + 22 };
-
-  // table grid — leave a walkway column in front of the door
-  const n = Math.max(1, tables.length);
-  const usableW = dining.w * 0.86;
-  const cols = clamp(Math.round(Math.sqrt((n * usableW) / Math.max(1, dining.h))), 1, n);
-  const rows = Math.ceil(n / cols);
-  const cellW = usableW / cols;
-  const cellH = dining.h / rows;
-  const maxSeats = Math.max(2, ...tables.map((t) => t.seats));
-  const baseR = clamp(Math.min(cellW, cellH) * 0.21, 14, 40);
-  const person = clamp(baseR * 0.36, 5, 10);
-  const slots = new Map<TableId, TableSlot>();
-  let right = 0;
-  tables.forEach((t, i) => {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
-    const inRow = row === rows - 1 ? n - row * cols : cols;
-    const offset = ((cols - inRow) * cellW) / 2; // centre a short last row
-    const x = dining.x + offset + cellW * (col + 0.5);
-    const y = dining.y + cellH * (row + 0.5);
-    const r = baseR * (0.72 + 0.28 * (t.seats / maxSeats));
-    const seatR = r + person * 1.25;
-    const seats = Array.from({ length: t.seats }, (_, k) => {
-      const a = -Math.PI / 2 + (k / t.seats) * Math.PI * 2 + (t.seats === 2 ? Math.PI / 2 : Math.PI / t.seats);
-      return { x: x + Math.cos(a) * seatR, y: y + Math.sin(a) * seatR, a };
-    });
-    slots.set(t.id, { id: t.id, x, y, r, seats });
-    right = Math.max(right, x + r + person * 3.4);
-  });
-  const aisles = [kitchenH + 16];
-  for (let k = 1; k < rows; k++) aisles.push(dining.y + cellH * k);
-  aisles.push(wallY - 26);
-  const barW = 30;
-  const barX = w - 16 - barW - 12;
-  const bar = barX - right >= 44 ? { x: barX, y: dining.y + 4, w: barW, h: Math.min(dining.h * 0.55, 170) } : undefined;
-  return {
-    w, h, kitchen, pass, stoves, dining, wallY, door, doorIn, doorOut,
-    pavement: { y: wallY, h: paveH }, tables: slots, person,
-    tablesKey: tables.map((t) => `${t.id}:${t.seats}`).join(","),
-    aisles, ...(bar ? { bar } : {}),
-  };
-}
-
-/**
- * Round 8: a walk that reads — along the nearest aisle, then straight to the spot — instead of a beeline through the
- * tables. `from` and `to` in CSS px; returns the waypoints after `from`.
- */
-export function aislePath(L: Layout, from: Pt, to: Pt): Pt[] {
-  if (Math.abs(from.y - to.y) < 6 || Math.abs(from.x - to.x) < 6) return [to];
-  let a = L.aisles[0]!;
-  for (const y of L.aisles) if (Math.abs(y - from.y) < Math.abs(a - from.y)) a = y;
-  return [{ x: from.x, y: a }, { x: to.x, y: a }, to];
-}
-
-// ───────────────────────── sprites ─────────────────────────
-interface Sprite {
-  key: string;
-  customerId: CustomerId;
-  segment: string;
-  member: number;
-  x: number; y: number;
-  path: Pt[];
-  target: Pt | null;
-  leaving: boolean;
-  walkedOut: boolean;
-  phase: number;
-  facing: Facing;
-}
-interface StaffSprite { id: string; x: number; y: number; path: Pt[]; target: Pt | null; task?: string; until: number; facing: Facing; via?: Pt; moving: boolean }
-interface Floaty { x: number; y: number; text: string; colour: string; born: number; life: number }
+export { loadDecorArt } from "./frame";
+export { aislePath, computeLayout, type Layout } from "./layout";
+export { CANVAS_MIN_PX, patienceColour } from "./paint";
 
 /** Things to ring with a pulsing halo (live incidents). `strong` ids pulse harder (hovered incident card). */
 export interface Highlight {
@@ -179,26 +62,6 @@ export interface RenderOptions {
   /** Round 10 review: the career player (staff id) wears the look they picked (sim-core `playerAvatar`), as on My shift. */
   playerLook?: { id: string; skin: string; hair: string };
 }
-
-/** Green (full) → amber → red (empty). */
-export function patienceColour(p: number): string {
-  const t = clamp(p / 100, 0, 1);
-  if (t > 0.5) return mix(C.amber, C.basil, (t - 0.5) * 2);
-  return mix(C.red, C.amber, t * 2);
-}
-function mix(a: string, b: string, t: number): string {
-  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
-  const r = Math.round(lerp((pa >> 16) & 255, (pb >> 16) & 255, t));
-  const g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t));
-  const bl = Math.round(lerp(pa & 255, pb & 255, t));
-  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
-}
-function alpha(hex: string, a: number): string {
-  const p = parseInt(hex.slice(1), 16);
-  return `rgba(${(p >> 16) & 255},${(p >> 8) & 255},${p & 255},${a})`;
-}
-
-const SEATED = new Set<Customer["stage"]>(["seated", "ordered", "eating", "paying"]);
 
 export class RestaurantView {
   private ctx: CanvasRenderingContext2D;
@@ -239,19 +102,13 @@ export class RestaurantView {
     this.canvas.height = Math.round(this.h * this.dpr);
     this.layout = null;
     // Round 8: theme tokens, once per resize
-    C = readFloorPalette(this.canvas);
+    setPalette(readFloorPalette(this.canvas));
     this.paletteVersion++;
   }
 
   /** Which seated party (if any) is under a point in CSS pixels. */
   pick(game: GameState, x: number, y: number): { tableId: TableId; customerId?: CustomerId } | null {
-    const L = this.ensureLayout(game);
-    for (const t of game.tables) {
-      const s = L.tables.get(t.id);
-      if (!s) continue;
-      if (Math.hypot(x - s.x, y - s.y) <= s.r + L.person * 2.4) return { tableId: t.id, customerId: t.occupiedBy };
-    }
-    return null;
+    return pickTable(game, this.ensureLayout(game), x, y);
   }
 
   /** Round 8: how many times the static layers were painted (tests: rebuilt on resize, not per frame). */
@@ -269,10 +126,10 @@ export class RestaurantView {
     const L = this.ensureLayout(game);
     const dt = this.firstFrame ? 0 : clamp((opts.now - this.lastNow) / 1000, 0, 0.1);
     this.lastNow = opts.now;
-    motion = opts.reducedMotion ? 0 : 1;
+    const m = opts.reducedMotion ? 0 : 1;
     this.name = game.restaurantName;
     if (game.decor && !art) void loadDecorArt();
-    D = art && game.decor ? art.roomLook(opts.content, game) : (PLAIN as RoomLook);
+    setFrame(art && game.decor ? art.roomLook(opts.content, game) : (PLAIN as RoomLook), m);
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
@@ -827,391 +684,5 @@ export class RestaurantView {
       label(ctx, f.text, f.x, f.y - 6 - t * 28 * (motion || 0.3), { align: "center", size: 14, weight: 900, colour: f.colour, stroke: C.paper });
     }
     ctx.globalAlpha = 1;
-  }
-}
-
-/** Staff sprites are a touch bigger than guests (they're the ones you watch). */
-const L_PERSON_STAFF = 1.15;
-
-function staffLook(s: Staff, mine?: { skin: string; hair: string }): Look {
-  // Round 10 review: skin and hair come from sim-core's avatarFor, the one rule the staff-room portraits use too (the
-  // career player: the look they picked).
-  const { skin, hair } = mine ?? avatarFor(s);
-  switch (s.role) {
-    case "chef": return { body: "#fbfaf6", skin, hair, hat: "toque", hatColour: "#fffdf8", trim: C.tomato, apron: "#ece7dc" };
-    case "server": return { body: "#2f3a33", skin, hair, hat: "cap", hatColour: C.basil, shirt: true, trim: C.tomato, apron: "#1f2622" };
-    case "bar": return { body: C.plum, skin, hair, hat: "cap", hatColour: C.outline, shirt: true, trim: C.ink };
-    case "porter": return { body: C.sky, skin, hair, apron: "#3a7398" };
-    default: return { body: C.inkSoft, skin, hair, shirt: true, trim: C.gold };
-  }
-}
-
-// ───────────────────────── static layers ─────────────────────────
-
-/** Floors, walls, pavement and road, light pools: under the glows. */
-function paintFloor(ctx: CanvasRenderingContext2D, L: Layout) {
-  const k = L.kitchen;
-  ctx.fillStyle = C.cream; ctx.fillRect(0, 0, L.w, L.h);
-  // kitchen: small non-slip tiles with grout
-  ctx.fillStyle = C.grout; ctx.fillRect(0, 0, k.w, k.h + 6);
-  const q = 16;
-  for (let j = 0, y = 0; y < k.h + 6; j++, y += q) for (let i = 0, x = 0; x < k.w; i++, x += q) {
-    ctx.fillStyle = (i + j) & 1 ? C.tileA : C.tileB;
-    if (noise(i, j) > 0.88) ctx.fillStyle = mix(C.tileB, C.grout, 0.25);
-    ctx.fillRect(x + 0.5, y + 0.5, q - 1, q - 1);
-  }
-  // back wall: cap and a tiled splash-back
-  ctx.fillStyle = C.splash; ctx.fillRect(0, 4, k.w, 12);
-  ctx.strokeStyle = C.splashGrout; ctx.lineWidth = 1;
-  for (let j = 0; j < 2; j++) {
-    const yy = 4 + j * 6;
-    ctx.beginPath(); ctx.moveTo(0, yy + 6); ctx.lineTo(k.w, yy + 6); ctx.stroke();
-    for (let x = j % 2 ? 7 : 0; x < k.w; x += 14) { ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy + 6); ctx.stroke(); }
-  }
-  ctx.fillStyle = C.wallTop; ctx.fillRect(0, 0, k.w, 4);
-  ctx.fillStyle = linear(ctx, 0, 16, 0, 26, [[0, "rgba(40,25,10,0.16)"], [1, "rgba(40,25,10,0)"]]); ctx.fillRect(0, 16, k.w, 10);
-
-  // dining: staggered oak planks
-  const top = k.h + 6, bottom = L.wallY;
-  const ph = 18;
-  const decorFloor = !!D.key && !!art?.paintDecorFloor(ctx, L, D, top, bottom);
-  ctx.save(); ctx.beginPath(); ctx.rect(0, top, L.w, decorFloor ? 0 : bottom - top); ctx.clip();
-  for (let row = 0, y = top; !decorFloor && y < bottom; row++, y += ph) {
-    let x = -noise(row, 7) * 60;
-    for (let i = 0; x < L.w; i++) {
-      const len = 70 + noise(row, i) * 70;
-      const tone = noise(i, row + 99);
-      ctx.fillStyle = mix(C.floorA, C.floorB, tone); ctx.fillRect(x, y, len, ph);
-      ctx.fillStyle = C.floorGrain;
-      ctx.fillRect(x + len * 0.1, y + ph * (0.3 + 0.4 * noise(i + 3, row)), len * 0.55, 1);
-      if (tone > 0.5) ctx.fillRect(x + len * 0.45, y + ph * 0.72, len * 0.4, 1);
-      ctx.fillStyle = C.floorJoint; ctx.fillRect(x, y, 1, ph);
-      x += len;
-    }
-    ctx.fillStyle = C.floorJoint; ctx.fillRect(0, y + ph - 1, L.w, 1);
-  }
-  ctx.restore();
-  if (D.key) art?.paintRugs(ctx, L, D);
-  // warm pools under the pendant lamps, a rug at the door, the heat-lamp spill in front of the pass
-  const pool = (D.key && art?.lightPool(D, C.lamp)) || { colour: C.lamp, scale: 2.4, evening: "255,190,110" };
-  for (const s of L.tables.values()) {
-    const R = s.r * pool.scale;
-    ctx.fillStyle = radial(ctx, s.x, s.y, R, pool.colour, "rgba(255,206,130,0)");
-    ctx.fillRect(s.x - R, s.y - R, R * 2, R * 2);
-  }
-  ctx.fillStyle = mix(C.tomato, C.floorB, 0.55);
-  roundRect(ctx, L.door.x - 8, L.wallY - 44, L.door.w + 16, 38, 6); ctx.fill();
-  ctx.strokeStyle = alpha(C.paper, 0.35); ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
-  roundRect(ctx, L.door.x - 4, L.wallY - 40, L.door.w + 8, 30, 4); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = linear(ctx, 0, top, 0, top + 26, [[0, "rgba(40,25,10,0.18)"], [1, "rgba(40,25,10,0)"]]); ctx.fillRect(0, top, L.w, 26);
-  ctx.fillStyle = linear(ctx, 0, L.wallY - 40, 0, L.wallY, [[0, "rgba(200,230,245,0)"], [1, "rgba(200,230,245,0.22)"]]); ctx.fillRect(0, L.wallY - 40, L.w, 40);
-
-  // pavement: paving slabs, kerb, road
-  const pv = L.pavement;
-  ctx.fillStyle = C.pavingJoint; ctx.fillRect(0, pv.y, L.w, pv.h);
-  const sh = 22, sw = 40;
-  for (let j = 0, y = pv.y + 4; y < L.h - 14; j++, y += sh) for (let x = j % 2 ? -sw / 2 : 0, i = 0; x < L.w; x += sw, i++) {
-    ctx.fillStyle = noise(i, j + 40) > 0.6 ? C.pavingAlt : C.paving;
-    ctx.fillRect(x + 1, y + 1, sw - 2, Math.min(sh - 2, L.h - 14 - y - 1));
-  }
-  ctx.fillStyle = C.kerb; ctx.fillRect(0, L.h - 14, L.w, 4);
-  ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(0, L.h - 14, L.w, 1);
-  ctx.fillStyle = C.road; ctx.fillRect(0, L.h - 10, L.w, 10);
-  ctx.fillStyle = C.roadLine; for (let x = 10; x < L.w; x += 46) ctx.fillRect(x, L.h - 5, 22, 2);
-  // shade from the shopfront onto the pavement
-  ctx.fillStyle = linear(ctx, 0, pv.y + 5, 0, pv.y + 20, [[0, "rgba(40,25,10,0.18)"], [1, "rgba(40,25,10,0)"]]); ctx.fillRect(0, pv.y + 5, L.w, 15);
-  // street lamps
-  for (const lx of [L.w * 0.18, L.w * 0.52]) {
-    ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.ellipse(lx + 9, L.h - 17, 12, 3, 0.15, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#3d3a37"; ctx.beginPath(); ctx.arc(lx, L.h - 20, 4.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#2f2c2a"; ctx.fillRect(lx - 1.5, L.h - 34, 3, 14);
-    ctx.fillStyle = "#3d3a37"; roundRect(ctx, lx - 6, L.h - 40, 12, 7, 3); ctx.fill();
-    ctx.fillStyle = "#ffe3a8"; ctx.fillRect(lx - 4, L.h - 35, 8, 2);
-  }
-
-  // walls: kitchen partition (gap behind the pass), front wall with windows and the door gap
-  const p = L.pass;
-  if (D.key) art?.paintSideWalls(ctx, L, D);
-  wallBand(ctx, 0, k.h, p.x, 7);
-  wallBand(ctx, p.x + p.w, k.h, k.w - p.x - p.w, 7);
-  wallBand(ctx, 0, L.wallY - 5, L.door.x, 11);
-  wallBand(ctx, L.door.x + L.door.w, L.wallY - 5, L.w - L.door.x - L.door.w, 11);
-  // windows: glazing with mullions, a sill and a shine
-  for (let x = 30; x < L.w - 60; x += 130) {
-    const x1 = Math.min(x + 96, L.w - 20);
-    if (!(x1 < L.door.x - 14 || x > L.door.x + L.door.w + 14)) continue;
-    ctx.fillStyle = C.glass; ctx.fillRect(x, L.wallY - 3, x1 - x, 5);
-    ctx.fillStyle = C.glassShine; ctx.fillRect(x + 8, L.wallY - 2, 14, 1.5);
-    ctx.fillStyle = C.wallFace; for (let m = x; m <= x1; m += (x1 - x) / 3) ctx.fillRect(m - 1, L.wallY - 4, 2, 7);
-    ctx.strokeStyle = C.wallFace; ctx.lineWidth = 1; ctx.strokeRect(x, L.wallY - 3, x1 - x, 5);
-  }
-  // door frame and threshold
-  ctx.fillStyle = C.wallFace;
-  ctx.fillRect(L.door.x - 4, L.wallY - 8, 4, 16); ctx.fillRect(L.door.x + L.door.w, L.wallY - 8, 4, 16);
-  ctx.fillStyle = C.steelDark; ctx.fillRect(L.door.x, L.wallY - 1, L.door.w, 3);
-}
-
-/** A wall seen from above-front: a lit cap and a darker face below it. */
-function wallBand(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  if (w <= 0) return;
-  const col = D.key ? art?.wallColours(D) : undefined; // round 10: painted or papered walls
-  ctx.fillStyle = col?.wall ?? C.wall; ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = col?.top ?? C.wallTop; ctx.fillRect(x, y, w, h * 0.55);
-  ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(x, y, w, 1);
-  ctx.fillStyle = C.shadow; ctx.fillRect(x, y + h, w, 3);
-}
-
-/** Counters, stoves at rest, fridge, sink, pass, bar, tables and chairs, plants, the shopfront. */
-function paintFurniture(ctx: CanvasRenderingContext2D, L: Layout, name: string) {
-  const k = L.kitchen;
-  // back counter with the stoves set into it
-  counter(ctx, 8, 12, k.w * 0.68, 40, C.steelTop, C.steelFace, C.steelDark);
-  for (const s of L.stoves) {
-    ctx.fillStyle = C.hobTop; roundRect(ctx, s.x - 22, s.y - 12, 44, 24, 4); ctx.fill();
-    ctx.strokeStyle = "#1f1d1c"; ctx.lineWidth = 1; ctx.stroke();
-    for (const dx of [-10, 10]) {
-      ctx.fillStyle = "#24211f"; ctx.beginPath(); ctx.arc(s.x + dx, s.y, 8, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#6b6662"; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(s.x + dx, s.y, 6, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(s.x + dx - 8, s.y); ctx.lineTo(s.x + dx + 8, s.y); ctx.moveTo(s.x + dx, s.y - 8); ctx.lineTo(s.x + dx, s.y + 8); ctx.stroke();
-    }
-    for (const dx of [-10, 10]) { ctx.fillStyle = C.outline; ctx.beginPath(); ctx.arc(s.x + dx, 47, 2.2, 0, Math.PI * 2); ctx.fill(); }
-  }
-  // tall fridge and the sink
-  const fx = k.w * 0.74;
-  ctx.fillStyle = C.shadow; roundRect(ctx, fx + 4, 8, 40, 56, 5); ctx.fill();
-  ctx.fillStyle = C.steelFace; roundRect(ctx, fx, 4, 40, 56, 5); ctx.fill();
-  ctx.fillStyle = C.steelTop; roundRect(ctx, fx, 4, 40, 10, 4); ctx.fill();
-  ctx.fillStyle = linear(ctx, fx, 0, fx + 40, 0, [[0, "#eef1f2"], [1, "#c9d0d3"]]);
-  roundRect(ctx, fx + 2, 15, 17, 43, 3); ctx.fill(); roundRect(ctx, fx + 21, 15, 17, 43, 3); ctx.fill();
-  ctx.fillStyle = C.steelDeep; ctx.fillRect(fx + 16, 28, 2, 14); ctx.fillRect(fx + 22, 28, 2, 14);
-  ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1; roundRect(ctx, fx, 4, 40, 56, 5); ctx.stroke();
-  counter(ctx, fx + 52, 12, 56, 38, C.steelTop, C.steelFace, C.steelDark);
-  ctx.fillStyle = C.steelDeep; roundRect(ctx, fx + 57, 16, 32, 20, 4); ctx.fill();
-  ctx.fillStyle = C.water; roundRect(ctx, fx + 58.5, 17.5, 29, 17, 3); ctx.fill();
-  ctx.strokeStyle = C.glassShine; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(fx + 76, 27, 4, 0.2, 2.2); ctx.stroke();
-  ctx.strokeStyle = C.steelDeep; ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(fx + 73, 13); ctx.quadraticCurveTo(fx + 73, 22, fx + 77, 21); ctx.stroke(); ctx.lineCap = "butt";
-  ctx.strokeStyle = C.steelDark; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(fx + 93 + i * 3.5, 17); ctx.lineTo(fx + 93 + i * 3.5, 35); ctx.stroke(); }
-  label(ctx, "KITCHEN", k.w - 12, 64, { align: "right", size: 13, colour: alpha(C.ink, 0.5), weight: 900, spacing: 2 });
-
-  // the pass: a steel shelf under heat lamps
-  const p = L.pass;
-  counter(ctx, p.x, p.y, p.w, p.h, C.steelTop, C.steelFace, C.steelDark);
-  ctx.fillStyle = "rgba(255,176,90,0.16)"; ctx.fillRect(p.x + 4, p.y + 3, p.w - 8, p.h - 10);
-  ctx.fillStyle = C.steelDeep; ctx.fillRect(p.x + 6, p.y + 1, p.w - 12, 2);
-  for (let x = p.x + 30; x < p.x + p.w - 20; x += 70) { ctx.fillStyle = C.outline; roundRect(ctx, x - 14, p.y - 1, 28, 4, 2); ctx.fill(); ctx.fillStyle = "#ffb067"; ctx.fillRect(x - 11, p.y + 1, 22, 1.5); }
-
-  // the bar (when there's room): oak counter, taps, stools, a back shelf of bottles
-  if (L.bar) {
-    const b = L.bar;
-    ctx.fillStyle = C.shadow; ctx.fillRect(L.w - 18, b.y - 2, 10, b.h + 10);
-    ctx.fillStyle = C.barFace; ctx.fillRect(L.w - 20, b.y - 4, 10, b.h + 6);
-    const cols = [C.basil, C.amber, C.tomato, C.sky, C.plum, C.straw, "#8e2b3a"];
-    for (let y = b.y + 4, i = 0; y < b.y + b.h - 4; y += 9, i++) { ctx.fillStyle = cols[i % cols.length]!; ctx.beginPath(); ctx.arc(L.w - 15, y, 3, 0, Math.PI * 2); ctx.fill(); }
-    ctx.fillStyle = C.shadow; roundRect(ctx, b.x + 4, b.y + 4, b.w, b.h, 5); ctx.fill();
-    ctx.fillStyle = C.barFace; roundRect(ctx, b.x, b.y, b.w, b.h, 5); ctx.fill();
-    ctx.fillStyle = C.barTop; roundRect(ctx, b.x + 2, b.y + 1, b.w - 4, b.h - 8, 4); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fillRect(b.x + 4, b.y + 3, 2, b.h - 14);
-    ctx.fillStyle = "#c9a14a"; ctx.fillRect(b.x - 3, b.y + 4, 2, b.h - 10);
-    for (let i = 0; i < 3; i++) { const ty = b.y + 16 + i * 14; ctx.fillStyle = C.steelDark; roundRect(ctx, b.x + b.w - 10, ty - 2.5, 7, 5, 2); ctx.fill(); ctx.fillStyle = [C.amber, C.tomato, C.basil][i]!; ctx.fillRect(b.x + b.w - 5, ty - 4, 3, 8); }
-    for (let y = b.y + 18; y < b.y + b.h - 10; y += 30) {
-      ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(b.x - 11, y + 3, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = C.barFace; ctx.beginPath(); ctx.arc(b.x - 13, y, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = C.chairTop; ctx.beginPath(); ctx.arc(b.x - 13.5, y - 0.5, 5.5, 0, Math.PI * 2); ctx.fill();
-    }
-    label(ctx, "BAR", b.x + b.w / 2, b.y + b.h + 16, { align: "center", size: 13, weight: 900, colour: C.inkSoft, spacing: 2 });
-  }
-
-  // tables and chairs (tops of occupied tables are redrawn live, so far-side guests sit behind them)
-  const decor = D.key ? art : null;
-  decor?.startSeats();
-  for (const s of L.tables.values()) {
-    for (const seat of s.seats) if (!decor?.paintDecorChair(ctx, seat.x, seat.y, seat.a, L.person, D, C, C.shadow)) chair(ctx, seat.x, seat.y, seat.a, L.person);
-    tableTop(ctx, s.x, s.y, s.r, s.id);
-  }
-  // round 10: light fittings over the aisles, then plants (two corner pots unless bought) and the music
-  decor?.paintLamps(ctx, L, D, C);
-  if (!decor?.paintPlants(ctx, L, D, C, (x, y, r) => plant(ctx, x, y, r))) {
-    plant(ctx, 22, L.wallY - 24, 12);
-    if (!L.bar) plant(ctx, L.w - 22, L.kitchen.h + 30, 12);
-  }
-  decor?.paintMusic(ctx, L, D, C);
-
-  // the shopfront outside: planters under the windows, the awning over the door, the name board, the OPEN sign
-  for (let x = 30; x < L.w - 60; x += 130) {
-    const x1 = Math.min(x + 96, L.w - 20);
-    if (!(x1 < L.door.x - 14 || x > L.door.x + L.door.w + 14)) continue;
-    if (decor?.paintWindowDisplay(ctx, x, x1, L.wallY, D, C)) continue;
-    ctx.fillStyle = C.shadow; ctx.fillRect(x + 4, L.wallY + 9, x1 - x - 4, 7);
-    ctx.fillStyle = "#7a5636"; ctx.fillRect(x + 2, L.wallY + 6, x1 - x - 4, 7);
-    for (let px = x + 8; px < x1 - 4; px += 9) { ctx.fillStyle = noise(px, 3) > 0.5 ? C.leaf : C.leafDeep; ctx.beginPath(); ctx.arc(px, L.wallY + 7, 4, 0, Math.PI * 2); ctx.fill(); }
-    for (let px = x + 12; px < x1 - 8; px += 22) { ctx.fillStyle = noise(px, 5) > 0.5 ? C.tomato : C.gold; ctx.beginPath(); ctx.arc(px, L.wallY + 6, 1.8, 0, Math.PI * 2); ctx.fill(); }
-  }
-  const aw = L.door.w + 36, ax = L.door.x - 18, ay = L.wallY + 4;
-  ctx.fillStyle = C.shadow; ctx.fillRect(ax + 3, ay + 4, aw, 16);
-  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? C.awningB : C.awningA; ctx.fillRect(ax + (i * aw) / 6, ay, aw / 6 + 0.5, 12); }
-  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? C.awningB : C.awningA; ctx.beginPath(); ctx.arc(ax + (i * aw) / 6 + aw / 12, ay + 12, aw / 12, 0, Math.PI); ctx.fill(); }
-  ctx.strokeStyle = alpha(C.outline, 0.35); ctx.lineWidth = 1; ctx.strokeRect(ax, ay, aw, 12);
-  const nm = name.toUpperCase();
-  ctx.font = `800 13px Nunito, system-ui, sans-serif`;
-  const tw = Math.min(ctx.measureText(nm).width + 18, L.w * 0.4);
-  const by = L.wallY + L.pavement.h - 42;
-  const sign: { board: string; text: string; edge?: string; glow?: string } = decor?.signColours(D, C) ?? { board: C.ink, text: C.cream }; // round 10
-  ctx.fillStyle = C.shadow; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2 + 2, by + 2, tw, 20, 5); ctx.fill();
-  ctx.fillStyle = sign.board; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2, by, tw, 20, 5); ctx.fill();
-  if (sign.edge) { ctx.strokeStyle = sign.edge; ctx.lineWidth = 1.5; roundRect(ctx, L.door.x + L.door.w / 2 - tw / 2 + 2, by + 2, tw - 4, 16, 4); ctx.stroke(); }
-  if (sign.glow) { ctx.shadowColor = sign.glow; ctx.shadowBlur = 8; }
-  label(ctx, nm, L.door.x + L.door.w / 2, by + 15, { align: "center", size: 13, weight: 800, colour: sign.text, spacing: 1, maxW: tw - 10 });
-  ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
-  decor?.paintAFrame(ctx, L, D);
-  decor?.paintMenuCase(ctx, L, D);
-  ctx.font = `900 13px Nunito, system-ui, sans-serif`;
-  const ow = ctx.measureText("OPEN").width + 14;
-  const ox = L.door.x - 26 - ow, oy = L.wallY - 30;
-  ctx.fillStyle = C.shadow; roundRect(ctx, ox + 2, oy + 2, ow, 19, 5); ctx.fill();
-  ctx.fillStyle = C.paper; roundRect(ctx, ox, oy, ow, 19, 5); ctx.fill();
-  ctx.strokeStyle = C.basilDeep; ctx.lineWidth = 1.5; ctx.stroke();
-  label(ctx, "OPEN", ox + ow / 2, oy + 14, { align: "center", size: 13, weight: 900, colour: C.basilDeep, spacing: 2 });
-}
-
-/** The evening light layer (drawn with "lighter" at dusk strength): table lamps, street lamps, windows on the pavement. */
-function paintLight(ctx: CanvasRenderingContext2D, L: Layout) {
-  const pool = (x: number, y: number, r: number, a: number, rgb = "255,190,110") => {
-    ctx.fillStyle = radial(ctx, x, y, r, `rgba(${rgb},${a})`, `rgba(${rgb},0)`);
-    ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  };
-  const lamps = (D.key && art?.lightPool(D, C.lamp)) || { scale: 2.4, evening: "255,190,110" }; // round 10: the lamps' colour and reach
-  for (const s of L.tables.values()) pool(s.x, s.y, s.r * lamps.scale, 0.1, lamps.evening);
-  if (D.key && D.items.signage === "sign_neon") pool(L.door.x + L.door.w / 2, L.wallY + L.pavement.h - 32, 70, 0.22, "255,111,174");
-  for (const lx of [L.w * 0.18, L.w * 0.52]) pool(lx, L.h - 22, 70, 0.32);
-  pool(L.door.x + L.door.w / 2, L.wallY + 18, 60, 0.2);
-  for (let x = 30; x < L.w - 60; x += 130) pool(x + 48, L.wallY + 14, 56, 0.12);
-  if (L.bar) pool(L.bar.x + L.bar.w / 2, L.bar.y + L.bar.h / 2, L.bar.h * 0.6, 0.16);
-}
-
-// ───────────────────────── small drawing helpers ─────────────────────────
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + rr, y);
-  ctx.arcTo(x + w, y, x + w, y + h, rr);
-  ctx.arcTo(x + w, y + h, x, y + h, rr);
-  ctx.arcTo(x, y + h, x, y, rr);
-  ctx.arcTo(x, y, x + w, y, rr);
-  ctx.closePath();
-}
-
-function radial(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, inner: string, outer: string): CanvasGradient | string {
-  const g = typeof ctx.createRadialGradient === "function" ? ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, r)) : undefined;
-  if (!g || typeof g.addColorStop !== "function") return inner;
-  g.addColorStop(0, inner); g.addColorStop(1, outer);
-  return g;
-}
-function linear(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]): CanvasGradient | string {
-  const g = typeof ctx.createLinearGradient === "function" ? ctx.createLinearGradient(x0, y0, x1, y1) : undefined;
-  if (!g || typeof g.addColorStop !== "function") return stops[0]![1];
-  for (const [o, c] of stops) g.addColorStop(o, c);
-  return g;
-}
-function noise(i: number, j = 0): number {
-  let h = (i * 374761393 + j * 668265263) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
-}
-
-/** A counter: lit top, darker front face, soft shadow down-right. */
-function counter(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, top: string, face: string, edge: string) {
-  const d = Math.min(10, h * 0.3);
-  ctx.fillStyle = C.shadow; roundRect(ctx, x + 4, y + 4, w, h, 5); ctx.fill();
-  ctx.fillStyle = face; roundRect(ctx, x, y + h - d - 2, w, d + 2, 5); ctx.fill();
-  ctx.fillStyle = top; roundRect(ctx, x, y, w, h - d, 5); ctx.fill();
-  ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.fillRect(x + 5, y + 1, w - 10, 1);
-}
-
-function tableTop(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, id = "") {
-  if (D.key && art?.paintDecorTable(ctx, id, cx, cy, r, D, C, C.shadow)) return; // round 10: cloths, paint, marble
-  ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.ellipse(cx + 3, cy + 4, r, r * 0.96, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.tableEdge; ctx.beginPath(); ctx.arc(cx, cy + 1.5, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.table; ctx.beginPath(); ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.tableTop; ctx.beginPath(); ctx.arc(cx - r * 0.06, cy - r * 0.06, r * 0.86, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "rgba(120,80,40,0.16)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0.3, 2.6); ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.78, Math.PI * 1.05, Math.PI * 1.45); ctx.stroke();
-}
-
-function chair(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, s: number) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-  ctx.fillStyle = C.shadow; roundRect(ctx, -s * 0.85 + 2, -s * 0.85 + 3, s * 1.7, s * 1.7, s * 0.4); ctx.fill();
-  ctx.fillStyle = C.chair; roundRect(ctx, -s * 0.85, -s * 0.85, s * 1.7, s * 1.7, s * 0.4); ctx.fill();
-  ctx.fillStyle = C.chairTop; roundRect(ctx, -s * 0.7, -s * 0.7, s * 1.3, s * 1.4, s * 0.32); ctx.fill();
-  ctx.fillStyle = mix(C.chair, C.outline, 0.35); roundRect(ctx, s * 0.55, -s * 0.85, s * 0.32, s * 1.7, s * 0.14); ctx.fill();
-  ctx.restore();
-}
-
-function plate(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, food?: string) {
-  ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.beginPath(); ctx.arc(x + 1, y + 1.5, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.paper; ctx.strokeStyle = "#a99c86"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  if (food) {
-    ctx.fillStyle = food; ctx.beginPath(); ctx.arc(x - r * 0.1, y + r * 0.05, r * 0.48, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = C.basil; ctx.beginPath(); ctx.arc(x + r * 0.38, y - r * 0.2, r * 0.2, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-function setting(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, r: number) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2);
-  ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#cfc3ad"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = C.steelDark; ctx.fillRect(-r * 1.6, -r * 0.8, 1.2, r * 1.6); ctx.fillRect(r * 1.45, -r * 0.8, 1.2, r * 1.6);
-  ctx.restore();
-}
-
-function menu(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, r: number) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2 + 0.15);
-  const w = Math.max(6, r * 0.3), h = Math.max(8, r * 0.42);
-  ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(-w / 2 + 1, -h / 2 + 1.5, w, h);
-  ctx.fillStyle = C.tomatoDeep; ctx.fillRect(-w / 2, -h / 2, w, h);
-  ctx.fillStyle = C.paper; ctx.fillRect(-w / 2 + 1.5, -h / 2 + 1.5, w - 3, h - 3);
-  ctx.restore();
-}
-
-function moodFace(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, patience: number) {
-  const mood = patience > 60 ? "happy" : patience > 30 ? "meh" : "cross";
-  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(x, y, r + 1.5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = mood === "happy" ? "#f6d77a" : mood === "meh" ? C.amber : C.red; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.ink;
-  ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.2, Math.max(1, r * 0.13), 0, Math.PI * 2); ctx.arc(x + r * 0.35, y - r * 0.2, Math.max(1, r * 0.13), 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.4; ctx.lineCap = "round";
-  ctx.beginPath();
-  if (mood === "happy") ctx.arc(x, y + r * 0.05, r * 0.45, Math.PI * 0.15, Math.PI * 0.85);
-  else if (mood === "meh") { ctx.moveTo(x - r * 0.4, y + r * 0.35); ctx.lineTo(x + r * 0.4, y + r * 0.35); }
-  else ctx.arc(x, y + r * 0.7, r * 0.42, Math.PI * 1.2, Math.PI * 1.8);
-  ctx.stroke(); ctx.lineCap = "butt";
-}
-
-/** Round 5 type scale: no canvas text below 13 CSS px (the canvas draws in CSS pixels; see UI-NOTES "Type scale"). */
-export const CANVAS_MIN_PX = 13;
-
-function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, o: { align?: CanvasTextAlign; size?: number; weight?: number; colour?: string; spacing?: number; stroke?: string; maxW?: number } = {}) {
-  ctx.font = `${o.weight ?? 700} ${Math.max(CANVAS_MIN_PX, o.size ?? 13)}px Nunito, system-ui, sans-serif`;
-  ctx.textAlign = o.align ?? "left";
-  ctx.textBaseline = "alphabetic";
-  if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${o.spacing ?? 0}px`;
-  if (o.stroke) { ctx.strokeStyle = o.stroke; ctx.lineWidth = 3.5; ctx.lineJoin = "round"; ctx.strokeText(text, x, y, o.maxW); }
-  ctx.fillStyle = o.colour ?? C.ink;
-  ctx.fillText(text, x, y, o.maxW);
-  if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
-}
-
-function plant(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
-  ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(x + 3, y + 4, r * 0.8, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.pot; ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#5a3a22"; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, Math.PI * 2); ctx.fill();
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2 + 0.3;
-    ctx.fillStyle = i % 2 ? C.leaf : C.leafDeep;
-    ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5 - r * 0.1, r * 0.52, r * 0.24, a, 0, Math.PI * 2); ctx.fill();
   }
 }
