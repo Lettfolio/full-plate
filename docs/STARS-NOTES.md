@@ -57,10 +57,11 @@ against `cash + pendingCash`. A refusal returns `{ type: "REJECTED", reason }` w
 | `CLOSE_SATELLITE { satelliteId }` | Group | — | — |
 | `BACK_HEAD_CHEF` | Smyth-arc modal | 3,000,000 | chef leaves as a friend: "backed" satellite (8k/day), +5 personality for 3 years, 22-day disruption |
 | `LET_HEAD_CHEF_GO` | Smyth-arc modal | — | chef opens a **rival** now (45-day disruption) |
+| `PAY_HEAD_CHEF_TO_STAY` (round 11) | Smyth-arc modal | 2,500,000 | a big pay rise and a share of the restaurant: the chef **stays** (no disruption), −10 stress, no new arc for 2 years |
 | `CLOSE_FOR_REFIT { days ≤ 360 }` | Restaurant | — | closed (Fat Duck rule applies) |
 | `HAND_BACK_STARS { retire? }` | Head chef card | — | stars → 0, out of the guide for 3 guide days, −40 stress; `retire: true` ends the run (non-winning) |
 | `RELAUNCH_CONCEPT` | Head chef card | 2,500,000 | shut 30 days, consistency window reset, +10 personality for a year, −30 stress |
-| `CLOSE_AT_PEAK` | Head chef card | — | needs ≥ 2 stars at your best ever: **El Bulli ending (a win)** |
+| `CLOSE_AT_PEAK` | Head chef card | — | needs ≥ 2 stars at your best ever: **El Bulli ending** — a win only with ★★★ held on 2 guides running (round 11), else an honourable ending (`win: false`) |
 
 ### Screens the game needs
 1. **Stars hub** (sidebar card): star badge, "next guide in N days", inspection-season flag, stress meter,
@@ -110,7 +111,8 @@ All tunables live in `src/constants.ts`. Calendar: 30-day months, 360-day years,
   - `score = mean over visits of criteriaTotal(visit, with consistency = ½ visit + ½ yearConsistency)`.
   - Target stars: score ≥ **78 / 85 / 91** for ★ / ★★ / ★★★.
   - The guide is conservative. Stars go up one per year (two if the score clears the higher bar by 3 or more over
-    at least 3 visits) and down one per year at most.
+    at least 3 visits) and down one per year at most — and (round 11) only when the score is more than
+    `STAR_KEEP_MARGIN` (2) below the bar for the stars held: ★★★ is earned at 91 and kept down to 89.
   - **Fat Duck rule**: fewer than 120 open days, or fewer than 2 completed visits ⇒ *not assessed* ⇒ **stars lapse
     to 0**.
   - All of the year's visits are revealed, the next window's visits are drawn, and the three-star streak updates.
@@ -173,7 +175,7 @@ behind and folds the rest under "Also worth a look".
   −8 prestige and ×0.85 footfall for 30 days.
 - Head-chef reputation grows 0.01 + 0.025/star per open day.
 - **Smyth arc**: reputation ≥ 70 and tenure ≥ 3 years ⇒ 0.4%/day chance they want their own place, with a 60-day
-  deadline. You back them (see commands) or they leave for a **rival**. The rival's strength starts at their
+  deadline. You back them, pay them to stay (round 11), or they leave for a **rival**. The rival's strength starts at their
   reputation and grows 8 a year. Its stars are `starsForScore(strength − 5)`, it takes 4% of your footfall per
   rival star, and it drags the prestige target by 5 while it holds as many stars as you.
 
@@ -280,7 +282,9 @@ The 10-year × 12-seed figures below predate the rule and were not re-run.
 1. **Pace of stars.** A focused player with two strong chefs and the most technical dishes gets ★ in year 1. Michelin
    reality is slower, but the game's first act is 2 years. Should stars stay locked until the fork (start
    `newStarsState` at the fork, as intended), or should the thresholds rise (to 80/87/92)?
-2. **The dynasty needs 7+ years.** That is 10–20 hours of real play at the BRIEF's pace, which fits, but could the
+2. ~~**The dynasty needs 7+ years.**~~ **Round 11: not adopted** — see "Round 11 — C". Satellites still never earn
+   stars, so a group streak would only ever count the flagship; the fix that mattered was keeping a star (hysteresis)
+   and keeping the head chef. Original note: **The dynasty needs 7+ years.** That is 10–20 hours of real play at the BRIEF's pace, which fits, but could the
    five-year streak count guide days already held at ★★★ by *any* restaurant in the group, as the BRIEF's "across the
    group" suggests? Satellites never earn stars here, so "group" currently means "the flagship".
 3. **Closed days still pay wages.** Should a refit suspend rotas (sim-core) or should the game prompt the player to
@@ -300,3 +304,89 @@ sim-stars has no locations, so the game derives them: the home city is the first
 (FNV-1a of the satellite id, or `rival:` + name). Stable across loads, no randomness, nothing stored. The map shows
 only `starsView` fields: the inspection-season flag (a plum edge on the flagship's district), the count of last
 guide's revealed visits, and up to two rumours labelled "might not be true". This year's visits are never read.
+
+## Round 11 — C: the dynasty is winnable (red-team G3, G4, U12)
+
+The red-team found the dynasty (★★★ on 5 guides running) near-unreachable: scripted top kitchens plateau at a guide
+score of 89–93, i.e. on the ★★★ line, and any year below 91 cost the third star and restarted the streak (≈55 % a
+year → ≈5 % over five). Three changes, all in sim-stars:
+
+1. **Hysteresis** (`STAR_KEEP_MARGIN` = 2, `decideGuide`): earning is unchanged (78 / 85 / 91, +1 a year, +2 on a
+   clear margin), but the guide only takes a star when the score is more than 2 below the bar for the stars held —
+   ★★★ is kept down to 89, ★★ to 83, ★ to 76. Still at most one star a year down; the Fat Duck rule is unchanged.
+   The ★★★ line stays at 91 (lowering it to 89 would have made the third star arrive a year earlier too).
+2. **A real counter to the Smyth arc**: `PAY_HEAD_CHEF_TO_STAY` (£25,000: a big pay rise and a share of the
+   restaurant, paid now). The chef stays (no disruption, no rival), −10 stress, and won't ask again for 2 years
+   (`headChef.staysUntil`, optional). `BACK_HEAD_CHEF` and `LET_HEAD_CHEF_GO` are unchanged. The headless script now
+   pays when it holds a star and has the money, else backs or lets go as before. The Stars tab's Smyth card has the
+   third button.
+3. **El Bulli** (`CLOSE_AT_PEAK`, G4): still allowed from ★★ at your peak, but it is a **win only with ★★★ held on
+   `EL_BULLI_WIN_GUIDES` (2) guides running**; earlier it is an honourable ending (`win: false`, its own text and the
+   end screen's "The end" + "A proud ending" title instead of confetti). Decision: keep the exit (it is a real story
+   beat, and a child who is tired of the stress should be able to stop proudly), but stop it short-cutting the
+   designed goal one click after the first ★★.
+
+Open question 2 (count the streak across the group): **not adopted**. Satellites never earn stars, so "the group"
+is the flagship; hysteresis and the pay rise are what moved the numbers.
+
+**Headless before/after** (`stars-sum.mts` over `runHeadless`, the scripted `stars` profile, High Street, normal,
+12 years; years are from the Stars start; master `9c9061e` vs this branch):
+
+| run | dynasty by year 10 | by year 12 | first ★ (median) | ★★★ (median, range) | stars lost on guide days | bust |
+|---|---|---|---|---|---|---|
+| cold, 20 seeds, before | **3/20** | 3/20 | 0.8 y | 4.8 y (3.8–8.8) | 22 | 1 |
+| cold, 20 seeds, after | **12/20** | 16/20 | 0.8 y | 5.3 y (3.8–7.8) | 0 | 1 |
+| fork (`--fork-day 365 --year1 balanced`), 10 seeds, before | **1/10** | 1/10 | 0.8 y | 4.8 y (2.8–7.8) | 15 | 1 |
+| fork, 10 seeds, after | **7/10** | 8/10 | 0.8 y | 4.8 y (2.8–7.8) | 1 | 1 |
+
+From the fork, the first ★ comes on the first guide day (~day 660 of the game, i.e. ~2 game years) and ★★★ in 3–8
+years; dynasties land 6.8–11.8 years after the fork (5/10 by game year 10, 7/10 within 10 years of the fork). The
+seeds that still miss are kitchens that never clear 85 (cold seeds 4, 5, 10 sit at ★/★★ all run — they need a
+better brigade, not a kinder guide) and fork seed 6, which lost its third star once at 88.6 in its fifth year at ★★★. Seed 11 cold and fork
+seed 2 go bust in year 1–2 as before (pre-existing, cash).
+
+Per seed (stars after each guide day; `y` = dynasty year):
+
+| cold seed | before | after |
+|---|---|---|
+| 1 | 111233333 · y8.8 | 111233333 · y8.8 |
+| 2 | 111123323323 · no | 1111233333 · y9.8 |
+| 3 | 112232233232 · no | 112233333 · y8.8 |
+| 4 / 5 | 1 for 12 years · no | 1 for 12 years · no |
+| 6 | 122333223332 · no | 12233333 · y7.8 |
+| 7 | 111123332223 · no | 1111233333 · y9.8 |
+| 8 | 112233322333 · no | 1122233333 · y9.8 |
+| 9 | 111222233232 · no | 11122233333 · y10.8 |
+| 10 | 111122222222 · no | 111122222222 · no |
+| 11 | bust | bust |
+| 12 | 111223322333 · no | 111233333 · y8.8 |
+| 13 | 112233333 · y8.8 | 11233333 · y7.8 |
+| 14 | 111233323333 · no | 111233333 · y8.8 |
+| 15 | 112323323232 · no | 11233333 · y7.8 |
+| 16 | 011122223323 · no | 011122233333 · y11.8 |
+| 17 | 011233333 · y8.8 | 0112233333 · y9.8 |
+| 18 | 112223322333 · no | 11222233333 · y10.8 |
+| 19 | 111233332332 · no | 111233333 · y8.8 |
+| 20 | 111222233323 · no | 111222233333 · y11.8 |
+
+| fork seed | before | after |
+|---|---|---|
+| 1 | 112332222323 · no | 11233333 · y7.8 |
+| 2 | bust | bust |
+| 3 | 122332333223 · no | 12233333 · y7.8 |
+| 4 | 123232323323 · no | 1233333 · y6.8 |
+| 5 | 112332222222 · no | 11233333 · y7.8 |
+| 6 | 122223222222 · no | 122223333233 · no |
+| 7 | 111233323233 · no | 111233333 · y8.8 |
+| 8 | 111111232333 · no | 111111233333 · y11.8 |
+| 9 | 1112233333 · y9.8 | 1112233333 · y9.8 |
+| 10 | 111223323322 · no | 1112233333 · y9.8 |
+
+"Stars lost" fell from 22 to 0 in the cold runs: for the scripted top kitchen a lost star is now something that
+happens after a burnout, a refit or a bad year (score < 89), not on a 90.4. A player who cooks worse still loses
+stars. Tests: `test/round11.dynasty.test.ts` (keep margin at each level, a kept ★★★ carries the streak through a
+real guide day, the pay rise, the El Bulli condition); `systems.test.ts`'s El Bulli case now expects `win: false`
+for a fresh ★★★.
+
+**U12:** the Stars map key says "Golden Plate Guide stars" (and the fork card "two Golden Plate stars"), the game's
+own name for the guide.

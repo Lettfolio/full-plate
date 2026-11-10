@@ -344,3 +344,129 @@ their recognition halos. The map reads positions from content by id, so old save
 cities) draw at the new places; nothing in the sim reads x/y. View: zoom 1–4×, panned so the map always fills its
 frame. **Halo** = recognition (amber, green at `WIN_RECOGNITION`). **Route** = a dashed line from the hub to every
 city with an open or building site: the hub is HQ's city, or the busiest city of a region with its own commissary.
+
+## Round 11 — C: the hands-on site's money, memory and endings (red-team G1, G5–G8)
+
+New sim-empire module `src/focus.ts` (pure; the game's `pathEngine` only wraps it), one new command and one new
+board question. Everything new in saved state is optional; saves without `meta.parked` serialise byte-identically.
+
+### G1 — a bust at the hands-on site never ends a running Empire
+- **`TRANSFER_TO_FOCUSED { amount, why? }`** (HQ → till; the game adds the same pence to `GameState.cash`). Refused
+  above what HQ can spend (`spendable`), except `why: "close"` (settling the till of a shop HQ is leaving or
+  closing: those debts are HQ's either way). Logged as `topUp` ("HQ topped up the till £X.", "HQ paid £X to open
+  …'s till", "HQ paid off …'s till").
+- **Evening rule** (`backTill`, called from `eveningHooks` after `stepEmpireDay`, and on load): while
+  `empire.status === "running"` and the focused site is a company shop, an overdrawn till is topped up by
+  `min(overdraft, spendable)`. A till that ends ≥ 0 resets `distressDays`, so sim-core's 14-day countdown never
+  runs while HQ can pay; a save that is already at a bank game over (the red-team's `empire-f3-3.json`) comes back
+  to the evening the same way. The Evening card says "🏦 HQ topped up the till £X. The shop ran short tonight, so HQ
+  paid its bills."
+- **When HQ can't pay**: sim-core's game over stands, but the App shows a "Your shop went bust" card, not GameOver:
+  **"Close this shop and move on"** (`closeAndMoveOn`: HQ settles the till, `CLOSE_SITE`, the busiest other company
+  shop opens hands-on tomorrow with whatever float HQ can give). No other company shop → "Start a new game".
+- **Over or not**: `pathEngine.runIsOver(game, meta)` — an owner game with an Empire is over only when the Empire
+  is bankrupt; without one, at a game over; careers never. `saveStore.isOver` calls it (B owns what happens to an
+  over save).
+- **Sweep** leaves `tillFloat` = a week's rent + wages (`TILL_BUFFER_DAYS` 7 × `dailyRent` + 7/30 × `monthlyWages`,
+  both now exported by sim-core) instead of £2,000; the Money panel's "Move to HQ" uses the same rule.
+
+### G6 — no free £20,000
+- `newGameFromSite` still defaults to a £20k till for direct callers, but the game passes `cash: 0` and then
+  **`openTill`**: the till opens with `tillFloat` and HQ pays float **+ the larder** (`larderCost`, base unit costs
+  of the BRANCH_STOCK_DAYS delivery). Short of that, a smaller float (at least a day's costs); short of the larder
+  plus a day, the switch is refused: "HQ can't open the till at X: it needs £Y (a week's rent and wages, and the
+  food) and can spend £Z." (`force` after a bust always opens.)
+- Leaving a site sends its till and tomorrow's paid-for deliveries back to HQ (`settleTill`) — the parked site no
+  longer keeps cash — so every visit is funded the same way.
+- Red-team repro (`empire-focus.ts`, seed 3, same fork save): first visit to Harbourton Business Park — was "till
+  £20,000, HQ paid nothing; sweep +£20,000"; now the new till is £3,720 and HQ goes £302,653 → £315,999 (= + the
+  flagship's £17,642 till coming home − £3,720 float − £585 larder); sweeping that float back returns exactly what HQ
+  paid for it, minus the food.
+
+### G5 — franchised sites are not run hands-on (decision)
+"Run it hands-on" shows only on company shops, and `switchSite` refuses a franchise ("X belongs to its franchisee:
+you can only run your own company shops hands-on."). Why not the franchisee's-till option: a focused franchise would
+need its own money path (credit the franchisee the evening's profit, reset the till, keep royalty/rent but not the
+operator line, and a story for who pays when the player loses money in someone else's shop). That is a second set of
+rules for a child to learn and a second place for double counting to hide, for a feature nobody asked for: the
+hands-on shop is *your* shop. Repro F1 now: the focus is refused and the franchisee's 30 days match the model's
+(Δ −£680 both ways), with no extra till. Old saves already focused on a franchise keep it until the next switch.
+
+### G7 — `meta.parked` is small, pruned and migrated
+- A parked site is a **`ParkedSite` object** (`v: 1`, name, menu, staff, tables, reputation, loan, stats, decor,
+  set menu, owner fatigue, and `history.slice(-90)` with reviews / incidents / per-dish / per-chef / spoiled / decor
+  stripped — `slimDay`), not a nested JSON string of the whole GameState. `restoreSite` lays it over a fresh
+  `newGameFromSite` (district, brand pull, a fresh larder) when the player comes back.
+- **`pruneParked`** drops entries for closed, sold, franchised and focused sites and turns old whole-GameState
+  strings into ParkedSites; it returns the same object when nothing changes. Runs on every switch and every evening
+  (so an old save migrates on its first evening), and `PathMeta.parked` is typed `Record<string, ParkedSite | string>`.
+- Save size (red-team `savesize.ts` on `empire-f1-3.json`, then the same sites as ParkedSites):
+
+| sites visited hands-on | before (raw / gzip-b64) | after (raw / gzip-b64) |
+|---|---|---|
+| 1 (the save as found) | 1.80 MB / 0.23 MB | 0.21 MB / 0.04 MB |
+| 5 | 8.33 MB / 1.03 MB | 0.37 MB / 0.06 MB |
+| **10** | **16.50 MB / 2.02 MB** | **0.58 MB / 0.10 MB** |
+| 20 | 32.84 MB / 4.02 MB | 1.00 MB / 0.17 MB |
+
+  (The focused site's own `history` still grows ~4 kB a day — sim-core's, unchanged here.)
+
+### G8 — bankruptcy is a screen, and debt has a way out
+- **Screen**: when `empire.status === "bankrupt"` the App shows the lazy `EmpireEnd` "has gone bust" screen (what
+  happened in two sentences, shops / meals / what HQ owed). **"Try again from the last board meeting"** appears when
+  this visit remembers one: `AppState.checkpoint` holds the game and meta as they stood the evening each board meeting
+  was called (references to immutable states — free — and not saved, so a reload offers "Start over").
+  `retryCheckpoint` restores it. A bankrupt Empire counts as over for saving (`runIsOver`).
+- **Before that**: when HQ is **sinking** — `spendable < 0` *and* it lost money over the last month
+  (`hqSinkingPerDay > 0`; a growing chain often borrows to the limit while it earns, and that is not a trap) — the
+  month's board meeting asks only the **debt** question (kind `debt`):
+  "Sell <shop> to <applicant>" (`SELL_FRANCHISE` of the most valuable non-focused company shop to the richest
+  applicant who can afford it: HQ gets fee + book value) and/or "Close <shop>" (the company shop losing most a week),
+  plus "Hold on"; advice = the first. `debtOptions(e)`, `hqSinkingPerDay(e)` and `empireOutcome(e)`
+  (`running | sinking | bankrupt`, sink per day, headroom to the bank's line) are exported. The Empire tab shows
+  **"HQ is sinking £X a day"** above the panels with the same options as one-tap buttons.
+- Red-team `empire-bust.ts` never reached bankruptcy (−£834k by day 1260 against a −£2m line); what it lacked was
+  any signal or exit. It now gets the sinking card from the first day `spendable < 0`, and the debt question at every
+  board meeting.
+
+### Ten years, five seeds (`headless --years 10 --seeds 5 --board both`)
+
+| Style | master `9c9061e` skip / follow | round 11 skip / follow |
+|---|---|---|
+| franchise | 5/5 (y5.0–5.6) / 5/5 (y5.3–6.2) | **5/5 / 5/5**, same seeds and years |
+| company | 5/5 (y7.2–8.1) / 5/5 (y7.2–8.1) | **5/5 / 5/5**, same |
+| innout | 3/5 (y9.0) / 5/5 (y8.5–9.1) | **3/5 / 5/5**, same |
+
+The follower runs are byte-identical to master's (the scripted styles never sink: they only borrow to the limit while
+earning). A first version that asked the debt question whenever `spendable < 0` cost In-N-Out follower seed 3 its
+win (it sold a shop on a one-month dip: 4/5) — hence the sinking condition. The headless styles drive sim-empire
+directly, so the till rules (G1, G6) don't touch them.
+
+Repro outputs (red-team scripts with the import root pointed at this branch; `scratchpad/r11c/rt/`):
+- `empire-focus.ts` seed 3, F3 (hire everyone + nightly sweep on the hands-on flagship): was a bank game over on
+  day 660 with HQ at £316,705; now it plays to the script's 400-day cap (day 961), Empire running, HQ £87,698 after
+  paying the flagship's overdrafts. Loading master's own `empire-f3-3.json` (game over, till −£128,430, distress 14):
+  the evening comes back, till £0, HQ £316,705 → £188,275, news "HQ topped up the till £128,430."; 120 more days of the
+  same play: 44 top-ups (£37,563), distress never above 0, no game over.
+- `empire-bust.ts` seed 3: HQ still never reaches the −£2m line in 900 days (−£732k), but from day 641 the Empire tab
+  says "HQ is sinking £431 a day" with "Sell Harbourton High St 2 to Uma (HQ gets £247,969 now …)" and "Close
+  Harbourton High St", and the board asks "HQ owes the bank £611,398 and can't borrow any more. Pay some of it back?"
+
+**Bundle** (vite kB vs master): main `index` 195.85 → 197.73 (+1.9; the switching logic lives in sim-empire, i.e. the
+`paths` chunk, 154.19 → 162.22, which carries sim-empire and sim-stars); `EmpireEnd` 2.89 (new, lazy); `EmpireTab`
+47.33 → 48.34; `StarsTab` 23.92 → 24.38; `BoardMeeting` 5.65 → 5.67.
+
+**Playtest** (built dist, `vite preview` on a private port, Chromium): master's `empire-f3-3.json` bust save, put under
+the legacy save key, migrates into "Your games" (it is no longer "over"), Continue opens on the evening with "🏦 HQ
+topped up the till £128,430." and no GameOver; the board meeting it was holding opens; Next day and the Empire tab
+work. The same save with HQ at the bank's line opens on "R3 has run out of money … Close this shop and move on";
+the button closes it and opens Harbourton Business Park on day 661. A Stars save (forked from the red-team's day-371
+save, 40 days on) renders with "Golden Plate" in the key and no "Michelin". 0 page/console errors throughout. Type
+audit: 37 screens, 0 text runs below 13 px, normal and Bigger.
+
+**Tests**: sim-empire `test/round11.focus.test.ts` (10: top-up, HQ → till transfers, sweep/settle, float + larder
+from HQ incl. short/refused/forced, parked slimming + restore, pruning + string migration, 10 sites < 1 MB, outcome
+flags, the debt question and its sinking condition, switchSite/closeAndMoveOn/backTill on deep-frozen inputs); game
+`round11.endgame.test.tsx` (8: isOver/runIsOver, the evening top-up through the reducer, a bust save opening in the
+App with no GameOver, "Close this shop and move on" in the App, the float from HQ, no hands-on for franchises, the
+bankruptcy screen and checkpoint retry, the board's sell option and the sinking card's one-tap buttons).

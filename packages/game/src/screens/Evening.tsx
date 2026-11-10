@@ -21,6 +21,7 @@ import { Avatar } from "../components/Avatar";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { ShiftSummary } from "@full-plate/handson";
 import { FORK_DAY, forkMilestone, type PathMeta } from "../state/paths";
+import { tillSweepable } from "../state/pathEngine";
 import { compactMeals } from "../components/StatusBar";
 import { inSeason } from "@full-plate/sim-stars";
 import { Term } from "../components/Term";
@@ -119,7 +120,9 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
     return text ? [{ icon, text }] : [];
   });
   const lastMeals = e?.history.at(-1);
-  const spare = Math.max(0, game.cash - 200_000);
+  // Round 11: the sweep leaves a week's rent and wages in the till; HQ's top-up tonight (if any) is said out loud.
+  const spare = e ? tillSweepable(game) : 0;
+  const topUp = e ? meta?.empireEvents.filter((x) => x.kind === "topUp" && x.day === e.hq.day && x.text.startsWith("HQ topped up")).at(-1) : undefined;
   // Year 2 has started but nobody has come calling yet: say what's missing (once a week, on Sundays).
   const fork = meta?.fork;
   const forkHint = meta && meta.mode === "owner" && fork && !fork.chosen && !fork.offered && game.day >= FORK_DAY && weekdayIndex(game.day) === 6 ? forkMilestone(game).missing : undefined;
@@ -145,6 +148,7 @@ function PathCards({ game, meta, sendEmpire, shiftSummary }: { game: GameState; 
           <div className="card__title"><h3>🍔 {e.brand.name} tonight</h3><span className="xs faint">{e.sites.filter((x) => x.status === "open").length} site{e.sites.filter((x) => x.status === "open").length === 1 ? "" : "s"}</span></div>
           <div className="small">Meals served so far: <b>{compactMeals(e.mealsServedTotal)}</b> · HQ cash <MoneyText pence={e.hq.cash} whole tone /> · HQ net today <MoneyText pence={e.hq.lastDayNet} whole tone signed /></div>
           {lastMeals && <div className="xs muted">This month so far: {lastMeals.sites} sites trading.</div>}
+          {topUp && <div className="small" role="note">🏦 {topUp.text} The shop ran short tonight, so HQ paid its bills.</div>}
           {sendEmpire && spare >= 10_000 && (
             <button className="btn btn--sm btn--green" style={{ marginTop: 8 }} onClick={() => sendEmpire({ type: "TRANSFER_FROM_FOCUSED", amount: spare })}>Sweep <MoneyText pence={spare} whole /> from the till to HQ</button>
           )}

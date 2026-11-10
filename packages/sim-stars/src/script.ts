@@ -5,7 +5,7 @@
 import { applyCommand, candidates, newGame, tick } from "@full-plate/sim-core";
 import type { Command, ContentPack, DayResult, GameState } from "@full-plate/sim-core";
 import { applyStarsCommand } from "./commands";
-import { YEAR_DAYS } from "./constants";
+import { PAY_RISE_COST, YEAR_DAYS } from "./constants";
 import { applyStarsEffects, prepareService } from "./effects";
 import { withSignatures } from "./signatures";
 import { newStarsState, starsView } from "./state";
@@ -195,7 +195,8 @@ function decide(content: ContentPack, stars: StarsState, s: GameState, opts: Hea
   if (stars.stagiaires.count > 0 && profit30(s) < 0 && s.cash < 1_000_000) out.push({ type: "SET_STAGIAIRE_POLICY", paid: true, count: 0 });
   if (m.stars >= 2 && stars.satellites.filter((x) => x.kind !== "backed").length === 0 && spare > 5_000_000) out.push({ type: "OPEN_SATELLITE", kind: "bar", name: "The Counter" });
   for (const sat of stars.satellites) if (!sat.headChefTrained && sat.trainingDaysLeft === undefined && spare > 2_500_000) out.push({ type: "TRAIN_SATELLITE_CHEF", satelliteId: sat.id });
-  if (stars.headChef.wantsOwnPlace) out.push(spare > 3_500_000 ? { type: "BACK_HEAD_CHEF" } : { type: "LET_HEAD_CHEF_GO" });
+  // Round 11: a starred kitchen keeps its head chef with a pay rise when it can; otherwise back them or let them go.
+  if (stars.headChef.wantsOwnPlace) out.push(m.stars >= 1 && spare > PAY_RISE_COST + 1_000_000 ? { type: "PAY_HEAD_CHEF_TO_STAY" } : spare > 3_500_000 ? { type: "BACK_HEAD_CHEF" } : { type: "LET_HEAD_CHEF_GO" });
   if (opts.refitYear > 0 && year === opts.refitYear && day % YEAR_DAYS === 200 && !(stars.refitUntil && stars.refitUntil > day)) out.push({ type: "CLOSE_FOR_REFIT", days: 260 });
   return out;
 }

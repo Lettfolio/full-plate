@@ -253,6 +253,11 @@ export function franchiseCashNeeded(e: EmpireState, city: City): number {
   return e.contract.fee + Math.round(buildCost(city, e.brand.formula.driveThru, e.hq.priceLevel) * K.FRANCHISEE_EQUITY_SHARE);
 }
 
+/** [round 11] What a company site's building is worth to a buyer (SELL_FRANCHISE): its build cost, written down over 10 years to 20%. */
+export function bookValue(e: EmpireState, city: City, s: SiteSummary): number {
+  return Math.round(buildCost(city, s.driveThru, e.hq.priceLevel) * clamp(1 - (e.hq.day - s.lastRemodel) / (10 * K.DAYS_PER_YEAR), 0.2, 1));
+}
+
 /** Cash HQ can spend now: its balance plus the share of the credit line banks lend for development. */
 export function spendable(e: EmpireState): number {
   return e.hq.cash + developmentFacility(e);
@@ -1285,7 +1290,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const fr = takeFranchisee(x, cmd.applicantId, cmd.franchiseeId);
     if (typeof fr === "string") return fr;
     const city = x.city.get(s.cityId)!;
-    const book = Math.round(buildCost(city, s.driveThru, e.hq.priceLevel) * clamp(1 - (e.hq.day - s.lastRemodel) / (10 * K.DAYS_PER_YEAR), 0.2, 1));
+    const book = bookValue(e, city, s);
     const equity = Math.round(book * K.FRANCHISEE_EQUITY_SHARE);
     if (fr.cash < e.contract.fee + equity) return `${fr.name} needs ${pounds(e.contract.fee + equity)} and has ${pounds(fr.cash)}.`;
     fr.cash -= e.contract.fee + equity;
@@ -1608,6 +1613,21 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     if (!finite(cmd.amount) || !(cmd.amount > 0) || cmd.amount > 1e12) return "Transfer a positive amount.";
     x.e.hq.cash += Math.round(cmd.amount);
     emit(x, "transfer", `${pounds(cmd.amount)} moved from the flagship's till to HQ.`, "money");
+    return undefined;
+  },
+
+  TRANSFER_TO_FOCUSED: (x, cmd) => {
+    if (!(cmd.amount > 0) || !Number.isFinite(cmd.amount)) return "Transfer a positive amount.";
+    const amount = Math.round(cmd.amount);
+    if (!x.e.focusedSiteId) return "No restaurant is being run hands-on.";
+    const can = Math.max(0, spendable(x.e));
+    if (cmd.why !== "close" && amount > can) return `HQ can only spend ${pounds(can)} right now.`;
+    x.e.hq.cash -= amount;
+    const name = x.site.get(x.e.focusedSiteId)?.name ?? "the shop";
+    const text = cmd.why === "float" ? `HQ paid ${pounds(amount)} to open ${name}: a week's money in the till and food in the larder.`
+      : cmd.why === "close" ? `HQ paid off ${name}'s till (${pounds(amount)}).`
+      : `HQ topped up the till ${pounds(amount)}.`;
+    emit(x, "topUp", text, "money", { siteId: x.e.focusedSiteId });
     return undefined;
   },
 

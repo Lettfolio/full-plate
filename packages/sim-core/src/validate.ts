@@ -97,6 +97,17 @@ const service = obj({
   chefs: opt(rec(obj({ plates: n, qualitySum: n }), 100)),
 });
 
+const loan = obj({ principal: money, remaining: money, dailyPayment: money, daysRemaining: n });
+const reputation = obj({ popularity: pct100, prestige: pct100 });
+const table = obj({ id, seats: num(0, 1000), occupiedBy: opt(id), dirtyTicks: n });
+const stats = obj({ totalCovers: n, totalRevenue: money, daysOpen: n });
+const setMenu = obj({ dishIds: arr(id, 200), price: num(0, MONEY), active: bool });
+const decor = obj({
+  slots: rec(obj({ itemId: id, since: day }), 50),
+  pending: opt(arr(obj({ slot: id, itemId: id, paid: money, tables: n }), 100)),
+  fitting: opt(obj({ day, tables: n, slots: arr(id, 50) })),
+});
+
 const gameState = obj<GameState>({
   version: oneOf(1),
   seed: num(-BIG, BIG),
@@ -108,11 +119,11 @@ const gameState = obj<GameState>({
   restaurantName: name(40),
   districtId: id,
   cash: int(-MONEY, MONEY),
-  loan: obj({ principal: money, remaining: money, dailyPayment: money, daysRemaining: n }),
-  reputation: obj({ popularity: pct100, prestige: pct100 }),
+  loan,
+  reputation,
   menu: arr(menuItem, 500),
   staff: arr(staff, MAX_STAFF),
-  tables: arr(obj({ id, seats: num(0, 1000), occupiedBy: opt(id), dirtyTicks: n }), 500),
+  tables: arr(table, 500),
   stock: arr(obj({ ingredientId: id, qty, oldestDay: day, batches: opt(arr(obj({ qty, day, cost: opt(money) }), 5000)) }), 2000),
   orders: arr(obj({ ingredientId: id, qty, cost: money }), 5000),
   customers: arr(customer, 20_000),
@@ -122,7 +133,7 @@ const gameState = obj<GameState>({
   activeEvent: opt(obj({ eventId: id, chosen: opt(id) })),
   footfallMods: arr(obj({ mult: num(0, 1000), daysRemaining: n, source: opt(id) }), 1000),
   log: arr(obj({ day, tick, text, kind: oneOf("info", "good", "bad", "money") }), LOG_MAX * 5),
-  stats: obj({ totalCovers: n, totalRevenue: money, daysOpen: n }),
+  stats,
   eightySixed: opt(arr(id, 1000)),
   hiredCandidates: opt(arr(int(0, 1000), 1000)),
   distressDays: opt(n),
@@ -137,20 +148,19 @@ const gameState = obj<GameState>({
   shortDelivery: opt(obj({ ingredientId: id, missing: qty })),
   incidentsHandled: opt(n),
   handsOn: opt(obj({ role, since: tick, staffId: opt(id), station: opt(obj({ dishIds: arr(id, 200), cap: num(0, 1000), coverTicks: opt(n) })) })),
-  setMenu: opt(obj({ dishIds: arr(id, 200), price: num(0, MONEY), active: bool })),
+  setMenu: opt(setMenu),
   ownerProfile: opt(obj({ skill: pct100, speed: pct100, charm: pct100 })),
   recruitmentFee: opt(money),
   adviceLog: opt(rec(obj({ day, count: n, subject: str(400) }), 50)),
-  decor: opt(obj({
-    slots: rec(obj({ itemId: id, since: day }), 50),
-    pending: opt(arr(obj({ slot: id, itemId: id, paid: money, tables: n }), 100)),
-    fitting: opt(obj({ day, tables: n, slots: arr(id, 50) })),
-  })),
+  decor: opt(decor),
 }, false);
 
 /** Shared with sim-career (a relationship keeps a Staff snapshot; a week keeps its DayResults). */
 export const staffSchema = staff;
 export const dayResultSchema = dayResult(false);
+/** Round 11 review: the GameState pieces an Empire's parked site keeps (sim-empire validateParkedSite). */
+export { HISTORY_MAX, MAX_STAFF };
+export const gameStateParts = { menuItem, staff, table, loan, reputation, stats, decor, setMenu, dayResult: dayResultSchema };
 
 /** A loaded GameState, checked and cleaned (throws SchemaError). */
 export function validateGameState(raw: unknown): GameState {

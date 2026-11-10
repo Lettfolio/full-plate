@@ -209,7 +209,14 @@ export const visibleTo = (e: { owner?: string | undefined }, viewer: string | nu
  * Round 11 (U3): a finished game is never deleted. The bank closed it (any path but a career that's still running —
  * an employer going bust isn't her game ending): it is archived, kept and greyed as "Lost — day N" in Your games.
  */
-export const isLost = (game: GameState, meta: PathMeta) => game.phase === "gameover" && slotPath(meta) !== "career";
+export const isLost = (game: GameState, meta: PathMeta): boolean => {
+  if (slotPath(meta) === "career") return false;
+  // Round 11 (G1, C): an Empire ends only when it is bankrupt — a bust hands-on shop while it runs is HQ's to cover
+  // (pathEngine backTill / "Close this shop and move on"). Same rule as pathEngine.runIsOver, kept here so the main
+  // chunk doesn't import pathEngine. "Try again from the last board meeting" saves a running Empire: un-archived.
+  if (meta.empire) return meta.empire.status === "bankrupt";
+  return game.phase === "gameover";
+};
 /** Round 9 removed an ended owner game on save; round 11 keeps every game (archived), so nothing is "over" enough to drop. */
 export const isOver = (_game: GameState, _meta: PathMeta) => false;
 

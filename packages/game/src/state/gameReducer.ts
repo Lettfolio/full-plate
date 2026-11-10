@@ -7,7 +7,7 @@ import { formatPence } from "../lib/format";
 import { FORK_DAY, forkDue, handsOnCommands, initialMeta, type HandsOnMeta, type PathMeta } from "./paths";
 import {
   careerCommand, careerIdleDay, careerMorning, careerNextDay, chooseEmpire, chooseStars, empireCommand, eveningHooks, focusSite,
-  ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
+  hqBacksTill, moveOnFromBust, ownerApply, ownerResponds, packFor, setTastingMenu, snoozeFork, starsCommand, starsMorning, startCareer,
 } from "./pathEngine";
 import { commisStation, type HandsOnResult, type ShiftSummary, type StationPlan } from "@full-plate/handson";
 
@@ -48,6 +48,12 @@ export interface AppState {
    * first time the game is in planning on a later day; not saved (a reload drops it, like any unsent click).
    */
   tomorrow?: { commands: Command[]; done: string; day: number };
+  /**
+   * Round 11 (G8): the game as it stood when the last Empire board meeting was called (the evening it appeared).
+   * "Try again from the last board meeting" on the bankruptcy screen goes back here. Not saved: references to the
+   * immutable states already in memory, so it costs nothing; a reload drops it (the screen then offers a new game).
+   */
+  checkpoint?: { id: string; day: number; game: GameState; meta: PathMeta };
 }
 
 export type AppAction =
@@ -59,6 +65,10 @@ export type AppAction =
   | { type: "stars"; cmd: StarsCommand }
   | { type: "fork"; choice: "snooze" | "empire" | "stars"; brandName?: string }
   | { type: "focusSite"; siteId: string }
+  /** Round 11 (G1): the hands-on shop went bust and HQ couldn't save it: close it and run another company shop. */
+  | { type: "moveOn" }
+  /** Round 11 (G8): back to the game as it was at the last board meeting (AppState.checkpoint). */
+  | { type: "retryCheckpoint" }
   | { type: "openGuide" }
   | { type: "dismissWin" }
   | { type: "seenHandover" }
@@ -188,7 +198,7 @@ function rejectToast(s: AppState, why: string | undefined): AppState {
 
 export function appReducer(s: AppState, a: AppAction): AppState {
   const next = reduce(s, a);
-  return next === s ? s : clearStaleToast(s, morningActions(settle(next)));
+  return next === s ? s : boardCheckpoint(clearStaleToast(s, morningActions(settle(next))));
 }
 
 /**
@@ -198,6 +208,13 @@ export function appReducer(s: AppState, a: AppAction): AppState {
 function clearStaleToast(prev: AppState, next: AppState): AppState {
   const changed = !!prev.game && !!next.game && prev.game.phase !== next.game.phase;
   return changed && next.toast && next.toast === prev.toast ? { ...next, toast: null } : next;
+}
+
+/** Round 11 (G8): remember the game at each new board meeting, for "Try again from the last board meeting". */
+function boardCheckpoint(s: AppState): AppState {
+  const m = s.meta.empire?.boardMeeting;
+  if (!m || !s.game || s.meta.empire!.status !== "running" || s.checkpoint?.id === m.id) return s;
+  return { ...s, checkpoint: { id: m.id, day: s.game.day, game: s.game, meta: s.meta } };
 }
 
 /**
@@ -235,7 +252,11 @@ function reduce(s: AppState, a: AppAction): AppState {
       // leaves sim-core holding plates at the pass for a player who is no longer at the canvas.
       let game = a.game;
       if (game.handsOn && game.phase === "service" && HOOKS.handsOn) game = applyCommand(content, game, asCommand({ type: "SET_HANDS_ON", role: null })).state;
-      return { ...initialAppState, game, lastResult: game.history.at(-1) ?? null, meta: { ...meta, lastPathDay: Math.max(meta.lastPathDay, game.history.at(-1)?.day ?? -1) } };
+      let m: PathMeta = { ...meta, lastPathDay: Math.max(meta.lastPathDay, game.history.at(-1)?.day ?? -1) };
+      // Round 11 (G1/G7): an Empire save whose hands-on shop went bust while HQ could pay comes back (HQ tops up the
+      // till); old saves' parked GameStates are slimmed on the next evening or switch (pathEngine).
+      if (m.empire) ({ game, meta: m } = hqBacksTill(game, m));
+      return { ...initialAppState, game, lastResult: game.history.at(-1) ?? null, meta: m };
     }
     case "quit":
       return initialAppState;
@@ -380,6 +401,17 @@ function reduce(s: AppState, a: AppAction): AppState {
       const r = focusSite(s.game, s.meta, a.siteId);
       if ("error" in r) return withToast(s, r.error, "bad");
       return { ...s, game: r.game, meta: { ...r.meta, morningDay: r.game.day }, lastResult: null, ticker: [] };
+    }
+    case "moveOn": {
+      if (!s.game) return s;
+      const r = moveOnFromBust(s.game, s.meta);
+      if ("error" in r) return withToast(s, r.error, "bad");
+      return { ...s, game: r.game, meta: { ...r.meta, morningDay: r.game.day, lastPathDay: Math.max(r.meta.lastPathDay, r.game.day - 1) }, lastResult: null, ticker: [] };
+    }
+    case "retryCheckpoint": {
+      const cp = s.checkpoint;
+      if (!cp) return s;
+      return { ...initialAppState, game: cp.game, meta: cp.meta, lastResult: cp.game.history.at(-1) ?? null, checkpoint: cp };
     }
     case "stars": {
       if (!s.game) return s;

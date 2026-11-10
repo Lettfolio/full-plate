@@ -222,11 +222,11 @@ describe("refit, relaunch and endings", () => {
     expect(s.consistencyWindow).toEqual([]);
     expect(cmd(s, { type: "RELAUNCH_CONCEPT" }, 10).events[0]?.type).toBe("REJECTED");
   });
-  it("El Bulli: closing at the peak with ≥ 2 stars is a win; hand back + retire is a valid non-winning ending", () => {
+  it("El Bulli: closing at the peak with ≥ 2 stars ends the story (a win only after two guides at ★★★, round 11); hand back + retire is a valid non-winning ending", () => {
     expect(cmd(withStars(fresh(), 1), { type: "CLOSE_AT_PEAK" }).events[0]?.type).toBe("REJECTED");
     const peak = { ...withStars(fresh(), 3), peakStars: 3 as const };
     const r = cmd(peak, { type: "CLOSE_AT_PEAK" });
-    expect(r.stars.ending).toMatchObject({ kind: "el_bulli", win: true });
+    expect(r.stars.ending).toMatchObject({ kind: "el_bulli", win: false });
     expect(cmd(r.stars, { type: "UNLOCK_TICKETING" }).events[0]?.type).toBe("REJECTED");
     expect(stepStarsDay(content, r.stars, dayResult(1), eveningState(1, 90)).stars).toBe(r.stars);
     const ret = cmd(peak, { type: "HAND_BACK_STARS", retire: true });

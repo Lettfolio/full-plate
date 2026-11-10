@@ -386,7 +386,7 @@ export function stepStarsDay(content: ContentPack, stars0: StarsState, result: D
     }
     s = { ...s, headChef: next };
     // Smyth arc: a celebrated head chef wants their own place.
-    if (!next.wantsOwnPlace && next.staffId && next.reputation >= SMYTH_MIN_REPUTATION && day - next.tenureStart >= SMYTH_MIN_TENURE && rng.chance(SMYTH_DAILY_CHANCE)) {
+    if (!next.wantsOwnPlace && next.staffId && next.reputation >= SMYTH_MIN_REPUTATION && day - next.tenureStart >= SMYTH_MIN_TENURE && (next.staysUntil ?? -1) <= day && rng.chance(SMYTH_DAILY_CHANCE)) {
       const deadline = day + SMYTH_DECISION_DAYS;
       s = { ...s, headChef: { ...next, wantsOwnPlace: true, decisionDeadline: deadline } };
       events.push({ type: "SMYTH_ARC_STARTED", day, staffId: next.staffId, deadline });

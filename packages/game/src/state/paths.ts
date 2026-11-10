@@ -4,7 +4,7 @@
  * (gameReducer.ts) owns the transitions.
  */
 import type { CareerEvent, CareerState, HandoverSummary, OwnerPerks } from "@full-plate/sim-career";
-import type { EmpireEvent, EmpireState } from "@full-plate/sim-empire";
+import type { EmpireEvent, EmpireState, ParkedSite } from "@full-plate/sim-empire";
 import type { GuideResult, InspectorVisit, StarsEvent, StarsState } from "@full-plate/sim-stars";
 import type { ShiftSummary, HandsOnResult, HandsOnRole, StationPlan } from "@full-plate/handson";
 import type { Command, DayResult, GameState } from "@full-plate/sim-core";
@@ -125,8 +125,12 @@ export interface PathMeta {
   empire?: EmpireState;
   /** Recent empire events, newest last (≤ 80). */
   empireEvents: EmpireEvent[];
-  /** Other sites' GameStates parked while another site is focused (serialised). */
-  parked?: Record<string, string>;
+  /**
+   * Other company sites run hands-on before, parked while another is focused. Round 11 (G7): sim-empire's ParkedSite
+   * (room, menu, crew, reputation, loan, decor, the last 90 days without reviews) as an object; older saves hold a
+   * whole serialised GameState string per site, read (and slimmed) on the next switch or evening.
+   */
+  parked?: Record<string, ParkedSite | string>;
   stars?: StarsState;
   /** Stars events from tonight. */
   starsEvents: StarsEvent[];

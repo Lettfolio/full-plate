@@ -13,7 +13,7 @@ import {
 } from "@full-plate/sim-core/schema";
 import { validateGameState } from "@full-plate/sim-core/validate";
 import { handoverSchema, ownerPerksSchema, validateCareerState } from "@full-plate/sim-career/validate";
-import { validateEmpireState } from "@full-plate/sim-empire/validate";
+import { validateEmpireState, validateParkedSite } from "@full-plate/sim-empire/validate";
 import { starsGuideResult, starsVisit, validateStarsState } from "@full-plate/sim-stars/validate";
 import { deserialize, serialize } from "../sim";
 import { decodeSave, type Loaded } from "./save";
@@ -38,8 +38,9 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   handoverSeen: opt(bool),
   fork: obj({ offered: bool, firstOfferDay: opt(day), snoozeUntil: opt(day), chosen: opt(oneOf("empire", "stars")), chosenDay: opt(day) }),
   empireEvents: arr(empireEvent, 1000),
-  // pathEngine parks other sites' serialised GameStates here (agent C prunes it); each is checked below.
-  parked: opt(rec(str(8_000_000), 1000)),
+  // Round 11: a parked site is sim-empire's ParkedSite (C), or in older saves a whole serialised GameState; each is
+  // checked below by its own schema.
+  parked: opt(rec((v, at) => (typeof v === "string" ? str(8_000_000)(v, at) : obj({ v: oneOf(1) }, anyJson)(v, at)), 1000)),
   starsEvents: arr(anyJson, 1000),
   pendingGuide: opt(obj({ result: starsGuideResult, visits: arr(starsVisit, 500) })),
   win: opt(obj({
@@ -65,6 +66,7 @@ export function validateLoaded(l: Loaded): Loaded {
   if (stars) meta.stars = validateStarsState(stars);
   if (meta.parked) {
     for (const [site, s] of Object.entries(meta.parked)) {
+      if (typeof s !== "string") { meta.parked[site] = validateParkedSite(s, `meta.parked.${site}`); continue; }
       let g;
       try { g = deserialize(s); } catch { return fail(`meta.parked.${site}`, "unreadable"); }
       meta.parked[site] = serialize(validateGameState(g));

@@ -10,6 +10,7 @@ import type { ContentPack } from "@full-plate/sim-core";
 import * as K from "./constants";
 import {
   annuityDaily,
+  bookValue,
   avgFranchiseeMood,
   developmentFacility,
   expectedSiteDay,
@@ -21,7 +22,7 @@ import {
   spendable,
 } from "./engine";
 import { clamp, maturity, menuBreaksRules } from "./model";
-import type { BoardDecisionKind, BoardIncome, BoardMeeting, BoardOption, BoardRisk, City, EmpireState, SiteSummary } from "./types";
+import type { BoardDecisionKind, BoardIncome, BoardMeeting, BoardOption, BoardRisk, City, EmpireCommand, EmpireState, SiteSummary } from "./types";
 import { DISTRICT_SHORT } from "./world";
 
 type Decision = BoardMeeting["decision"];
@@ -91,6 +92,9 @@ export function boardRisk(e: EmpireState, day: number): BoardRisk {
 }
 
 function pickDecision(content: ContentPack, e: EmpireState, month: number, day: number): Decision {
+  // Round 11 (G8): HQ that can't spend anything gets one question until it can: how to pay the debt down.
+  const debt = debtDecision(e);
+  if (debt) return debt;
   const pool: Decision[] = [];
   for (const b of [royalty, localise, buyPlot, refurbish, feeHoliday, driveThru, supplyMarkup]) {
     const d = b(content, e, day);
@@ -304,5 +308,76 @@ function campaign(e: EmpireState): Decision {
       { id: "save", label: "Save the money", detail: "HQ keeps its cash for new shops." },
     ],
     e.hq.cash >= 4 * budget && rec < K.WIN_RECOGNITION + 5 ? "advertise" : "save",
+  );
+}
+
+// ── round 11 (G8): HQ is sinking ──
+
+/** A one-tap way out of debt: refranchise a shop or close a loss-maker. Labels and details are child-readable. */
+export interface DebtOption { id: "sell" | "close"; label: string; detail: string; cmd: EmpireCommand; gain: number }
+
+/**
+ * Ways to pay HQ's debt down, best first: sell the most valuable company shop you don't run to the applicant who can
+ * afford it (HQ gets the fee and the building), and close the shop losing the most (it stops the bleeding). Empty
+ * when neither applies. The focused shop is never offered (it can't be sold while you run it).
+ */
+export function debtOptions(e: EmpireState): DebtOption[] {
+  const out: DebtOption[] = [];
+  const own = e.sites.filter((s) => s.status === "open" && s.ownership === "company" && !s.focused);
+  const fee = e.contract.fee;
+  const sale = own
+    .map((s) => {
+      const city = e.cities.find((c) => c.id === s.cityId)!;
+      const book = bookValue(e, city, s);
+      const need = fee + Math.round(book * K.FRANCHISEE_EQUITY_SHARE);
+      const buyer = e.applicants.filter((a) => a.cash >= need).sort((a, b) => b.cash - a.cash || a.id.localeCompare(b.id))[0];
+      return buyer ? { s, buyer, gain: fee + book } : undefined;
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a, b) => b.gain - a.gain || a.s.id.localeCompare(b.s.id))[0];
+  if (sale) {
+    out.push({
+      id: "sell",
+      label: `Sell ${sale.s.name} to ${first(sale.buyer.name)}`,
+      detail: `HQ gets ${pounds(sale.gain)} now. ${first(sale.buyer.name)} runs the shop and pays you a share of its sales.`,
+      cmd: { type: "SELL_FRANCHISE", siteId: sale.s.id, applicantId: sale.buyer.id },
+      gain: sale.gain,
+    });
+  }
+  const loser = e.sites
+    .filter((s) => s.status === "open" && !s.focused && s.ownership === "company" && s.margin7d < 0)
+    .sort((a, b) => a.margin7d - b.margin7d || a.id.localeCompare(b.id))[0];
+  if (loser) {
+    out.push({
+      id: "close",
+      label: `Close ${loser.name}`,
+      detail: `It loses about ${pounds(-loser.margin7d)} a week. Closing it stops that.`,
+      cmd: { type: "CLOSE_SITE", siteId: loser.id },
+      gain: -loser.margin7d,
+    });
+  }
+  return out;
+}
+
+/** HQ's money is falling: about how much a day (pence, ≥ 0) over the last month. 0 when HQ is making money. */
+export function hqSinkingPerDay(e: EmpireState): number {
+  return Math.max(0, -Math.round(e.hq.income30d / 30));
+}
+
+/** The trap, not a dip: HQ can't spend and lost money over the last month (a growing chain often borrows to the limit while it earns). */
+function debtDecision(e: EmpireState): Decision | undefined {
+  if (spendable(e) >= 0 || hqSinkingPerDay(e) <= 0) return undefined;
+  const opts = debtOptions(e);
+  if (!opts.length) return undefined;
+  const options: BoardOption[] = [
+    ...opts.map((o) => ({ id: o.id, label: o.label, detail: o.detail, cmd: o.cmd })),
+    { id: "hold", label: "Hold on", detail: "Nothing changes. HQ keeps borrowing to pay its bills." },
+  ];
+  return decision(
+    "debt",
+    `HQ owes the bank ${pounds(-e.hq.cash)} and can't borrow any more. Pay some of it back?`,
+    options,
+    opts[0]!.id,
+    "HQ keeps sinking.",
   );
 }

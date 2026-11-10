@@ -5,14 +5,16 @@
 import {
   anyJson, arr, BIG, bool, day, id, int, money, name, num, obj, oneOf, opt, pct100, rec, rngState, text,
 } from "@full-plate/sim-core/schema";
+import { gameStateParts as gp, HISTORY_MAX, MAX_STAFF } from "@full-plate/sim-core/validate";
 import { BOARD_MINUTES_MAX, EVENT_LOG_MAX, MONTHLY_HISTORY_MAX } from "./constants";
+import type { ParkedSite } from "./focus";
 import type { EmpireState } from "./types";
 
 const n = num();
 const share = num(-10, 10);
 const many = 5000;
 const income = obj({ shops: money, royalties: money, rent: money, fees: money, supply: money, costs: money });
-const decisionKind = oneOf("royalty", "localise", "buyPlot", "refurbish", "feeHoliday", "driveThru", "supplyMarkup", "campaign");
+const decisionKind = oneOf("royalty", "localise", "buyPlot", "refurbish", "feeHoliday", "driveThru", "supplyMarkup", "campaign", "debt");
 
 const site = obj({
   id, name: name(80), cityId: id, districtId: id, opened: day,
@@ -109,3 +111,24 @@ export function validateEmpireState(raw: unknown): EmpireState {
   return empireState(raw, "empire");
 }
 
+
+/** Round 11 review: a parked hands-on site (focus.ts ParkedSite, agent C's slim form of a whole GameState). */
+const parkedSite = obj<ParkedSite>({
+  v: oneOf(1),
+  restaurantName: name(40),
+  history: arr(gp.dayResult, HISTORY_MAX),
+  menu: arr(gp.menuItem, 500),
+  staff: arr(gp.staff, MAX_STAFF),
+  tables: arr(gp.table, 500),
+  reputation: gp.reputation,
+  loan: gp.loan,
+  stats: gp.stats,
+  decor: opt(gp.decor),
+  setMenu: opt(gp.setMenu),
+  ownerFatigue: opt(pct100),
+}, false);
+
+/** A parked site object from `meta.parked`, checked and cleaned (throws SchemaError). */
+export function validateParkedSite(raw: unknown, at = "parked"): ParkedSite {
+  return parkedSite(raw, at);
+}

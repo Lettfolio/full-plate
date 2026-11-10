@@ -38,6 +38,12 @@ export const HINT_DECOY = 0.015;
 // ── guide decision (Fat Duck rule) ──
 /** Mean visit score needed for 1/2/3 stars. */
 export const STAR_THRESHOLDS: readonly [number, number, number] = [78, 85, 91];
+/**
+ * [round 11, G3] Keeping a star is easier than earning it: the guide takes a star away only when the score falls more
+ * than this far below the bar for the stars you hold (★★★ is earned at 91, kept at 89). Scripted top kitchens plateau
+ * at 89–93, so without it a single 90.4 lost the third star and restarted the dynasty streak.
+ */
+export const STAR_KEEP_MARGIN = 2;
 /** A promotion is normally +1 star per guide; +2 when the score clears the target threshold by this much over ≥ 3 visits. */
 export const DOUBLE_JUMP_MARGIN = 3;
 export const DOUBLE_JUMP_MIN_VISITS = 3;
@@ -139,6 +145,15 @@ export const SMYTH_DECISION_DAYS = 60;
 /** Seed money for the head chef's own place (a minority stake; the alumni restaurant sends a share back daily). */
 export const BACK_HEAD_CHEF_COST = 3_000_000;
 export const LOYALTY_DAYS = 3 * 360;
+/**
+ * [round 11, G3] Smyth arc, the third answer: a big pay rise and a share of the restaurant (paid now: about a year of
+ * the raise). The head chef stays, a little less stressed, and won't ask again for PAY_RISE_STAY_DAYS.
+ */
+export const PAY_RISE_COST = 2_500_000;
+export const PAY_RISE_STAY_DAYS = 2 * 360;
+export const PAY_RISE_STRESS = -10;
+/** [round 11, G4] The El Bulli ending is a win only after holding three stars on this many guide days running. */
+export const EL_BULLI_WIN_GUIDES = 2;
 export const NEW_HEAD_CHEF_REPUTATION = 30;
 /** A chef this many skill points better than the head chef is promoted to the pass automatically. */
 export const HEAD_CHEF_PROMOTE_GAP = 10;

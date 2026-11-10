@@ -32,6 +32,7 @@ const KIND_TERM: Record<BoardDecisionKind, TermId> = {
   driveThru: "driveThru",
   supplyMarkup: "supplyMarkup",
   campaign: "campaign",
+  debt: "facility",
 };
 
 const RISK_ICON: Record<Meeting["risk"]["kind"], string> = { mood: "😠", collapse: "📉", borrowing: "🏦", maturity: "🧱", none: "😊" };

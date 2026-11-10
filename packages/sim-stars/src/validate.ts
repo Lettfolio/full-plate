@@ -34,7 +34,7 @@ const starsState = obj<StarsState>({
   }),
   headChef: obj({
     staffId: opt(id), stress: pct100, reputation: pct100, tenureStart: day, wantsOwnPlace: bool,
-    decisionDeadline: opt(day), disruptedUntil: opt(day), burnouts: n, former: arr(id, 1000),
+    decisionDeadline: opt(day), disruptedUntil: opt(day), burnouts: n, former: arr(id, 1000), staysUntil: opt(day),
   }),
   testKitchen: obj({ unlocked: bool, researched: arr(id, 1000), inProgress: opt(obj({ dishId: id, daysLeft: n })) }),
   sourcing: arr(obj({ supplierId: id, name: name(80), ingredientIds: arr(id, 1000), relationship: n, seasonalBonus: n, signedDay: day }), 200),
