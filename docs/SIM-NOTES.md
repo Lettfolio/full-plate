@@ -540,3 +540,26 @@ Personalities change moods, so every multi-day run (and the career employer's wa
 - game `audit-saves.gen.ts`: day 20 of the audit owner now ends on a morning-post card, so it takes the first day from 20 that ends on a plain evening (day 22).
 
 `test/round10.staff.test.ts` (20): avatar determinism and sprite parity, likes/dislikes, ±5 cap, relationships, mood notes, legacy TRAIN, tracks to level 3 and rejections, deep-frozen purity, pass cover + shadow cook, candidates by id, saves.
+
+## Round 10 — review (combined balance after the A + B merge)
+
+Headless, real pack, 200 seeds × 365 days, normal (`pnpm --filter @full-plate/sim-core headless -- --content ../content/src/index.ts --days 365 --seeds 200 --strategy <s>`). "Before" is master `f14f861` (no decor, no personalities; `decorator` there = typical). "Merged" is `2dc8a00` as merged; "after" is the review's final state.
+
+| strategy | before f14f861 | merged 2dc8a00 | **after** | covers/day before → after | rating | final pop | median cash m12 before → after |
+|---|---|---|---|---|---|---|---|
+| typical | 86.5% | 88.5% | **90.0%** | 90.3 → 91.0 | 4.25 → 4.26 | 81.1 → 82.1 | £44,302 → £38,089 |
+| balanced | 99.5% | 98.0% | **98.5%** | 86.7 → 86.9 | 4.40 → 4.40 | 86.9 → 86.4 | £16,829 → £16,573 |
+| cheap | 69.5% | 63.0% ✗ | **68.0%** | 78.3 → 78.0 | 4.45 → 4.45 | 78.8 → 77.5 | −£1,795 → −£2,018 |
+| premium | 97.0% | 98.5% | **99.0%** | 61.4 → 61.3 | 4.55 → 4.55 | 91.2 → 91.1 | £19,804 → £20,336 |
+| nohire | 0% | 0% | **0%** | 11.1 → 11.1 | 1.86 → 1.86 | 32.0 → 32.0 | −£7,152 → −£7,152 |
+| learner | 98.5% | 96.0% | **98.0%** | 88.7 → 88.3 | 4.26 → 4.26 | 83.7 → 83.5 | £61,766 → £60,434 |
+| decorator | (= typical) 86.5% | 86.0% | **88.0%** | 90.3 → 92.2 | 4.25 → 4.31 | 81.1 → 84.8 | £44,302 → £41,290 |
+
+Every strategy is within ±5 points of master; decorator is 2.0 points under typical (target: within 3).
+
+Two levers moved, one per branch:
+
+1. **B: `PERSONALITY_MOOD.dislike` −2 → −1.** As merged, `cheap` fell 69.5% → 63.0% (400 seeds: 69.5% → 62.3%, so not noise). Zeroing like/learning/dislike gave back master's 139/200 exactly, so the drop was the like/dislike nudges: an owner who staffs thin works people long weeks into mad rushes, and their dislikes fire more often than their likes. Halving the dislike alone: cheap 68.0%, everything else within ±2 of master. Friends/clashes and the ±5 cap are unchanged.
+2. **A: stay only on a half-empty floor** (`systems/service.ts`). After (1), typical rose to 90.0% (400 seeds 90.5%) but decorator stayed at 85.0% (400 seeds 85.8%; paired seeds 11 typical-only survivors vs 1 decorator-only). Halving every item's upkeep changed nothing (85.0%). The cause was stay: a meal's length is fixed when it starts, so the lingering that began on a quiet floor just before the rush (the queue rule only looks at that tick) still held tables through it — seed 13's first 60 days: 4,708 → 4,490 covers, walkouts 305 → 340. Now stay needs no queue **and** at least half the tables free: decorator 88.0% (400 seeds 88.8%), covers 92.2/day (typical 91.0), +2.7 final popularity. Test: `round10.decor.test.ts` "none once half the tables are taken".
+
+Empire (`sim-empire headless --years 10 --seeds 5 --board follow`): identical to f14f861 row for row (franchise wins 5/5, company 5/5, in-and-out 5/5 regions per its table). Stars (`sim-stars headless`, one scripted seed): the run's trajectory moved with personalities (the kitchen's moods differ), ending year 6 at ★★★ with a 3-star streak of 2 (f14f861: ★★, streak 0); neither run reaches the 5-guide win in 6 years, as before.

@@ -76,8 +76,11 @@ export function serviceSystem(content: ContentPack, state: GameState, _rng: Rng)
   const charm = state.service?.frontCharm ?? frontCharm(content, state);
   const onHuman = waitingOnHuman(content, state);
   // Round 10: a comfortable room (lamps, music, soft seats) keeps guests at the table a little longer — but only
-  // while nobody is queueing for a table (staff don't let people linger on a busy night).
-  const stay = state.customers.some((c) => c.stage === "queue") ? 0 : decorEffects(content, state).stay;
+  // while nobody is queueing for a table (staff don't let people linger on a busy night). Round 10 review: and only
+  // while at least half the tables are free: a meal's length is fixed when it starts, so lingering that began just
+  // before the rush still held tables through it (decorator 85.8% vs typical 90.5% survival on 400 seeds → 88.8%).
+  const free = state.tables.filter((t) => !t.occupiedBy).length;
+  const stay = state.customers.some((c) => c.stage === "queue") || free * 2 < state.tables.length ? 0 : decorEffects(content, state).stay;
   const customers = mapIfChanged(state.customers, (c) => {
     const slow = c.stage === "ordered" && c.servedTick === undefined && onHuman.has(c.id);
     const next = advanceCustomer(content, c, state.tick, charm, slow ? HANDS_ON.stationPatienceMult : 1, stay);

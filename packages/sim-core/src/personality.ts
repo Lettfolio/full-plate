@@ -187,7 +187,8 @@ export function relationsOf(s: PersonKey, team: readonly PersonKey[]): { friends
 export const PERSONALITY_MOOD = {
   like: 2,
   learning: 3,
-  dislike: -2,
+  /** Round 10 review: −2 → −1. Dislikes fire more often than likes for owners who staff thin (cheap: 69.5% → 63.0% survival). */
+  dislike: -1,
   friendOnShift: 1,
   clashOnShift: -1,
   /** Total personality nudge per day is clamped to ±cap. */

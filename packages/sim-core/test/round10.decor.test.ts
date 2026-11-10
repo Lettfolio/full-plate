@@ -259,6 +259,17 @@ describe("stay: guests linger only while nobody is queueing", () => {
     const queued = { ...s, customers: [served, newCustomer("c0-2", seg, 2, 11)] };
     expect(serviceSystem(content, queued, new Rng([1, 2, 3, 4])).state.customers[0]!.eatUntil).toBe(12 + eatTicks(2));
   });
+
+  it("round 10 review: none once half the tables are taken (the rush is coming)", () => {
+    const base = start();
+    const seg = content.segments[0]!;
+    const served = { ...newCustomer("c0-1", seg, 2, 0), stage: "ordered" as const, servedTick: 10, tableId: base.tables[0]!.id, order: ["x"] };
+    const decor = { slots: { lighting: { itemId: "light_lanterns", since: 0 }, seating: { itemId: "seat_cushions", since: 0 } } };
+    const half = Math.ceil(base.tables.length / 2) + 1;
+    const tables = base.tables.map((t, i) => (i < half ? { ...t, occupiedBy: `x${i}` } : t));
+    const s = { ...base, phase: "service" as const, tick: 12, decor, tables, customers: [served] };
+    expect(serviceSystem(content, s, new Rng([1, 2, 3, 4])).state.customers[0]!.eatUntil).toBe(12 + eatTicks(2));
+  });
 });
 
 describe("saves, determinism and purity", () => {
