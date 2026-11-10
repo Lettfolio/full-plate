@@ -364,8 +364,9 @@ export function hqSinkingPerDay(e: EmpireState): number {
   return Math.max(0, -Math.round(e.hq.income30d / 30));
 }
 
+/** The trap, not a dip: HQ can't spend and lost money over the last month (a growing chain often borrows to the limit while it earns). */
 function debtDecision(e: EmpireState): Decision | undefined {
-  if (spendable(e) >= 0) return undefined;
+  if (spendable(e) >= 0 || hqSinkingPerDay(e) <= 0) return undefined;
   const opts = debtOptions(e);
   if (!opts.length) return undefined;
   const options: BoardOption[] = [

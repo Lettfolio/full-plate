@@ -143,9 +143,9 @@ describe("G8: bankruptcy is visible, and the board offers a way out of debt", ()
     expect(empireOutcome(sinking).headroom).toBe(Math.round(sinking.hq.cash + EMPIRE.HQ_CREDIT_LINE * e.hq.priceLevel));
   });
 
-  it("when HQ can't spend, the board's only question is the debt: sell a shop to an applicant or close a loss-maker", () => {
+  it("when HQ can't spend and is losing money, the board's only question is the debt: sell a shop to an applicant or close a loss-maker", () => {
     let e = withApplicant(withSites(forked()), "a1", { cash: 90_000_000 });
-    e = { ...e, sites: e.sites.map((s) => (s.id === "s7" ? { ...s, margin7d: -700_000 } : s)), hq: { ...e.hq, cash: -developmentFacilityOf(e) - 5_000_000 } };
+    e = { ...e, sites: e.sites.map((s) => (s.id === "s7" ? { ...s, margin7d: -700_000 } : s)), hq: { ...e.hq, cash: -developmentFacilityOf(e) - 5_000_000, income30d: -900_000 } };
     expect(spendable(e)).toBeLessThan(0);
     const opts = debtOptions(e);
     expect(opts.map((o) => o.id)).toEqual(["sell", "close"]);
@@ -159,8 +159,9 @@ describe("G8: bankruptcy is visible, and the board offers a way out of debt", ()
     // Taking the sale pays HQ the fee and the building.
     const sold = must(e, opts[0]!.cmd);
     expect(sold.hq.cash - e.hq.cash).toBe(opts[0]!.gain);
-    // With money to spend, the debt question never comes up.
+    // With money to spend, or borrowed to the limit while still earning (a growing chain), it never comes up.
     expect(buildBoardMeeting(content, forked(), emptyBook(), e.hq.day).decision.kind).not.toBe("debt");
+    expect(buildBoardMeeting(content, { ...e, hq: { ...e.hq, income30d: 900_000 } }, emptyBook(), e.hq.day).decision.kind).not.toBe("debt");
   });
 });
 
