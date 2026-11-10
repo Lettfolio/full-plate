@@ -1141,8 +1141,16 @@ export function associationBlocks(e: EmpireState, cmd: EmpireCommand): string | 
   return undefined;
 }
 
+/** Round 11 (G10): a finite number (junk API arguments must never become NaN in the state). */
+const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+/** Round 11 (G14): the smallest campaign that does anything (£500). */
+export const MIN_CAMPAIGN_BUDGET = 50_000;
+
 export function applyEmpireCommand(content: ContentPack, empire: EmpireState, cmd: EmpireCommand): EmpireStepResult {
   if (empire.status === "bankrupt") return reject(empire, "HQ is bankrupt.");
+  // Round 11 (G9): own keys only — "toString" and friends are not commands.
+  const type = (cmd as { type?: unknown } | null | undefined)?.type;
+  if (typeof type !== "string" || !Object.hasOwn(HANDLERS, type)) return reject(empire, "Unknown command.");
   const blocked = associationBlocks(empire, cmd);
   if (blocked) return reject(empire, blocked);
   const e = draft(empire);
@@ -1204,10 +1212,13 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const land: LandMode = cmd.ownership === "licence" ? "thirdParty" : cmd.ownership === "company" && cmd.land === "thirdParty" ? "hqLease" : cmd.land;
     const driveThru = e.brand.formula.driveThru && cmd.ownership !== "licence";
     const build = buildCost(city, driveThru, e.hq.priceLevel);
+    if (cmd.ownership !== "company" && cmd.ownership !== "franchise" && cmd.ownership !== "licence") return "Pick who runs it.";
+    if (land !== "thirdParty" && land !== "hqLease" && land !== "hqOwned") return "Pick who owns the land.";
+    if (cmd.name !== undefined && typeof cmd.name !== "string") return "A site's name must be words.";
     const id = newId(e, "s");
     const s: SiteSummary = {
       id,
-      name: cmd.name ?? siteName(x, city, cmd.districtId),
+      name: cmd.name?.trim().slice(0, 60) || siteName(x, city, cmd.districtId),
       cityId: city.id,
       districtId: cmd.districtId,
       opened: e.hq.day + BUILD_DAYS,
@@ -1313,6 +1324,9 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   SET_CONTRACT: (x, cmd) => {
     const e = x.e;
     const c = cmd.contract;
+    if (!c || typeof c !== "object") return "Which terms?";
+    for (const k of ["fee", "royaltyPct", "adFundPct", "rentPctOfSales", "termDays", "remodelEveryDays"] as const) if (c[k] !== undefined && !finite(c[k])) return "Contract terms must be numbers.";
+    if (cmd.applyTo !== "new" && cmd.applyTo !== "all") return "Apply the terms to new or all agreements.";
     const next: FranchiseContract = {
       fee: Math.round(clamp(c.fee ?? e.contract.fee, ...K.FEE_RANGE)),
       royaltyPct: clamp(c.royaltyPct ?? e.contract.royaltyPct, ...K.ROYALTY_RANGE),
@@ -1344,6 +1358,9 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   SET_FORMULA: (x, cmd) => {
     const e = x.e;
     const f = e.brand.formula;
+    if (cmd.priceIndex !== undefined && !finite(cmd.priceIndex)) return "The price level must be a number.";
+    if (cmd.menuDishIds !== undefined && (!Array.isArray(cmd.menuDishIds) || cmd.menuDishIds.some((d) => typeof d !== "string"))) return "Pick dishes for the formula.";
+    if ((cmd.locked !== undefined && typeof cmd.locked !== "boolean") || (cmd.fresh !== undefined && typeof cmd.fresh !== "boolean")) return "That isn't a yes or no.";
     if (cmd.menuDishIds) {
       const known = new Set(x.content.dishes.map((d) => d.id));
       const bad = cmd.menuDishIds.filter((d) => !known.has(d));
@@ -1368,7 +1385,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   RESEARCH: (x, cmd) => {
     const e = x.e;
     const f = e.brand.formula;
-    const t = K.TECH[cmd.tech];
+    const t = typeof cmd.tech === "string" && Object.hasOwn(K.TECH, cmd.tech) ? K.TECH[cmd.tech] : undefined;
     if (!t) return "Unknown research.";
     if (f[cmd.tech]) return `${TECH_LABEL[cmd.tech]} is already done.`;
     if (e.brand.research) return `Already researching ${TECH_LABEL[e.brand.research.tech]}.`;
@@ -1386,7 +1403,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const s = x.e.suppliers.find((p) => p.id === cmd.supplierId);
     if (!s) return "No such supplier.";
     s.signed = true;
-    s.exclusive = cmd.exclusive;
+    s.exclusive = !!cmd.exclusive;
     s.signedDay = x.e.hq.day;
     emit(x, "supplier", `Signed ${s.name}${cmd.exclusive ? " exclusively" : ""}: food costs −${((s.discountPct * (cmd.exclusive ? 1 : K.NON_EXCLUSIVE_SHARE)) * 100).toFixed(1)}%.`, "info");
     return undefined;
@@ -1394,7 +1411,9 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
 
   LAUNCH_CAMPAIGN: (x, cmd) => {
     const e = x.e;
-    if (!(cmd.budget > 0)) return "A campaign needs a budget.";
+    if (!finite(cmd.budget) || !(cmd.budget > 0)) return "A campaign needs a budget.";
+    if (cmd.budget < MIN_CAMPAIGN_BUDGET) return `A campaign needs at least ${pounds(MIN_CAMPAIGN_BUDGET)} to reach anyone.`;
+    if (cmd.kind !== "brand" && cmd.kind !== "discount") return "Unknown campaign.";
     if (spendable(e) < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} campaign.`;
     if (cmd.regionId && !e.regions.some((r) => r.id === cmd.regionId)) return "No such region.";
     e.hq.cash -= Math.round(cmd.budget);
@@ -1404,7 +1423,9 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       e.effects.push({ ...base, kind: "discount", label: "Discount campaign", demand: K.DISCOUNT_DEMAND - 1, spend: K.DISCOUNT_SPEND - 1 });
       for (const fr of e.franchisees) if (fr.sites.length) fr.mood = clamp(fr.mood - K.MOOD_DISCOUNT_CAMPAIGN, 0, 100);
     } else {
-      const fx = { ...base, kind: "campaign" as const, label: "Brand campaign", demand: 0.03, budgetPerDay: cmd.budget / K.CAMPAIGN_DAYS };
+      // Round 11 (G14): campaigns don't stack: each one already running in the same place halves the next one's lift.
+      const running = e.effects.filter((f) => f.kind === "campaign" && f.endDay > day && f.regionId === cmd.regionId).length;
+      const fx = { ...base, kind: "campaign" as const, label: "Brand campaign", demand: 0.03 / 2 ** running, budgetPerDay: cmd.budget / K.CAMPAIGN_DAYS };
       e.effects.push(fx);
     }
     emit(x, "campaign", `${cmd.kind === "discount" ? "Discount" : "Brand"} campaign launched (${pounds(cmd.budget)}).${cmd.kind === "discount" ? " Franchisees grumble about margins." : ""}`, "money");
@@ -1449,13 +1470,15 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
 
   LAUNCH_PRODUCT: (x, cmd) => {
     const e = x.e;
-    if (!(cmd.budget > 0)) return "A launch needs a budget.";
+    if (!finite(cmd.budget) || !(cmd.budget > 0)) return "A launch needs a budget.";
+    if (!Object.hasOwn(K.PRODUCT_SUCCESS, cmd.fit)) return "Unknown launch.";
+    if (cmd.fit !== "franchiseeIdea" && (typeof cmd.name !== "string" || !cmd.name.trim())) return "The new product needs a name.";
     if (spendable(e) < cmd.budget) return `HQ can't fund a ${pounds(cmd.budget)} launch.`;
     if (cmd.fit === "franchiseeIdea" && !e.pendingIdea) return "No franchisee idea is waiting.";
     e.hq.cash -= Math.round(cmd.budget);
     const p = clamp(K.PRODUCT_SUCCESS[cmd.fit] + Math.min(0.15, (cmd.budget / K.PRODUCT_BUDGET_REF) * 0.1), 0.05, 0.9);
     const day = e.hq.day;
-    const name = cmd.fit === "franchiseeIdea" ? e.pendingIdea!.name : cmd.name;
+    const name = cmd.fit === "franchiseeIdea" ? e.pendingIdea!.name : cmd.name.slice(0, 40);
     if (cmd.fit === "franchiseeIdea") {
       const fr = x.fr.get(e.pendingIdea!.franchiseeId);
       if (fr) fr.mood = clamp(fr.mood + 10, 0, 100);
@@ -1520,6 +1543,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
     const fr = x.fr.get(cmd.franchiseeId);
     if (!fr || !fr.sites.length) return "No such franchisee.";
     if (fr.feeHolidayUntil !== undefined && fr.feeHolidayUntil > e.hq.day) return `${fr.name} already has a royalty holiday.`;
+    if (!finite(cmd.days)) return "How many days?";
     const days = Math.round(clamp(cmd.days, ...K.FEE_HOLIDAY_DAYS));
     fr.feeHolidayUntil = e.hq.day + days;
     fr.mood = clamp(fr.mood + K.MOOD_FEE_HOLIDAY_BASE + (K.MOOD_FEE_HOLIDAY_PER_MONTH * days) / 30, 0, 100);
@@ -1529,7 +1553,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
 
   SET_SUPPLY_MARKUP: (x, cmd) => {
     const e = x.e;
-    if (!(cmd.pct >= 0)) return "The markup can't be negative.";
+    if (!finite(cmd.pct) || !(cmd.pct >= 0)) return "The markup can't be negative.";
     const pct = Math.round(clamp(cmd.pct, 0, K.SUPPLY_MARKUP_MAX) * 1000) / 1000;
     const before = e.supplyMarkupPct ?? 0;
     const risePp = Math.max(0, (pct - before) * 100);
@@ -1548,6 +1572,7 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
       const opt = m.decision.options.find((o) => o.id === cmd.optionId);
       if (!opt) return "That isn't one of the board's options.";
       if (opt.cmd) {
+        if (!Object.hasOwn(HANDLERS, opt.cmd.type)) return "That isn't one of the board's options.";
         const blocked = associationBlocks(e, opt.cmd);
         if (blocked) return blocked;
         const why = HANDLERS[opt.cmd.type](x, opt.cmd as never);
@@ -1572,13 +1597,15 @@ const HANDLERS: { [T in EmpireCommand["type"]]: Handler<T> } = {
   },
 
   SET_INSPECTIONS: (x, cmd) => {
+    if (!finite(cmd.everyDays)) return "How often?";
     x.e.inspectionEveryDays = Math.round(clamp(cmd.everyDays, 30, 720));
     emit(x, "inspection", `Mystery inspections every ${x.e.inspectionEveryDays} days.`, "info");
     return undefined;
   },
 
   TRANSFER_FROM_FOCUSED: (x, cmd) => {
-    if (!(cmd.amount > 0)) return "Transfer a positive amount.";
+    // Round 11 (G14): whole pence, finite (the till side checks it's no more than the till holds: pathEngine).
+    if (!finite(cmd.amount) || !(cmd.amount > 0) || cmd.amount > 1e12) return "Transfer a positive amount.";
     x.e.hq.cash += Math.round(cmd.amount);
     emit(x, "transfer", `${pounds(cmd.amount)} moved from the flagship's till to HQ.`, "money");
     return undefined;

@@ -65,8 +65,12 @@ export function researchDays(skillRequired: number): number {
   return RESEARCH_BASE_DAYS + Math.round(skillRequired / 4);
 }
 
+/** Round 11 (G11): a finite number (junk API arguments must never become NaN in the state). */
+const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
 export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: StarsCommand, ctx: CommandContext): StarsStepResult {
   if (stars.ending) return reject(stars, "This story has ended.");
+  if (typeof (cmd as { type?: unknown } | null | undefined)?.type !== "string") return reject(stars, "Unknown command.");
   const day = ctx.day;
   const log = (text: string, tone: "good" | "bad" | "info" | "money" = "info"): StarsEvent => ({ type: "LOG", day, text, tone });
   switch (cmd.type) {
@@ -89,6 +93,9 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       return { stars: { ...s, testKitchen: { ...tk, inProgress: { dishId: dish.id, daysLeft } } }, events: [log(`The test kitchen starts on ${dish.name} (${daysLeft} days).`)] };
     }
     case "OPEN_SATELLITE": {
+      // Round 11 (G11): only the kinds you can open (a "backed" place is the head chef's, via BACK_HEAD_CHEF).
+      if (cmd.kind !== "bar" && cmd.kind !== "bistro" && cmd.kind !== "ticketed") return reject(stars, "That isn't a kind of place you can open.");
+      if (cmd.name !== undefined && typeof cmd.name !== "string") return reject(stars, "A name must be words.");
       if (stars.satellites.length >= MAX_SATELLITES) return reject(stars, `The group is already ${MAX_SATELLITES} satellites wide.`);
       const cost = satelliteCost(stars, cmd.kind);
       const s = spend(stars, ctx, cost);
@@ -96,7 +103,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       const sat = {
         id: `sat${s.nextId}`,
         kind: cmd.kind,
-        name: cmd.name ?? `${SATELLITES[cmd.kind].label} ${s.nextId}`,
+        name: cmd.name?.trim().slice(0, 40) || `${SATELLITES[cmd.kind].label} ${s.nextId}`,
         openedDay: day,
         headChefTrained: false,
         staffAbsorbed: SATELLITES[cmd.kind].staff,
@@ -133,6 +140,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       return { stars: { ...stars, ticketing: { unlocked: true, prepaid: !!cmd.prepaid, dynamicPricing: !!cmd.dynamicPricing } }, events: [] };
     }
     case "SET_STAGIAIRE_POLICY": {
+      if (!finite(cmd.count)) return reject(stars, "How many stagiaires?");
       const count = clamp(Math.round(cmd.count), 0, STAGIAIRE_MAX);
       const prev = stars.stagiaires;
       const startsUnpaid = !cmd.paid && (prev.paid || prev.count === 0);
@@ -160,6 +168,8 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       return { stars: { ...stars, sourcing: stars.sourcing.filter((x) => x.supplierId !== cmd.supplierId) }, events: [] };
     case "BACK_HEAD_CHEF": {
       if (!stars.headChef.wantsOwnPlace) return reject(stars, "Your head chef isn't looking to leave.");
+      // Round 11 (G11): their place counts as one of the group's satellites.
+      if (stars.satellites.length >= MAX_SATELLITES) return reject(stars, `The group is already ${MAX_SATELLITES} places wide: close one first, or let them go.`);
       const s = spend(stars, ctx, BACK_HEAD_CHEF_COST);
       if (!s) return reject(stars, `Backing them costs ${pounds(BACK_HEAD_CHEF_COST)}.`);
       const rng = new Rng(s.rngState);
@@ -177,6 +187,7 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       return { stars: { ...left.stars, rngState: rng.getState() }, events: [...left.events, log(`Your head chef leaves to open ${left.stars.rival?.name ?? "a rival"}.`, "bad")] };
     }
     case "CLOSE_FOR_REFIT": {
+      if (!finite(cmd.days)) return reject(stars, "How many days?");
       const days = clamp(Math.round(cmd.days), 1, MAX_REFIT_DAYS);
       const until = Math.max(stars.refitUntil ?? 0, day + days);
       return {
@@ -231,6 +242,8 @@ export function applyStarsCommand(content: ContentPack, stars: StarsState, cmd: 
       };
       return { stars: { ...stars, ending }, events: [{ type: "ENDING", ending }] };
     }
+    default:
+      return reject(stars, "Unknown command.");
   }
 }
 
