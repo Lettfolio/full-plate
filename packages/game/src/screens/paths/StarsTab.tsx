@@ -62,6 +62,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
           <p className="small">{fill(smyth.wantsOwnPlace[game.day % smyth.wantsOwnPlace.length] ?? "", { chef: chefName, restaurant: game.restaurantName })}</p>
           <div className="row row--wrap">
             <button className="btn btn--primary" onClick={() => send({ type: "BACK_HEAD_CHEF" })}>{fill(smyth.backChoice, { chef: chefName })} · <MoneyText pence={K.BACK_HEAD_CHEF_COST} whole /></button>
+            <button className="btn" onClick={() => send({ type: "PAY_HEAD_CHEF_TO_STAY" })} title="They stay as your head chef, and won't ask again for two years">Give {chefName} a big pay rise and a share of the restaurant, so they stay · <MoneyText pence={K.PAY_RISE_COST} whole /></button>
             <button className="btn" onClick={() => send({ type: "LET_HEAD_CHEF_GO" })}>{fill(smyth.letGoChoice, { chef: chefName })}</button>
           </div>
         </div>
@@ -164,7 +165,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
               </div>
             )}
             {v.stars >= 2 && v.stars === v.peakStars && (
-              <button className="btn btn--sm btn--ghost" onClick={() => { if (window.confirm("Close at your peak and become a foundation? This ends the game — as a win.")) send({ type: "CLOSE_AT_PEAK" }); }}>Close at the top (the El Bulli ending)…</button>
+              <button className="btn btn--sm btn--ghost" onClick={() => { if (window.confirm(v.stars === 3 && v.threeStarStreak >= K.EL_BULLI_WIN_GUIDES ? "Close at your peak and become a foundation? This ends the game — as a win." : `Close now and become a foundation? This ends the game. It only counts as a win once you have held three stars for ${K.EL_BULLI_WIN_GUIDES} guides.`)) send({ type: "CLOSE_AT_PEAK" }); }}>Close at the top (the El Bulli ending)…</button>
             )}
           </div>
 

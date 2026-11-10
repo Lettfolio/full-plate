@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  associationBlocks, avgFranchiseeMood, boxTables, buildCost, cityEntryCost, contractAttractiveness, contractTake, developmentFacility, EMPIRE,
+  associationBlocks, avgFranchiseeMood, boxTables, buildCost, cityEntryCost, contractAttractiveness, contractTake, debtOptions, developmentFacility, EMPIRE, empireOutcome,
   expectedSiteDay, franchiseCashNeeded, franchiseOutlook, offPremise, openSites, propertyPrice, spendable, TECH_LABEL,
   type City, type EmpireCommand, type EmpireState, type FranchiseOutlook, type SiteSummary, type Tech,
 } from "@full-plate/sim-empire";
@@ -16,6 +16,7 @@ import { Icon } from "../../components/Icon";
 import { TAB_ICONS } from "../../components/Tabs";
 import { GLOSSARY, type TermId } from "../../lib/glossary";
 import type { PathMeta } from "../../state/paths";
+import { tillSweepable } from "../../state/pathEngine";
 import { CityMap, OWN_COLOUR, WorldMap } from "./WorldMap";
 
 interface Props {
@@ -61,7 +62,8 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
   const franchised = e.sites.some((s) => s.ownership !== "company" && s.status === "open");
   const mood = franchised ? avgFranchiseeMood(e) : undefined;
   const recent = meta.empireEvents.filter((x) => x.kind !== "applicant").slice(-12).reverse();
-  const tillSpare = Math.max(0, game.cash - 200_000);
+  const tillSpare = tillSweepable(game);
+  const outcome = empireOutcome(e);
   const step = Math.max(10_000, Math.round(tillSpare / 4 / 10_000) * 10_000);
 
   return (
@@ -85,6 +87,8 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           HQ goes bust at −<MoneyText pence={EMPIRE.HQ_CREDIT_LINE * e.hq.priceLevel} whole />.
         </p>
       )}
+
+      {outcome.status === "sinking" && <SinkingCard e={e} sinkPerDay={outcome.sinkPerDay} send={send} />}
 
       <div className="empire__layout">
         <div className="stack">
@@ -138,7 +142,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
                   <button className="btn btn--sm" aria-label="Move more" disabled={move + step > tillSpare} onClick={() => setMove(Math.min(tillSpare, move + step))}>+</button>
                   <button className="btn btn--green btn--sm" disabled={move <= 0} onClick={() => { send({ type: "TRANSFER_FROM_FOCUSED", amount: move }); setMove(0); }}>Move to HQ</button>
                 </div>
-                <p className="xs faint">Keeps £2,000 in the till. Till now: <MoneyText pence={game.cash} whole /></p>
+                <p className="xs faint">Keeps a week's rent and wages in the till. If the till runs short, HQ tops it up. Till now: <MoneyText pence={game.cash} whole /></p>
               </div>
               <BoardMinutes e={e} />
               <ContractPanel e={e} send={send} />
@@ -146,6 +150,22 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+/** Round 11 (G8): HQ can't spend and loses money every day: say how fast, and offer the way out in one tap. */
+function SinkingCard({ e, sinkPerDay, send }: { e: EmpireState; sinkPerDay: number; send: (cmd: EmpireCommand) => void }) {
+  const opts = debtOptions(e);
+  return (
+    <div className="callout callout--warn stack stack--sm" role="note" aria-label="HQ is sinking">
+      <p><b>HQ is sinking <MoneyText pence={sinkPerDay} whole /> a day.</b> It owes <MoneyText pence={Math.max(0, -e.hq.cash)} whole /> and the bank won't lend more. At −<MoneyText pence={EMPIRE.HQ_CREDIT_LINE * e.hq.priceLevel} whole /> the chain goes bust.</p>
+      {opts.length > 0 ? (
+        <div className="row row--wrap">
+          {opts.map((o) => <button key={o.id} className="btn btn--sm" title={o.detail} onClick={() => send(o.cmd)}>{o.label}</button>)}
+        </div>
+      ) : <p className="small">Stop spending: no new shops or adverts until the shops earn the money back.</p>}
+      {opts.length > 0 && <p className="xs">{opts.map((o) => o.detail).join(" ")}</p>}
     </div>
   );
 }
@@ -404,7 +424,7 @@ function SitesPanel({ e, send, onFocusSite, cityId }: { e: EmpireState; send: (c
             {s.status === "open" && <SiteCovers e={e} s={s} />}
             {s.status === "open" && (
               <div className="row row--wrap" style={{ marginTop: 4 }}>
-                {s.focused ? <span className="pill pill--star">You run this one</span> : <button className="btn btn--sm btn--ghost" onClick={() => onFocusSite(s.id)} title="Run this restaurant yourself from tomorrow morning">Run it hands-on</button>}
+                {s.focused ? <span className="pill pill--star">You run this one</span> : s.ownership === "company" ? <button className="btn btn--sm btn--ghost" onClick={() => onFocusSite(s.id)} title="Run this restaurant yourself from tomorrow morning. HQ opens its till.">Run it hands-on</button> : null}
                 {s.land !== "hqOwned" && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cost={Math.round(propertyPrice(s) * EMPIRE.PROPERTY_DEPOSIT_SHARE)} cmd={{ type: "BUY_PROPERTY", siteId: s.id }} title="40% deposit, 25-year mortgage">Buy the plot · <MoneyText pence={propertyPrice(s)} whole /></Blockable>}
                 {s.ownership === "company" && !s.focused && applicant && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "SELL_FRANCHISE", siteId: s.id, applicantId: applicant.id }}>Sell franchise</Blockable>}
                 {s.ownership !== "company" && <Blockable e={e} send={send} className="btn btn--sm btn--ghost" cmd={{ type: "BUY_BACK", siteId: s.id }}>Buy back</Blockable>}

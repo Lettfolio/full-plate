@@ -8,20 +8,20 @@
  * - Stars (STARS-NOTES): prepareService in the morning; cook with withSignatures; stepStarsDay + applyStarsEffects in
  *   the evening; FIRE on HEAD_CHEF_LEFT.
  */
-import { Rng, seedState, type Command, type ContentPack, type DayResult, type GameState, type SimEvent } from "@full-plate/sim-core";
+import { type Command, type ContentPack, type DayResult, type GameState, type SimEvent } from "@full-plate/sim-core";
 import {
   applyCareerCommand, applyWithPerks, beginCareerDay, finishCareerDay, handoverToOwner, newCareer, ownerIncidentResponses,
   stepCareerDay, type CareerCommand, type CareerEvent, type CareerTrack, type OwnerStrategy,
 } from "@full-plate/sim-career";
 import {
-  applyEmpireCommand, forkFromGameState, newGameFromSite, recalibrateFromSite, siteBrandPull, stepEmpireDay, BRAND_PULL_SOURCE, EMPIRE,
-  type EmpireCommand, type EmpireEvent,
+  applyEmpireCommand, backTill, closeAndMoveOn, forkFromGameState, pruneParked, siteBrandPull, stepEmpireDay, sweepable, switchSite, BRAND_PULL_SOURCE, EMPIRE,
+  type EmpireCommand, type EmpireEvent, type Switched,
 } from "@full-plate/sim-empire";
 import {
   applyStarsCommand, applyStarsEffects, closedDay, isClosed, newStarsState, prepareService, stepStarsDay, withSignatures,
   type StarsCommand, type StarsEvent,
 } from "@full-plate/sim-stars";
-import { applyCommand, asCommand, careerContent, content, extras, HOOKS, recruitmentFeeOf, serialize, deserialize } from "../sim";
+import { applyCommand, asCommand, careerContent, content, extras, HOOKS, recruitmentFeeOf } from "../sim";
 import { fill } from "@full-plate/content";
 import { FORK_SNOOZE_DAYS, type PathMeta, type WinMeta, initialMeta } from "./paths";
 
@@ -137,39 +137,57 @@ export function empireCommand(game: GameState, meta: PathMeta, cmd: EmpireComman
   }
   const r = applyEmpireCommand(content, meta.empire, cmd);
   if (r.events.some((e) => e.kind === "rejected")) return { game, meta: { ...meta, empireEvents: trimEvents([...meta.empireEvents, ...r.events]) }, events: r.events };
+  // Round 11 (G1): HQ → till. The same pence land in GameState.cash.
+  if (cmd.type === "TRANSFER_TO_FOCUSED") g = { ...g, cash: g.cash + Math.round(cmd.amount) };
   return { game: g, meta: { ...meta, empire: r.empire, empireEvents: trimEvents([...meta.empireEvents, ...r.events]) }, events: r.events };
 }
 
 const trimEvents = (evs: EmpireEvent[]) => evs.filter((e) => e.kind !== "rent_review").slice(-EMPIRE_EVENTS_MAX);
 
 /**
- * FOCUS_SITE switching. The current restaurant is parked (serialised) and the model is recalibrated on its history
- * and GameState; the new site gets a parked GameState if it has been run before, else sim-empire's newGameFromSite:
- * its district, the brand menu, the brand's box of tables, a locally hired crew of its staff quality and the brand
- * pull as a footfall mod (round 3: it used to copy the flagship's staff).
+ * Round 11 (G1): is this a whole game that has finished? A running Empire is never over because of its hands-on shop
+ * (HQ backs the till, or the player closes that shop and moves on); a bankrupt Empire is. Career games never are.
+ * saveStore.isOver calls this.
+ */
+export function runIsOver(game: GameState, meta: PathMeta): boolean {
+  if (meta.mode !== "owner") return false;
+  if (meta.empire) return meta.empire.status === "bankrupt";
+  return game.phase === "gameover";
+}
+
+/** Round 11: the hands-on shop went bust while the Empire runs (HQ couldn't cover it): the "close it and move on" card. */
+export const empireShopBust = (game: GameState, meta: PathMeta): boolean => game.phase === "gameover" && meta.empire?.status === "running";
+
+/** Round 11: what "Sweep" may take from the till to HQ (it leaves a week's rent and wages). */
+export const tillSweepable = (game: GameState): number => sweepable(content, game);
+
+/** Round 11 (G1): HQ tops up an overdrawn till (sim-empire backTill). Runs each evening and on load. */
+export function hqBacksTill(game: GameState, meta: PathMeta): { game: GameState; meta: PathMeta } {
+  if (!meta.empire || meta.empire.status !== "running") return { game, meta };
+  const r = backTill(content, meta.empire, game);
+  if (r.game === game && r.empire === meta.empire) return { game, meta };
+  return { game: r.game, meta: { ...meta, empire: r.empire, empireEvents: trimEvents([...meta.empireEvents, ...r.events]) } };
+}
+
+const switched = (meta: PathMeta, r: Switched | { error: string }): { game: GameState; meta: PathMeta } | { error: string } =>
+  "error" in r ? r : { game: r.game, meta: { ...meta, empire: r.empire, parked: r.parked, empireEvents: trimEvents([...meta.empireEvents, ...r.events]) } };
+
+/**
+ * FOCUS_SITE switching: sim-empire switchSite (round 11: the till goes back to HQ, HQ funds the new one, company shops
+ * only, parked sites slimmed). Mornings only.
  */
 export function focusSite(game: GameState, meta: PathMeta, siteId: string): { game: GameState; meta: PathMeta } | { error: string } {
   const e = meta.empire;
   if (!e) return { error: "No empire." };
   if (game.phase !== "planning") return { error: "Switch restaurants in the morning." };
-  const cur = e.focusedSiteId;
-  if (cur === siteId) return { game, meta };
-  const site = e.sites.find((s) => s.id === siteId);
-  if (!site || site.status !== "open") return { error: "Only an open site can be run hands-on." };
-  let empire = e;
-  if (cur && game.history.filter((d) => d.covers > 0).length >= 14) empire = recalibrateFromSite(content, empire, cur, game.history, game);
-  empire = applyEmpireCommand(content, empire, { type: "FOCUS_SITE", siteId }).empire;
-  const parked = { ...(meta.parked ?? {}), ...(cur ? { [cur]: serialize(game) } : {}) };
-  let next: GameState;
-  const saved = parked[siteId];
-  if (saved) {
-    next = { ...deserialize(saved), day: game.day };
-    delete parked[siteId];
-  } else {
-    const promoted = empire.sites.find((s) => s.id === siteId)!;
-    next = newGameFromSite(content, { ...empire, hq: { ...empire.hq, day: game.day } }, promoted, new Rng(seedState((game.seed ^ hashName(site.name)) >>> 0)), { difficulty: game.difficulty });
-  }
-  return { game: next, meta: { ...meta, empire, parked } };
+  if (e.focusedSiteId === siteId) return { game, meta };
+  return switched(meta, switchSite(content, e, game, meta.parked, siteId));
+}
+
+/** Round 11 (G1): "Close this shop and move on" after a bust HQ couldn't cover (sim-empire closeAndMoveOn). */
+export function moveOnFromBust(game: GameState, meta: PathMeta): { game: GameState; meta: PathMeta } | { error: string } {
+  if (!meta.empire || !empireShopBust(game, meta)) return { error: "Nothing to move on from." };
+  return switched(meta, closeAndMoveOn(content, meta.empire, game, meta.parked));
 }
 
 /** Evening: keep a promoted site's "brand" footfall mod in step with the empire (recognition, saturation, effects). */
@@ -181,12 +199,6 @@ export function refreshBrandPull(game: GameState, empire: PathMeta["empire"]): G
   if (has && has.mult === pull) return game;
   const others = game.footfallMods.filter((m) => m.source !== BRAND_PULL_SOURCE);
   return { ...game, footfallMods: Math.abs(pull - 1) > 0.005 ? [...others, { mult: pull, daysRemaining: EMPIRE.BRAND_PULL_DAYS, source: BRAND_PULL_SOURCE }] : others };
-}
-
-function hashName(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
 }
 
 // ───────────────────────── Stars ─────────────────────────
@@ -230,12 +242,15 @@ function starsWin(ending: { kind: "dynasty" | "el_bulli" | "handed_back"; day: n
   const key = ending.kind === "el_bulli" ? "elBulli" : ending.kind === "dynasty" ? "dynasty" : "handedBack";
   const t = extras.criticText.endings[key];
   const chef = game.staff.filter((s) => s.role === "chef").sort((a, b) => b.skill - a.skill)[0]?.name ?? "the chef";
+  // Round 11 (G4): closing before three stars held on two guides is an honourable ending, not the win.
+  const honourable = ending.kind === "el_bulli" && !ending.win;
+  const body = honourable ? [...t.body.slice(0, -1), "Stopping while people still queue at the door takes courage. A proud ending — the very top was still ahead."] : t.body;
   return {
     kind: ending.kind,
     won: ending.win,
     day: ending.day,
-    title: t.title,
-    text: t.body.map((line) => fill(line, { restaurant: game.restaurantName, chef })),
+    title: honourable ? "A proud ending" : t.title,
+    text: body.map((line) => fill(line, { restaurant: game.restaurantName, chef })),
   };
 }
 
@@ -264,12 +279,15 @@ export function eveningHooks(game: GameState, meta: PathMeta): { game: GameState
     const r = stepEmpireDay(content, m.empire, result);
     m = { ...m, empire: r.empire, empireEvents: trimEvents([...m.empireEvents, ...r.events]) };
     g = refreshBrandPull(g, r.empire);
-    if (r.empire.win.achieved && !m.win) {
+    // Round 11: HQ covers the till's overdraft; parked entries for closed or sold sites go.
+    ({ game: g, meta: m } = hqBacksTill(g, m));
+    if (m.parked) { const parked = pruneParked(m.parked, m.empire!); if (parked !== m.parked) m = { ...m, parked }; }
+    if (m.empire!.win.achieved && !m.win) {
       const meals = r.empire.win.reason === "meals";
       m = {
         ...m,
         win: {
-          kind: meals ? "empire_meals" : "empire_regions", won: true, day: r.empire.win.achievedDay ?? result.day,
+          kind: meals ? "empire_meals" : "empire_regions", won: true, day: m.empire!.win.achievedDay ?? result.day,
           title: meals ? "A billion served" : "Everywhere",
           text: meals
             ? [`${r.empire.brand.name} has served a billion meals.`, "From one scruffy kitchen to a name on every high street. Not bad at all."]

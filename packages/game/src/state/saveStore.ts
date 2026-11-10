@@ -16,6 +16,7 @@
 import type { GameState } from "@full-plate/sim-core";
 import { CAREER_SAVE_KEY, decodeSave, SAVE_KEY, type Loaded } from "./save";
 import type { PathMeta } from "./paths";
+import { runIsOver } from "./pathEngine";
 
 export const MAX_SLOTS = 6;
 /** Cloud writes are trailing-debounced by this much; local writes are not. */
@@ -143,7 +144,8 @@ export function summarize(slotId: string, name: string, game: GameState, meta: P
 }
 export const pickSummary = ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt }: SlotSummary): SlotSummary =>
   ({ slotId, name, mode, restaurantName, day, cash, path, difficulty, updatedAt });
-export const isOver = (game: GameState, meta: PathMeta) => game.phase === "gameover" && meta.mode === "owner";
+/** A finished run. Round 11 (G1): pathEngine's rule, so a running Empire is never over because its hands-on shop went bust. */
+export const isOver = (game: GameState, meta: PathMeta) => runIsOver(game, meta);
 
 // ── the store ──
 export interface StoreDeps {

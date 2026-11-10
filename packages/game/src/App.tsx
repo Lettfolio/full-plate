@@ -31,6 +31,8 @@ const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((
 const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
 const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
 const BoardMeeting = lazy(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
+// Round 11 (G1, G8): the Empire's bankruptcy screen and the bust-shop card.
+const EmpireEnd = lazy(() => import("./screens/paths/EmpireEnd").then((m) => ({ default: m.EmpireEnd })));
 // Round 9: "Your games" (the slot picker) and the two-copies question.
 const SlotPicker = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.SlotPicker })));
 const ConflictDialog = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.ConflictDialog })));
@@ -213,6 +215,25 @@ export function App() {
 
   if (meta.win && !meta.win.dismissed) {
     return <Suspense fallback={<Loading />}><WinScreen game={game} meta={meta} win={meta.win} onKeepPlaying={() => dispatch({ type: "dismissWin" })} onTitle={quitToTitle} /></Suspense>;
+  }
+
+  // Round 11 (G8): a bankrupt Empire ends on its own screen; (G1) a running Empire never shows the shop's GameOver.
+  if (meta.empire && !career && (meta.empire.status === "bankrupt" || game.phase === "gameover")) {
+    const bankrupt = meta.empire.status === "bankrupt";
+    const cp = app.checkpoint;
+    return (
+      <Suspense fallback={<Loading />}>
+        <EmpireEnd
+          game={game}
+          empire={meta.empire}
+          kind={bankrupt ? "bankrupt" : "shopBust"}
+          {...(bankrupt && cp ? { checkpointDay: cp.day, onRetry: () => dispatch({ type: "retryCheckpoint" }) } : {})}
+          onMoveOn={() => dispatch({ type: "moveOn" })}
+          onNewGame={() => { quitToTitle(); setPicker("new"); }}
+          onTitle={quitToTitle}
+        />
+      </Suspense>
+    );
   }
 
   if (game.phase === "gameover" && !career) {

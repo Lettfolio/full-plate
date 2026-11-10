@@ -64,7 +64,7 @@ export function ForkCard({ game, onChoose }: Props) {
             </div>
           </div>
           <div className="fork__foot">
-            <p className="small muted spacer">You can't really have both. Two billion served, or two Michelin stars.</p>
+            <p className="small muted spacer">You can't really have both. Two billion served, or two Golden Plate stars.</p>
             <button className="btn btn--ghost btn--tap" onClick={() => setExplain(true)}><span aria-hidden="true">🏆</span> How do I win?</button>
           </div>
           <button className="btn btn--ghost btn--tap" onClick={() => choose("snooze")}>Think about it (ask me again next week)</button>
