@@ -270,6 +270,20 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     } else { await page.getByRole("button", { name: /Skip to end of shift/ }).first().click(); await page.waitForTimeout(1500); }
     await shot("64-career-evening");
   });
+  // R12 review: the Round 12 screens the walk didn't reach (brand kit, invent a dish, today's challenge, visit a friend).
+  await step("round12", async () => {
+    await boot({ owner: "owner-planning" }); await cont();
+    await tab(/^Restaurant/); await page.waitForTimeout(400);
+    await page.getByRole("button", { name: "Edit brand" }).click(); await page.waitForTimeout(500); await shot("70-brand-kit");
+    await page.getByRole("button", { name: "Cancel" }).last().click(); await page.waitForTimeout(200);
+    await tab(/^Menu/);
+    await page.getByRole("button", { name: /Invent a dish/ }).click(); await page.waitForTimeout(600); await shot("71-invent-dish");
+    await esc();
+    await boot({ owner: "owner-planning" });
+    await page.getByRole("button", { name: /Today's challenge/ }).click(); await page.waitForTimeout(800); await shot("72-challenge-intro");
+    await page.getByRole("button", { name: "Back" }).first().click(); await page.waitForTimeout(400);
+    await page.getByRole("button", { name: /Visit a friend/ }).click(); await page.waitForTimeout(600); await shot("73-visit-friend");
+  });
 }
 
 /**
