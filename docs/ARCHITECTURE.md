@@ -1,82 +1,141 @@
-# Full Plate — Architecture (Milestone 1: Owner start, first restaurant)
+# Full Plate — Architecture (as of round 11)
 
-Read the brief first: `docs/BRIEF.md` (exported from the design doc). This file is the build contract.
+What the code is and how it fits together. The design intent is `docs/BRIEF.md`; per-package detail and history are
+in the `*-NOTES.md` files; saves in depth are `docs/SAVES.md`. This file replaced the milestone-1 build contract in
+round 11 (the old version is in git history, `git show 9c9061e:docs/ARCHITECTURE.md`).
 
-## Milestone 1 scope
-One restaurant in one district. The player:
-1. Picks a district and names the restaurant (NEW_GAME).
-2. **Planning (morning):** sets menu and prices, hires/fires, sets rota, orders stock, buys tables.
-3. **Service:** watches customers arrive, queue, sit, order, eat, pay and rate, at 1x/2x/4x. Can comp a table or 86 a dish.
-4. **Evening:** reads a one-screen P&L, best/worst dish, reviews, staff mood, reputation delta.
-5. Survives loan repayments, rent and a slow winter. Random events with 2–3 choices appear some mornings.
-6. Game over on sustained negative cash (normal/hard); cosy never bankrupts.
+## The shape of it
 
-Out of scope for M1: franchising, critics/stars, career ladder, first-person mode, multiplayer, save slots UI (but `serialize`/`deserialize` must exist).
-
-## Packages (pnpm workspace)
 ```
-packages/
-  sim-core/   @full-plate/sim-core   pure TypeScript, zero runtime deps, vitest. The contract is src/types.ts.
-  content/    @full-plate/content    JSON data files + a loader that validates against types and exports a ContentPack.
-  game/       @full-plate/game       Vite + React 18 + TypeScript. Imports sim-core and content. Canvas-drawn restaurant view.
+game  (React 18 + Vite: screens, floor canvas, saves, path wiring)
+ ├── handson ─────────┐
+ ├── sim-career ──────┤
+ ├── sim-empire ──────┼──▶ sim-core  (no workspace imports, no runtime deps)
+ ├── sim-stars ───────┤        ▲
+ │      └── content ──┘        │ types only
+ └── content ──────────────────┘
 ```
-- `sim-core` must never import from `game` or `content`. It receives a `ContentPack` as an argument.
-- `content` may import types from `sim-core` (type-only).
-- `game` imports both.
 
-## Determinism rules (sim-core)
-- All randomness through `src/rng.ts` (xoshiro128** or PCG; state stored in `GameState.rngState`). No `Math.random`, no `Date`.
-- Money is integer pence. Use `Math.round` at the end of each calculation, never accumulate floats in state.
-- `tick`/`applyCommand` return a **new** state object (structural sharing is fine; mutation of the input is not).
-- Same seed + same command sequence ⇒ byte-identical serialized state. There is a test for this.
+Seven pnpm workspace packages under `packages/`. Every package is TypeScript source consumed directly (`main` points
+at `src/index.ts`); only `game` ships (the others build small dev demos). Rules:
 
-## Systems order per tick (service)
-ArrivalSystem → SeatingSystem → OrderSystem → KitchenSystem → ServiceSystem (eating, patience) → PaymentSystem → ClearingSystem → LogSystem
-Per day (evening): FinanceSystem (rent/day, wages, loan) → WasteSystem → ReputationSystem → StaffMoodSystem → EventDeck (maybe queue an event for next morning) → StatsSystem.
+- **sim-core imports nothing** from the workspace and has no runtime dependencies. It receives a `ContentPack` as an
+  argument and never imports `content`.
+- **content** imports sim-core *types* only. Importing it validates every collection with hand-written guards and
+  throws a list of problems if the shipped data is wrong.
+- **sim-career, sim-empire, sim-stars** depend on sim-core (sim-stars also on content for its own data). They never
+  import each other, React or the game.
+- **handson** depends on sim-core; it owns the hands-on canvas, sprites, the cached-layer helper and the bot.
+- **game** imports everything, but talks to sim-core only through `src/sim.ts` (the "sim door": the API, `content`,
+  and the constants screens show, such as `hireCheck`).
 
-## Key formulas (first pass — balance agent may tune via content/balance.json, not code)
-- **Potential arrivals/day** = district.footfall × seasonCurve[month] × (0.5 + popularity/100) × Π footfallMods × weekendMult.
-- **Choice to enter:** each potential party enters with p = sigmoid(appeal − priceGap − queuePenalty) where appeal = Σ over active menu dishes of baseAppeal[segment] (capped), priceGap = (avgMenuPrice − segment.averageBudget)/averageBudget × priceSensitivity, queuePenalty grows with queue length.
-- **Patience** falls per tick waiting; speedWeight scales the fall. At 0 → walkout, popularity hit.
-- **Dish quality** = min(qualityCeiling, chef.skill × traitMult − max(0, skillRequired − chef.skill) × 0.8 − fatiguePenalty) + ingredient freshness bonus ± small noise.
-- **Satisfaction** = weighted(qualityWeight × avgDishQuality, speedWeight × (100 − waitPenalty), (1−priceSensitivity) × value) and server charm adds up to +10.
-- **Rating** 1–5 from satisfaction bands. **Reviews**: rate ≈ reviewRatePer10Covers; text templated from content.
-- **Reputation:** popularity moves toward the day's mean rating×20 by 10% per day, plus walkout penalties; prestige moves on reviews ≥4 with quality ≥70 and on critic events. Both decay toward 50 slowly.
-- **Menu matrix:** popularity = sold7d vs mean; margin = margin7d/sold7d vs mean → star / ploughhorse / puzzle / dog.
-- **Waste:** prep waste = covers × ingredient cost × share; plate waste from low satisfaction; spoilage when stock.oldestDay + shelfLife < day.
-- **Finance:** rent/30 per day; wages = Σ staff on rota × wage × 10h; loan: equal daily payments; cash < −(3 months costs) for 14 days ⇒ GAME_OVER (normal). Cosy: clamp at 0 with a warning.
+| Package | Entry points | Notes |
+| --- | --- | --- |
+| sim-core | `newGame`, `applyCommand`, `tick`, `runDay`, `serialize`/`deserialize`, advice, forecasts, decor, strategies, `headless.ts` | `src/types.ts` is the contract; systems in `src/systems/` |
+| content | `content` (ContentPack), `extras`, `fill` | `data/*.json`; balance knobs in `balance.json` |
+| handson | `createSession`, `updateSession`, `render`, `botInput`, `summarise`; subpaths `./sprites`, `./palette`, `./layers` | 60 Hz session over a sim-core service; HANDSON-NOTES |
+| sim-career | `newCareer`, `beginCareerDay`, `stepCareerDay`, `finishCareerDay`, `applyCareerCommand`, `handoverToOwner` | ladders in `constants.ts`; CAREER-NOTES |
+| sim-empire | `forkFromGameState`, `stepEmpireDay`, `applyEmpireCommand`, `serialize`/`deserialize`, world + board | EMPIRE-NOTES |
+| sim-stars | `newStarsState`, `prepareService`, `stepStarsDay`, `applyStarsCommand`, `applyStarsEffects` | STARS-NOTES |
+| game | `src/main.tsx` → `App.tsx` | below |
 
-## sim-core public API (index.ts)
-```ts
-export function newGame(content: ContentPack, cmd: Extract<Command, {type:"NEW_GAME"}>): GameState
-export function applyCommand(content: ContentPack, state: GameState, cmd: Command): StepResult
-export function tick(content: ContentPack, state: GameState): StepResult
-export function runDay(content: ContentPack, state: GameState): StepResult
-export function candidates(content: ContentPack, state: GameState): Candidate[]
-export function classifyMenu(content: ContentPack, state: GameState): Record<DishId, MenuQuadrant>
-export function serialize(state: GameState): string
-export function deserialize(json: string): GameState
-export * from "./types"
+## Determinism (all four sims)
+
+- All randomness goes through the package's own seeded `rng.ts`; its state lives in the serialised state
+  (`GameState.rngState`, and the equivalents in career/empire/stars). No `Math.random`, no `Date`, no wall clock.
+- Money is integer pence; every calculation rounds at the end and state never accumulates floats.
+- `tick` / `applyCommand` / `step*Day` return a new state; inputs are never mutated (structural sharing is fine).
+- Same seed + same command sequence ⇒ byte-identical serialised state. Each sim has a determinism test, and the game
+  checks that save → load mid-run replays identically (`round9`/`round10` tests, the save corpus).
+- The UI's only extra memory is cosmetic (where a sprite is drawn, a toast) or wall-clock metadata the sim never
+  sees (a save's `updatedAt`).
+- `content` is data, so a balance change is a JSON change; tests that pin balance numbers say which file to tune.
+
+## A day, end to end (game/src)
+
 ```
-Plus `src/headless.ts`: a CLI (`pnpm headless --days 365 --seeds 200 --strategy balanced`) that plays with simple scripted strategies and prints survival rate, median cash curve, covers/day, and writes `out/balance.csv`.
+Title → Continue / New game (StartPicker: owner or career, difficulty, district)
+  planning ── Open for service ──▶ service (Service.tsx: rAF drives `ticks`, floor canvas; or HandsOnShift)
+     ▲                                 │ last tick
+     └──── Next day ◀── evening (Evening.tsx / CareerEvening) ◀─ event card (EventModal) ─┘
+```
 
-## game (UI) layout
-- `src/App.tsx` — phase router. Keeps `GameState` in a reducer; all changes via `applyCommand`/`tick`.
-- `src/screens/NewGame.tsx` — district picker (cards with rent, footfall, segment mix), name input.
-- `src/screens/Planning.tsx` — tabs: Menu (matrix view + price editor), Staff (roster, rota grid, candidates), Stock (order sheet with shelf life), Restaurant (buy tables). "Open for service" button.
-- `src/screens/Service.tsx` — left: canvas restaurant (tables, queue outside, kitchen pass, little people moving between stages; colour by patience). Right: live ticker (log), today's running totals, speed controls, Comp / 86 actions. Uses `requestAnimationFrame` to call `tick` N times per second by speed.
-- `src/screens/Evening.tsx` — P&L card, dish best/worst, reviews list, staff mood changes, reputation bars, "Next day" button.
-- `src/screens/EventModal.tsx` — title, body, 2–3 choice buttons.
-- `src/canvas/RestaurantView.ts` — pure canvas drawing given state; no React state inside.
-- Style: warm, readable, cosy. Big type. No gradients soup. CSS variables for theme; dark mode optional.
-- Autosave to localStorage on every phase change via `serialize`; "Continue" on the title screen.
+- `state/gameReducer.ts` holds `AppState = { game: GameState, meta: PathMeta, …UI memory derived from SimEvents }`.
+  Every change is an `AppAction`; sim changes go through `applyCommand`/`tick` (via `ownerApply` in pathEngine).
+- `state/paths.ts` defines `PathMeta`: the mode (owner/career), the fork, and the path states `career`, `empire`,
+  `stars`. `state/pathEngine.ts` wires the path sims into the day as pure functions: career begin/step/finish around
+  the employer's service; `stepEmpireDay` each evening; Stars' `prepareService` in the morning and `stepStarsDay` in
+  the evening. The fork is offered from day 365.
+- Service pacing: `requestAnimationFrame` runs 2 × speed ticks a real second, at most 8 a frame, remainders carried.
+  A hands-on shift runs the handson session at 60 Hz and one sim tick every `secondsPerTick`.
+- `canvas/` is the owner's floor: `RestaurantView.ts` (the class: frame order, people movement, per-frame drawing)
+  with `layout.ts` (geometry), `frame.ts` (the per-frame palette/decor/motion), `people.ts`, `paint.ts` (helpers),
+  `scene.ts` (the static scene, painted once per resize into a cached layer, with the decor hooks), `interaction.ts`
+  (hit-testing), `floorPalette.ts` (theme tokens read from CSS) and `decorArt.ts` (the decor art, its own chunk).
+- `lib/` holds pure helpers (format, calendar, coaching, goals, decor lines, settings, prefs sync); `components/` the
+  shared UI (Dialog, Term, Icon, Avatar, SettingsMenu, SaveIndicator…); styling is `theme.css` tokens plus a few
+  per-screen CSS files loaded with their lazy chunk (UI-NOTES "Round 8 — B").
 
-## content
-- `data/*.json` one file per collection; `src/index.ts` loads, validates (hand-written guards, no zod to keep deps minimal), and exports `content: ContentPack`.
-- Ingredient costs, wages, rents in **UK pence** anchored to the brief's figures (NLW £12.71/h, rent £2–5k/month outside London).
-- Targets for headless: ~70–80% of "balanced" scripted owners survive year 1 at normal; cosy 100%; hard ~50%.
+## Bundle layout (vite build)
 
-## Quality bar
-- `pnpm -r typecheck` and `pnpm -r test` pass. sim-core ≥ 80% line coverage on systems.
-- Determinism test, serialize round-trip test, a 365-day smoke test under 2s.
-- UI runs with `pnpm dev`; `pnpm --filter @full-plate/game build` produces a static `dist/` deployable to Vercel.
+`vite.config.ts` splits the sims into cacheable chunks (`manualChunks`): `react`, `content`, `sim-core`, and
+`paths` (sim-empire + sim-stars + sim-career together). Everything the first paint doesn't need is a lazy chunk:
+
+| Chunk (round 11 size) | Loaded when |
+| --- | --- |
+| `index` (≈196 kB) | first paint: App, title, planning, service shell, evening, save facade |
+| `content` (178 kB), `sim-core` (130 kB), `paths` (154 kB), `react` (142 kB) | at start (the reducer and save envelope call them synchronously) |
+| `HandsOnShift` (113 kB) | the first hands-on shift (React.lazy in App) |
+| `RestaurantView` (38.6 kB), `sprites` (10.6 kB) | Service, prefetched in idle time; Service imports the view for types only |
+| `decorArt` (18.8 kB) | the first decorated room drawn, or the Decorate tab |
+| `EmpireTab` (47 kB), `StarsTab` (24 kB), `mapParts` (10 kB) | those tabs |
+| `StaffTab`, `DecorateTab`, `MenuMatrixPanel` | those tabs / panels |
+| `MyShift`, `CareerEvening`, `HandoverModal` | career screens |
+| `BoardMeeting`, `GuideEnvelope`, `WinScreen` | Empire board, Stars guide day, an ending |
+| `saveCore`, `saveCodec`, `saveCloud`, `saveFiles`, `SlotPicker`, `SaveSheet` | the save layers (below), the picker, the save mark's sheet |
+
+Fonts are self-hosted from `@fontsource` (no network font requests; OFL in `public/fonts-licence/`). `base: "./"`
+makes the build work from any path (GitHub Pages project site, claude.ai artifact). Two guards keep the split honest:
+`round8.review.test.ts` pins Service's type-only import of the floor view, and UI-NOTES lists the modules that must
+never be imported statically from main-chunk code. Chunk sizes are compared before/after in each round's notes.
+
+## Saves (layers)
+
+One **envelope** per game (`state/save.ts`): `{ kind: "full-plate", v: 1, game, career?, empire?, stars?, meta }`. Each
+sim serialises its own state into a string field; `meta` is the rest of `PathMeta` as plain JSON, minus transient UI
+(the live hands-on session, tonight's event lists). `decodeSave` also reads a bare round 1–2 GameState and an
+uncompressed save file. Autosave runs on every phase/day/path change, never per tick.
+
+Behind one store (`state/saveStore.ts` facade → lazy `saveCore.ts`), up to six slots live in three layers:
+
+1. **Account** (`saveCloud.ts`): inside claude.ai, the viewer's private `data/users/<uid>/` collection — gzip+base64,
+   chunked, two banks, header written last; a conflict rule keeps the other copy as a backup.
+2. **Device** (`saveCore.ts`): the same packed blob in `localStorage` (`full-plate:slot:v1:<id>` + an index); a
+   reload offline still continues. Round 1–8 single saves are imported once.
+3. **Save file** (`saveFiles.ts`): `fullplate-<name>-day<N>.fpsave.json`, via the `downloads` capability or
+   `<a download>`; Load a save file reads it back (and old raw envelopes).
+
+With none available the slots live in memory and every save surface says **Not saved**. Settings and onboarding flags
+ride along in one `prefs` document. Full design, failure handling and the test doubles: `docs/SAVES.md`.
+
+Compatibility is tested against real old files: `src/__tests__/fixtures/corpus/` (19 reviewer saves from rounds 6–9
+and 10 generated in round 11) — each must decode, re-encode to a fixed point, and play a day (`corpus.test.ts`).
+Never delete a corpus file; when the format changes, add a new one.
+
+## Tests and tooling
+
+- `pnpm -r test`: vitest 4 in every package (jsdom for the game). sim-core runs with v8 coverage (≥ 80 % lines on
+  `src/systems/**`). Long headless tests carry their own speed bounds; `testTimeout` is 60 s everywhere.
+- Headless runners (`pnpm headless`, and each path package's `headless`) print balance tables; tests pin the claims
+  they support, aggregated over seeds rather than hand-picked ones (PIPELINE.md, "Test honesty").
+- Browser checks outside vitest: `pnpm --filter @full-plate/game probe` and `audit` (Playwright on the built game,
+  every screen, with a committed baseline). See README and `docs/PIPELINE.md`.
+- CI: `.github/workflows/pages.yml` on push to master — frozen install, typecheck, test, build, deploy to Pages;
+  least-privilege permissions and SHA-pinned actions (PIPELINE.md).
+
+## Conventions worth knowing before you change things
+
+- A new command or field goes in sim-core `types.ts` first; optional fields keep old saves loading (add a corpus file).
+- UI text never below 13 px (canvas included); tap targets 44 px; glossary words wrap in `<Term>` (UI-NOTES).
+- Canvases read theme tokens through one list each (`floorPalette.ts`, `handson/src/palette.ts`).
+- Keep `canvas/RestaurantView`, the hands-on screen, the save layers and the path tabs out of the main chunk.
