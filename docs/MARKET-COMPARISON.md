@@ -1,6 +1,224 @@
 # Full Plate — market comparison notes (10 November 2026)
 
-Two analyst notes behind section 6 of the Round 11 report. Facts about other games come only from the sources listed; 'unverified' means not confirmed. Full Plate facts about portrait play and the drinks setting were written mid-merge; both are fixed in v11 (see RED-TEAM.md).
+Three analyst notes behind sections 7 and 8 of the Round 11 report (re-issued for Round 11b). The first, written after the owner's correction that his daughter is 14, is the one the report uses; the other two (one on the games younger children play, one on the management/tycoon games) are kept for their verified prices, ratings and depth comparisons. Facts about other games come only from the sources listed; 'unverified' means not confirmed. Full Plate facts about portrait play and the drinks setting in the older two notes were written mid-merge and before Round 11b: portrait is fixed in v11, and since v12 real drinks are shown by default with a "Hide alcoholic drinks" switch (see RED-TEAM.md, UI-NOTES.md "Round 11b").
+
+---
+
+# Full Plate for a 14-year-old: what she plays, and how Full Plate looks next to it
+
+*Market note, 10 November 2026. This re-aims the earlier notes (`kids.md`, written for a 10-year-old, and `tycoon.md`) at a 14-year-old girl in the UK. Facts already confirmed in those notes are reused without fetching them again. Every new fact about another game comes from a page fetched for this note (see Sources). Anything I could not confirm is marked **unverified**. Rows or remarks marked † are my own judgement, not a sourced fact. Prices are UK prices unless a currency says otherwise. "CSM" means Common Sense Media's recommended age.*
+
+*Facts about Full Plate come from the project's own docs (BRIEF, REVIEW round 11, RED-TEAM, UI-NOTES, SIM-NOTES, CONTENT-NOTES) and from the game's text files, which I read but did not change.*
+
+---
+
+## 1. What 14-year-old girls in the UK actually play
+
+### The evidence, and where it runs out
+
+- **Nearly all of them play something, and much of it is social.** Ofcom's May 2026 children's research says 72% of 8–17s game online. 55% play at least sometimes with people they have only met online, and 20% do so often. About four in ten 11–17s use Roblox. Heavy Roblox users aged 8–14 average 1 hour 19 minutes a day on it. Ofcom also lists games as one of the main reasons children are on their phones.
+- **Roblox is no longer mainly a little-kid platform.** In late 2025 Roblox's chief executive said two-thirds of daily users are 13 or over, and they account for 68% of hours played. Daily users fell 9% year on year to 138 million in Q3 2026, the first annual fall. Age checks for chat came in during 2026 and may be part of the reason (unconfirmed). Since January 2026, a checked 13–15-year-old can chat with her own age band plus 9–12s and 16–17s.
+- **The biggest Roblox hits of the past two years were made by teenagers.** *Grow a Garden* was made by a 16-year-old and launched in March 2025. It peaked at 22.3 million players online at once in August 2025. *Dress to Impress* was started by a developer who was 14. It is a timed fashion contest in which other players rate your outfit. It has run collaborations with Charli XCX, Lady Gaga and *Wicked: For Good*, and the press credit it with pulling in older players.
+- **The Sims stands out for young women.** YPulse's May 2026 games report (North America) names *The Sims* as a favourite among Gen Z women, while Fortnite and Roblox top the overall list.
+- **Don't assume "girls' games".** Bryter's UK/US survey of women aged 16–65 found more women regularly play action-adventure (56%) and shooters (49%) than life sims (40%). It calls the idea that women only play cosy games "a myth".
+- **The phone matters.** The newest UK gender data I could read is old. In 2018, 84% of UK teenage girls said they spent free time gaming. In 2019, parents said the smartphone was girls' main gaming device (79%), while for boys it was the console (88%).
+
+**The gap.** I could not open Ofcom's 2026 report PDFs or Internet Matters' January 2026 gender-gap briefing, so I have **no verified 2025–26 figures for UK girls aged 13–15 by game**. The picture above comes from platform data, US youth research and older UK surveys. Read it as a direction, not a census.
+
+### The landscape
+
+| Game | Platforms | UK price | PEGI / CSM | Money model | Core loop | Why a 14-year-old plays it † |
+|---|---|---|---|---|---|---|
+| **Full Plate** | Browser (tablet, PC). Phone-sized screens not tested in the docs | Free | Not rated | None: no ads, no purchases, no chat | Plan the day, watch or work the shift, read the evening results; at the end of the first year, pick Empire or Golden Plate | Her own restaurant, made by her dad |
+| **Roblox** (platform) | Phone, tablet, PC, console | Free | PEGI 7; CSM 13+ | Robux | Thousands of user-made games | Where her friends are |
+| ↳ *Dress to Impress* | Roblox | Free | As Roblox | Robux and limited-time items | Dress to a theme in 6 minutes, walk the catwalk, get rated by players | Fashion, self-expression, judging and being judged by others |
+| ↳ *Grow a Garden* | Roblox | Free | As Roblox | Robux to skip waiting; pets from **loot boxes**; weekly limited items | Plant, wait, sell, expand; steal other players' crops | Talked about at school; trading |
+| ↳ *Restaurant Tycoon 2* | Roblox | Free | As Roblox | 11 game passes, 41 paid items | Build, decorate, cook, grow | The "restaurant game" everyone knows (1.7 billion visits) |
+| **Minecraft** | Everywhere | US$6.99–29.99 (UK unverified) | PEGI 7 | Marketplace; some servers sell loot boxes | Build and survive; typed chat online | Building with friends |
+| **Fortnite** | Everywhere | Free | PEGI 12 | In-game currency (unverified) | Battle royale and creative modes | Social hub (UK figures for girls unverified) |
+| **The Sims 4** | PC, Mac, PlayStation, Xbox | Base game free since Oct 2022; packs extra | PEGI 12; ESRB T; CSM 12+ (kids say 10+) | "A lot" of paid packs (CSM) | Make people and homes, live their lives | Identity, relationships, building; a Gen Z women's favourite |
+| **Stardew Valley** | Everywhere | Switch from £8.67 | PEGI 12 for the current version, raised from 7 because of the casino; CSM 10+ | Paid once | Farm, befriend, date, cook; co-op for 1–4 | Calm, long, romance; plays with a friend |
+| **Animal Crossing: NH** | Switch, Switch 2 | Switch 2 Edition £54.99 | PEGI 3 | Paid add-on | Island life; the 2026 Resort Hotel pays you for decorating | Decorating, letters and visits with friends |
+| **Disney Dreamlight Valley** | Everywhere | US$39.99 (UK unverified) | PEGI 3; CSM 5+ | Moonstones for cosmetics | Life sim; Remy's restaurant | Disney characters and decorating |
+| **PlateUp!** | PC, Switch, PlayStation, Xbox | £16.75 (Steam) | PEGI 3 (wine as an ingredient) | Paid once | Lay out a kitchen, survive up to 15 days, start over with unlocks; 1–4 co-op | Friends shouting in a kitchen; streamer favourite (2m copies on Steam) |
+| **Overcooked! 2** | Everywhere | From £8.67 (Switch) | UK age 3; CSM 8+ | Paid, plus DLC | Up to four chefs against the clock | Party and sleepover game |
+| **Cook, Serve, Delicious! 3?!** | PC, consoles | £15.49 (Steam) | PEGI 7; ESRB alcohol reference | Paid once; no purchases or ads | Fast typed or tapped prep from a food truck | Skill and speed; local co-op |
+| **Good Pizza, Great Pizza** | Phone, Switch, PC | Free with gems; ad-free version on Apple Arcade (£6.99 a month) | Apple 4+; CSM 5+ | Ads and gems | Read a customer's odd request, build the pizza | Funny customers; easy on a phone |
+| **Papa's games** | Browser (Coolmath, 14 games); phone; Steam "Deluxe" | Browser: free (unverified); Pizzeria Deluxe £4.99 | Apple 4+ | Paid or free | Take the order, build it across four stations | Nostalgia: Freezeria is the series' most-played game, with TikTok fan clips |
+| **Dave the Diver** (restaurant half) | PC, Switch, Switch 2, PlayStation, Xbox; phones from Sept 2026 | Switch 2 Edition £16.99 | PEGI 12 | Paid once | Dive for fish by day; run a sushi bar at night; VIP requests unlock staff | Silly, stylish, funny cutscenes; 5m+ sold |
+| **Two Point Hospital** | PC, consoles; full collection on new consoles Sept 2026 | Seen at £5.24 on sale (regular price unverified) | PEGI 7; CSM 10+ | Paid, plus DLC | Build and run hospitals for punny illnesses; a star unlocks the next hospital | British humour; easy to understand |
+| **Two Point Museum** | PC, PlayStation 5, Xbox, Switch 2 | US$29.99 (UK unverified) | ESRB E (PEGI unverified) | Paid, plus DLC | Send experts on expeditions, display finds | Same humour, more collecting |
+| **Supermarket Simulator** (the 2024–26 "simulator" wave) | PC, Switch, Xbox; PS5 on 12 Nov 2026 | US$9.99–19.99 (UK unverified) | PEGI 12 | Paid once (phone copies by other studios have ads) | First-person: stock shelves, set prices, expand; 4-player online | Satisfying routine; YouTube and TikTok fodder |
+| **Cooking Simulator 1 / 2** | PC | US$19.99 / 24.99 | None listed | Paid, plus add-ons | Do every cooking step yourself; 2 adds co-op | Realism and chaos |
+| **Chef Life** | Switch and others | Unverified | PEGI 3; in-game purchases | Paid, plus extras | Cook, then plan seasonal menus; chase a Michelin star | The closest rival to Full Plate's Golden Plate path |
+| **New in 2026 on Steam** | PC | e.g. *KuloNiku: Bowl Up!* (Apr 2026) US$11.99; *Galaxy Burger* US$11.99 | None listed | Paid once | Story-plus-decor restaurant sims; co-op burger and kebab kitchens for up to 8 (*Galaxy Burger*), 4 (*Kebab Chefs!*) or 6 (*Japanese Ramen Simulator*) | Cheap, co-op, made to stream |
+
+---
+
+## 2. The parent's checklist, re-weighted for 14
+
+**Still matters, and more than at 10:**
+
+- **Spending traps.** At 14 she may have her own phone, her own money and Robux from birthdays. Loot boxes, limited-time items and "pay to skip waiting" are aimed squarely at her age group. *Grow a Garden* uses all three.
+- **Strangers.** More than half of 8–17s sometimes play with people they only know online (Ofcom). On Roblox, a 13–15-year-old can be matched for chat with 16–17s.
+- **Time sinks.** Open-ended games with daily rewards have no natural stopping point.
+- **Data and privacy.** Accounts, age checks (Roblox now uses a face scan before chat), store privacy labels.
+
+**Matters less now †:** reading level, 44 px tap targets and the Bigger-text setting (keep them, but they no longer sell the game), and alcohol *references* at PEGI 12 level. She already plays PEGI 12 games with drinking in them: Stardew's villagers drink, one is shown passed out, and the current version has a casino. Cook, Serve, Delicious! 3 (PEGI 7) lists wine, rum and brandy in its recipes, and PlateUp! (PEGI 3) uses wine.
+
+**New for 14 †:** can she play it with or show it to friends? Is it on the device she actually uses (probably her phone)? Does it treat her as capable?
+
+### Full Plate against the eight most relevant
+
+| | **Full Plate** | Sims 4 | Stardew | PlateUp! | Overcooked 2 | Two Point Hospital | Dave the Diver | Roblox (DTI / GaG / RT2) | GPGP (free) |
+|---|---|---|---|---|---|---|---|---|---|
+| Real-money purchases | **None** | Many packs (CSM: "a lot") | None | None | DLC | DLC | None | Robux; loot boxes in GaG | Gems |
+| Loot boxes or limited-time pressure | **None** | Unverified | None | None | None | None | None | Yes (GaG pets; weekly items; DTI limited items) | Unverified |
+| Chat with strangers | **None** | Shares user-made content; mods can add adult content (CSM) | Typed chat in online co-op | Players can talk online (FGD) | Emotes; party chat is separate (CSM) | None found | None found | **Yes**, after a face age check | None |
+| Stopping points † | Good: every evening; Skip to evening | Weak | Each in-game day | Each run | Each level | Each star | Each day/night | Weak; rewards for being online | Each day |
+| Privacy | **Zero third-party requests** (red team) | Account (details unverified) | Platform account | Platform account | Platform account | Platform account | Platform account | Roblox account and face check | Ads and tracking (unverified) |
+| Content at 14 † | Mild; adult drinks hidden by default | Romance, under-the-covers sex shown as hearts (CSM) | Drinking, romance, casino | Mild | Mild | Crude toilet humour (CSM) | Mild (PEGI 12) | Anything user-made | Mild |
+| Challenge † | Cosy can't fail; Hard is real | Low | Low to medium | High, "divisive" curve | High | Medium | Medium | Low | Low |
+| Play with friends | No | Share homes and Sims | Co-op 1–4 | Co-op 1–4 | Co-op 1–4 | No | No | Yes, everything | No |
+| Self-expression † | 45 decor items in 9 fixed slots; career player has 6 looks | Huge | Farm, house, clothes | Kitchen layout | Chef skins | Room layout | Little | DTI: huge | Shop decor |
+| On her phone | Untested at phone size | No | Yes | No | No | No | From Sept 2026 | Yes | Yes |
+
+**Reading the table.** Full Plate still wins every *safety* row a parent of a 14-year-old cares about. That is now a smaller part of the decision, though, because at 14 she chooses for herself. It loses the rows she cares about: friends, self-expression and being on her phone.
+
+---
+
+## 3. Does Full Plate read as "for a little kid" to a 14-year-old?
+
+**Short answer: in places, yes. The cause is the Round 11 *wording*, not the game underneath.** The brief itself says the audience is "roughly 12+" and that the tenth hour should feel like Two Point Hospital. The simulation (rent, wages, loans, franchise contracts, inspectors, board meetings) is deeper than anything else in the landscape table except Chef Life and the PC tycoons. Round 11 pushed the *surface* down to age 10. For 14, most of that push should be undone or made optional.
+
+### What would feel patronising †
+
+- **"No grown-up drinks", on by default.** The phrase is the most nursery-sounding thing in the game. So are some of the swaps. "Tall local dandelion & burdock" in a gastropub and "Glass of blackcurrant crush" on a Golden Plate drinks list will read as a joke at her expense. The PEGI 7–12 games she already plays (Stardew, Cook, Serve, Delicious! 3, Dave the Diver) mention alcohol without fuss.
+- **Review voices written for a younger child.** "Our tummies were rumbling", "Yum!" and "Very posh" are written for a 10-year-old. ("My little brother learned to whistle" is genuinely funny. Keep that kind.)
+- **A dotted "learn this word" underline everywhere.** Day 1's Menu has 71 inline glossary words. At 14 that feels like a school worksheet.
+- **Hand-holding that doesn't let go.** The goals card glows amber, pulses twice and offers "Show me". It is excellent on day 1 and grating by day 20 if it keeps nudging.
+- **Removing the real words.** "86'd → Take off tonight" is clearer, but the kitchen slang is part of the appeal of restaurant stories for teenagers †. A 14-year-old would rather learn "86" than be shielded from it.
+- **The look, in small doses.** The rounded Fredoka font, sticker buttons and rosy-cheeked, dot-eyed portraits are friendly. But PlateUp!, Overcooked, Two Point and Stardew are all cartoons too, so the cartoon style is not the problem. Over-explaining is.
+
+### What would feel respectful, and is already there
+
+- **The career lines.** "You were the calmest person in the building on Saturday. That's leadership." "Decent. Use less kitchen roll and we'll call it excellent." These talk to her as a colleague.
+- **Dry humour in the critic and event text.** "You're proud. Mostly." "Black tie optional, but encouraged." That is the right register for 14. There should be more of it.
+- **Most of the plain-words pass.** "Head office", "sister restaurant" and "a share of their takings" are simply good English, not baby talk. Keep them.
+- **Cosy at 4× speed.** This helps a teenager too. She wants to get to the interesting part. "Cosy" is now a selling word: 2026 Steam titles use it ("Cozy Cooking", "Cozy Sushi Restaurant"). Keep both, but let her choose.
+- **Real stakes on Normal and Hard.** You can go bust, the bank counts down, inspectors visit unannounced. That is respectful.
+
+### How the games she knows talk to her
+
+- **Two Point Hospital** treats you as in on the joke. Illnesses are "terrible puns" (Light-Headedness, Pandemic), and a radio DJ keeps up a running commentary. Critics praised its "British sense of humour". CSM finds the toilet humour "a little bit over the top", and teenagers tend to like exactly that †.
+- **PlateUp!** barely speaks at all. It lets you fail, ends the run, and makes you start again with your unlocks. TheGamer called the difficulty "divisive". Being trusted to fail is a form of respect.
+- **Stardew Valley** leaves you alone, which CSM says can feel "aimless". It includes drinking, dating and marriage, and is rated PEGI 12.
+- **The Sims 4** has "detailed tutorials" (CSM) but no reading-age softening. It includes romance and a grim reaper.
+- **Dave the Diver** is "silly, yet endearing", and its humour lives in stylish cutscenes, not explanations.
+
+**Lesson †:** respect means trusting her to fail, letting jokes have a little edge, using real words with a tip on tap, and offering help when asked rather than all the time.
+
+---
+
+## 4. Where Full Plate is ahead and behind for a teenager
+
+| | Full Plate | Ahead or behind † |
+|---|---|---|
+| **Depth** | Two complete end-games, franchising, a career that starts as an employee, staff with personalities, loans and board meetings | **Well ahead** of every free or phone game here; level with the PC tycoons |
+| **Challenge** | Cosy can't fail; Normal busts 10% of "typical" players in year 1; Hard is tougher | **Ahead** if she picks Hard, but there are no challenge levels or scores to beat |
+| **Aesthetics** | A tidy, warm cartoon look; quiet sounds | **Behind** on style and music: there is no soundtrack, no stylish moments like Dave the Diver's cutscenes, and nothing she would screenshot |
+| **Self-expression** | 45 items in 9 fixed slots; a restaurant name; 6 looks for her career character | **Well behind** Sims, Dress to Impress and Animal Crossing: no logo, uniforms, colour scheme or free placement, even though the brief asked for "uniforms, logo, theme" |
+| **Humour** | Gentle, sometimes dry | **Behind** Two Point and Dave the Diver: too few jokes, and too soft |
+| **Shareable moments** | A "Save a picture" card on the win screen only | **Behind**: nothing to post in a group chat during play |
+| **Co-op or social** | None | **Behind** PlateUp!, Overcooked, Stardew and all of Roblox |
+| **Speed to the interesting part** | Day 30 in about 23–30 minutes on Cosy; the Empire-or-Stars choice after 4.7–6 hours | **Behind**: a PlateUp! run is 15 days and one Two Point star unlocks the next hospital, while Full Plate's big moment is an evening's play away |
+| **Device** | Tablet and PC; portrait iPad fixed | **Behind** if her main screen is a phone (untested) |
+| **Safety and cost** | Free, no purchases, no chat, no trackers | **Far ahead**, though that matters more to you than to her |
+
+---
+
+## 5. Borrowable ideas, re-ranked for 14
+
+| # | Idea | Borrowed from | Why it suits a 14-year-old girl † | Cost |
+|---|---|---|---|---|
+| 1 | **Brand kit.** Restaurant logo (pick shape, colour and lettering), staff uniforms, a house colour, sign and menu style, all shown on the shopfront and the menu card | *Dress to Impress* (self-expression is the whole game); *Sims 4*; the brief's own "uniforms, logo, theme" | Self-expression is what she does in every game she picks. It makes the restaurant *hers*, not Dad's | **Medium.** Recolouring existing art plus one editor screen |
+| 2 | **Daily challenge, same for everyone.** One shared starting position a day ("rescue this café by Friday"), scored, so she can compare with Dad or a friend | *PlateUp!* (runs and difficulty cards); *Two Point* (star goals); *Recipe for Disaster* rescue scenarios | Gives her challenge, short sessions and bragging rights. Full Plate's sim always plays out the same from the same start, so a fair shared puzzle is nearly free | **Cheap to medium.** Fixed seeds plus a score screen; the score can be typed in, with no online system needed |
+| 3 | **Postcard any time.** Save a stylish picture of her room, team or best night, with the restaurant's logo on it | *Dress to Impress* catwalk moment; the win screen's own "Save a picture" | Something to post in the group chat. This is the cheapest social feature there is | **Cheap.** Reuses the existing picture code |
+| 4 | **A voice with an edge.** A local radio or "Food Gossip" ticker with puns and running jokes; sharper critics; one rude-but-fair food blogger | *Two Point Hospital* (DJ, punny illnesses); *Dave the Diver* cutscenes | Humour that treats her as clever. Writing costs almost nothing | **Cheap.** Text only |
+| 5 | **Grown-up mode.** A "Who's playing?" choice at the start: *Me (14)* turns off "No grown-up drinks", shows real kitchen slang with tips on tap, shows each glossary word once, and calms the goals card after week 1 | Stardew, Sims and Two Point all do without reading-age softening | Removes the patronising layer in one switch, and Dad keeps the choice | **Cheap.** These are already settings or flags |
+| 6 | **A rival with attitude.** A named chef across the road with a feed of smug posts; beat them on reviews | *Good Pizza, Great Pizza* (Alicante) | Banter and a story at 14 rather than "cheeky but never cruel" at 10 | **Cheap** |
+| 7 | **Regulars with storylines.** Eight to ten named customers with small dramas (a first date, a breakup, a food blogger's comeback), each with a VIP order that unlocks something | *Dave the Diver* (VIPs unlock staff); *Stardew* villagers | People and gossip, not market segments | **Medium.** Writing plus a card screen |
+| 8 | **Shorter arcs.** A "quick year" or 30-day chapters, each ending in a star score, so the big choice comes in an evening, not a month | *Two Point* (one star unlocks the next site); *PlateUp!* 15-day runs | Gets her to the interesting part faster. The red team listed this as still open | **Medium** |
+| 9 | **Soundtrack and style.** A few music tracks with a jukebox in the room (Music already exists as a decor slot); a "service rush" beat | *Two Point* radio; *Dave the Diver* | Mood matters at 14; silence reads as unfinished | **Medium.** Licensed or commissioned music |
+| 10 | **Visit a friend's restaurant.** Share a code; a friend opens a read-only copy to look around and leave a star review | *Restaurant Tycoon 2* (visit friends); *Animal Crossing* visits | Social without chat or strangers | **Medium.** Builds on cloud saves |
+| 11 | **Invent a dish.** Name it, pick the ingredients, set the price, and see how it sells | *Chef* and *Recipe for Disaster* recipe editors | Creativity plus real business sense | **Medium** |
+| 12 | **Online co-op shift with one friend.** Invite code, no text chat, emotes only | *PlateUp!*, *Overcooked* (emotes), *Galaxy Burger*, *Kebab Chefs!* | What teenagers actually play together, but it brings back the strangers-and-chat risk unless it is invite-only | **Expensive.** Networking |
+
+**If only three get done:** 5 (grown-up mode), 1 (brand kit) and 2 (daily challenge). The first stops the game talking down to her. The second makes it hers. The third gives it a reason to come back, and Dad can compete on it.
+
+### What happens to the "for 10" ideas
+
+| Earlier idea | At 14 |
+|---|---|
+| Regulars | **Changes**: from favourite dishes to storylines and VIP requests (#7) |
+| Collection book | **Changes**: lower priority. Keep it as a cookbook of signature dishes, tied to #11 |
+| Juice (coin pops, cheers, sparkle) | **Changes**: less confetti, more style: music, a satisfying rush moment, the postcard (#3, #9) |
+| Rival | **Survives, sharper** (#6) |
+| Friendship hearts | **Drops**: reads as young. Fold staff relationships into storylines instead |
+| Test kitchen | **Changes** into Invent a dish (#11) |
+| Seasonal days | **Survives** as themed weeks (Bonfire Night, exam season, prom) that leave a lasting item behind, never "log in or miss it" |
+| Assist mode | **Survives, lower priority**; call it "Relaxed shift", not assist |
+| Photo mode | **Survives and moves up** (#3) |
+| Co-op | **Changes**: from Dad on the same device to a friend by invite (#12). A Dad-versus-me daily challenge (#2) is the cheap version |
+
+---
+
+## Sources
+
+**New for this note**
+
+- [Ofcom: Younger phone owners, the rise of AI… our latest look at UK children's media lives (21 May 2026)](https://www.ofcom.org.uk/online-safety/protecting-children/younger-phone-owners-the-rise-of-ai-and-consumption-over-creation-our-latest-look-at-uk-childrens-media-lives)
+- [Ofcom: Children and parents: media use and attitudes report 2025 (landing page)](https://www.ofcom.org.uk/media-use-and-attitudes/media-habits-children/children-and-parents-media-use-and-attitudes-report-2025)
+- [PocketGamer.biz: Ofcom warns children remain exposed to online safety risks… Roblox (21 May 2026)](https://www.pocketgamer.biz/ofcom-warns-children-remain-exposed-to-online-safety-risks-across-platforms-including-roblox-tiktok-and-youtube/)
+- [Alphaspread: Roblox Q3 2025 earnings call](https://www.alphaspread.com/security/nyse/rblx/investor-relations/earnings-call/q3-2025)
+- [GGRecon: Roblox daily players fall for the first time (Q3 2026)](https://www.ggrecon.com/articles/roblox-daily-players-fall-q3-2026/)
+- [TechCrunch: Roblox now requires all users globally to complete age checks to access chat](https://techcrunch.com/2026/01/07/roblox-now-requires-all-users-globally-to-complete-age-checks-to-access-chat)
+- [Wikipedia: Grow a Garden](https://en.wikipedia.org/wiki/Grow_a_Garden)
+- [Wikipedia: Dress to Impress (video game)](https://en.wikipedia.org/wiki/Dress_to_Impress_(video_game))
+- [YPulse: Gen Z's Top 10 Favorite Video and Mobile Games in 2026](https://www.ypulse.com/article/2026/05/07/gen-zs-top-10-favorite-video-and-mobile-games-in-2026/)
+- [Women in Games: Women gamers, dedicated and still fighting for change (Bryter 2024)](https://www.womeningames.org/women-gamers-dedicated-still-fighting-for-change/)
+- [Ukiepedia: Player Diversity & Demographics](https://ukiepedia.ukie.org.uk/index.php/Player_Diversity_&_Demographics)
+- [Common Sense Media: The Sims 4](https://www.commonsensemedia.org/game-reviews/the-sims-4)
+- [Common Sense Media: Stardew Valley](https://www.commonsensemedia.org/game-reviews/stardew-valley)
+- [Common Sense Media: Two Point Hospital](https://www.commonsensemedia.org/game-reviews/two-point-hospital)
+- [NME: The Sims 4 is now free-to-play on all platforms](https://www.nme.com/news/the-sims-4-is-now-free-to-play-on-all-platforms-3331931)
+- [EA: The Sims 4 expansion packs](https://www.ea.com/games/the-sims/the-sims-4/packs/expansion-packs)
+- [Family Gaming Database: The Sims 4](https://www.familygamingdatabase.com/game/The+Sims+4)
+- [Family Gaming Database: Minecraft](https://www.familygamingdatabase.com/game/Minecraft)
+- [Family Gaming Database: Animal Crossing: New Horizons](https://www.familygamingdatabase.com/game/Animal+Crossing+New+Horizons)
+- [Family Gaming Database: Disney Dreamlight Valley](https://www.familygamingdatabase.com/game/Disney+Dreamlight+Valley)
+- [Family Gaming Database: PlateUp!](https://www.familygamingdatabase.com/game/PlateUp)
+- [Family Gaming Database: Stardew Valley](https://www.familygamingdatabase.com/game/Stardew+Valley)
+- [Family Gaming Database: Supermarket Simulator](https://www.familygamingdatabase.com/game/Supermarket+Simulator)
+- [Family Gaming Database: Cook, Serve, Delicious! 3?!](https://www.familygamingdatabase.com/game/Cook+Serve+Delicious+3)
+- [RTÉ: Are your kids' video games age-appropriate?](https://www.rte.ie/culture/2025/0320/1502681-are-your-kids-video-games-age-appropriate-your-one-stop-guide)
+- [PriceSpy UK: Stardew Valley (Switch)](https://pricespy.co.uk/games-consoles/games/nintendo-switch-games/stardew-valley-switch--p4115651)
+- [Nintendo Life: Dave the Diver Nintendo Switch 2 Edition](https://www.nintendolife.com/eshop/dave-the-diver-nintendo-switch-2-edition)
+- [Wikipedia: Dave the Diver](https://en.wikipedia.org/wiki/Dave_the_Diver)
+- [Wikipedia: Two Point Hospital](https://en.wikipedia.org/wiki/Two_Point_Hospital)
+- [hotukdeals: Two Point Hospital Jumbo Edition (Switch) PEGI 7](https://www.hotukdeals.com/deals/two-point-hospital-jumbo-edition-incl-game-4-expansions-2-dlcs-nintendo-switch-game-pegi-7-4914117)
+- [Deku Deals: Two Point Museum](https://www.dekudeals.com/items/two-point-museum)
+- [Push Square: Supermarket Simulator opens on PS5 this November](https://www.pushsquare.com/news/2026/10/viral-hit-supermarket-simulator-finally-opens-its-doors-on-ps5-this-november)
+- [Wikipedia: PlateUp!](https://en.wikipedia.org/wiki/PlateUp!)
+- [Coolmath Games: Papa's games breakdown](https://www.coolmathgames.com/blog/papas-games-breakdown)
+- [TikTok: #papasfreezeria](https://www.tiktok.com/discover/papasfreezeria) (search result only; used just to say fan clips exist)
+- [WASDland: Best cooking games on Steam (November 2026)](https://www.wasdland.com/games/cooking/)
+- [Bonus Action: Steam Cooking Fest 2026 picks](https://bonus-action.com/guides/steam-cooking-fest-2026-best-game-deals-recommendations/)
+
+**Reused from `kids.md` and `tycoon.md` (already verified there):** Overcooked 2 prices and CSM; PlateUp! UK price ([COST.games](https://cost.games/gb/games/plateup), [Nintendo UK](https://www.nintendo.com/en-gb/Games/Nintendo-Switch-games/PlateUp--2371489.html)); Cook, Serve, Delicious! 3 price ([COST.games](https://cost.games/gb/games/cook_serve_delicious_3)); Good Pizza, Great Pizza ([CSM](https://www.commonsensemedia.org/app-reviews/good-pizza-great-pizza), [9to5Mac](https://9to5mac.com/2026/04/07/apple-arcades-may-lineup-adding-4-ad-free-games-including-good-pizza-great-pizza/)); Papa's ([SteamDB](https://steamdb.info/app/3259470)); Restaurant Tycoon 2 ([Rotrends](https://rotrends.com/game/1214576306)); Roblox PEGI 7 ([Ask About Games](https://askaboutgames.com/parents-guide-roblox-pegi-7)) and CSM 13+ ([WOKV](https://www.wokv.com/news/business/watchdog-group-says/OOEFOABNKNZDD5POQFURRZ7FRI)); Animal Crossing price ([Nintendo Life](https://www.nintendolife.com/guides/animal-crossing-new-horizons-free-3-0-update-2026-and-nintendo-switch-2-edition-everything-included)); Dreamlight Valley ([CSM](https://www.commonsensemedia.org/game-reviews/disney-dreamlight-valley), [Deku Deals](https://www.dekudeals.com/items/disney-dreamlight-valley-switch)); Chef Life ([Nintendo UK](https://www.nintendo.com/en-gb/Games/Nintendo-Switch-games/Chef-Life-A-Restaurant-Simulator-2327197.html)); Cooking Simulator ([Steam](https://store.steampowered.com/app/641320?l=english), [Steam 2](https://store.steampowered.com/app/2455360?l=swedish)); Two Point Museum ([ESRB](https://www.esrb.org/ratings/40229/two-point-museum/)).
+
+**Tried but could not read:** Ofcom's 2025 and 2026 report PDFs, the *Children's Media Lives 2026* PDF and its "stranger danger" gaming page; Internet Matters' January 2026 gender-gap briefing; CSM pages for Dave the Diver and PlateUp!; Search Engine Land's Roblox demographics page; the Anti-Bullying Alliance summary of Ofcom 2026. Nothing in this note relies on them.
+
 
 ---
 
