@@ -28,6 +28,7 @@ import { L_PERSON_STAFF, SEATED, staffLook, type Floaty, type Sprite, type Staff
 import { pickTable } from "./interaction";
 import { alpha, label, menu, moodFace, patienceColour, plate, radial, roundRect, setting, tableTop } from "./paint";
 import { paintFloor, paintFurniture, paintLight } from "./scene";
+import { breathe, drawBeats, idHash, lookAbout, sizzle, steam, stepUpDelay, type Beat } from "./juice";
 
 /*
  * Round 11 (pipeline): this file was 1,217 lines; it is now the coordinator (the class: frame order, people movement,
@@ -73,6 +74,8 @@ export class RestaurantView {
   private sprites = new Map<string, Sprite>();
   private staffSprites = new Map<string, StaffSprite>();
   private floaties: Floaty[] = [];
+  /** Round 12 (A): the paid beats and five-star glows in flight (juice.ts). */
+  private beats: Beat[] = [];
   private prevStage = new Map<CustomerId, Customer["stage"]>();
   private servedAt = new Map<CustomerId, number>();
   private lastNow = 0;
@@ -145,6 +148,7 @@ export class RestaurantView {
     // one cached, opaque scene layer: one full blit a frame and no clear (the blit is the costly part in software raster)
     this.layers.draw(ctx, "scene", key, this.w, this.h, this.dpr, (c) => { paintFloor(c, L); paintFurniture(c, L, this.name); });
     this.drawTableGlows(game, L, opts);
+    this.beats = drawBeats(ctx, this.beats, opts.now, motion, "glow");
     if (!opts.preview) this.drawKitchen(game, L, opts);
     this.drawTables(game, L, opts);
     if (!opts.preview) this.drawStaff(game, L, opts, dt);
@@ -154,6 +158,7 @@ export class RestaurantView {
     this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
+    this.beats = drawBeats(ctx, this.beats, opts.now, motion, "paid");
     this.drawFloaties(opts.now);
     this.firstFrame = false;
   }
@@ -189,6 +194,8 @@ export class RestaurantView {
     const speed = (80 + L.person * 6) * 1.8 * Math.max(1, opts.speed);
     const moving = opts.speed > 0 ? dt : 0;
     const spots = this.queueSpots(game, L);
+    const rank = new Map<string, number>();
+    { let i = 0; for (const k of spots.keys()) rank.set(k, i++); }
     const alive = new Set<string>();
     const spawn: Pt = { x: -L.person * 4, y: L.pavement.y + L.pavement.h * 0.5 };
 
@@ -218,6 +225,8 @@ export class RestaurantView {
           this.sprites.set(key, s);
         }
         if (!s.target || s.target.x !== target.x || s.target.y !== target.y) {
+          // Round 12 (A): a line stepping up moves front to back, a beat apart, rather than all at once.
+          if (s.target && c.stage === "queue" && s.y > L.wallY && !s.path.length) s.wait = opts.now + stepUpDelay(rank.get(key) ?? 0, opts.speed, motion);
           s.target = target;
           const outside = s.y > L.wallY, goingOutside = target.y > L.wallY;
           // Round 8: indoors, guests walk to their seat along an aisle rather than through the tables.
@@ -240,6 +249,7 @@ export class RestaurantView {
       }
       // walk
       let budget = speed * moving * (s.leaving ? 1.3 : 1);
+      if (s.wait !== undefined) { if (opts.now < s.wait && !s.leaving) budget = 0; else s.wait = undefined; }
       while (budget > 0 && s.path.length) {
         const p = s.path[0]!;
         const d = dist(s, p);
@@ -262,8 +272,13 @@ export class RestaurantView {
   private onLeft(c: Customer, L: Layout, now: number) {
     const slot = c.tableId ? L.tables.get(c.tableId) : undefined;
     const at = slot ? { x: slot.x, y: slot.y - slot.r } : { x: L.door.x, y: L.pavement.y + 20 };
+    // Round 12 (A): the till's beat (a coin off the table), and a warm glow where a party left five stars.
+    if (!c.walkedOut && slot && this.beats.length < 24) {
+      this.beats.push({ kind: "paid", x: slot.x, y: slot.y, r: slot.r, born: now });
+      if ((c.rating ?? 0) >= 5) this.beats.push({ kind: "glow", x: slot.x, y: slot.y, r: slot.r + L.person * 1.6, born: now });
+    }
     if (c.walkedOut) this.floaties.push({ ...at, text: "Hmph!", colour: C.tomatoDeep, born: now, life: 1600 });
-    else if (c.spend > 0 || c.tip > 0) this.floaties.push({ ...at, text: formatPence(c.spend + c.tip, { signed: true }), colour: C.basilDeep, born: now, life: 1400 });
+    else if (c.spend > 0 || c.tip > 0) this.floaties.push({ ...at, text: formatPence(c.spend + c.tip, { signed: true }), colour: C.basilDeep, born: now + (motion ? 250 : 0), life: 1400 });
     else this.floaties.push({ ...at, text: "Thank you!", colour: C.amberDeep, born: now, life: 1400 });
   }
 
@@ -289,6 +304,9 @@ export class RestaurantView {
       ctx.fillStyle = "#2f2c2a"; ctx.beginPath(); ctx.arc(s.x - 10, s.y, 8, 0, Math.PI * 2); ctx.fill();
       ctx.fillRect(s.x - 3, s.y - 1.5, 9, 3);
       ctx.fillStyle = [C.amber, C.tomato, "#7a4a2a", C.basil][i % 4]!; ctx.beginPath(); ctx.arc(s.x - 10, s.y, 5, 0, Math.PI * 2); ctx.fill();
+      // Round 12 (A): a sizzle in the pan and steam off it
+      sizzle(ctx, s.x - 10, s.y, opts.now, motion, i);
+      steam(ctx, s.x - 10, s.y - 6, opts.now, motion, 0.9, i);
     });
     this.drawTickets(game, L, opts);
   }
@@ -341,6 +359,8 @@ export class RestaurantView {
       // plated food waiting under the heat lamps
       const ready = tks.filter((t) => t.ticksRemaining <= 0).length;
       for (let j = 0; j < Math.min(ready, 3); j++) plate(ctx, x + 9 + j * 11, p.y + p.h * 0.42, 6, [C.tomato, C.amber, "#7a4a2a"][(j + i) % 3]!);
+      // Round 12 (A): food on the pass steams under the lamps while the rest of the ticket cooks
+      if (ready > 0) steam(ctx, x + 9 + (Math.min(ready, 3) - 1) * 5.5, p.y + p.h * 0.42 - 4, opts.now, motion, ready < tks.length ? 0.8 : 0.5, i + 5);
     });
     if (groups.length > max) label(ctx, `+${groups.length - max}`, p.x + p.w - 6, p.y - 18, { align: "right", size: 14, weight: 800, colour: C.tomatoDeep });
     if (!groups.length) label(ctx, "no tickets", p.x + 10, p.y - 18, { size: 13, colour: C.inkFaint, weight: 700 });
@@ -595,19 +615,21 @@ export class RestaurantView {
       const home = { x: stove.x + (i >= L.stoves.length ? 14 : 0), y: stove.y + 32 };
       const target = plated && !busy ? { x: clamp(stove.x, L.pass.x + 20, L.pass.x + L.pass.w - 20), y: L.pass.y - 8 } : home;
       const sp = this.moveStaff(s.id, target, dt, opts, L, home, undefined, false);
-      if (!sp.moving) sp.facing = sp.y > home.y + 4 ? "down" : "up";
+      const h = idHash(s.id);
+      // Round 12 (A): a chef with nothing on looks round the kitchen (and everyone breathes)
+      if (!sp.moving) sp.facing = sp.y > home.y + 4 ? "down" : busy ? "up" : lookAbout(opts.now, motion, h, "up");
       const stir = busy && motion ? Math.sin(opts.now / 140 + i) * 1.5 : 0;
-      this.drawStaffMarker(s, sp.x + stir, sp.y, sp, opts, false, false, true);
+      this.drawStaffMarker(s, sp.x + stir, sp.y + (sp.moving ? 0 : breathe(opts.now, motion, h)), sp, opts, false, false, true);
     });
 
     // front of house: serve tables that need someone (paying > needs order > food just ready)
     const passPoint = (i: number) => ({ x: L.pass.x + L.pass.w * (0.55 + 0.12 * i), y: L.kitchen.h + 16 });
-    const needs: { tableId: TableId; pri: number; viaPass: boolean }[] = [];
+    const needs: { tableId: TableId; pri: number; viaPass: boolean; plates?: number }[] = [];
     for (const c of game.customers) {
       if (!c.tableId) continue;
       if (c.stage === "paying") needs.push({ tableId: c.tableId, pri: 0, viaPass: false });
       else if (c.stage === "seated") needs.push({ tableId: c.tableId, pri: 1, viaPass: false });
-      else if (c.stage === "eating" && opts.now - (this.servedAt.get(c.id) ?? -1e9) < 2500 / Math.max(1, opts.speed)) needs.push({ tableId: c.tableId, pri: 2, viaPass: true });
+      else if (c.stage === "eating" && opts.now - (this.servedAt.get(c.id) ?? -1e9) < 2500 / Math.max(1, opts.speed)) needs.push({ tableId: c.tableId, pri: 2, viaPass: true, plates: Math.max(1, Math.min(3, c.order.length || c.partySize)) });
     }
     needs.sort((a, b) => a.pri - b.pri);
     const taken = new Set<string>();
@@ -624,8 +646,9 @@ export class RestaurantView {
       m.task = job?.tableId;
       if (job && m.until < opts.now) m.until = opts.now + 1600 / Math.max(1, opts.speed);
       if (!m.moving && slot) m.facing = facingFrom(slot.x - m.x, slot.y - m.y, m.facing);
+      else if (!m.moving) m.facing = lookAbout(opts.now, motion, idHash(s.id), "down"); // R12-A: idle at the pass, looking about
       const carrying = !!job?.viaPass && !!m.via && !m.path.includes(m.via);
-      this.drawStaffMarker(s, m.x, m.y, m, opts, carrying, job?.pri === 0);
+      this.drawStaffMarker(s, m.x, m.y + (m.moving ? 0 : breathe(opts.now, motion, idHash(s.id))), m, opts, carrying, job?.pri === 0, false, job?.plates ?? 1);
     });
     // nobody front-of-house: a little sign on the pass
     if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 20, { size: 14, weight: 800, colour: C.tomatoDeep, stroke: C.paper });
@@ -653,7 +676,7 @@ export class RestaurantView {
     return s;
   }
 
-  private drawStaffMarker(s: Staff, x: number, y: number, sp: StaffSprite, opts: RenderOptions, carrying: boolean, bill = false, tagBeside = false) {
+  private drawStaffMarker(s: Staff, x: number, y: number, sp: StaffSprite, opts: RenderOptions, carrying: boolean, bill = false, tagBeside = false, plates = 1) {
     const ctx = this.ctx;
     const r = clamp(L_PERSON_STAFF * (this.layout?.person ?? 8), 7, 11);
     const look = staffLook(s, opts.playerLook?.id === s.id ? opts.playerLook : undefined);
@@ -662,7 +685,8 @@ export class RestaurantView {
     if (carrying || bill) {
       const fx = sp.facing === "left" ? -1 : sp.facing === "right" ? 1 : 0;
       const ix = x + fx * r * 1.05, iy = sp.facing === "up" ? hy - r * 0.4 : hy;
-      if (carrying) plate(ctx, ix, iy, r * 0.62, C.tomato);
+      // Round 12 (A): a server carries the party's plates (up to three: one in hand, two up the arm)
+      if (carrying) for (let k = Math.min(3, plates) - 1; k >= 0; k--) plate(ctx, ix + (sp.facing === "left" ? -1 : 1) * k * r * 0.5, iy - k * r * 0.35, r * 0.62, [C.tomato, C.basil, C.amber][k]!);
       else { ctx.fillStyle = C.paper; ctx.strokeStyle = C.outline; ctx.lineWidth = 1; ctx.fillRect(ix - 3.5, iy - 4.5, 7, 9); ctx.strokeRect(ix - 3.5, iy - 4.5, 7, 9); ctx.fillStyle = C.gold; ctx.fillRect(ix - 2, iy - 2, 4, 1.5); }
     }
     const first = s.name.split(" ")[0] ?? s.name;
@@ -680,6 +704,7 @@ export class RestaurantView {
     const ctx = this.ctx;
     this.floaties = this.floaties.filter((f) => now - f.born < f.life);
     for (const f of this.floaties) {
+      if (now < f.born) continue; // R12-A: the "+£" waits for the coin
       const t = (now - f.born) / f.life;
       ctx.globalAlpha = 1 - t * t;
       label(ctx, f.text, f.x, f.y - 6 - t * 28 * (motion || 0.3), { align: "center", size: 14, weight: 900, colour: f.colour, stroke: C.paper });

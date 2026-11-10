@@ -1917,3 +1917,55 @@ h3 { line-height: var(--lh-heading); }
 .words__row dd { margin: 0; color: var(--ink-soft); }
 kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(--border-strong); border-radius: 6px; padding: 0 6px; background: var(--surface-raised); }
 @media (max-width: 1023px) { .words__row { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+/* ═══════════ Round 12 — A: juice (screen fades, the log, counters, the rush, the evening, volume sliders) ═══════════
+   Everything here is off under prefers-reduced-motion AND under Settings › Animations off (data-motion="off" on
+   <html>, lib/settings.ts applyMotion): with either, it is all instant. Durations stay short (150–260 ms; the evening's
+   stars finish inside ~700 ms). No pulsing, no confetti. */
+@keyframes r12a-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes r12a-slide { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes r12a-star { from { opacity: 0.15; transform: scale(0.55); } 70% { transform: scale(1.12); } to { opacity: 1; transform: none; } }
+@keyframes r12a-shine { from { background-position: -120% 0; } to { background-position: 220% 0; } }
+@keyframes r12a-nod { from { transform: rotate(0); } 40% { transform: rotate(-12deg); } to { transform: rotate(0); } }
+
+/* day-over transitions: each screen (planning → service → evening, and the lazy screens) fades in over the page */
+.screen > * { animation: r12a-in 180ms ease-out both; }
+
+/* the "What's happening" log: each new line slides in from the left (keys are stable, so old lines stay put) */
+.ticker__line { animation: r12a-slide 220ms ease-out both; }
+
+/* the rush: the header band and the clock card warm up while it lasts; a worded chip so it isn't colour alone */
+.status { transition: box-shadow 400ms ease; }
+.app:has(.service--rush) .status { box-shadow: inset 0 0 0 100vmax rgba(196, 65, 43, 0.22), 0 3px 0 rgba(43, 38, 34, 0.12); }
+.service .clock { transition: box-shadow 400ms ease; border-radius: var(--radius-sm); }
+.service--rush .clock { box-shadow: inset 5px 0 0 var(--tomato); }
+.rushchip { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 10px; border-radius: var(--radius-pill); background: var(--tomato-wash); color: var(--tomato-deep); border: 1.5px solid var(--tomato); font-size: var(--fs-xs); font-weight: 800; vertical-align: middle; }
+
+/* the evening: stars fill one after another; the best-night line gets one shine */
+.evening .stars svg { animation: r12a-star 260ms ease-out both; }
+.evening .stars svg:nth-child(2) { animation-delay: 90ms; }
+.evening .stars svg:nth-child(3) { animation-delay: 180ms; }
+.evening .stars svg:nth-child(4) { animation-delay: 270ms; }
+.evening .stars svg:nth-child(5) { animation-delay: 360ms; }
+.tonight__best { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 12px 2px 8px; border-radius: var(--radius-pill); font-weight: 800; font-size: var(--fs-sm); color: var(--amber-deep, #8a5a00); border: 1.5px solid currentColor;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 236, 170, 0.9) 50%, transparent 70%) no-repeat, var(--amber-wash); background-size: 60% 100%, auto; animation: r12a-shine 900ms ease-out 650ms both; }
+.tonight__best svg { animation: r12a-nod 500ms ease-out 900ms both; }
+
+/* Settings › Music / Sound effects: a 44 px slider row */
+.volume { display: grid; grid-template-columns: minmax(120px, auto) minmax(140px, 1fr) 3.5em; align-items: center; gap: var(--space-3); }
+.volume__note { grid-column: 2 / -1; margin-top: -6px; }
+.volume__value { font-family: var(--font-display, inherit); font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.volume__range { -webkit-appearance: none; appearance: none; width: 100%; height: var(--control-h); margin: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+.volume__range::-webkit-slider-runnable-track { height: 12px; border-radius: 6px; border: 2px solid var(--ink); background: linear-gradient(90deg, var(--basil) var(--fill, 0%), var(--surface-inset) var(--fill, 0%)); }
+.volume__range::-moz-range-track { height: 8px; border-radius: 6px; border: 2px solid var(--ink); background: linear-gradient(90deg, var(--basil) var(--fill, 0%), var(--surface-inset) var(--fill, 0%)); }
+.volume__range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -10px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface-raised); box-shadow: 2px 2px 0 var(--ink); }
+.volume__range::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface-raised); box-shadow: 2px 2px 0 var(--ink); }
+.volume__range:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }
+@media (max-width: 1023px) { .volume { grid-template-columns: minmax(0, 1fr) 3.5em; } .volume .sheet__label { grid-column: 1 / -1; } .volume__note { grid-column: 1 / -1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen > *, .ticker__line, .evening .stars svg, .tonight__best, .tonight__best svg { animation: none; }
+  .status, .service .clock { transition: none; }
+}
+/* Settings › Animations off: everything instant, app-wide (the canvases and count-ups read the same switch) */
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { animation: none !important; transition: none !important; }

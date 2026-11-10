@@ -27,6 +27,8 @@ import { Term } from "../components/Term";
 import { TermText } from "../components/TermText";
 import { goalsQuiet } from "../lib/goals";
 import { DayRhythm } from "../components/DayRhythm";
+import { playSfx, setRush, type Sfx } from "../lib/sfx";
+import { CountUp } from "../lib/motion";
 
 /** Round 7: an hour of service in ticks (for the live summary's "this hour" trend). */
 export const HOUR_TICKS = Math.max(1, Math.round(60 / MINUTES_PER_TICK));
@@ -56,6 +58,23 @@ interface Props {
   onJumpIn?: (role: "chef" | "server" | "bar") => void;
   /** "Skip to end of shift": run the remaining ticks now. */
   onSkip?: () => void;
+}
+
+/**
+ * Round 12 (A): a service rush — three or more parties queueing or five or more tickets up. It ends a little lower
+ * (two parties, three tickets), so the tint and the music's tempo don't flicker on the edge.
+ */
+export function rushNow(wasRush: boolean, queueParties: number, tickets: number): boolean {
+  return wasRush ? queueParties >= 2 || tickets >= 4 : queueParties >= 3 || tickets >= 5;
+}
+
+/** Round 12 (A): the service's sound effects, at most one of a kind every `gap` ms (4× would otherwise chatter). */
+const sfxAt: Partial<Record<Sfx, number>> = {};
+function cue(kind: Sfx, gap = 450): void {
+  const now = performance.now();
+  if (now - (sfxAt[kind] ?? -1e9) < gap) return;
+  sfxAt[kind] = now;
+  playSfx(kind);
 }
 
 /** Space/1/2/4 shortcuts must not hijack a focused control: Space on a button should press it. */
@@ -209,7 +228,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() });
+      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() || !getSettings().animations });
       if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
       raf = requestAnimationFrame(frame);
     };
@@ -234,6 +253,14 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Round 12 (A): sounds for what just happened on the floor (the bell when a plate is up, the till, a 5-star table).
+  useEffect(() => {
+    for (const e of app.lastEvents) {
+      if (e.type === "DISH_PLATED") cue("orderUp", 700);
+      else if (e.type === "CUSTOMER_PAID") cue(e.rating >= 5 ? "review" : "paid");
+    }
+  }, [app.lastEvents]);
 
   // auto-scroll the ticker
   useEffect(() => {
@@ -268,6 +295,16 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const queueing = game.customers.filter((c) => c.stage === "queue").reduce((a, c) => a + c.partySize, 0);
   const seatedParties = game.customers.filter((c) => c.tableId && c.stage !== "left" && c.stage !== "queue").length;
   const progress = Math.min(1, game.tick / SERVICE_TICKS);
+  // Round 12 (A): the rush (header tint, the music's tempo and hat line, a cue in and out).
+  const rushRef = useRef(false);
+  const rush = rushNow(rushRef.current, game.customers.filter((c) => c.stage === "queue").length, game.tickets.filter((x) => x.ticksRemaining > 0).length);
+  useEffect(() => {
+    if (rushRef.current === rush) return;
+    rushRef.current = rush;
+    setRush(rush);
+    cue(rush ? "rushOn" : "rushOff", 2000);
+  }, [rush]);
+  useEffect(() => () => setRush(false), []);
   // Live summary trend: one sample per tick of covers / walk-outs / queue (cosmetic memory, reset each day).
   const samples = useRef<{ day: number; covers: Map<number, number>; walk: Map<number, number>; queue: Map<number, number> }>({ day: -1, covers: new Map(), walk: new Map(), queue: new Map() });
   if (samples.current.day !== game.day) samples.current = { day: game.day, covers: new Map(), walk: new Map(), queue: new Map() };
@@ -289,7 +326,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     .sort((a, b) => a.n - b.n);
 
   return (
-    <div className="service">
+    <div className={`service ${rush ? "service--rush" : ""}`} data-rush={rush ? "1" : undefined}>
       <div className="service__stage" ref={stageRef}>
         <canvas
           ref={canvasRef}
@@ -329,7 +366,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
         <div className="card" style={{ padding: 14 }}>
           <div className="clock">
             <div>
-              <div className="clock__day">{WEEKDAY_NAMES[weekdayIndex(game.day)]}</div>
+              <div className="clock__day">{WEEKDAY_NAMES[weekdayIndex(game.day)]}{rush && <span className="rushchip" role="status">Rush on</span>}</div>
               <div className="clock__time" aria-live="off">{clockLabel(game.tick)}</div>
             </div>
             <div className="clock__track">
@@ -364,7 +401,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
 
         {/* Round 7: the live summary — four things a child can read at a glance, each with what changed this hour. */}
         <div className="livesum" aria-label="Service so far">
-          <LiveTile icon="service" label={<Term id="covers" inline>Served</Term>} value={covers} trend={trend.covers} good="up" />
+          <LiveTile icon="service" label={<Term id="covers" inline>Served</Term>} value={<CountUp value={covers} />} trend={trend.covers} good="up" />
           <LiveTile icon="smile" label="Happy" value={app.ratings.count ? <><span className="livesum__stars"><Stars rating={avg} size={15} /></span> {avg.toFixed(1)}</> : "—"} />
           <LiveTile icon="timer" label="Waiting" value={queueing} trend={trend.queue} good="down" />
           <LiveTile key={`walk-${walkouts}`} icon="walkOut" label="Walked out" value={walkouts} trend={trend.walk} good="down" bad={walkouts > 0} flashKey={walkouts} />
@@ -393,8 +430,10 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           </div>
           <div className="ticker" ref={tickerRef} aria-live="polite" aria-relevant="additions">
             {app.ticker.length === 0 && <div className="ticker__empty">Doors open at noon. Customers will start drifting in…</div>}
-            {app.ticker.map((l, i) => (
-              <div key={`${l.day}-${l.tick}-${i}`} className={`ticker__line ticker__line--${l.kind}`}>
+            {app.ticker.map((l, i, all) => (
+              // R12-A: keyed by time and order within that minute (not list position), so trimming old lines
+              // doesn't re-mount — and re-slide — every line on screen.
+              <div key={`${l.day}-${l.tick}-${tickOrdinal(all, i)}`} className={`ticker__line ticker__line--${l.kind}`}>
                 <time>{clockLabel(l.tick)}</time>
                 <span><TermText text={l.text} /></span>
               </div>
@@ -452,7 +491,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
                   <button
                     className="btn btn--ghost btn--sm"
                     disabled={off}
-                    onClick={() => send({ type: "EIGHTY_SIX", dishId: m.dishId })}
+                    onClick={() => { send({ type: "EIGHTY_SIX", dishId: m.dishId }); playSfx("eightySix"); }}
                     title={off ? `${name} is 86'd for today` : `86 ${name}: stop selling it for the rest of today (back on tomorrow)`}
                     aria-label={off ? `${name} is 86'd for today` : `86 ${name} (take it off for today)`}
                   >
@@ -466,6 +505,13 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       </aside>
     </div>
   );
+}
+
+/** How many earlier lines share this line's day and tick (a stable part of its key). */
+function tickOrdinal(all: readonly { day: number; tick: number }[], i: number): number {
+  let n = 0;
+  for (let j = i - 1; j >= 0 && all[j]!.tick === all[i]!.tick && all[j]!.day === all[i]!.day; j--) n++;
+  return n;
 }
 
 /** One live-summary tile: icon, label, big value, and "▲ 3 this hour" coloured by whether up is good. */
