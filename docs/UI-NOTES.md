@@ -499,7 +499,7 @@ district gets a plum edge and "🕵️ Inspectors are about". Nothing hidden is 
 ## Round 8 — B (interface system)
 
 Brief: make the whole game look designed, not generated, while staying light, friendly and high-contrast for a
-10-year-old. Structure from round 7 is kept (pinned bottom-right primary, day strip above the tabs, settings sheet
+10-year-old (Round 11b: the player is 14, the target 12+; see "Round 11b — age 14"). Structure from round 7 is kept (pinned bottom-right primary, day strip above the tabs, settings sheet
 holding the clock); this round is tokens, icons, components and a restyle. Styles: the token block at the top of
 `theme.css` (rewritten, add-only) and one block at the end under `/* R8-B */`.
 
@@ -870,3 +870,79 @@ Details and numbers: docs/PIPELINE.md. What UI work needs to know:
 - **Settings ends with the font credit** (`.sheet__about`, "Font licence" → `fonts-licence/OFL.txt`). Keep it last.
 - `canvas/RestaurantView.ts` is split (layout, frame, people, paint, scene, interaction); its exports are unchanged.
 
+
+## Round 11b — age 14
+
+Rounds 5–11 wrote for a player of about 10; the owner's daughter is 14 and the brief says 12+. Round 11's real fixes
+(portrait, keyboard, skip links, pacing, resume, the bank, saves) stay. Tests: `round11b.teen.test.tsx` (7), the
+re-targeted `round11.fit` / `round11.review` word checks.
+
+### Trade words back, each a tipped term
+
+The screen says the real word; the tip says what it means. Rule for later rounds (replaces D's): **every trade word on
+screen is a glossary term** — the key-screen test removes every `.term` and fails on any trade word left, and every
+term must carry its tip. The "?" words sheet and the skip links are unchanged; terms stay `tabIndex=-1`.
+
+| R11-D plain words | Round 11b on screen (all `<Term>`) | Where |
+| --- | --- | --- |
+| Take off tonight / Take off / Off tonight | **86** a dish for the rest of today / **86** / **86'd** | Service list header and buttons (buttons keep the aria name "86 Margherita (take it off for today)") |
+| Make their meal free / On the house ✓ | **Comp** this table / **Comped** ✓ | Service manager's card |
+| head office (every sentence) | **HQ** | Empire tab (Money, sinking card, minutes, Blockable reasons), strip, Evening, board meeting, EmpireEnd, world map legend / city line |
+| A share of their takings / their share of takings / A share of franchise shops' takings | **Royalty** / **Royalties** from franchise shops | contract row, board rows |
+| Shop owners' mood (strip) | **Franchisee mood**, **Franchisee association** | status strip |
+| sister restaurant(s) | **satellite(s)** | Stars map, Stars tab |
+| Tax on sales, to the tax office | **VAT** to the taxman | Evening sums |
+| shared tips, by law / none on shared tips | **tronc**, shared by law / none on **tronc** | career payslip |
+| People walking past | **Footfall** | lease screen |
+| Running head office | Running **HQ** | board rows |
+
+Kept from D: commis / chef de partie / sous chef through `RungName`; "Golden Plate" (not Michelin) and every other U12
+fix. The map's hover tip says "Your head office (HQ) is here" in words (a term can't be tapped inside a tooltip).
+
+- **`components/TermText.tsx`** wraps the trade words in strings the sims and content write: Service's log, the
+  Evening's news / incidents / reviews, event cards (title, body, choices), incident cards, toasts, the Empire log,
+  board question / options / worry / skip line, Stars hints / log / rumours, career notes and offers, the win journey.
+  Words: 86'd, royalty holiday, royalty/royalties, franchisee(s), HQ, satellite(s), wholesaler(s), VAT, HMRC,
+  call-out fee, sommelier(s), tronc, footfall, comp/comped. Case-sensitive where a lower-case word means something
+  else (a vat of stock); "86 guests", "company", "HQs" are left alone.
+- **Terms inside buttons** (`<Term inButton>`): a span with no tabindex (nothing focusable inside a button) and an
+  aria-hidden tip, so the button's name stays its label. A tap on the word shows its tip (`data-open`, closes after 4 s)
+  and does not press the button; a tap anywhere else does. `inButton="passive"` for a button whose whole label is the
+  word (Service's 86): hover shows the tip, a tap presses, the list header explains it.
+- **Underline once.** An inline term has its dotted underline the first time that word appears in a session (and until
+  it is tapped); later copies are plain text, still tappable, still tipped (`term--quiet`). Settings › **Underline words
+  I can tap** › First time (default) / Always. Day-1 Menu (the probe's planning save, 1280×800): **71 underlined → 1**
+  (71 terms, 70 of them "margin"); every one still has its tip.
+- New glossary entries: `comp`, `hq`, `franchisee`, `wholesaler`, `vat`, `hmrc`, `callOutFee`, `sommelier`;
+  `feeHoliday`'s word is now "royalty holiday"; `eightySix` says "for the rest of the day".
+
+### Defaults
+
+- **Real drinks.** Settings › **Hide alcoholic drinks** (was "No grown-up drinks"; the field is still
+  `noGrownUpDrinks` so stored prefs load) is **off** by default. A stored `true`/`false` is kept; prefs saved by R11-D
+  after any other change carry `true` (it was the default then), so those players keep soft drinks until they flip it.
+  The audit/probe boot without it, so they walk the real-drinks view. Flipping it re-words the planning screen at once
+  (`useDrinksView()` in Planning's and MenuTab's memo keys; before, the menu kept "Pint of lager" until a tab change).
+- **Normal** is the start picker's and the lease screen's default; Cosy keeps its 4× start. A Normal game starts each
+  service at 1× until a speed is picked. "How do I win?" now adds "nearer ten if you watch every service at 1×".
+- **Goals card** goes quiet from day 8 or once five goals are done (`lib/goals goalsQuiet`): no spotlight, no flash on a
+  finished goal; "Show me" stays. Day 1 unchanged.
+
+### Tone (light touch)
+
+UI: "Oops! Something went wrong." → "Something went wrong."; career headline "Shift done — keep practising!" →
+"Shift done. Room to improve."; staff tip "Put them on the same shifts!" → "."; sim lines "…hire some help!" →
+"Time to hire some help.", "Never mind!" → "It happens.", "Hire a chef!" → "Now hire a chef."; goal titles/hints lose
+their "!". Content voices: CONTENT-NOTES "Round 11b". Left alone on purpose: the bank and warning cards (U3/U6: clear,
+not childish), "What a night!", "Let's cook!", promotion/win exclamations (earned), "a little" as an adverb.
+
+### Checks (built dist)
+
+- Main JS 194.92 → **199.18 kB** (budget 200; TermText, the term changes and the glossary). The next shell feature must
+  move something out first.
+- Type audit normal and Bigger: 117 screens each, 0 text < 13 px, 0 errors. Probe: terms (all still `.term`) 288 → 384
+  at 1280, 312 → 396 at 1024, 288 → 365 at 768 (Bigger 275 → 370, 311 → 395, 287 → 364); non-term targets 0; 0 overflow;
+  baseline re-set. `termCheck` skips a term inside a closed `<details>` (the Evening's VAT row).
+- Playtest 1024×768 touch (shots `scratchpad/shots/r11b/`): Normal pre-picked; lease "Footfall" tap → tip; day 1 menu
+  shows Pint of lager / Glass of house wine; Service "86" header tap → tip, 8 "86" buttons; Skip to evening; day 2;
+  Settings drinks switch off; flipped → "Tall fizzy lemonade" on the menu and in the larder line at once; 0 errors.

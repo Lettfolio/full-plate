@@ -1248,6 +1248,8 @@ Open (small):
 
 # Round 11: integration review of the red-team fixes (r11-a … r11-e)
 
+> **Round 11b (re-targeted to 14):** rounds 5–11 assumed a player of about 10; she is 14 (BRIEF: 12+). Trade words restored with tips (every one a glossary term on screen, `components/TermText.tsx` for sim and content lines); real drinks by default ("Hide alcoholic drinks" is opt-in); Normal is the default difficulty; terms underlined once; goals card quiet after the first week; review and incident voices rewritten in the dry register. Details: UI-NOTES and CONTENT-NOTES "Round 11b — age 14". The U7/U8 rows below are history.
+
 Master `9c9061e` + five merges in order a → b → c → d → e (one `--no-ff` merge commit each, the builders' 21 commits kept), then one review commit (`35a5496`: bundle + seam tests) and this doc. Before/after comparisons are against `9c9061e` (= `95c5ab0` code). Scratch work: `scratchpad/r11rev/`; screenshots: `scratchpad/shots/r11/review/`.
 
 ## R11.1 What merged

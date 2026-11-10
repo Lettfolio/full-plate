@@ -481,11 +481,11 @@ effect ranges, one starter per slot, 4–7 items per slot, refresh cheaper than 
   white linen £3, cake display £2, flower wall £2.50 a day).
 - **Wear**: `lifeDays` 60 (herbs wilt) to 600 (marble); `refreshCost` ≈ 10–25 % of the price (chalk £15, cushions £70,
   damask £300). `fitTables` 0–3: floors and banquettes are big jobs.
-- **Words**: `description` is one child-friendly sentence ("Put a coin in and pick a song!"); `nightLine` finishes
+- **Words**: `description` is one short, dry sentence ("Put a coin in and pick a song. Someone always picks the same one."; Round 11b); `nightLine` finishes
   "Your new {name}: …" on its first night ("the jukebox got everyone singing").
 
 ## Round 10 — B: `staffQuotes.json` (ContentPack.staffText)
-- `quotes`: one-line "why me" lines a candidate says on the hiring sheet, keyed by `staffArchetypes` id (a role id also works as a fallback). Five per archetype, ≤ 70 characters, friendly, readable by a 10-year-old. Picked deterministically per person (`quoteFor`).
+- `quotes`: one-line "why me" lines a candidate says on the hiring sheet, keyed by `staffArchetypes` id (a role id also works as a fallback). Five per archetype, ≤ 70 characters, friendly and dry, readable by a 12+ player (Round 11b; was "a 10-year-old"). Picked deterministically per person (`quoteFor`).
 - `likes` / `dislikes`: labels for sim-core's `LIKE_IDS` / `DISLIKE_IDS`; every id must be present (the content package keeps a local copy of the id lists — `STAFF_LIKE_IDS` / `STAFF_DISLIKE_IDS` — and a test checks they equal sim-core's).
 - Validation: unknown archetype/role keys, empty or over-long quotes, missing or unknown like/dislike ids. `content/test/round10.staffText.test.ts` (4).
 - Traits are unchanged (18 in `traits.json`); their effects are summarised for the player in the staff room's chip tips.
@@ -543,3 +543,98 @@ Kept, with a `<Term>` tip (game `lib/glossary.ts`): commis, chef de partie, sous
 covers (only on the Served tile and the evening's "guests"), HQ (the Empire strip's chip), royalty / franchise fee /
 ad fund (Empire contract rows), footfall (lease screen, now an inline tip on "People walking past"), satellite,
 tronc. The game-side screens are listed in UI-NOTES "Round 11 — D".
+
+## Round 11b — age 14
+
+The player is 14 (BRIEF: 12+). No id, number, price, pool size or key changed: every pool keeps its line count, so RNG
+draws, saves and the headless balance are identical (typical 90.0 %, cheap 68.0 %, nohire 0 %, 200 seeds × 365 days,
+row for row as R11.6). `content` 69 tests, sim-core 301.
+
+### Trade words restored (the game tips each on screen; UI-NOTES "Round 11b")
+
+| R11-D | Round 11b | Where |
+| --- | --- | --- |
+| "for a fee for coming out" | "for a call-out fee" | `events.json` broken dishwasher |
+| "A brown envelope from the tax office" / "you paid too much tax" | "A brown envelope from HMRC" / "you overpaid VAT" | `events.json` tax refund |
+| wine expert(s) | sommelier(s) | `criticText.json`, `dishes.json` (fd red Burgundy), `wineList.json` |
+| taken off tonight / already off tonight | 86'd for today / already 86'd | sim-core engine, commands, order |
+| head office / Head office | HQ | sim-empire engine, board, focus (every log line, refusal and option) |
+| "a break from paying you their share" / "pays you no share" / "already has a break…" / "Your share rises" / "pays you a share of its sales" | "a royalty holiday" / "pays no royalty" / "already has a royalty holiday" / "Royalty rises" / "pays you a royalty on its sales" | sim-empire |
+| sister restaurant(s) / "N sister restaurants big" / the big supplier | satellite(s) / "N satellites wide" / the wholesaler | sim-stars commands, hints |
+| fair shared tips / share of the tips | fair tronc / share of the tronc | sim-career offers, review |
+
+Kept from D: the walk-in-fridge burnout line stays "an upturned crate" (U12). `round11.words` now checks the four
+content words are back and nothing outside the game's glossary (86'd, tronc, footfall, wholesaler) appears in content.
+
+### Drinks
+
+- **Real drinks by default** (game Settings › "Hide alcoholic drinks", off). `applySoftDrinks` is unchanged.
+- "(Grown-ups only.)" on 15 drink blurbs → **"(Over-18s only.)"** (`dishes.json`; the soft view's `from` strings and
+  `GROWN_UP_WORDS` follow).
+- Checked as something a parent switches on: "Tall local dandelion & burdock" in a pub-ish menu is fine; the Stars list
+  lost its two jokes — "Pink lemonade" → **Rhubarb & rose pressé** (region "A rose garden in Provence"), "Red grape juice"
+  → **Pressed Pinot Noir grape** (dish, ingredient and bottle); halal rules say "Soft drinks only on the menu." / "No
+  pork, soft drinks only, halal meat only." / "…and serve soft drinks only." instead of "grown-up drinks".
+
+### Voices for 14 (every changed string)
+
+From a 10-year-old's register to the dry one the game already uses. Kept on purpose: the little brother who learned to
+whistle, the salt shaker, "more 'oops' than 'ooh'", Mum watching the plate, grandad's happy dance, "a medal and a nice cup
+of tea", the bread basket, "Bring your granny", "cry happily into a tea towel", the jumping team and dropped whisk.
+51 player lines rewritten (plus the staffQuotes `_note`, now "written for a 12+ player"); sim-core's built-in incident/goal
+text mirrors the content pack (`extras.test` "match sim-core exactly"). Pools and keys unchanged. A row quoting part of
+a line changed only that part.
+
+| File | Was | Now |
+| --- | --- | --- |
+| `reviewTemplates.json` | The {dish} arrived cold and a bit sad. We were sad too. | The {dish} arrived cold and slightly defeated. So did we. |
+| `reviewTemplates.json` | We left hungry and a little grumpy. Hope {restaurant} has a better day tomorrow. | We left hungry and quietly furious. {restaurant} owes us a better night. |
+| `reviewTemplates.json` | {restaurant} has potential! The {dish} just needs a little more love. | {restaurant} has potential. The {dish} hasn't heard. |
+| `reviewTemplates.json` | Our server was lovely but the kitchen seemed to be having a wobbly day. | Our server was great. The kitchen was having a separate, worse evening. |
+| `reviewTemplates.json` | Two stars: one for the {dish}, one for the very cute bread basket. | Two stars: one for the {dish}, one for the bread basket, which carried the team. |
+| `reviewTemplates.json` | We'd come back if the waiting time got shorter. Our tummies were rumbling. | We'd come back if the wait got shorter. We read the whole menu. Twice. |
+| `reviewTemplates.json` | Friendly staff and a {dish} that hit the spot. Room to grow! | Friendly staff and a {dish} that hit the spot. Room to grow. |
+| `reviewTemplates.json` | Happy enough! My dad said 'mmm' twice, which is about average for him. | Happy enough. My dad said 'mmm' twice, which is about average for him. |
+| `reviewTemplates.json` | Great food, kind staff, and the {dish} came out piping hot. We'll be back! | Great food, sharp service, and the {dish} came out piping hot. We'll be back. |
+| `reviewTemplates.json` | We came for a quick bite and stayed for dessert. Oops! Worth it. | We came for a quick bite and stayed for dessert. And coffee. Worth it. |
+| `reviewTemplates.json` | Everything was magic: the welcome, the {dish}, the pudding, even the napkins. | Everything worked: the welcome, the {dish}, the pudding. Even the napkins were good, somehow. |
+| `reviewTemplates.json` | I dreamed about the {dish} the night after. A very tasty dream. | I dreamed about the {dish} the night after. Not complaining. |
+| `reviewTemplates.json` | Friendly, fast and fabulous. {restaurant}, you've got a fan for life! | Fast, friendly and properly good. {restaurant}, you've got a regular. |
+| `reviewTemplates.json` | Our {dish} was lovely, but it was chaos in here tonight. Poor staff! | Our {dish} was lovely, but it was chaos in here tonight. The staff deserve a lie-down. |
+| `reviewTemplates.json` | I liked my {dish}! Shame so many people left before they got theirs. | I liked my {dish}. Shame half the room left before they got theirs. |
+| `reviewTemplates.json` | The {dish} was a nice surprise on a messy night. Fingers crossed it's calmer next time! | The {dish} was a nice surprise on a messy night. Calmer next time, please. |
+| `criticText.json` | 'Three stars, and a happy tummy,' says {critic}. | 'Three stars, and no complaints from my stomach,' says {critic}. |
+| `criticText.json` | FIVE STARS! {critic} says | Five stars. {critic} says |
+| `criticText.json` | Your kitchen sang all year long. Congratulations! | Your kitchen sang all year long. Congratulations. |
+| `criticText.json` | we are proud to award your very first star. Welcome to the guide! | we are proud to award your very first star. Welcome to the guide. |
+| `incidentText.json` | A fresh {dish} went out to table {table}. Much better! | A fresh {dish} went out to table {table}. Much better. |
+| `incidentText.json` | Whoops, a spill! | A drink goes flying |
+| `incidentText.json` | Big group, big bill! | Big group, big bill. |
+| `incidentText.json` | They cheered! | They cheered. Loudly. |
+| `incidentText.json` | Here comes a rush! | Here comes a rush |
+| `incidentText.json` | The fryer has tripped! | The fryer has tripped |
+| `incidentText.json` | A food critic is here! | There's a critic in |
+| `incidentText.json` | is writing in a little notebook. It's a food critic! | is writing in a small notebook between bites. That's a food critic. |
+| `incidentText.json` | A free treat went out to the critic. They smiled! | A free treat went out to the critic. They smiled, then wrote something down. |
+| `incidentText.json` | had a sit-down and a cup of tea. Feeling better! | had a sit-down and a cup of tea. Back on form. |
+| `incidentText.json` | Your restaurant's name is getting around! | Word is getting around. |
+| `goalText.json` | "Open your doors!" | "Open your doors" |
+| `goalText.json` | Days off for staff need cover! | Days off for staff need cover. |
+| `goalText.json` | Watch your waste! | Watch your waste. |
+| `goalText.json` | "Goal done: {title}!" | "Goal done: {title}." |
+| `staffQuotes.json` | I've been cooking with my gran since I was six! | I've been cooking with my gran since I was six. She's still better. |
+| `staffQuotes.json` | I want to be a head chef one day. This is step one! | Head chef one day. This is step one. |
+| `staffQuotes.json` | I can carry four plates without a wobble! | Four plates, one trip, no wobble. |
+| `staffQuotes.json` | I make a fizzy lemonade that sparkles like magic. | My homemade lemonade has a waiting list. |
+| `decor.json` | Silky wallpaper with a swirly pattern. Very posh. | Silky wallpaper with a swirly pattern. Black tie optional, but encouraged. |
+| `decor.json` | Cool, shiny marble. Heavy to carry in! | Cool, shiny marble. The delivery driver is still recovering. |
+| `decor.json` | the marble tables looked very posh | the marble tables made it look expensive |
+| `decor.json` | You can see it from the end of the street! | You can see it from the end of the street. |
+| `decor.json` | Little pots of basil and mint on the tables. They need watering! | Pots of basil and mint on the tables. Somebody has to water them. |
+| `decor.json` | Put a coin in and pick a song! | Put a coin in and pick a song. Someone always picks the same one. |
+| `decor.json` | A stand of fresh cakes in the window. Yum! | A stand of fresh cakes in the window. Hard to walk past. |
+| `careerText.json` | The kitchen has copper pans! | The kitchen has copper pans. |
+| `countries.json` | A cheeseburger breaks two rules at once! | A cheeseburger breaks two rules at once. |
+| `countries.json` | The queue is out the door! | The queue is out the door. |
+| `countries.json` | has become a holiday tradition! | has become a holiday tradition. |
+| `goalText.json` | "Goal done: {title}! Reward: {reward}." | "Goal done: {title}. Reward: {reward}." |

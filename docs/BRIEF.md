@@ -22,7 +22,7 @@ The player starts with a single leased unit, a tiny menu, two staff and a bank l
 
 The two paths share the first act, the staff system, menu engineering and the reputation engine, so the game is one game, not two bolted together. A run is 10–20 hours; players who finish one path immediately want to try the other.
 
-**Audience.** Primary: management-sim players aged roughly 12+ on PC (Steam), with a Switch port in mind. The brief originated with a daughter who wants a restaurant/chef game, so the tone is warm, readable and non-violent, with a cosy early game that a younger player can enjoy on its own terms. Depth arrives gradually; the first hour should feel like *Good Pizza, Great Pizza*, the tenth like *Two Point Hospital*, and the twentieth like running a real business.
+**Audience.** Primary: management-sim players aged roughly 12+ on PC (Steam), with a Switch port in mind. The brief originated with a daughter (she is 14) who wants a restaurant/chef game, so the target is 12+ / teen: the tone is warm, dry and non-violent, never babyish, with a cosy early game for anyone who wants it. Real trade words are used and explained on tap (Round 11b). Depth arrives gradually; the first hour should feel like *Good Pizza, Great Pizza*, the tenth like *Two Point Hospital*, and the twentieth like running a real business.
 
 **Design pillars**
 
