@@ -18,12 +18,13 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { canvasProbe, canvasSmall, checkBaseline, genSaves, HERE, loadPlaywright, settle, startPreview, walkScreens } from "./lib/harness.mjs";
+import { canvasProbe, canvasSmall, checkBaseline, contextFor, genSaves, HERE, loadPlaywright, parseViewports, settle, startPreview, walkScreens } from "./lib/harness.mjs";
 
 const MIN = Number(process.env.FP_AUDIT_MIN ?? 13);
 const SHOTS = process.env.FP_AUDIT_SHOTS ?? join(HERE, ".audit-shots");
 const ONLY = process.env.FP_AUDIT_ONLY?.split(",").map((s) => s.trim()).filter(Boolean);
-const VIEWPORTS = (process.env.FP_AUDIT_VIEWPORTS ?? process.env.FP_AUDIT_VIEWPORT ?? "1280x800,1024x768,768x1024").split(",").map((v) => v.split("x").map(Number));
+// Round 12 (D): "390x844m" (an "m" suffix) runs as a phone, as in the probe; the default list is unchanged.
+const VIEWPORTS = parseViewports(process.env.FP_AUDIT_VIEWPORTS ?? process.env.FP_AUDIT_VIEWPORT ?? "1280x800,1024x768,768x1024");
 const TEXT = process.env.FP_AUDIT_TEXT === "large" ? "large" : "normal";
 mkdirSync(SHOTS, { recursive: true });
 
@@ -63,9 +64,10 @@ const totals = {};
 const errors = [];
 const browser = await chromium.launch();
 try {
-  for (const [vw, vh] of VIEWPORTS) {
+  for (const vp of VIEWPORTS) {
+    const [vw, vh] = [vp.width, vp.height];
     const tag = `${vw}x${vh}-${TEXT}`;
-    const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: 2, hasTouch: vw < 1024 });
+    const ctx = await browser.newContext(contextFor(vp, { deviceScaleFactor: 2, hasTouch: vw < 1024 }));
     await ctx.addInitScript(canvasProbe);
     const page = await ctx.newPage();
     const errs = [];

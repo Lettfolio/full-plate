@@ -17,6 +17,7 @@ import { Service } from "./screens/Service";
 import { EventModal } from "./screens/EventModal";
 import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
+import { RotateCard } from "./components/RotateCard";
 
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
@@ -408,6 +409,8 @@ export function App() {
         )}
         </Suspense>
       </main>
+      {/* Round 12 (D): an upright phone is asked to turn sideways for a hands-on shift (holds the shift meanwhile). */}
+      {inService && meta.handsOn && <RotateCard />}
       {!career && game.phase === "event" && eventOpen && <EventModal game={game} send={send} />}
       {isEvening && !career && meta.fork.offered && !meta.fork.chosen && (
         <Suspense fallback={null}><ForkCard game={game} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} /></Suspense>

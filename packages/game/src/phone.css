@@ -1,0 +1,149 @@
+/* Round 12 — D: phone layout. Loaded always (main.tsx, after theme.css); every rule sits under one of two media
+   blocks, so nothing here touches a tablet or a desktop:
+     PHONE      (max-width: 480px)                                   — an upright phone (390 × 844 in the probe)
+     LANDSCAPE  (max-height: 500px) and (orientation: landscape)     — a phone held sideways (844 × 390)
+   The same queries live in lib/layout.ts (PHONE_QUERY, PHONE_LANDSCAPE_QUERY). Layout only: no screen's markup
+   changed; the only new element is the hands-on "turn sideways" card (components/RotateCard.tsx).
+   Both blocks sit inside theme.css's R11-D narrow block (≤ 1023 px), so they build on it rather than repeat it.
+   Every selector starts with `html ` so it beats an equal rule in a per-screen CSS file that a lazy chunk loads later
+   (staffRoom.css, career.css, map.css…). */
+
+@media (max-width: 480px) {
+  :root { --tabbar-h: 62px; }
+  html .page { padding: 12px 16px 24px; }
+
+  /* the page scrolls as a whole, so the header scrolls away (service keeps its fixed frame) */
+  html .app:not(:has(.screen--fixed)) { height: auto; min-height: 100vh; min-height: 100dvh; }
+  html .app:not(:has(.screen--fixed)) > .screen { flex: none; overflow: visible; }
+  html .app:has(.screen--fixed) { height: 100vh; height: 100dvh; }
+
+  /* header: name and the three buttons on one row, the date under it, cash and loan side by side, the two bars below */
+  html .status { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 12px; padding: 6px 16px 8px; align-items: start; }
+  html .status__who { display: contents; }
+  html .status__name { grid-row: 1; grid-column: 1; align-self: center; font-size: 19px; overflow-wrap: anywhere; }
+  html .status__end { grid-row: 1; grid-column: 2; gap: 6px; }
+  html .status__end > * { flex: none; }
+  html .status__end > .pill { padding-inline: 10px; }
+  html .status__when { grid-row: 2; grid-column: 1 / -1; font-size: var(--fs-xs); margin-bottom: 4px; }
+  html .status__stat { grid-row: 3; min-width: 0; }
+  html .status__stat--bars { grid-row: 4; grid-column: 1 / -1; flex-direction: row; gap: 14px; }
+  html .status__stat--bars > * { flex: 1 1 0; min-width: 0; }
+  html .status__cash { font-size: 22px; }
+  html .status__stat .status__sub, html .status__trend { white-space: normal; }
+
+  /* planning: the tabs become a bar along the bottom of the screen; the dock (hints + Open for service) sits on it */
+  html .planning.page { padding-bottom: calc(var(--tabbar-h) + 24px); }
+  html .planning__bar { gap: 8px; }
+  html .planning__bar .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; min-height: var(--tabbar-h);
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); gap: 0; border: 0;
+    background: var(--surface-panel); border-top: 1.5px solid var(--border-subtle); box-shadow: 0 -8px 20px -16px rgba(80, 55, 20, 0.6);
+  }
+  html .planning__bar .tab {
+    flex: 1 0 auto; min-width: 56px; min-height: 54px; position: relative;
+    flex-direction: column; justify-content: center; gap: 2px; padding: 4px 6px;
+    font-size: var(--fs-xs); line-height: 1.1; border-bottom: 0; border-radius: var(--radius-sm);
+  }
+  html .planning__bar .tab--active { box-shadow: 0 3px 0 var(--tomato) inset; }
+  html .planning__bar .tab__badge { position: absolute; top: 2px; right: calc(50% - 26px); }
+  html .planning__help { margin-left: auto; }
+  html .planning .actiondock { bottom: var(--tabbar-h); margin-bottom: -24px; }
+  html .planning .actiondock .btn--xl { flex: 1 1 auto; }
+  html .toast-region:not(.toast-region--stage) { bottom: calc(var(--tabbar-h) + 140px); }
+
+  /* one column wherever two sat side by side */
+  html .planning .roster, html .starts, html .startpick__opts, html .districtpick, html .floorplan, html .staffgrid, html .boardmeeting__top, html .newgame, html .districts, html .myshift { grid-template-columns: minmax(0, 1fr); }
+  html .myshift .rota--big { gap: 3px; }
+  html .myshift .rota--big .rota__day { min-width: 44px; flex: 1 1 0; padding-inline: 2px; }
+  /* the larder table scrolls inside its own box rather than pushing the page sideways */
+  html .stocktable { display: block; overflow-x: auto; max-width: 100%; }
+  /* the city board: districts wrap two to a row */
+  html .cityboard__row { flex-wrap: wrap; }
+  html .cityboard__row > .district { flex: 1 1 140px; }
+  html .startpick__opts > :last-child { grid-column: auto; }
+  html .start { display: grid; grid-template-columns: 60px minmax(0, 1fr); column-gap: 12px; row-gap: 4px; align-items: start; text-align: left; }
+  html .start > .start__icon { grid-row: 1 / span 4; }
+  html .start > :not(.start__icon) { grid-column: 2; }
+  html .startpick .newgame__head h1 { font-size: 26px; }
+  html .empire__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html .empire__side { min-width: 0; }
+  html .empire__side > * { min-width: 0; max-width: 100%; }
+
+  /* staff room: seven 44 px day buttons fit in 358 px only with a slimmer card */
+  html .person--room { padding: 10px; }
+  html .person--room .rota { gap: 3px; }
+  html .person__top { flex-wrap: wrap; }
+
+  /* steppers keep their 44 px buttons when a row gets tight */
+  html .stepper { flex: none; }
+  html .stepper__btn { flex: none; min-width: 44px; min-height: 44px; }
+
+  /* a dialog opened from the header (Settings, the save mark) must sit above the dock and the tab bar */
+  html .status-wrap:has(.modal-back) { z-index: 60; }
+  /* dialogs become sheets from the bottom; the settings sheet and wide dialogs fill the screen */
+  html .modal-back { padding: 0; place-items: end stretch; }
+  html .modal { width: 100%; max-width: 100%; max-height: 100vh; max-height: 100dvh; overflow-y: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html .modal.sheet, html .modal.modal--wide { min-height: 100vh; min-height: 100dvh; border-radius: 0; }
+
+  /* service: a slimmer frame round the floor; the panel below scrolls on its own */
+  html .service { grid-template-rows: minmax(260px, 42%) minmax(0, 1fr); gap: 8px; padding: 8px 8px 10px; }
+
+  /* game over / win: less padding round the card */
+  html .gameover { padding: 16px; min-height: 100dvh; }
+  html .gameover__card { padding: 20px 16px; }
+  html .gameover { grid-template-columns: minmax(0, 1fr); }
+  html .gameover__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  html .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* rows of controls wrap instead of pushing past the edge */
+  html .row { flex-wrap: wrap; }
+  /* tip cards (the worn-out note, the table tip): picture and words, then the button underneath */
+  html .tip { flex-wrap: wrap; }
+  html .tip > .btn { margin-left: auto; }
+
+  /* hands-on, upright: the "turn your phone sideways" card (components/RotateCard.tsx) */
+  html .turncard-back { place-items: center; padding: 16px; }
+  html .modal.turncard { min-height: 0; border-radius: var(--radius-lg); text-align: center; }
+  html .turncard .modal__body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 20px; }
+  html .turncard__art { color: var(--ink); }
+
+  /* title: the shopfront's small chalk words would draw under 13 px at this width, so they go (the art stays) */
+  html .title__shop text[font-size="16"] { display: none; }
+}
+
+/* A phone held sideways: very little height, plenty of width. */
+@media (max-height: 500px) and (orientation: landscape) {
+  html .page { padding: 10px 16px 20px; }
+  html .app:not(:has(.screen--fixed)) { height: auto; min-height: 100vh; min-height: 100dvh; }
+  html .app:not(:has(.screen--fixed)) > .screen { flex: none; overflow: visible; }
+  html .app:has(.screen--fixed) { height: 100vh; height: 100dvh; }
+
+  /* header: back to one row (who · cash · bars · loan · buttons) */
+  html .status { grid-template-columns: minmax(0, 1.4fr) auto minmax(110px, 1fr) auto auto; gap: 4px 14px; padding: 4px 16px 6px; align-items: center; }
+  html .status__who, html .status__end { grid-row: auto; grid-column: auto; }
+  html .status__name { font-size: 18px; }
+  html .status__when { font-size: var(--fs-xs); }
+  html .status__cash { font-size: 20px; }
+  html .status__stat .status__sub { display: none; }
+  html .status-wrap::before { height: 4px; }
+
+  /* service: the floor and its panel side by side again, both the full height */
+  html .service { grid-template-columns: minmax(0, 60fr) minmax(250px, 40fr); grid-template-rows: minmax(0, 1fr); gap: 8px; padding: 6px 8px 8px; }
+  html .service__stage { min-height: 0; }
+
+  /* hands-on: the bar on one row; the clock track shrinks instead of taking its own row */
+  html .handson__bar { flex-wrap: nowrap; row-gap: 0; }
+  html .handson__bar > .clock__track { order: 0; flex: 1 1 80px !important; min-width: 60px; }
+
+  /* a dialog opened from the header (Settings, the save mark) must sit above the dock and the tab bar */
+  html .status-wrap:has(.modal-back) { z-index: 60; }
+  /* the dock: hints and the one primary on a single row */
+  html .actiondock { flex-wrap: nowrap; margin-top: 10px; padding-block: 6px 8px; }
+  html .actiondock .openbar__hints { flex: 1 1 0; min-width: 0; }
+  html .actiondock .btn--xl { min-height: 48px; }
+  /* hands-on: the kitchen gets the header's height (the shift bar keeps Pause and Skip) */
+  html .app:has(.handson) > .status-wrap { display: none; }
+  html .handson { padding: 6px 10px 8px; gap: 6px; }
+  html .modal-back { padding: 8px; }
+  html .modal { max-height: calc(100dvh - 16px); overflow-y: auto; }
+  html .gameover { padding: 16px; }
+}
