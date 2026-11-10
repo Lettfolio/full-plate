@@ -47,11 +47,17 @@ const write = (name: string, game: GameState, meta: PathMeta) => writeFileSync(j
 
 it("writes the audit saves", () => {
   mkdirSync(OUT, { recursive: true });
-  const base = owner(20);
+  // Round 10: an evening that ends on an event card ("Morning post") instead of a plain evening shifts the screens the
+  // audit expects; staff personalities moved day 20 onto one, so take the first day from 20 that ends on an evening.
+  let base = owner(20);
+  let eve = runDay(content, base.game!).state;
+  for (let d = 21; eve.phase !== "evening" && d < 30; d++) {
+    base = owner(d);
+    eve = runDay(content, base.game!).state;
+  }
   const g = base.game!;
   write("owner-planning", g, base.meta);
 
-  const eve = runDay(content, g).state;
   write("owner-evening", eve, base.meta);
 
   // Day 365: an evening with the fork card up.

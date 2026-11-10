@@ -24,6 +24,7 @@ import {
 } from "../constants";
 import type { Rng } from "../rng";
 import type { ContentPack, Customer, DishDef, GameState, HandsOnStation, KitchenTicket, ServiceTally, SimEvent, Staff } from "../types";
+import { PASS_COVER_HIT_PER_LEVEL } from "../personality";
 import { clamp, dither, findDish, mapIfChanged, onShift, round2, tallyOf, traitMult } from "../util";
 import { effectiveSkill, effectiveSpeed, multMod, ownerStats, type SystemResult } from "./system";
 import { aiDueTick, humanTickets, startCourses, stationOf, ticketsToCover } from "./station";
@@ -41,11 +42,20 @@ export interface Cook {
   passDelay?: number;
   /** Share of attention on the kitchen (owner also serving ⇒ < 1, cook time ÷ focus). */
   focus?: number;
+  /** [round 10] "Cover the pass" training level (0-3): the best one is the sim's sous chef on a hands-on station. */
+  passLevel?: number;
 }
 
 export const OWNER_ID = "owner";
 /** Round 5: the cook id of a hands-on commis's AI hands (their capacity beyond the station; DayResult.perChef key). */
 export const SHADOW_COOK_SUFFIX = "~ai";
+
+/** [round 10] The cook with the highest "Cover the pass" level (first on ties), if any has one. */
+export function passCover(cooks: readonly Cook[]): Cook | undefined {
+  let best: Cook | undefined;
+  for (const k of cooks) if (!k.drinksOnly && (k.passLevel ?? 0) > (best?.passLevel ?? 0)) best = k;
+  return best;
+}
 
 /**
  * Cooks depend only on the staff array (breaks, training and mid-service mood changes replace it), content, day and
@@ -96,6 +106,7 @@ function buildCooks(content: ContentPack, state: GameState): Cook[] {
     mistakeMult: traitMult(content, s.traits, "mistakeRate"),
     capacity,
     drinksOnly,
+    ...(s.tracks?.pass ? { passLevel: s.tracks.pass } : {}),
   });
   const chefs = onShift(state, "chef").map((s) => toCook(s, CHEF_PARALLEL_TICKETS, false));
   const bar = onShift(state, "bar").map((s) => toCook(s, BAR_PARALLEL_TICKETS, true));
@@ -342,12 +353,13 @@ export function kitchenSystem(content: ContentPack, state: GameState, rng: Rng):
   let pending: readonly KitchenTicket[] = released;
   const toCover = station ? ticketsToCover(content, state, released) : [];
   if (toCover.length) {
-    const sous = cooks.find((k) => !k.drinksOnly) ?? cooks[0];
+    // Round 10: a chef trained to "cover the pass" takes the sous chef's job (and covers a little better per level).
+    const sous = passCover(cooks) ?? cooks.find((k) => !k.drinksOnly) ?? cooks[0];
     const gone = new Set<string>();
     for (const t of toCover) {
       const dish = findDish(content, t.dishId);
       if (!sous || !dish) continue;
-      const quality = round2(Math.max(0, plateQuality(rng, dish, sous, t.freshness ?? 0).quality - HANDS_ON.coverQualityHit));
+      const quality = round2(Math.max(0, plateQuality(rng, dish, sous, t.freshness ?? 0).quality - Math.max(0, HANDS_ON.coverQualityHit - (sous.passLevel ?? 0) * PASS_COVER_HIT_PER_LEVEL)));
       events.push({ type: "DISH_PLATED", ticketId: t.id, quality });
       dishes ??= { ...tally.dishes };
       tally = tallyPlate(tally, dishes, t, sous.id, quality);

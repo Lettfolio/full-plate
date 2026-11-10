@@ -172,6 +172,8 @@ export interface NewCareerOptions {
   difficulty?: GameState["difficulty"];
   restaurantName?: string;
   ownerName?: string;
+  /** [round 10] The player's portrait: one of sim-core PLAYER_LOOKS (0-5). Omitted = no look stored (shown as look 0). */
+  look?: number;
 }
 
 /** A fresh career at rung 0 in an established AI-run restaurant. */
@@ -196,6 +198,7 @@ export function newCareer(content: ContentPack, opts: NewCareerOptions): CareerG
     rung: 0,
     playerStaffId: PLAYER_ID,
     playerName: opts.playerName?.trim() || "You",
+    ...(Number.isInteger(opts.look) && opts.look! >= 0 && opts.look! < 6 ? { look: opts.look } : {}),
     day: 0,
     stats,
     mood: 70,

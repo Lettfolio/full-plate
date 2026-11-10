@@ -700,3 +700,19 @@ RestaurantView.
 - Tests: `__tests__/round10.decor.test.tsx` (11): catalogue, buy/refund, need-more, refresh, prestige hint, hover
   preview, scene-cache invalidation, every slot drawn + dust sheets, evening lines, style badge, lazy tab.
 - Type audit: a `13b-planning-decorate` step (Sign slot, hovering the gold lettering, canvas measured).
+
+## Round 10 — B (the staff room)
+
+### Portraits (`components/Avatar.tsx`, `components/people.css`)
+- `<Avatar person={staff} size={96} mood={staff.mood} />` or `<Avatar spec={playerAvatar(look, role)} … />`. SVG, viewBox 100: shoulders r 34 at (50, 103), head ≈ 24 at (50, 57) — the sprite's 0.64 head-to-body ratio; one warm outline `#3a2c22` at 4.4 (≈ 0.13 × body radius, as `sprites.ts`); light from the top-left (shoulder highlight, lower-right shade); rosy cheeks, dot eyes with a catch-light, a mouth that follows mood (grin ≥ 75, smile ≥ 50, flat ≥ 30, frown); toque / cap / bare head by role; the disc is the person's favourite colour. Decorative by default (the card names the person); `title` makes it `role="img"`. Clip ids come from `useId`.
+- Sizes in use: 96 (person and candidate cards), 72 (score card), 64 (My shift), 52 (look picker), 36 (co-workers), 32 (evening), 30 (rota grid, StaffStrip). The rota's overlapping faces replace initials (fixes R7 "two people share KB").
+
+### Staff room (`screens/planning/StaffTab.tsx`, `staffRoom.css`; lazy chunk 13.9 kB)
+- Order: the hiring sheet (when open) → "Who's on this week" (mini portraits) → "Your team" (+ "Hire someone (3 looking for work)").
+- Person card: portrait, name, role · wage/h, mood face + word + the evening's reason (▲/▼), trait chips, "Loves … / Hates …" chips, "Gets on with … / Clashes with …" (only among the current team), skill bars, rota, Training (one button per track for the role: name, three level dots, next fee; disabled with the reason — training today, the only one of their job on today, finished, no cash), Let go.
+- Chips with tips use the Term pattern (focusable `.term` wrapper, `role="tooltip"` element, `placeTip` flip) with `.chip`; colours from tokens (success/danger/plum/warning washes).
+- Hiring sheet: three candidates (the goal's role first), each with portrait, a "why me" quote bubble, traits, like/dislike, skill bars, "Asks £x/h · about £y a shift", Hire · fee (`HIRE { candidateId }`, `hireCheck` unchanged). Opens by itself with no staff or with a "Hire a …" goal; Close when you have a team. Old colleagues (career handover) appear under it with a quote.
+- Evening "How the team feels": a level-up line (graduation icon, amber wash) per training level finished today; each moved mood shows its reason under the name.
+- Start picker (career): "How you look" — six portraits in the job's clothes, a radiogroup of 60 px buttons; passed to `newCareer` as `look`.
+- Icons added: `user`, `thumbsUp`, `thumbsDown`, `graduation`, `bolt` (`people` / `heart` existed).
+- Type audit: new screen `11b-planning-hire-sheet`; 36 screens, 0 text < 13 px, normal and Bigger. R8 probe: unchanged counts on every screen at 1280/1024 × normal/large (the only diff is a toast caught mid-fade on the career watch screen, timing).

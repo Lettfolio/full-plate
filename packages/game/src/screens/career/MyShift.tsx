@@ -11,7 +11,8 @@ import { careerContent, extras } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Bar } from "../../components/Bar";
 import { WEEKDAYS, weekdayIndex } from "../../lib/calendar";
-import { initials } from "../../lib/staff";
+import { Avatar } from "../../components/Avatar";
+import { playerAvatar } from "@full-plate/sim-core";
 import { handoverPreview } from "../../state/pathEngine";
 import type { PathMeta } from "../../state/paths";
 import { handsOnRoleFor } from "../../state/paths";
@@ -68,7 +69,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
     <div className="myshift">
       <section className="card myshift__today" aria-label="Today">
         <div className="row">
-          <span className={`avatar avatar--${career.role}`} aria-hidden="true">{initials(career.playerName)}</span>
+          <Avatar spec={playerAvatar(career.look ?? 0, career.role)} size={64} mood={career.mood} />
           <div className="spacer">
             <div className="panel__eyebrow">You · {career.employer.restaurantName}</div>
             <h3>{rung.title} · {perHour(career.wage)}</h3>
@@ -170,7 +171,7 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           <ul className="coworkers">
             {coworkers.slice(0, 8).map((r) => (
               <li key={r.staffId} className="coworker">
-                <span className={`avatar avatar--${r.role}`} aria-hidden="true">{initials(r.name)}</span>
+                <Avatar person={{ id: r.staffId, name: r.name, role: r.role }} size={36} />
                 <span className="spacer">
                   <b>{r.name}</b> <span className="xs muted">{r.role}{onToday.has(r.staffId) ? " · on today" : ""}</span>
                   {r.tag && <span className={`pill pill--${r.tag === "mentor" ? "star" : "dog"}`} style={{ marginLeft: 6 }}>{r.tag[0]!.toUpperCase() + r.tag.slice(1)}</span>}

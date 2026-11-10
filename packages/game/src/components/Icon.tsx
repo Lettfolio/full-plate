@@ -79,6 +79,12 @@ export const ICONS = {
   sign: <><path d="M12 3v2.5M8.5 5.5L12 3l3.5 2.5" /><rect x="3.5" y="5.5" width="17" height="8" rx="1.5" /><path d="M7 9.5h10M8 13.5L6.5 21M16 13.5l1.5 7.5" /></>,
   window: <><rect x="4.5" y="3.5" width="15" height="15" rx="1.5" /><path d="M12 3.5v15M4.5 11h15M3 20.5h18" /></>,
   floor: <><path d="M3.5 3.5h17v17h-17z" /><path d="M3.5 9.2h17M3.5 14.8h17M9.2 3.5v17M14.8 3.5v17" /><path d="M3.5 3.5h5.7v5.7H3.5zM14.8 3.5h5.7v5.7h-5.7zM9.2 9.2h5.6v5.6H9.2zM3.5 14.8h5.7v5.7H3.5zM14.8 14.8h5.7v5.7h-5.7z" {...S} /></>,
+  // Round 10 (B): the staff room (people / heart were already here).
+  user: <><circle cx="12" cy="8.5" r="3.8" /><path d="M4.8 20.5a7.2 7.2 0 0 1 14.4 0" /></>,
+  thumbsUp: <><path d="M7.5 10.5v9.5H4.5v-9.5z" /><path d="M7.5 10.5l3.6-6.3a1.8 1.8 0 0 1 3.3 1.3l-.9 3.7h5a1.8 1.8 0 0 1 1.8 2.1l-1.2 6.8a2 2 0 0 1-2 1.7H7.5" /></>,
+  thumbsDown: <><path d="M7.5 13.5V4H4.5v9.5z" /><path d="M7.5 13.5l3.6 6.3a1.8 1.8 0 0 0 3.3-1.3l-.9-3.7h5a1.8 1.8 0 0 0 1.8-2.1l-1.2-6.8a2 2 0 0 0-2-1.7H7.5" /></>,
+  graduation: <><path d="M2.5 9.5L12 5l9.5 4.5L12 14z" /><path d="M6.5 11.5v4.2c1.4 1.5 3.3 2.3 5.5 2.3s4.1-.8 5.5-2.3v-4.2M21.5 9.5v5" /></>,
+  bolt: <path d="M13.5 3L5.5 13.5h6L10.5 21l8-10.5h-6z" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;

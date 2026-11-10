@@ -186,6 +186,8 @@ try {
   await boot({ owner: "owner-planning" }); await cont();
   await audit("10-planning-menu");
   await tab(/^Staff/); await audit("11-planning-staff");
+  // Round 10: the hiring sheet (three candidates with portraits and quotes).
+  { const hire = page.getByRole("button", { name: /Hire someone/ }); if (await hire.count()) { await hire.click(); await page.waitForTimeout(300); } await audit("11b-planning-hire-sheet"); }
   await tab(/^Stock/); await audit("12-planning-stock");
   await tab(/^Restaurant/); await audit("13-planning-restaurant");
   // Round 10: the Decorate tab — catalogue cards and the live room preview (canvas), previewing a lavish item.

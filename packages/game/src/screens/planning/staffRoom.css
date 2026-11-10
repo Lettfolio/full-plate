@@ -1,0 +1,60 @@
+/* Round 10 (B): the staff room (StaffTab.tsx) and portraits (components/Avatar.tsx). Tokens only; kept out of
+   theme.css so the decorating work (agent A) and this never touch the same lines. */
+
+
+/* person cards */
+.staffroom .roster { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+.person--room .rota__day { flex: 1; min-width: 44px; }
+.person--room { gap: 12px; }
+.person--room .person__role { text-transform: none; }
+.person--room .person__top { align-items: flex-start; gap: 14px; }
+.stack--xs { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.moodline { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-sm); line-height: 1.3; }
+.moodline__face { font-size: 20px; line-height: 1; }
+.moodline__d { margin-left: 4px; font-size: var(--fs-micro); }
+.moodline__d.up { color: var(--success); }
+.moodline__d.down { color: var(--danger); }
+
+/* chips with a tip (traits, likes, relations) */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.term { flex-direction: row; display: inline-flex; line-height: 1.3; min-height: 30px; cursor: help; white-space: normal;
+  background: var(--surface-inset); color: var(--ink); border: 1px solid var(--border-subtle); }
+.chip.term:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 1px; }
+.chip.term .term__tip { top: calc(100% + 6px); font-weight: 600; white-space: normal; }
+.chip.term.chip--like { background: var(--success-wash); border-color: #b9d8af; color: var(--success); }
+.chip.term.chip--dislike { background: var(--danger-wash); border-color: #efc1b5; color: var(--danger); }
+.chip.term.chip--friend { background: var(--plum-wash); border-color: #d8c2e2; color: #6c3f80; }
+.chip.term.chip--clash { background: var(--warning-wash); border-color: #ecd09c; color: var(--warning); }
+
+/* training paths */
+.training { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--radius-sm); background: var(--surface-inset); }
+.training__head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.training__tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; }
+.track { min-height: 44px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 2px 8px; align-items: center;
+  padding: 6px 10px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-strong); background: var(--surface-raised);
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.track:hover:not(:disabled) { border-color: var(--ink-soft); }
+.track:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 1px; }
+.track:disabled { cursor: not-allowed; background: var(--surface-panel); color: var(--ink-soft); }
+.track__name { font-weight: 800; font-size: var(--fs-xs); grid-column: 1 / -1; }
+.track__fee { font-size: var(--fs-micro); font-weight: 700; color: var(--ink-soft); justify-self: end; }
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink-soft); background: transparent; }
+.dots i.on { background: var(--amber); border-color: var(--warning); }
+
+/* hiring sheet */
+.hiresheet { background: var(--surface-panel); border: 2px solid var(--success-fill); }
+.hiresheet .card__title { flex-wrap: wrap; }
+.hiresheet__row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.candidate--sheet { gap: 10px; border-style: solid; background: var(--surface-page); }
+.candidate__head { display: flex; align-items: center; gap: 12px; }
+.candidate__quote { margin: 0; position: relative; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-raised);
+  border: 1.5px solid var(--border-subtle); font-size: var(--fs-sm); font-style: italic; color: var(--ink); }
+.candidate__quote::before { content: ""; position: absolute; left: 34px; top: -8px; border: 8px solid transparent; border-top: 0;
+  border-bottom-color: var(--border-subtle); }
+.candidate__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.ink { color: var(--ink); }
+
+/* rota grid: mini portraits overlap like the old initials */
+.rotaweek__face.avatarsvg { width: 30px; height: 30px; border: 2px solid var(--paper); box-sizing: content-box; }
+.rotaweek__face.avatarsvg + .rotaweek__face.avatarsvg { margin-left: -9px; }

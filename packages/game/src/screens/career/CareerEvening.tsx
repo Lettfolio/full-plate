@@ -2,6 +2,8 @@ import type { DayResult, GameState } from "@full-plate/sim-core";
 import { openingBudget, perHour, PLAYER_ID, promotionChecklist, rungDef, trackStat, trackStatName, type CareerEvent, type CareerState } from "@full-plate/sim-career";
 import type { ShiftSummary } from "@full-plate/handson";
 import "./career.css";
+import { playerAvatar } from "@full-plate/sim-core";
+import { Avatar } from "../../components/Avatar";
 import { careerContent } from "../../sim";
 import { MoneyText } from "../../components/MoneyText";
 import { Stars } from "../../components/Stars";
@@ -176,6 +178,7 @@ export function ShiftScoreCard({ summary, career, grew, name, touch = prefersTou
   return (
     <section className="card shiftcard" role="status" aria-label={`Shift score: ${summary.stars} of 3 stars`}>
       <div className="shiftcard__result">
+        <Avatar spec={playerAvatar(career.look ?? 0, career.role)} size={72} mood={summary.stars >= 2 ? 90 : summary.stars === 1 ? 65 : 45} className="shiftcard__me" />
         <div className="shiftcard__stars" aria-hidden="true">
           {[0, 1, 2].map((i) => <span key={i} className={`shiftcard__star${i < summary.stars ? " shiftcard__star--on" : ""}`}>★</span>)}
         </div>

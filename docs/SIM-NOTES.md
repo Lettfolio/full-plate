@@ -505,3 +505,38 @@ prestige saturates near 91 for everyone, so decor prestige mostly matters in the
 - **Empire**: sites keep their own REFURBISH/REMODEL (sim-empire state). `capacity.ts` (the closed-form model Empire
   calibrates with) ignores decor; a decorated flagship's history feeds the fit like any other history.
 - `buyOpeningStock`/forecast don't know about the spend boost (≤ 12% on extra courses).
+
+## Round 10 — B (staff with personality)
+
+Everything new lives in `src/personality.ts` and is **derived, not stored**, except the training levels and the evening's mood note. Old saves get portraits, likes, dislikes and relationships with no migration; a save without the new fields serializes byte-identically (test).
+
+### Model
+- **Portraits** — `avatarFor({ id, name, role })`: skin and hair use the sprite rule (`hashKey(id)` into the same `SKINS` / `HAIRS` as handson `sprites.ts` and `RestaurantView.staffLook`), so a portrait matches the person on the floor. Hair style (7), face shape (3), glasses (1 in 4), freckles (1 in 5) and a favourite colour (8) come from an independent FNV hash of `id|name`; clothes by role mirror `staffLook`. Candidates carry their future staff id (`Candidate.id = "s<day>-<index>"`), so the portrait and personality don't change on hiring. `playerAvatar(look, role)`: the career player's 6 looks (`PLAYER_LOOKS`).
+- **Traits** — unchanged: 18 in `traits.json` (already > 12, each with a description and effects), drawn 1–3 per candidate as before. Drawing exactly 2 would shift the candidate RNG stream and every candidate pool; not worth the balance churn. The UI turns each trait's multipliers into a plain line ("Works faster, makes more mistakes.").
+- **Likes / dislikes** — `personalityOf(person)`: one of 7 likes (busy nights, calm nights, weekends off, happy guests, a full tip jar — front of house only, learning new things, short weeks) and one of 7 dislikes (Mondays, long weeks, grumpy guests, a mad rush, slow nights, working when tired, Sunday shifts); contradicting pairs (busy nights + a mad rush, quiet + slow nights) are never drawn together.
+- **Relationships** — `relationBetween(a, b)`: order-free pair hash mod 12: 0 = clash, 1–2 = friends (≈ 1 in 12 pairs clash, 1 in 6 get on).
+- **Daily mood** (`staffMood.ts`): the round-2 rule is untouched (`moodChange`, same arithmetic); `personalityFactors` adds like +2 (learning +3 on a training day), dislike −2, +1 per friend on shift (max 2), −1 per clash on shift (max 2), and the **sum is clamped to ±5 a day** (`PERSONALITY_MOOD.cap`). Thresholds: busy ≥ 18 covers per person on, rush ≥ 26, slow ≤ 8, tired ≥ 70 fatigue, short week ≤ 4 shifts, long week ≥ 6, happy guests ≥ 4★, grumpy < 3★.
+- **Mood reason** — `Staff.moodWhy = { text, delta }` set every evening: the biggest personality reason if it moved mood by ≥ 1 ("had Sunday off", "worked with Ellie", "stuck on a shift with Ben"), else the biggest base reason ("the guests loved it", "worn out", "6 shifts this week is too many", "good tips"), else "an ordinary day".
+- **Training tracks** — `TRAIN { staffId, track }` with `track` ∈ knife (speed +4/level; chef, porter, bar), plating (skill +4, potential raised with it; chef, bar), charm (charm +4; server, bar, manager), pass ("Cover the pass"; chef). Three levels each; fees £120/£180/£250 (pass £150/£200/£280); the day off the floor as legacy TRAIN. `Staff.tracks?: { knife: 2, … }`, `Staff.trainingTrack?` (cleared in the evening). The evening logs `Level up! <name> finished Knife skills level 2 (speed +4).` **TRAIN without `track` is the legacy course, unchanged** (sim-career's owner and sim-stars' script use it; the headless bots never train).
+- **Cover the pass** — `passCover(cooks)`: on a hands-on station the chef with the highest pass level is the sim's sous chef, and the cover-quality hit drops by 3 per level (12 → 3 at level 3). No pass levels = round-5 behaviour exactly. `SHADOW_COOK_SUFFIX` unchanged (test).
+- **Hiring by id** — `HIRE { candidateId }` (today's `Candidate.id`) or `{ candidateIndex }` as before; a stale or malformed id is rejected. Candidates are still seeded per day (`hashSeed(seed, day, CANDIDATE_SALT)`); `Candidate.archetype` picks the "why me" quote (`quoteFor`, content `staffQuotes.json`).
+- **Career** — `CareerState.look?` (0–5) from `NewCareerOptions.look`; absent = look 0.
+
+### Balance (100 seeds × 365 days, normal, real pack)
+| strategy | before (f14f861) | after (r10-b) |
+|---|---|---|
+| typical | 83% · 90.3 covers/day · 4.23★ | 87% · 90.4 · 4.23★ |
+| balanced | 100% · 87.5 · 4.42★ | 98% · 85.6 · 4.40★ |
+| nohire | 0% · 11.1 · 1.86★ | 0% · 11.1 · 1.86★ (no staff, no personality) |
+
+A first cut (dislike "weekend shifts" on Fri–Sun, tired at fatigue ≥ 55, clash −1.5) took balanced to 95% — the dislikes fired far more often than the likes for a bot that works every weekend. "Sunday shifts", tired ≥ 70 and clash −1 bring the nudges near zero on average: within ±5 points everywhere.
+
+### Tests that moved (trajectories, not rules)
+Personalities change moods, so every multi-day run (and the career employer's warm-up) takes a different path. Re-seeded, each with a note in the test:
+- `round6.advice` "END_DAY records…": seed 1 → 3 (seed 1 now shows one tip in 60 days; seed 3 shows 40+ either way).
+- game `careerParity` half-speed child: 10 → 30 seeds. Covers per seed swing ±20 between a played and a skipped shift; seeds 1-10 measured 92.8%, seeds 1-30 measure 97.7% (101.5% before round 10). Full speed / idle stay on 10 seeds.
+- game `round5.seams` coursing × 86: service may end on an event card (phase `event`) as well as the evening.
+- game `round7.careerUx` sous lead-in: seeds 5, 6, 7 → 1, 9, 13. **Latent handson issue for the reviewer:** on master f14f861 the lead-in pose already jumps (> 0.6 tiles in a frame) on seeds 4, 8, 10, 11 and 14 — `sousPose` picks the newest active walk, so a walk that starts while another is still out snaps the sous chef. Not touched here.
+- game `audit-saves.gen.ts`: day 20 of the audit owner now ends on a morning-post card, so it takes the first day from 20 that ends on a plain evening (day 22).
+
+`test/round10.staff.test.ts` (20): avatar determinism and sprite parity, likes/dislikes, ±5 cap, relationships, mood notes, legacy TRAIN, tracks to level 3 and rejections, deep-frozen purity, pass cover + shadow cook, candidates by id, saves.

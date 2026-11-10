@@ -140,7 +140,9 @@ describe("round 5 (b): coursing × 86", () => {
         if (c && (c.stage === "paying" || (c.stage === "left" && !c.walkedOut))) paid = true;
       }
       const g = r.s.game!;
-      expect(g.phase).toBe("evening");
+      // Round 10: service can end on a random event card before the evening (seed 4 does since staff personalities
+      // re-rolled the career warm-up); either way the shift is over.
+      expect(["evening", "event"]).toContain(g.phase);
       const d = g.service!.dishes[dishId]!;
       // Every plate of the dish went out at most once (no plate booked by both the human and the sous chef).
       expect(d.plated).toBeLessThanOrEqual(platedBefore + ticketsOf.size);

@@ -111,7 +111,7 @@ export function App() {
   const startCareer = (o: CareerStartOptions) => {
     claimSlot();
     setPlanTab("menu");
-    dispatch({ type: "newCareer", seed: randomSeed(), track: o.track, strategy: o.strategy, playerName: o.playerName, difficulty: o.difficulty, districtId: o.districtId });
+    dispatch({ type: "newCareer", seed: randomSeed(), track: o.track, strategy: o.strategy, playerName: o.playerName, difficulty: o.difficulty, districtId: o.districtId, look: o.look });
     setShell({ view: "game" });
   };
   const quitToTitle = () => {

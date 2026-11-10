@@ -8,10 +8,16 @@ import { serialize } from "@full-plate/sim-core";
 import { careerChefStart, parityRun, playBotShift, type BotSpec, type ParityRow } from "./handsOnHarness";
 
 const seeds = Array.from({ length: Number(process.env.PARITY_SEEDS ?? 10) }, (_, i) => i + 1);
+/**
+ * Round 10: the half-speed check runs 30 seeds. Covers per seed swing ±20 between a played and a skipped shift (the
+ * two runs' arrivals diverge), so 10 seeds is a coin toss near the 95% line: staff personalities (round 10) re-rolled
+ * the warm-up and seeds 1-10 measured 92.8% while seeds 1-30 measure 97.7% (101.5% before). See SIM-NOTES round 10.
+ */
+const halfSeeds = Array.from({ length: Number(process.env.PARITY_SEEDS ?? 30) }, (_, i) => i + 1);
 const mean = (rows: ParityRow[], f: (r: ParityRow) => number) => rows.reduce((a, r) => a + f(r), 0) / rows.length;
 
-function check(bot: BotSpec, label: string) {
-  const rows = parityRun(seeds, bot);
+function check(bot: BotSpec, label: string, over: readonly number[] = seeds) {
+  const rows = parityRun(over, bot);
   const skipCovers = mean(rows, (r) => r.skip.covers);
   const playedCovers = mean(rows, (r) => r.played.covers);
   const extraWalkouts = mean(rows, (r) => r.played.walkouts - r.skip.walkouts);
@@ -23,7 +29,7 @@ function check(bot: BotSpec, label: string) {
 
 describe("playing never costs the restaurant (round 5)", () => {
   it("a half-speed child (skill 0.55, pace 0.5)", () => {
-    const rows = check({ skill: 0.55, pace: 0.5 }, "half speed");
+    const rows = check({ skill: 0.55, pace: 0.5 }, "half speed", halfSeeds);
     expect(mean(rows, (r) => r.played.plates)).toBeGreaterThanOrEqual(7); // and still cooks plenty of her own
   }, 300_000);
 

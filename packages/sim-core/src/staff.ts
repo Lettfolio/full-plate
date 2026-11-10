@@ -28,6 +28,9 @@ interface Drawn {
   potential: number;
 }
 
+/** [round 10] The Staff id candidate `index` gets when hired today (portraits and personality key on it). */
+export const candidateStaffId = (day: number, index: number): string => `s${day}-${index}`;
+
 function drawCandidate(rng: Rng, content: ContentPack, a: StaffArchetypeDef): Drawn {
   const traits = drawTraits(rng, content, a.traits);
   const skill = rng.int(a.skillRange[0], a.skillRange[1]);
@@ -44,6 +47,7 @@ function drawCandidate(rng: Rng, content: ContentPack, a: StaffArchetypeDef): Dr
       wage: Math.max(a.wageRange[0], Math.round(wageBase * traitMult(content, traits, "wageDemand"))),
       traits,
       potentialHint: potentialHint(potential),
+      archetype: a.id,
     },
   };
 }
@@ -70,7 +74,10 @@ function drawAll(content: ContentPack, state: GameState): Drawn[] {
 /** Today's candidate pool; indices are stable all day, hired ones are flagged. */
 export function candidates(content: ContentPack, state: GameState): Candidate[] {
   const hired = state.hiredCandidates ?? [];
-  return drawAll(content, state).map((d, i) => (hired.includes(i) ? { ...d.candidate, hired: true } : d.candidate));
+  return drawAll(content, state).map((d, i) => {
+    const c = { ...d.candidate, id: candidateStaffId(state.day, i) };
+    return hired.includes(i) ? { ...c, hired: true } : c;
+  });
 }
 
 /** Converts candidate `index` into a Staff member (no validation). */
@@ -79,7 +86,7 @@ export function staffFromCandidate(content: ContentPack, state: GameState, index
   if (!d) return undefined;
   const c = d.candidate;
   return {
-    id: `s${state.day}-${index}`,
+    id: candidateStaffId(state.day, index),
     name: c.name,
     role: c.role,
     skill: c.skill,

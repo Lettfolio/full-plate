@@ -1,0 +1,14 @@
+/* Round 10 (B): portraits (Avatar.tsx). */
+.avatarsvg { display: block; flex: none; border-radius: 50%; }
+/* Evening: the mood reason under a name, and a level-up line. */
+.moodrow__why { display: block; font-weight: 600; }
+.levelup { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: var(--warning-wash); color: var(--ink); font-weight: 800; font-size: var(--fs-sm); }
+.levelup .icon { color: var(--warning); flex: none; }
+/* Start picker: the career player's look (6 portraits). */
+.lookpick { display: flex; flex-wrap: wrap; gap: 8px; }
+.lookpick__opt { min-width: 60px; min-height: 60px; padding: 3px; border-radius: 50%; border: 3px solid transparent; background: none; cursor: pointer; }
+.lookpick__opt[aria-checked="true"] { border-color: var(--border-ink); }
+.lookpick__opt:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+/* Career: the player on the score card. */
+.shiftcard__me { margin: 0 auto 4px; }
