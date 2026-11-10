@@ -104,6 +104,15 @@ export function startSpeed(s: Settings, difficulty: string | undefined): 1 | 2 |
   return !s.speedPicked && difficulty === "cosy" ? 4 : s.defaultSpeed;
 }
 
+/**
+ * Round 11b: the drinks view a screen is showing. The content view re-words the pack in place (sim.ts syncSoftDrinks),
+ * which React can't see; a screen that caches dish or ingredient names puts this in its memo keys, and calling it
+ * re-renders the screen when the player flips "Hide alcoholic drinks" (the Planning screen is under the Settings sheet).
+ */
+export function useDrinksView(): boolean {
+  return useSyncExternalStore(subscribe, () => getSettings().noGrownUpDrinks, () => DEFAULT_SETTINGS.noGrownUpDrinks);
+}
+
 /** Round 11 (D): non-React listeners (the soft-drinks content view in sim.ts). */
 export function subscribeSettings(l: () => void): () => void { return subscribe(l); }
 

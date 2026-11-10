@@ -12,6 +12,7 @@ import { judged, QUADRANT, QUADRANT_MIN_DAYS } from "./quadrants";
 const MenuMatrixPanel = lazy(() => import("./MenuMatrixPanel"));
 import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
 import { Term } from "../../components/Term";
+import { useDrinksView } from "../../lib/settings";
 
 export type MenuView = "list" | "matrix";
 const VIEW_KEY = "full-plate:menuView:v1";
@@ -67,7 +68,8 @@ export function MenuTab({ game, send, path }: Props) {
   const [view, setViewState] = useState<MenuView>(readMenuView);
   const setView = (v: MenuView) => { setViewState(v); writeMenuView(v); };
   const quadrants = useMemo(() => classifyMenu(content, game), [game]);
-  const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), []);
+  const drinks = useDrinksView(); // Round 11b: names follow "Hide alcoholic drinks" at once
+  const names = useMemo(() => Object.fromEntries(content.dishes.map((d) => [d.id, d.name])), [drinks]);
   const byCourse = (a: MenuItem, b: MenuItem) => {
     const ca = content.dishes.find((d) => d.id === a.dishId)?.course ?? "main";
     const cb = content.dishes.find((d) => d.id === b.dishId)?.course ?? "main";

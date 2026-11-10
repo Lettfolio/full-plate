@@ -33,6 +33,7 @@ import type { PathKind } from "../lib/library";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import type { PathMeta } from "../state/paths";
+import { useDrinksView } from "../lib/settings";
 
 export type PlanningTab = "menu" | "staff" | "stock" | "restaurant" | "decorate" | "empire" | "stars";
 type TabId = PlanningTab;
@@ -71,7 +72,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const onShift = game.staff.filter((s) => s.rota[today]);
   const chefs = onShift.filter((s) => s.role === "chef").length;
   const servers = onShift.filter((s) => s.role === "server").length;
-  const needs = useMemo(() => stockNeeds(content, game), [game]);
+  const drinks = useDrinksView();
+  const needs = useMemo(() => stockNeeds(content, game), [game, drinks]);
   // Day 0: the larder is empty until "Open", when the sim buys opening stock, so nothing is "short" yet.
   const opening = isOpeningDay(game);
   const short = opening ? 0 : needs.filter((n) => n.need > 0 && n.onHand < n.need).length;
@@ -84,7 +86,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const loanTip = tab !== "staff" && !opening && loanDue(game);
   const closedForRefit = !!meta?.stars && (meta.stars.refitUntil ?? -1) > game.day;
   // Round 3 review P1: say before service when the larder won't cover the forecast (louder in inspection season).
-  const risk = useMemo(() => tonightRisk(content, game), [game]);
+  const risk = useMemo(() => tonightRisk(content, game), [game, drinks]);
   const showRisk = !opening && !closedForRefit && game.phase === "planning" && risk.dishes.length > 0;
   const inspection = !!meta?.stars && !meta.stars.ending && inSeason(meta.stars, game.day);
   const hints: Hint[] = [];

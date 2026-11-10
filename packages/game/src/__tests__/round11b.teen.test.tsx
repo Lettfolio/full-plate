@@ -4,8 +4,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { content } from "../sim";
-import { DEFAULT_SETTINGS, getSettings, resetSettingsCache, setSettings, SETTINGS_KEY, startSpeed } from "../lib/settings";
+import { DEFAULT_SETTINGS, getSettings, resetSettingsCache, setSettings, SETTINGS_KEY, startSpeed, useDrinksView } from "../lib/settings";
+import { content, syncSoftDrinks } from "../sim";
 import { resetTermsSeen, Term } from "../components/Term";
 import { GoalsCard } from "../components/GoalsCard";
 import { goalsQuiet, GOALS_QUIET_DAY } from "../lib/goals";
@@ -81,5 +81,18 @@ describe("the goals card calms down after the first week", () => {
     expect(container.querySelector(".goals--quiet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Show me" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show me" }));
+  });
+});
+
+describe("flipping Hide alcoholic drinks re-words what is on screen at once", () => {
+  afterEach(() => { syncSoftDrinks(false); });
+  it("a screen using useDrinksView re-renders with the soft names (the content view itself is invisible to React)", () => {
+    function Lager() { useDrinksView(); return <span>{content.dishes.find((d) => d.id === "lager")!.name}</span>; }
+    render(<Lager />);
+    expect(screen.getByText("Pint of lager")).toBeTruthy();
+    act(() => setSettings({ noGrownUpDrinks: true }));
+    expect(screen.getByText("Tall fizzy lemonade")).toBeTruthy();
+    act(() => setSettings({ noGrownUpDrinks: false }));
+    expect(screen.getByText("Pint of lager")).toBeTruthy();
   });
 });
