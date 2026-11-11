@@ -107,8 +107,12 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   }, false)),
 }, false);
 
+/** A checked save; `repairs` says what the check fixed rather than refused (shown as a toast when a slot opens). */
+export interface CheckedLoaded extends Loaded { repairs?: string[] }
+
 /** A decoded save, checked and cleaned. Throws a SchemaError naming the first bad field. */
-export function validateLoaded(l: Loaded): Loaded {
+export function validateLoaded(l: Loaded): CheckedLoaded {
+  const repairs: string[] = [];
   const game = validateGameState(l.game);
   const { career, empire, stars, ...rest } = l.meta;
   const meta = metaSchema(rest, "meta") as PathMeta;
@@ -128,6 +132,17 @@ export function validateLoaded(l: Loaded): Loaded {
   }
   for (const dishId of [...game.menu.map((m) => m.dishId), ...(game.setMenu?.dishIds ?? [])])
     if (isCustomDishId(dishId) && !mine.has(dishId)) fail("game.menu", `unknown invented dish ${dishId}`);
+  // Round 14 (C, red-team S14-10): a deleted recipe or an old version can't be cooked (the game never puts one there:
+  // delete is refused while it's on a menu, a new version swaps the row). A save that has one gets the row dropped,
+  // with a note, rather than refused whole — or used to get round the 12-recipe cap.
+  const dead = new Set((meta.customDishes ?? []).filter((d) => !isLive(d)).map((d) => d.id));
+  if (dead.size) {
+    const names = new Set<string>();
+    const keep = (id: string) => { if (!dead.has(id)) return true; names.add((meta.customDishes ?? []).find((d) => d.id === id)?.name ?? id); return false; };
+    if (game.menu.some((m) => dead.has(m.dishId))) game.menu = game.menu.filter((m) => keep(m.dishId));
+    if (game.setMenu?.dishIds.some((x) => dead.has(x))) game.setMenu = { ...game.setMenu, dishIds: game.setMenu.dishIds.filter(keep) };
+    if (names.size) repairs.push(`${[...names].slice(0, 3).join(", ")}${names.size > 3 ? ` and ${names.size - 3} more` : ""} came off the menu: ${names.size === 1 ? "that recipe is" : "those recipes are"} no longer in your cookbook.`);
+  }
   if (meta.parked) {
     for (const [site, s] of Object.entries(meta.parked)) {
       if (typeof s !== "string") { meta.parked[site] = validateParkedSite(s, `meta.parked.${site}`); continue; }
@@ -136,14 +151,14 @@ export function validateLoaded(l: Loaded): Loaded {
       meta.parked[site] = serialize(validateGameState(g));
     }
   }
-  return { game, meta };
+  return repairs.length ? { game, meta, repairs } : { game, meta };
 }
 
 /** `decodeSave` + `validateLoaded`: the only way the save store turns text into a game. Throws. */
-export const checkedDecode = (raw: string): Loaded => validateLoaded(decodeSave(raw));
+export const checkedDecode = (raw: string): CheckedLoaded => validateLoaded(decodeSave(raw));
 
 /** The same, null instead of throwing. */
-export function tryDecode(raw: string | null | undefined): Loaded | null {
+export function tryDecode(raw: string | null | undefined): CheckedLoaded | null {
   if (!raw) return null;
   try { return checkedDecode(raw); } catch { return null; }
 }

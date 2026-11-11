@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import { Icon } from "./Icon";
 
 export interface SettingsProps {
@@ -44,7 +45,7 @@ function focusRow(row: SettingsRow, tries = 20): void {
 /** Round 12 (D): the sheet's body is its own chunk (components/SettingsBody.tsx); fetched early so a tap never waits. */
 let Loaded: typeof import("./SettingsBody").SettingsBody | null = null;
 export const loadSettingsBody = () => import("./SettingsBody").then((m) => { Loaded = m.SettingsBody; return m; });
-const LazyBody = lazy(() => loadSettingsBody().then((m) => ({ default: m.SettingsBody })));
+const LazyBody = lazyRetry(() => loadSettingsBody().then((m) => ({ default: m.SettingsBody })));
 const warm = () => { void loadSettingsBody().catch(() => {}); };
 
 /**

@@ -1,4 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { ChunkBack, lazyRetry, setSaveBeforeReload } from "./lib/lazyRetry";
+import { storageTrouble } from "./lib/storageTrouble";
+import type { CheckedLoaded } from "./state/saveCheck";
 import type { Command, Difficulty, GameState } from "@full-plate/sim-core";
 import { playerAvatar } from "@full-plate/sim-core";
 import type { CareerCommand } from "@full-plate/sim-career";
@@ -23,43 +26,45 @@ import { useVoicesMemo } from "./lib/voicesMemoHook";
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
 import { Skeleton } from "./components/Skeleton";
-const HandsOnShift = lazy(() => import("./screens/HandsOnShift").then((m) => ({ default: m.HandsOnShift })));
-const WinScreen = lazy(() => import("./screens/WinScreen").then((m) => ({ default: m.WinScreen })));
-const GuideEnvelope = lazy(() => import("./screens/paths/GuideEnvelope").then((m) => ({ default: m.GuideEnvelope })));
-const HandoverModal = lazy(() => import("./screens/career/HandoverModal").then((m) => ({ default: m.HandoverModal })));
-const CareerEvening = lazy(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
-const MyShift = lazy(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
+const HandsOnShift = lazyRetry(() => import("./screens/HandsOnShift").then((m) => ({ default: m.HandsOnShift })));
+const WinScreen = lazyRetry(() => import("./screens/WinScreen").then((m) => ({ default: m.WinScreen })));
+const GuideEnvelope = lazyRetry(() => import("./screens/paths/GuideEnvelope").then((m) => ({ default: m.GuideEnvelope })));
+const HandoverModal = lazyRetry(() => import("./screens/career/HandoverModal").then((m) => ({ default: m.HandoverModal })));
+const CareerEvening = lazyRetry(() => import("./screens/career/CareerEvening").then((m) => ({ default: m.CareerEvening })));
+const MyShift = lazyRetry(() => import("./screens/career/MyShift").then((m) => ({ default: m.MyShift })));
 // Round 11 (D): the fork card (and its "How do I win?" pictures) loads when the year is up.
-const ForkCard = lazy(() => import("./screens/paths/ForkCard").then((m) => ({ default: m.ForkCard })));
-const BoardMeeting = lazy(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
+const ForkCard = lazyRetry(() => import("./screens/paths/ForkCard").then((m) => ({ default: m.ForkCard })));
+const BoardMeeting = lazyRetry(() => import("./screens/paths/BoardMeeting").then((m) => ({ default: m.BoardMeeting })));
 // Round 11 (G1, G8): the Empire's bankruptcy screen and the bust-shop card.
-const EmpireEnd = lazy(() => import("./screens/paths/EmpireEnd").then((m) => ({ default: m.EmpireEnd })));
+const EmpireEnd = lazyRetry(() => import("./screens/paths/EmpireEnd").then((m) => ({ default: m.EmpireEnd })));
 // Round 9: "Your games" (the slot picker) and the two-copies question.
-const SlotPicker = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.SlotPicker })));
-const ConflictDialog = lazy(() => import("./screens/SlotPicker").then((m) => ({ default: m.ConflictDialog })));
+const SlotPicker = lazyRetry(() => import("./screens/SlotPicker").then((m) => ({ default: m.SlotPicker })));
+// R14 (C, U15): the "can't save on this device" notice (shown only when there's trouble).
+const StorageNotice = lazyRetry(() => import("./components/StorageNotice").then((m) => ({ default: m.StorageNotice })));
+const ConflictDialog = lazyRetry(() => import("./screens/SlotPicker").then((m) => ({ default: m.ConflictDialog })));
 // Round 7 (A): lazy chunks show a page-shaped skeleton, not a bare line.
 const Loading = () => <Skeleton />;
 // R11 review (bundle): the start picker, the lease screen and the game-over screen are their own chunks (the main
 // chunk was 207 kB after the five branches, budget 200). The title fetches the first two while it idles.
 const loadStart = () => import("./screens/StartPicker");
 const loadNewGame = () => import("./screens/NewGame");
-const StartPicker = lazy(() => loadStart().then((m) => ({ default: m.StartPicker })));
-const NewGame = lazy(() => loadNewGame().then((m) => ({ default: m.NewGame })));
-const GameOver = lazy(() => import("./screens/GameOver").then((m) => ({ default: m.GameOver })));
+const StartPicker = lazyRetry(() => loadStart().then((m) => ({ default: m.StartPicker })));
+const NewGame = lazyRetry(() => loadNewGame().then((m) => ({ default: m.NewGame })));
+const GameOver = lazyRetry(() => import("./screens/GameOver").then((m) => ({ default: m.GameOver })));
 // Round 12 (D, bundle relief): the owner's Evening is its own chunk, fetched while service runs (see the effect below).
 const loadEvening = () => import("./screens/Evening");
-const Evening = lazy(() => loadEvening().then((m) => ({ default: m.Evening })));
+const Evening = lazyRetry(() => loadEvening().then((m) => ({ default: m.Evening })));
 // Round 12 (C): today's challenge (intro, the bar above the game, the score screen) and the chapter card.
-const Challenge = lazy(() => import("./screens/Challenge").then((m) => ({ default: m.Challenge })));
-const ChallengeHud = lazy(() => import("./screens/Challenge").then((m) => ({ default: m.ChallengeHud })));
-const ChallengeScore = lazy(() => import("./screens/ChallengeScore").then((m) => ({ default: m.ChallengeScore })));
-const ChapterCard = lazy(() => import("./screens/ChapterCard").then((m) => ({ default: m.ChapterCard })));
+const Challenge = lazyRetry(() => import("./screens/Challenge").then((m) => ({ default: m.Challenge })));
+const ChallengeHud = lazyRetry(() => import("./screens/Challenge").then((m) => ({ default: m.ChallengeHud })));
+const ChallengeScore = lazyRetry(() => import("./screens/ChallengeScore").then((m) => ({ default: m.ChallengeScore })));
+const ChapterCard = lazyRetry(() => import("./screens/ChapterCard").then((m) => ({ default: m.ChapterCard })));
 // Round 12 (C, bundle): the morning post is its own chunk, fetched as soon as an event evening starts.
 const loadEvent = () => import("./screens/EventModal");
-const EventModal = lazy(() => loadEvent().then((m) => ({ default: m.EventModal })));
+const EventModal = lazyRetry(() => loadEvent().then((m) => ({ default: m.EventModal })));
 // Round 12 (G): Visit a friend (a shared restaurant or a co-op day), and the host's co-op panel.
-const VisitFriend = lazy(() => loadFriends().then((m) => ({ default: m.VisitFriend })));
-const CoopShiftDock = lazy(() => loadFriends().then((m) => ({ default: m.CoopShiftDock })));
+const VisitFriend = lazyRetry(() => loadFriends().then((m) => ({ default: m.VisitFriend })));
+const CoopShiftDock = lazyRetry(() => loadFriends().then((m) => ({ default: m.CoopShiftDock })));
 import { loadFriends, tapReducer, useCoopRemote, useHostOn } from "./lib/coop/flag";
 /** R13-F: the app reducer, logged while a live co-op shift is on (lib/coop/flag.ts `coopTap`). */
 const reducer = tapReducer(appReducer);
@@ -128,6 +133,13 @@ export function App() {
   useVoicesMemo(shell.view === "game" ? game : null, meta, (memo) => dispatch({ type: "voicesMemo", memo })); // R13-D
   const slotRef = useRef(slotId);
   slotRef.current = slotId;
+  // R14 (C, U2): "A new version is ready — Reload" saves the game being played first.
+  const playing = useRef({ slotId, game, meta });
+  playing.current = { slotId, game, meta };
+  useEffect(() => {
+    setSaveBeforeReload(async () => { const l = playing.current; if (l.slotId && l.game) { await store.save(l.slotId, l.game, l.meta); await store.flush(l.slotId); } });
+    return () => setSaveBeforeReload(null);
+  }, [store]);
 
   // On event days the evening P&L is shown first; "Next day" then opens the morning post.
   const [eventOpen, setEventOpen] = useState(false);
@@ -206,6 +218,8 @@ export function App() {
     if (r.loaded.meta.handsOnResume) dispatch({ type: "resumeHandsOn" }); // R11-D (U11): back into hands-on play
     setShell({ view: "game" });
     if (r.backupSlotId) dispatch({ type: "toast", text: `The other copy is kept in Your games as “Backup of ${r.summary.name}”.`, tone: "info" });
+    // R14 (C, S14-10): a row the load check took off the menu (a deleted or old recipe) is said, not hidden.
+    else if ((r.loaded as CheckedLoaded).repairs?.length) dispatch({ type: "toast", text: (r.loaded as CheckedLoaded).repairs!.join(" "), tone: "info" });
   };
   // Round 12 (C): a daily challenge plays in the normal game view, saved in its own place (never a slot).
   const [chOver, setChOver] = useState(false);
@@ -250,6 +264,8 @@ export function App() {
           onContinue={() => { const s0 = slots.find((x) => !x.archived); if (s0) void continueSlot(s0.slotId); }}
           onVisit={() => setShell({ view: "friend" })}
         />
+        {storageTrouble(status) && <Suspense fallback={null}><StorageNotice status={status} where="title" onFile={() => { setTitleNote(null); setPicker("browse"); }} /></Suspense>}
+        <ChunkBack to={picker ? { label: "Close", go: () => setPicker(null) } : null}>
         <Suspense fallback={null}>
           {picker && !conflict && (
             <SlotPicker
@@ -264,17 +280,21 @@ export function App() {
           )}
           {conflict && <ConflictDialog local={conflict.local} cloud={conflict.cloud} onPick={(w) => conflict.resolve(w)} />}
         </Suspense>
+        </ChunkBack>
       </>
     );
   }
 
+  // R14 (C, U2): a screen that can't load offers Back (to the title) next to Try again.
+  const titleBack = { label: "Back to title", go: () => setShell({ view: "title" }) };
   if (shell.view === "challenge") {
-    return <Suspense fallback={<Loading />}><Challenge onBack={() => setShell({ view: "title" })} onPlay={playChallenge} /></Suspense>;
+    return <ChunkBack to={titleBack}><Suspense fallback={<Loading />}><Challenge onBack={() => setShell({ view: "title" })} onPlay={playChallenge} /></Suspense></ChunkBack>;
   }
-  if (shell.view === "friend") return <Suspense fallback={<Loading />}><VisitFriend onBack={() => setShell({ view: "title" })} /></Suspense>;
+  if (shell.view === "friend") return <ChunkBack to={titleBack}><Suspense fallback={<Loading />}><VisitFriend onBack={() => setShell({ view: "title" })} /></Suspense></ChunkBack>;
 
   if (shell.view === "pick") {
     return (
+      <ChunkBack to={titleBack}>
       <Suspense fallback={<Loading />}>
       <StartPicker
         content={content}
@@ -283,11 +303,13 @@ export function App() {
         onCareer={startCareer}
       />
       </Suspense>
+      </ChunkBack>
     );
   }
 
   if (shell.view === "newgame") {
     return (
+      <ChunkBack to={{ label: "Back", go: () => setShell({ view: "pick" }) }}>
       <Suspense fallback={<Loading />}>
       <NewGame
         content={content}
@@ -298,6 +320,7 @@ export function App() {
         onBack={() => setShell({ view: "pick" })}
       />
       </Suspense>
+      </ChunkBack>
     );
   }
 
@@ -353,6 +376,7 @@ export function App() {
   const chapter = career ? 0 : chapterDue(game, meta);
 
   return (
+    <ChunkBack to={{ label: "Back to title", go: quitToTitle }}>
     <div className="app">
       {/* Round 11 (D, U9): first in the Tab order — jump to the screen's one primary, or open the words sheet. */}
       <a className="skiplink" href="#main-action" onClick={(e) => { e.preventDefault(); focusMainAction(); }}>Skip to main action</a>
@@ -395,6 +419,7 @@ export function App() {
           />
         )}
         {inService && meta.handsOn && (
+          <ChunkBack to={{ label: "Back to the floor", go: () => dispatch({ type: "handsOnStop" }) }}>
           <HandsOnShift
             key={`${game.day}-${meta.handsOn.role}`}
             game={game}
@@ -412,6 +437,7 @@ export function App() {
             onScore={reportScore}
             {...(coopRemote ? { remote: coopRemote } : {})}
           />
+          </ChunkBack>
         )}
         {inService && !meta.handsOn && (
           <Service
@@ -480,6 +506,7 @@ export function App() {
       <Toast toast={app.toast} onDismiss={dismissToast} />
       <WordsSheet />
     </div>
+    </ChunkBack>
   );
 }
 

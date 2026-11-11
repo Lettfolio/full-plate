@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyRetry } from "../../lib/lazyRetry";
 import type { Command, GameState } from "@full-plate/sim-core";
 import type { PathMeta } from "../../state/paths";
 import { content, TABLE_COST } from "../../sim";
@@ -7,10 +8,10 @@ import { useSpendGuard } from "../../components/SpendGuard";
 import { RegularsCard, RivalCard } from "../../components/RivalCard";
 import { loadFriends } from "../../lib/coop/flag";
 // Round 12 (G): share this restaurant, its visitors, and the co-op invite (lazy).
-const VisitShareCard = lazy(() => loadFriends().then((m) => ({ default: m.VisitShareCard })));
+const VisitShareCard = lazyRetry(() => loadFriends().then((m) => ({ default: m.VisitShareCard })));
 
 // Round 12 (B): the brand kit card (and its editor sheet and the postcard) is its own chunk.
-const BrandCard = lazy(() => import("./BrandTab").then((m) => ({ default: m.BrandCard })));
+const BrandCard = lazyRetry(() => import("./BrandTab").then((m) => ({ default: m.BrandCard })));
 
 interface Props { game: GameState; send: (cmd: Command) => void; meta?: PathMeta | undefined; onBrand?: ((code: string) => void) | undefined }
 

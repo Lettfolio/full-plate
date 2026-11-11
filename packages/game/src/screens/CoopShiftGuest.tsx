@@ -3,7 +3,8 @@
  * dishes on or off, prices, who works tonight — and sends it; the host decides whether to use it, runs the service,
  * and both see the evening. Six emotes, no text. Nothing here touches a game of the guest's own.
  */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import { Icon } from "../components/Icon";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
@@ -18,7 +19,7 @@ import { EmoteBar, EmoteHeard } from "./CoopShiftParts";
 import "./visit.css";
 
 // Round 13 (F): the live shift's guest half, its own chunk
-const GuestLive = lazy(() => import("./CoopLive").then((m) => ({ default: m.GuestLive })));
+const GuestLive = lazyRetry(() => import("./CoopLive").then((m) => ({ default: m.GuestLive })));
 
 interface Props { db: SDb; code: string; first: HostDoc; writer: DocWriter<GuestDoc>; onExit: () => void }
 

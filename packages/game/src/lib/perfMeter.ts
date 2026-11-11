@@ -4,7 +4,6 @@
  * in fixed arrays (no allocation per frame), and draws a small readout in the canvas corner. The latest averages are
  * also on `window.__fpPerf[name]` for Playwright.
  */
-import { deviceStorage } from "./storage";
 
 export const PERF_WINDOW = 120;
 
@@ -17,16 +16,15 @@ export interface PerfMeter {
   draw(ctx: CanvasRenderingContext2D, x: number, y: number): void;
 }
 
-/** Round 11 (D, red-team S12): the localStorage key that turns the playtest switches on in a production build. */
-export const DEV_FLAG_KEY = "full-plate:dev";
-
 /**
- * Round 11 (D, S12): `?perf=` and `?autopilot=` are playtest switches, not features: they work in a dev build
- * (`import.meta.env.DEV`) or when localStorage has `full-plate:dev` = "1" (the Playwright playtests and type audit set it).
+ * Round 11 (D, S12): `?perf=` and `?autopilot=` are playtest switches, not features. Round 14 (C, red-team S14-9): they
+ * work in a dev build (`import.meta.env.DEV`) or a playtest build (`FP_PLAYTEST=1 vite build`, which sets
+ * `__FP_PLAYTEST__`; scripts/lib/harness.mjs `playtestDist()` makes one in dist-playtest/). The shipped game and the
+ * Pages build ignore them, whatever localStorage says: the old localStorage dev key could be set by any page on the
+ * origin.
  */
 export function devSwitches(): boolean {
-  if (import.meta.env.DEV) return true;
-  try { return typeof window !== "undefined" && deviceStorage()?.getItem(DEV_FLAG_KEY) === "1"; } catch { return false; }
+  return import.meta.env.DEV || __FP_PLAYTEST__;
 }
 
 export function perfEnabled(search = typeof window !== "undefined" ? window.location.search : ""): boolean {

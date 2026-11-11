@@ -408,6 +408,11 @@ describe("S1: the error page above the title", () => {
     } finally { console.error = err; }
     expect(screen.getByText(/Something went wrong/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Delete Crashy" }));
+    // R14 (C, U2): Delete asks first, naming the game, and offers a copy to a file.
+    expect(screen.getByRole("heading", { name: "Delete Crashy?" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save a copy to a file" })).toBeTruthy();
+    expect(s.list()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Delete Crashy" }));
     await settle();
     expect(s.list()).toEqual([]);
     expect(screen.getByRole("status").textContent).toMatch(/Crashy was deleted/);
@@ -420,7 +425,10 @@ describe("S1: the error page above the title", () => {
     noteSlot("g1");
     const err = console.error; console.error = () => {};
     try { render(<CrashGuard store={s}><Boom /></CrashGuard>); } finally { console.error = err; }
-    fireEvent.click(screen.getByRole("button", { name: "Delete this game" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete this game…" }));
+    await settle();
+    expect(s.list()).toHaveLength(1); // R14 (C, U2): not yet: the confirm names the game
+    fireEvent.click(screen.getByRole("button", { name: "Delete Open one" }));
     await settle();
     expect(s.list()).toEqual([]);
   });

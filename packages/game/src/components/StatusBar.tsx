@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { styleBadge } from "../lib/decor";
 import type { GameState } from "@full-plate/sim-core";
 import { avgFranchiseeMood, openSites } from "@full-plate/sim-empire";
@@ -18,6 +18,16 @@ import { useSettings } from "../lib/settings";
 import { modalOpen } from "../lib/modal";
 import { openWords } from "./WordsSheet";
 import { bankStatus } from "../sim";
+import { lazyRetry } from "../lib/lazyRetry";
+import { storageTrouble } from "../lib/storageTrouble";
+import { useSaves } from "../state/useSaves";
+const StorageNotice = lazyRetry(() => import("./StorageNotice").then((m) => ({ default: m.StorageNotice })));
+
+/** R14 (C, U15): the game screens' storage notice (its look is a lazy chunk, loaded only when there's trouble). */
+function GameStorageNotice({ onFile }: { onFile: () => Promise<string> }) {
+  const { status } = useSaves();
+  return storageTrouble(status) ? <Suspense fallback={null}><StorageNotice status={status} where="game" onFile={onFile} /></Suspense> : null;
+}
 
 interface Props {
   game: GameState;
@@ -171,6 +181,8 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
           {sv.threeStarStreak > 0 && <span>Three-star streak <b>{sv.threeStarStreak}/5</b></span>}
         </div>
       )}
+      {/* R14 (C, U15): storage blocked or full is said on the screen, not only inside ⋯ (not during service). */}
+      {onSaveFile && onQuit && <GameStorageNotice onFile={onSaveFile} />}
     </header>
   );
 }

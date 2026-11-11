@@ -1,12 +1,13 @@
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
+import { lazyRetry } from "../lib/lazyRetry";
 import type { Command } from "@full-plate/sim-core";
 import { content, OWNER_FATIGUE_WARNING, spendCheck, TABLE_COST } from "../sim";
 import { BankCard, bankDue, hirePromptText, loanDue, StarterLoanTip } from "../components/Bank";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 // Round 12 (B): the postcard button and its sheet are their own chunk.
-const PostcardButton = lazy(() => import("../components/PostcardDialog").then((m) => ({ default: m.PostcardButton })));
+const PostcardButton = lazyRetry(() => import("../components/PostcardDialog").then((m) => ({ default: m.PostcardButton })));
 // Round 12 (E): the blogger's review, the regulars tonight and tomorrow's gossip (lazy; components/EveningExtras.tsx).
-const EveningExtras = lazy(() => import("../components/EveningExtras").then((m) => ({ default: m.EveningExtras })));
+const EveningExtras = lazyRetry(() => import("../components/EveningExtras").then((m) => ({ default: m.EveningExtras })));
 import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
 import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";

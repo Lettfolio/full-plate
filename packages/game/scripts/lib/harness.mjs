@@ -9,13 +9,15 @@
  *   FP_SKIP_GEN=1   reuse scripts/.audit-saves instead of regenerating them with the real sim
  *   FP_SKIP_BUILD=1 don't build when dist/ is missing
  *   FP_DIST         serve this built folder instead of dist/ (Round 13 — A: perf-floor.mjs compares two builds)
+ *   FP_PLAYTEST=1   (a build-time flag, Round 14 — C) a build whose playtest switches (?autopilot=, ?perf=) work; the
+ *                   scripts that need them call playtestDist(), which makes one in dist-playtest/
  *   PLAYWRIGHT_PATH a node_modules folder holding `playwright` when the repo doesn't (default search: the package,
  *                   then /opt/npm-tools/node_modules)
  * Flags: --update-baseline (write today's counts as the new baseline), --no-baseline (report only, exit 0).
  */
 import { createRequire } from "node:module";
 import { execSync, spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +60,35 @@ export function contextFor(vp, desktop = {}) {
   const viewport = { width: vp.width, height: vp.height };
   if (vp.phone) return { viewport, screen: viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent: IPHONE_UA };
   return { viewport, ...desktop };
+}
+
+/** The newest modification time (ms) of any file under `dir` (node_modules and dot-folders skipped). */
+function newest(dir) {
+  let t = 0;
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+    const p = join(dir, e.name);
+    t = Math.max(t, e.isDirectory() ? newest(p) : statSync(p).mtimeMs);
+  }
+  return t;
+}
+
+/**
+ * Round 14 (C, red-team S14-9): the playtest switches (?autopilot=, ?perf=, the floor's pass profile, __fpHandsOn) work
+ * only in a dev build or a playtest build (FP_PLAYTEST=1, lib/perfMeter devSwitches) — never in dist/, which is what
+ * ships. Builds dist-playtest/ when it is missing or older than any source file, and points FP_DIST at it (unless
+ * FP_DIST or FP_URL is set already: then that build must be a playtest one). The probe and the type audit don't need it.
+ */
+export function playtestDist() {
+  if (process.env.FP_DIST || process.env.FP_URL) return process.env.FP_DIST;
+  const out = join(PKG, "dist-playtest");
+  const index = join(out, "index.html");
+  const src = Math.max(...["sim-core", "sim-empire", "sim-stars", "sim-career", "handson", "content", "game"].map((p) => newest(join(PKG, "..", p, p === "game" ? "src" : "")) || 0), statSync(join(PKG, "vite.config.ts")).mtimeMs);
+  if (!existsSync(index) || statSync(index).mtimeMs < src) {
+    execSync("pnpm exec vite build --outDir dist-playtest --emptyOutDir", { cwd: PKG, stdio: "inherit", env: { ...process.env, FP_PLAYTEST: "1" } });
+  }
+  process.env.FP_DIST = out;
+  return out;
 }
 
 async function reachable(url) { try { return (await fetch(url)).ok; } catch { return false; } }
@@ -200,10 +231,9 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     await page.goto(url);
     await page.evaluate(([o, c, sp, t]) => {
       localStorage.clear();
-      // Round 11 (D): speedPicked keeps Cosy saves at the walk's speed (Cosy otherwise starts at 4×); the dev flag turns
-      // the playtest switches (?autopilot=, ?perf=) on in this production build.
+      // Round 11 (D): speedPicked keeps Cosy saves at the walk's speed (Cosy otherwise starts at 4×). (R14: the walk
+      // needs no playtest switch, so it runs against the shipped build.)
       localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: sp, speedPicked: true, textSize: t }));
-      localStorage.setItem("full-plate:dev", "1");
       if (o) localStorage.setItem("full-plate:save:v1", o);
       if (c) localStorage.setItem("full-plate:career:v1", c);
     }, [owner ? save(owner) : null, career ?? null, speed, text]);

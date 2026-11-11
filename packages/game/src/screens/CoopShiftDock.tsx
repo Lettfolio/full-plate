@@ -5,7 +5,8 @@
  * as ordinary planning commands through the game's own `send` (the sim checks them like any tap); "Not this time"
  * keeps the host's plan. The host's game stays the only authority: nothing the guest writes is applied without a tap.
  */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import type { Command, GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
 import { weekdayIndex } from "../lib/calendar";
@@ -22,7 +23,7 @@ import type { HostLiveApi } from "./CoopLive";
 import "./visit.css";
 
 // Round 13 (F): the live shift's host half, its own chunk (only loaded once tonight is armed)
-const HostLive = lazy(() => import("./CoopLive").then((m) => ({ default: m.HostLive })));
+const HostLive = lazyRetry(() => import("./CoopLive").then((m) => ({ default: m.HostLive })));
 
 const stageOf = (g: GameState): Stage => (g.phase === "planning" ? "plan" : g.phase === "service" ? "service" : "evening");
 const PINGS = 3;

@@ -10,7 +10,8 @@
  *
  * Nothing here is in the main chunk; the main chunk holds only flag.ts's remote store and reducer tap.
  */
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import type { Command, GameState } from "@full-plate/sim-core";
 import { drawPerson, readPalette, staffLook, viewMetrics, type HandsOnResult, type HandsOnRole, type HandsOnSession, type Palette, type ShiftSummary } from "@full-plate/handson";
 import { Icon } from "../components/Icon";
@@ -28,7 +29,7 @@ import type { HandsOnRemote, RemoteStage } from "./HandsOnShift";
 import { EmoteBar } from "./CoopShiftParts";
 import "./visit.css";
 
-const HandsOnShift = lazy(() => import("./HandsOnShift").then((m) => ({ default: m.HandsOnShift })));
+const HandsOnShift = lazyRetry(() => import("./HandsOnShift").then((m) => ({ default: m.HandsOnShift })));
 
 const PUMP_MS = 50;
 const PRESENCE_MS = 100;

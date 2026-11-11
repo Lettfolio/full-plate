@@ -3,15 +3,16 @@
  * on "Hire →" prompts, and the cheap checks that decide whether the cards in `BankCards.tsx` (a lazy chunk, fetched only
  * when one is due) show at all. Everything reads sim-core's `bankStatus` / `starterLoanOffer` / `hireNeed`.
  */
-import { lazy } from "react";
+
 import type { GameState } from "@full-plate/sim-core";
+import { lazyRetry } from "../lib/lazyRetry";
 import { bankStatus, BANK_LAST_DAYS, BANK_RED_DAYS, content, hireShortfall, starterLoanOffer } from "../sim";
 import { Icon } from "./Icon";
 import { formatPounds } from "../lib/format";
 
-export const BankCard = lazy(() => import("./BankCards").then((m) => ({ default: m.BankCard })));
-export const BankBanner = lazy(() => import("./BankCards").then((m) => ({ default: m.BankBanner })));
-export const StarterLoanTip = lazy(() => import("./BankCards").then((m) => ({ default: m.StarterLoanTip })));
+export const BankCard = lazyRetry(() => import("./BankCards").then((m) => ({ default: m.BankCard })));
+export const BankBanner = lazyRetry(() => import("./BankCards").then((m) => ({ default: m.BankBanner })));
+export const StarterLoanTip = lazyRetry(() => import("./BankCards").then((m) => ({ default: m.StarterLoanTip })));
 
 /** Under the bank's line (the evening card is due). */
 export const bankDue = (game: GameState): boolean => game.phase !== "gameover" && bankStatus(content, game).below;

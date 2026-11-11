@@ -8,7 +8,8 @@
  * **deleted** (confirm; refused while it's on today's menu, the set menu, the brand formula or another shop's menu)
  * and **moved** left or right. Every change is the reducer's `cookbook` action (content's cookbookOp).
  */
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from "react";
+import { lazyRetry } from "../../lib/lazyRetry";
 import type { Command, GameState } from "@full-plate/sim-core";
 import { housePrice, liveDishes, olderVersions, refineWords, type CookbookOp } from "@full-plate/content";
 import { content, customRef, MAX_MENU_ITEMS } from "../../sim";
@@ -19,7 +20,7 @@ import { cookbookUse } from "../../state/gameReducer";
 import type { PathMeta } from "../../state/paths";
 import "./invent.css";
 
-const InventDishSheet = lazy(() => import("./InventDishSheet"));
+const InventDishSheet = lazyRetry(() => import("./InventDishSheet"));
 const COURSE: Record<string, string> = { starter: "Starter", main: "Main", dessert: "Dessert", drink: "Drink" };
 
 interface Props {

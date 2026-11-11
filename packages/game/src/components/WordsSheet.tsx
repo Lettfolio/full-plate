@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import { modalOpen } from "../lib/modal";
 
 // The sheet itself loads on first use (main-chunk budget).
-const WordsDialog = lazy(() => import("./WordsDialog").then((m) => ({ default: m.WordsDialog })));
+const WordsDialog = lazyRetry(() => import("./WordsDialog").then((m) => ({ default: m.WordsDialog })));
 
 /** One word on screen: what it says, and its tip (the Term / chip tooltip text). */
 export interface ScreenWord { label: string; tip: string }

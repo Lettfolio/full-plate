@@ -3,7 +3,8 @@
  * line, their last few posts and (once earned) the framed clipping. Beside it, the Regulars book's button. A lazy chunk
  * (RestaurantTab is lazy); the numbers are lib/rival.ts.
  */
-import { lazy, Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import { avatarFor, type AvatarSpec, type GameState } from "@full-plate/sim-core";
 import { clipFrom, feed, rivalFor, weekScores, winningLine, winStreak, CLIPPING_WEEKS } from "../lib/rival";
 import type { VoicesMemo } from "../state/paths";
@@ -14,7 +15,7 @@ import { Panel } from "./Panel";
 import { Term } from "./Term";
 import "./voices.css";
 
-const RegularsBook = lazy(() => import("./RegularsBook").then((m) => ({ default: m.RegularsBook })));
+const RegularsBook = lazyRetry(() => import("./RegularsBook").then((m) => ({ default: m.RegularsBook })));
 
 export function rivalFace(id: string, name: string): AvatarSpec {
   return avatarFor({ id, name, role: "chef" });

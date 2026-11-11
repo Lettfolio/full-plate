@@ -10,13 +10,14 @@
  */
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { genSaves, loadPlaywright, SAVES, startPreview } from "./lib/harness.mjs";
+import { genSaves, loadPlaywright, SAVES, playtestDist, startPreview } from "./lib/harness.mjs";
 import { createMockRoom, createMockStore, installMockClaude } from "./lib/mockClaude.mjs";
 
 const OUT = process.env.FP_SHOTS ?? join(process.cwd(), "playtest-shots");
 mkdirSync(OUT, { recursive: true });
 genSaves();
 const { chromium } = loadPlaywright();
+playtestDist(); // R14 (C, S14-9): ?autopilot= / ?perf= need a playtest build
 const { url, stop } = await startPreview();
 const store = createMockStore({ latencyMs: 20 });
 const room = createMockRoom({ topics: { "fp-in": "interact", "fp-st": "interact", "fp-emo": "interact" }, seed: 13 });
@@ -42,7 +43,6 @@ async function boot(page, save, q = "?autopilot=0.6") {
   await page.evaluate((o) => {
     localStorage.clear();
     localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: 1, speedPicked: true }));
-    localStorage.setItem("full-plate:dev", "1");
     if (o) localStorage.setItem("full-plate:save:v1", o);
   }, save);
   await page.goto(url + q); await page.waitForTimeout(700);
