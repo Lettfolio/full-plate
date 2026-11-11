@@ -26,6 +26,7 @@ import { getSettings, setSettings, startSpeed, useSettings } from "../lib/settin
 import { pointWord, useCoarsePointer, usePhoneNarrow } from "../lib/layout";
 import type { FloorCamera } from "../lib/floorCamera";
 import { Term } from "../components/Term";
+import { noteFloorFrame } from "../lib/floorFrame";
 import { TermText } from "../components/TermText";
 import { goalsQuiet } from "../lib/goals";
 import { DayRhythm } from "../components/DayRhythm";
@@ -195,6 +196,8 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     return () => { ro.disconnect(); root.style.removeProperty("--servsheet-peek"); };
   }, [phone]);
 
+  // Round 14 (E, U18): the night's busiest frame, for the postcard's picture of the room
+  useEffect(() => { noteFloorFrame(game); }, [game]);
   const cards = useFadingIncidents(game.incidents);
   const liveIncidents = cards.filter((c) => !c.leaving).map((c) => c.inc);
   // Ring every live incident's subject; the hovered/focused card's subject rings harder.
@@ -548,7 +551,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
               <span className="xs faint">for the rest of service</span>
             </div>
             <div className="row row--wrap" style={{ marginTop: 6 }}>
-              <button className="btn btn--sm" onClick={() => onJumpIn("chef")}>On the pass</button>
+              <button className="btn btn--sm" onClick={() => onJumpIn("chef")}>On the <Term id="pass" inline inButton>pass</Term></button>
               <button className="btn btn--sm" onClick={() => onJumpIn("server")}>On the floor</button>
               <button className="btn btn--sm" onClick={() => onJumpIn("bar")}>Behind the bar</button>
             </div>
@@ -684,7 +687,7 @@ function PeekJumpIn({ game, onJumpIn }: { game: GameState; onJumpIn: (role: "che
   const j = peekJumpRole(game);
   return (
     <button type="button" className={`servsheet__jump ${j.loud ? "servsheet__jump--loud" : ""}`} onClick={() => onJumpIn(j.role)}>
-      <Icon name="chefHat" size={20} />{j.label}<span className="servsheet__jumpnote">hands-on, for the rest of tonight</span>
+      <Icon name="chefHat" size={20} /><span className="servsheet__jumplabel">{j.label}</span><span className="servsheet__jumpnote">for the rest of tonight</span>
     </button>
   );
 }

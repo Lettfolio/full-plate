@@ -66,7 +66,7 @@ describe("P1: the short-menu warning before service", () => {
     const note = screen.getByLabelText("Stock warning");
     expect(note.textContent).toMatch(/Tonight's larder won't cover \d+ dishes/);
     expect(note.textContent).not.toMatch(/Inspectors/);
-    fireEvent.click(screen.getByRole("button", { name: /Order to cover tomorrow/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Restock for tomorrow/ }));
     expect(sent).toEqual(suggestedOrder(content, g).map((l) => ({ type: "ORDER_STOCK", ...l })));
   });
 

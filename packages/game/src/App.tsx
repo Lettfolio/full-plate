@@ -403,6 +403,8 @@ export function App() {
             onBrand={(code) => dispatch({ type: "brand", code })}
             onInvent={(dish) => dispatch({ type: "invent", dish })}
             onCookbook={(op) => dispatch({ type: "cookbook", op })}
+            onCookTonight={() => { send({ type: "START_SERVICE" }); dispatch({ type: "handsOnStart", meta: { role: "chef", jumpIn: true } }); }}
+            onChallenge={() => { quitToTitle(); setShell({ view: "challenge" }); }}
           />
         )}
         {inService && meta.handsOn && (

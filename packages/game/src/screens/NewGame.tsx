@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import type { ContentPack, Difficulty, DistrictDef } from "@full-plate/sim-core";
 import { Bar } from "../components/Bar";
@@ -51,16 +51,31 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
   const seed = Number.parseInt(seedText, 10);
   const seedOk = Number.isFinite(seed) && seed >= 0 && seed <= 0xffffffff;
   const maxFootfall = Math.max(1, ...content.districts.map((d) => d.footfall));
+  const streets = useRef<HTMLHeadingElement>(null);
 
   return (
     <div className="page">
       <div className="newgame">
         <div className="newgame__head">
           <button className="btn btn--ghost btn--tap" onClick={onBack}><Icon name="back" size={20} />Back</button>
-          <h1>Where will you open?</h1>
+          <h1>Your restaurant</h1>
         </div>
 
-        <section aria-label="District">
+        {/* Round 14 (E, U7): one flow, nothing asked twice: the name first (in view before the phone's keyboard opens;
+            Enter/Done goes on to the street), then the street (only here: the start picker no longer asks an owner),
+            then how tricky (a one-line reminder of the picker's answer), then the lease. */}
+        <div className="card newgame__name">
+          <label className="field">
+            <span className="field__label">What's it called?</span>
+            <input className="input" value={name} maxLength={32} placeholder={placeholder} enterKeyHint="next" autoComplete="off"
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); streets.current?.scrollIntoView({ block: "start" }); } }} />
+            <span className="xs faint">Leave it empty and it's “{placeholder}”.</span>
+          </label>
+        </div>
+
+        <section aria-labelledby="ng-where" className="newgame__where">
+          <h2 id="ng-where" className="newgame__q" ref={streets} tabIndex={-1}>Where will you open?</h2>
           <div className="districts" role="radiogroup" aria-label="District">
             {content.districts.map((d) => {
               const mix = Object.entries(d.segmentMix).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
@@ -90,7 +105,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
                       <Bar value={d.footfall} max={maxFootfall} tone="sky" size="sm" />
                     </div>
                   </div>
-                  <div>
+                  <div className="district__more">
                     <div className="fact__k" style={{ marginBottom: 4 }}>Who walks past</div>
                     <div className="mix">
                       {mix.map(([seg, v]) => (
@@ -98,7 +113,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
                       ))}
                     </div>
                   </div>
-                  <div>
+                  <div className="district__more">
                     <div className="fact__k" style={{ marginBottom: 4 }}>Busy months</div>
                     <div className="season" aria-hidden="true">
                       {d.seasonCurve.map((v, i) => <span key={i} className="season__m" style={{ height: `${(v / peak) * 100}%` }} />)}
@@ -111,11 +126,7 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
           </div>
         </section>
 
-        <aside className="card stack">
-          <label className="field">
-            <span className="field__label">Restaurant name</span>
-            <input className="input" value={name} maxLength={32} placeholder={placeholder} onChange={(e) => setName(e.target.value)} />
-          </label>
+        <aside className="card stack newgame__lease">
 
           <div className="field">
             <span className="field__label" id="ng-diff">How tricky?</span>

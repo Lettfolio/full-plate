@@ -26,6 +26,10 @@ const RestaurantTab = lazy(() => import("./planning/RestaurantTab").then((m) => 
 const GossipTicker = lazy(() => import("../components/GossipTicker").then((m) => ({ default: m.GossipTicker })));
 // Round 12 (G): the Stock tab loads on first open too (main-chunk budget: room for the Friends entry points).
 const StockTab = lazy(() => import("./planning/StockTab").then((m) => ({ default: m.StockTab })));
+// Round 14 (E): "New thing to try" (one item a day from Day 2; components/TryCard.tsx, lib/tryNext.ts).
+const TryCard = lazy(() => import("../components/TryCard"));
+import type { TryId } from "../lib/tryNext";
+import { usePhone } from "../lib/layout";
 import { tiredSlots, tiredText } from "../lib/decor";
 import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
 import { StockWarning } from "./planning/StockWarning";
@@ -65,7 +69,26 @@ interface Props {
   onInvent?: (dish: CustomDish) => void;
   /** Round 13 (D): the cookbook's edits (Menu tab) and the Stars refine. */
   onCookbook?: (op: CookbookOp) => void;
+  /** Round 14 (E): "New thing to try" › cook tonight yourself (opens service and starts the hands-on shift). */
+  onCookTonight?: () => void;
+  /** Round 14 (E): "New thing to try" › today's challenge (the game is saved; App opens the challenge). */
+  onChallenge?: () => void;
 }
+
+/** Round 14 (E): where each "New thing to try" item, and each phone shortcut chip, lands. */
+const TRY_GO: Record<Exclude<TryId, "cook" | "challenge">, [PlanningTab, string]> = {
+  brand: ["restaurant", ".brandcard"],
+  invent: ["menu", ".cookbook"],
+  postcard: ["restaurant", ".postcard__open"],
+  regulars: ["restaurant", ".voices-row"],
+  rival: ["restaurant", ".rival"],
+  share: ["restaurant", ".visitcard"],
+};
+/** Round 14 (E): on a phone, a row of chips under the Menu and Restaurant headings jumps to what sits screens below. */
+const TAB_CHIPS: Partial<Record<PlanningTab, [string, string][]>> = {
+  menu: [["Invent a dish", ".cookbook"], ["Recipe book", ".library"]],
+  restaurant: [["Brand kit", ".brandcard"], ["Postcard", ".postcard__open"], ["Rival", ".rival"], ["Regulars", ".voices-row"], ["Friends", ".visitcard"]],
+};
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }
 
@@ -81,7 +104,7 @@ function landingFor(tab: TabId, game: GameState): string | null {
   return null;
 }
 
-export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu, onBrand, onInvent, onCookbook }: Props) {
+export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu, onBrand, onInvent, onCookbook, onCookTonight, onChallenge }: Props) {
   // Round 14 (E, U1): each tab opens at its own last position this day (top the first time); a shortcut lands on what
   // it is about. The tab bar itself just switches (`pickTab`); hints, goals and "Hire someone first" use `setTab`.
   useLayoutEffect(() => {
@@ -95,12 +118,20 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
     document.addEventListener("scroll", on, { passive: true, capture: true });
     return () => document.removeEventListener("scroll", on, { capture: true });
   }, []);
-  const setTab = (t: TabId) => {
-    const landing = landingFor(t, game);
+  const goTo = (t: TabId, landing: string | null) => {
     if (t === tab) { if (landing) landOn(landing); return; }
     if (landing) requestLanding(landing);
     pickTab(t);
   };
+  const setTab = (t: TabId) => goTo(t, landingFor(t, game));
+  const tryGo = (id: TryId) => {
+    if (id === "cook") { onCookTonight?.(); return; }
+    if (id === "challenge") { onChallenge?.(); return; }
+    const [t, sel] = TRY_GO[id];
+    goTo(t, sel);
+  };
+  const phone = usePhone();
+  const chips = phone ? TAB_CHIPS[tab] : undefined;
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
@@ -176,6 +207,7 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
       </div>
       {/* Round 12 (E): not on the wide Empire / Stars tabs, which need the height for their maps and tracks. */}
       {meta?.mode !== "career" && !wide && <Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense>}
+      {meta?.mode !== "career" && !meta?.challenge && !wide && game.day >= 1 && <Suspense fallback={null}><TryCard game={game} meta={meta} onGo={tryGo} /></Suspense>}
       {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
           {(lastDays || loanTip) && (
@@ -224,6 +256,11 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
           </aside>
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {chips && (
+            <nav className="tabchips" aria-label={`Jump to, on ${tab === "menu" ? "Menu" : "Restaurant"}`}>
+              {chips.map(([label, sel]) => <button key={sel} type="button" className="tabchip" onClick={() => landOn(sel)}>{label}</button>)}
+            </nav>
+          )}
           {tab === "menu" && <MenuTab game={game} send={send} path={path} meta={meta} onInvent={onInvent} onCookbook={onCookbook} />}
           {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
           {tab === "stock" && <Suspense fallback={<div className="empty small muted">Opening the store room…</div>}><StockTab game={game} send={send} needs={needs} opening={opening} /></Suspense>}

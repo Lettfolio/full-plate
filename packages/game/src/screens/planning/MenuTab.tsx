@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { dishIcon } from "../../lib/dishIcon"; // R14-E (U20)
 import { Icon } from "../../components/Icon";
 import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
 import { classifyMenu, content, MAX_MENU_ITEMS } from "../../sim";
@@ -130,7 +131,7 @@ export function MenuTab({ game, send, path, meta, onInvent, onCookbook }: Props)
               const q = judged(m) ? quadrants[m.dishId] : undefined;
               return (
                 <div key={m.dishId} className={`dish ${m.active ? "" : "dish--off"}`} onMouseEnter={() => setHover(m.dishId)} onMouseLeave={() => setHover(null)} style={hover === m.dishId ? { borderColor: "var(--ink)" } : undefined}>
-                  <span className="dish__course" title={d?.course}>{(custom.find((c) => c.id === m.dishId) || { icon: d ? COURSE_ICON[d.course] : "🍽️" }).icon}</span>
+                  <span className="dish__course" title={d?.course}>{(custom.find((c) => c.id === m.dishId) || { icon: d ? dishIcon(d.name, d.course) : "🍽️" }).icon}</span>
                   <div style={{ minWidth: 0 }}>
                     <div className="row">
                       <span className="dish__name">{d?.name ?? m.dishId}</span>
@@ -175,7 +176,7 @@ export function MenuTab({ game, send, path, meta, onInvent, onCookbook }: Props)
         <section className="library" key={sec.id} aria-label={SECTION_TITLE[sec.id]}>
           <div className="row" style={{ marginBottom: 10 }}>
             <h3 className="spacer">{SECTION_TITLE[sec.id]}</h3>
-            <span className="small muted">{sec.id === "library" ? "Prices start at the suggested price — tweak them after adding." : sec.id === "fast_food" ? "Quick, cheap, made for volume." : "Ambitious, seasonal, hard to cook well."}</span>
+            <span className="small muted">{sec.id === "library" ? "Recipes that come with the game. Prices start at the suggested price — tweak them after adding." : sec.id === "fast_food" ? "Quick, cheap, made for volume." : "Ambitious, seasonal, hard to cook well."}</span>
           </div>
           <div className="library__grid">
             {sec.dishes.map((d) => {
@@ -184,7 +185,7 @@ export function MenuTab({ game, send, path, meta, onInvent, onCookbook }: Props)
               return (
                 <div key={d.id} className="libdish">
                   <div className="libdish__top">
-                    <span aria-hidden="true">{COURSE_ICON[d.course]}</span>
+                    <span aria-hidden="true">{dishIcon(d.name, d.course)}</span>
                     <b>{d.name}</b>
                     <button className="btn btn--green btn--sm" disabled={game.menu.length >= MAX_MENU_ITEMS} onClick={() => send({ type: "ADD_MENU_ITEM", dishId: d.id, price: d.suggestedPrice })} aria-label={`Add ${d.name}`}>Add</button>
                   </div>
