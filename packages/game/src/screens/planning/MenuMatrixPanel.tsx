@@ -4,6 +4,8 @@ import { plateCost } from "../../lib/content";
 import { Term } from "../../components/Term";
 import { MenuMatrix } from "./MenuMatrix";
 import { QUADRANT, QUADRANT_TERM } from "./quadrants";
+import { MenuMatrixList } from "./MenuMatrixList";
+import { usePhoneNarrow } from "../../lib/layout";
 
 interface Props {
   items: MenuItem[];
@@ -15,6 +17,15 @@ interface Props {
 
 /** Round 7: the expert view's chart + legend, loaded on first use (React.lazy in MenuTab). */
 export default function MenuMatrixPanel({ items, quadrants, names, highlight, onHover }: Props) {
+  // Round 13 (B): an upright phone gets the matrix as a ranked list (MenuMatrixList), not a squeezed chart.
+  const phone = usePhoneNarrow();
+  const margin = (m: MenuItem) => m.price - plateCost(content, m.dishId);
+  if (phone) return (
+    <div className="stack stack--sm">
+      <h3>Menu matrix</h3>
+      <MenuMatrixList items={items} quadrants={quadrants} names={names} fallbackMargin={margin} plateCost={(m) => plateCost(content, m.dishId)} />
+    </div>
+  );
   return (
     <div className="stack stack--sm">
       <h3>Menu matrix</h3>
