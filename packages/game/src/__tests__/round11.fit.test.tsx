@@ -3,7 +3,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { formatPence as simFormatPence, poundsText } from "@full-plate/sim-core";
 import { pounds as careerPounds } from "@full-plate/sim-career";
@@ -26,6 +26,11 @@ import { BoardMeeting } from "../screens/paths/BoardMeeting";
 import { StarsTab } from "../screens/paths/StarsTab";
 import { GoalExplainer } from "../components/GoalExplainer";
 import { empireGame, withMeeting } from "./fixtures/empire";
+
+// Round 13 (A): Service starts lazy imports (the floor renderer, the regulars' names) when it mounts; let them land before
+// the environment is torn down, or vitest reports an EnvironmentTeardownError now and then (pre-existing; it failed
+// `pnpm -r test` on a busy machine).
+afterAll(async () => { await Promise.all([import("../canvas/RestaurantView"), import("../lib/regulars")]); });
 
 const CSS = readFileSync(join(__dirname, "..", "theme.css"), "utf8");
 const noop = () => {};
