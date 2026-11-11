@@ -19,6 +19,7 @@ import type { ContentPack, Customer, CustomerId, GameState, Staff, TableId } fro
 import { facingFrom, guestLook, SpriteCache, type Look } from "@full-plate/handson/sprites";
 import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { formatPence } from "../lib/format";
+import { passProfile } from "../lib/perfMeter";
 import { weekdayIndex } from "../lib/calendar";
 import { readFloorPalette } from "./floorPalette";
 import type { RoomLook } from "./decorArt";
@@ -150,22 +151,37 @@ export class RestaurantView {
       this.key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}|${D.key}`);
     }
     const key = this.key;
+    // Round 13 (A): the per-pass profile (perfMeter.ts passProfile; off unless a playtest asks for it)
+    const P = passProfile();
+    let t0 = P ? (ctx.getImageData(0, 0, 1, 1), performance.now()) : 0;
+    const pass = P ? (name: string) => { ctx.getImageData(0, 0, 1, 1); const t = performance.now(); P.ms[name] = (P.ms[name] ?? 0) + t - t0; t0 = t; } : undefined;
+    pass?.("_flush"); // an empty pass: what one flush costs by itself (subtract it from each pass)
     // one cached, opaque scene layer: one full blit a frame and no clear (the blit is the costly part in software raster)
     this.layers.draw(ctx, "scene", key, this.w, this.h, this.dpr, (c) => { paintFloor(c, L); paintFurniture(c, L, this.name); });
+    pass?.("scene");
     this.drawTableGlows(game, L, opts);
     this.beats = drawBeats(ctx, this.beats, opts.now, motion, "glow");
+    pass?.("glows");
     if (!opts.preview) this.drawKitchen(game, L, opts);
+    pass?.("kitchen");
     this.drawTables(game, L, opts);
+    pass?.("tables");
     if (!opts.preview) this.drawStaff(game, L, opts, dt);
+    pass?.("staff");
     this.drawPeople(game, L, opts);
+    pass?.("people");
     this.drawLighting(game, L);
     if (D.key) art?.paintNote(ctx, L, D, C, opts.now, motion);
+    pass?.("light");
     this.drawTableNumbers(game, L);
     this.drawQueueBadges(game, L);
     this.drawHighlights(game, L, opts);
+    pass?.("overlay");
     this.beats = drawBeats(ctx, this.beats, opts.now, motion, "paid");
     this.drawGuestTag(game, L, opts);
     this.drawFloaties(opts.now);
+    pass?.("beats");
+    if (P) P.frames++;
     this.firstFrame = false;
   }
 

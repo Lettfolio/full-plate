@@ -8,6 +8,7 @@
  *   FP_PORT         the preview's port (default: a free one the OS picks)
  *   FP_SKIP_GEN=1   reuse scripts/.audit-saves instead of regenerating them with the real sim
  *   FP_SKIP_BUILD=1 don't build when dist/ is missing
+ *   FP_DIST         serve this built folder instead of dist/ (Round 13 — A: perf-floor.mjs compares two builds)
  *   PLAYWRIGHT_PATH a node_modules folder holding `playwright` when the repo doesn't (default search: the package,
  *                   then /opt/npm-tools/node_modules)
  * Flags: --update-baseline (write today's counts as the new baseline), --no-baseline (report only, exit 0).
@@ -67,14 +68,16 @@ function freePort() {
 /** A private preview of dist/ (built first if missing), on 127.0.0.1 only. Returns { url, stop }. */
 export async function startPreview() {
   if (process.env.FP_URL) return { url: process.env.FP_URL, stop() {} };
-  if (!existsSync(join(PKG, "dist/index.html"))) {
+  const dist = process.env.FP_DIST;
+  if (!dist && !existsSync(join(PKG, "dist/index.html"))) {
     if (process.env.FP_SKIP_BUILD) { console.error("dist/ is missing: run `pnpm --filter @full-plate/game build`."); process.exit(2); }
     execSync("pnpm build", { cwd: PKG, stdio: "inherit" });
   }
   const port = Number(process.env.FP_PORT) || (await freePort());
   const url = `http://127.0.0.1:${port}/`;
   const vite = join(PKG, "node_modules/.bin/vite");
-  const proc = spawn(existsSync(vite) ? vite : "npx", existsSync(vite) ? ["preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"] : ["vite", "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { cwd: PKG, stdio: "ignore" });
+  const args = ["preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort", ...(dist ? ["--outDir", dist] : [])];
+  const proc = spawn(existsSync(vite) ? vite : "npx", existsSync(vite) ? args : ["vite", ...args], { cwd: PKG, stdio: "ignore" });
   for (let i = 0; i < 120 && !(await reachable(url)); i++) await new Promise((r) => setTimeout(r, 250));
   if (!(await reachable(url))) { proc.kill(); console.error(`preview did not start on ${url}`); process.exit(2); }
   return { url, stop: () => proc.kill() };

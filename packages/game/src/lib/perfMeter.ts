@@ -68,6 +68,21 @@ export function createPerfMeter(name: string): PerfMeter {
   return meter;
 }
 
+/**
+ * Round 13 (A): the floor's per-pass profile, for scripts/perf-floor.mjs. Off unless a playtest sets
+ * `window.__fpPassProfile = {}` (then the renderer reads it once a frame). While on, each paint pass is followed by a
+ * 1×1 `getImageData`, which makes the canvas rasterise what that pass recorded, so `ms[pass]` is the pass's JS plus
+ * its raster — the cost the rAF callback's own timing (`work`) can't see. That flush is itself slow, so frame gaps are
+ * measured with the profile off.
+ */
+export interface PassProfile { ms: Record<string, number>; frames: number }
+export function passProfile(): PassProfile | null {
+  const p = (globalThis as { __fpPassProfile?: Partial<PassProfile> | null }).__fpPassProfile;
+  if (!p) return null;
+  p.ms ??= {}; p.frames ??= 0;
+  return p as PassProfile;
+}
+
 /** devicePixelRatio, capped at 2 (a 3× phone backing store costs 2.25× the fill for no visible gain). */
 export function canvasDpr(): number {
   const d = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
