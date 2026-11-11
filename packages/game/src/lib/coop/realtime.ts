@@ -522,6 +522,8 @@ export class LiveHost extends End {
     this.status = { ...this.status, guest: here ? "here" : this.pin ? "away" : "waiting", rtt, slow: this.slowSince !== null && now - this.slowSince >= SLOW_SUSTAIN_MS };
     if (!this.game || !this.base || !this.baseMsg) return;
     if (now - this.lastBase >= BASE_EVERY_MS) { this.lastBase = now; this.post(TOPIC.st, this.baseMsg); }
+    // the floor only once the doors are open: before that the guest has the room (base) and waits
+    if (this.game.phase !== "service") return;
     const gap = now - this.lastSnap;
     if ((this.dirty && gap >= SNAP_MIN_MS) || gap >= SNAP_IDLE_MS) {
       this.dirty = false;

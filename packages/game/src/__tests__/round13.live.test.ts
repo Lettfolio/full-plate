@@ -229,6 +229,26 @@ describe("a whole live shift between two bots", () => {
   }, 60_000);
 });
 
+describe("before the doors open", () => {
+  it("the host sends the room but no floor, so the guest waits instead of playing an empty service", () => {
+    const room = new FakeRoom();
+    const nonce = "d".repeat(24);
+    const host = new LiveHost({ emit: room.emitter("H"), now: () => room.now, apply: () => {}, setSimRole: () => {} }, { nonce, hostRole: "chef" });
+    const guest = new LiveGuest({ emit: room.emitter("G"), now: () => room.now }, { nonce, role: "server" });
+    room.join("H", "u_h", (m) => host.hear(m)); room.join("G", "u_g", (m) => guest.hear(m));
+    host.setMe("H"); guest.setMe("G");
+    const planning = ownerPlanning();
+    host.setGame(planning.game!);
+    for (let t = 50; t <= 3000; t += 50) { room.advance(t); host.pump(); guest.pump(); }
+    expect(guest.base).not.toBeNull();
+    expect(guest.view).toBeNull();
+    expect(host.status.guest).toBe("here");
+    host.setGame(appReducer(planning, { type: "command", cmd: { type: "START_SERVICE" } }).game!);
+    for (let t = 3050; t <= 3500; t += 50) { room.advance(t); host.pump(); guest.pump(); }
+    expect(guest.view?.phase).toBe("service");
+  });
+});
+
 describe("strangers in the room", () => {
   it("can't speak for the host or the guest, replay their messages, or pin themselves", () => {
     const room = new FakeRoom();
