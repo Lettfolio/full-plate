@@ -18,6 +18,29 @@ export interface SettingsProps {
 
 export type SavedWhere = "account" | "device" | "memory" | "none";
 
+/**
+ * Round 13 (A): open the Settings sheet from elsewhere (a toast's link) with keyboard focus on one row. The header's
+ * SettingsMenu listens for the event; where none is mounted (a phone's header folds it into a sheet) the Settings
+ * button is clicked instead, and the row is focused once the sheet is up.
+ */
+export const OPEN_SETTINGS_EVENT = "fp:open-settings";
+export type SettingsRow = "animations";
+export function openSettingsAt(row: SettingsRow): void {
+  const e = new CustomEvent<{ row: SettingsRow; handled: boolean }>(OPEN_SETTINGS_EVENT, { detail: { row, handled: false } });
+  window.dispatchEvent(e);
+  if (e.detail.handled) return; // the gear opens the sheet with that row's switch focused (data-autofocus)
+  document.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')?.click();
+  focusRow(row);
+}
+function focusRow(row: SettingsRow, tries = 20): void {
+  // after the sheet has focused its own first control
+  window.setTimeout(() => {
+    const el = document.querySelector<HTMLElement>(`[data-settings-row="${row}"]`);
+    if (el) { el.focus(); el.scrollIntoView?.({ block: "nearest" }); }
+    else if (tries > 0) focusRow(row, tries - 1);
+  }, 60);
+}
+
 /** Round 12 (D): the sheet's body is its own chunk (components/SettingsBody.tsx); fetched early so a tap never waits. */
 let Loaded: typeof import("./SettingsBody").SettingsBody | null = null;
 export const loadSettingsBody = () => import("./SettingsBody").then((m) => { Loaded = m.SettingsBody; return m; });
@@ -31,10 +54,16 @@ const warm = () => { void loadSettingsBody().catch(() => {}); };
  */
 export function SettingsMenu(props: SettingsProps) {
   const [open, setOpen] = useState(false);
+  const [focusRow, setFocusRow] = useState<SettingsRow | undefined>(undefined);
   const [fileNote, setFileNote] = useState<string | null>(null);
   useEffect(() => {
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
     if (w.requestIdleCallback) w.requestIdleCallback(warm, { timeout: 4000 }); else setTimeout(warm, 2000);
+  }, []);
+  useEffect(() => {
+    const on = (e: Event) => { const d = (e as CustomEvent<{ row: SettingsRow; handled: boolean }>).detail; if (d.handled) return; d.handled = true; setFocusRow(d.row); setOpen(true); };
+    window.addEventListener(OPEN_SETTINGS_EVENT, on);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, on);
   }, []);
   return (
     <>
@@ -43,8 +72,8 @@ export function SettingsMenu(props: SettingsProps) {
       </button>
       {open && (Loaded
         // Once fetched it renders at once, with no Suspense round trip (the tests rely on this too).
-        ? <Loaded {...props} onClose={() => setOpen(false)} fileNote={fileNote} setFileNote={setFileNote} />
-        : <Suspense fallback={null}><LazyBody {...props} onClose={() => setOpen(false)} fileNote={fileNote} setFileNote={setFileNote} /></Suspense>)}
+        ? <Loaded {...props} onClose={() => { setOpen(false); setFocusRow(undefined); }} fileNote={fileNote} setFileNote={setFileNote} focusRow={focusRow} />
+        : <Suspense fallback={null}><LazyBody {...props} onClose={() => { setOpen(false); setFocusRow(undefined); }} fileNote={fileNote} setFileNote={setFileNote} focusRow={focusRow} /></Suspense>)}
     </>
   );
 }

@@ -5,7 +5,7 @@ import type { CareerCommand } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
 import type { HandsOnResult, HandsOnRole, ShiftSummary } from "@full-plate/handson";
-import { appReducer, initialAppState } from "./state/gameReducer";
+import { appReducer, initialAppState, type ToastLink } from "./state/gameReducer";
 import { getSaveStore, type SlotSummary } from "./state/saveStore";
 import { saveNote, useSaves, useSlotAutosave } from "./state/useSaves";
 import { SaveIndicator } from "./components/SaveIndicator";
@@ -142,7 +142,7 @@ export function App() {
   const sendResults = useCallback((results: HandsOnResult[]) => dispatch({ type: "handsOnResults", results }), []);
   const dismissToast = useCallback(() => dispatch({ type: "dismissToast" }), []);
   const reportScore = useCallback((summary: ShiftSummary) => dispatch({ type: "handsOnScore", summary }), []);
-  const notify = useCallback((text: string) => dispatch({ type: "toast", text, tone: "info" }), []);
+  const notify = useCallback((text: string, link?: ToastLink) => dispatch({ type: "toast", text, tone: "info", ...(link ? { link } : {}) }), []);
   const [planTab, setPlanTab] = useState<PlanningTab>("menu");
   const [lastShift, setLastShift] = useState<ShiftSummary | null>(null);
 

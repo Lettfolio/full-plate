@@ -15,7 +15,9 @@ import {
 import { commisStation, type HandsOnResult, type ShiftSummary, type StationPlan } from "@full-plate/handson";
 
 export type ToastTone = "bad" | "good" | "info";
-export interface ToastMsg { id: number; text: string; tone: ToastTone }
+/** Round 13 (A): `link` adds a button to the toast — "animations" opens Settings at the Animations switch. */
+export interface ToastMsg { id: number; text: string; tone: ToastTone; link?: ToastLink }
+export type ToastLink = "animations";
 
 /**
  * App-level state. `game` is the sim's GameState and is only ever replaced with the result of
@@ -95,7 +97,7 @@ export type AppAction =
   /** Round 12 (F): a dish the player invented goes into the cookbook (the sheet then adds it to the menu). */
   | { type: "invent"; dish: CustomDish }
   | { type: "ticks"; n: number }
-  | { type: "toast"; text: string; tone?: ToastTone }
+  | { type: "toast"; text: string; tone?: ToastTone; link?: ToastLink }
   | { type: "dismissToast" }
   | { type: "quit" };
 
@@ -114,8 +116,8 @@ export const initialAppState: AppState = {
 
 const TICKER_MAX = 60;
 
-function withToast(s: AppState, text: string, tone: ToastTone): AppState {
-  return { ...s, toast: { id: (s.toast?.id ?? 0) + 1, text, tone } };
+function withToast(s: AppState, text: string, tone: ToastTone, link?: ToastLink): AppState {
+  return { ...s, toast: { id: (s.toast?.id ?? 0) + 1, text, tone, ...(link ? { link } : {}) } };
 }
 
 const TONE_KIND: Record<"good" | "bad" | "neutral", LogEntry["kind"]> = { good: "good", bad: "bad", neutral: "info" };
@@ -286,7 +288,7 @@ function reduce(s: AppState, a: AppAction): AppState {
     case "quit":
       return initialAppState;
     case "toast":
-      return withToast(s, a.text, a.tone ?? "info");
+      return withToast(s, a.text, a.tone ?? "info", a.link);
     case "dismissToast":
       return s.toast ? { ...s, toast: null } : s;
     case "command": {

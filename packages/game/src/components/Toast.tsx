@@ -3,6 +3,7 @@ import type { ToastMsg } from "../state/gameReducer";
 import { playSfx } from "../lib/sfx";
 import { Icon, type IconName } from "./Icon";
 import { TermText } from "./TermText";
+import { openSettingsAt } from "./Settings";
 
 interface Props {
   toast: ToastMsg | null;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 const SHOW_MS = 4500;
+/** Round 13 (A): a toast with a link stays long enough to read and reach. */
+const LINK_SHOW_MS = 9000;
 const ICON: Record<ToastMsg["tone"], IconName> = { bad: "warning", good: "check", info: "info" };
 
 /**
@@ -37,7 +40,7 @@ export function Toast({ toast, onDismiss }: Props) {
   useEffect(() => {
     if (!toast) return;
     if (toast.tone === "good") playSfx("good");
-    const t = window.setTimeout(onDismiss, SHOW_MS);
+    const t = window.setTimeout(onDismiss, toast.link ? LINK_SHOW_MS : SHOW_MS);
     return () => window.clearTimeout(t);
   }, [toast, onDismiss]);
   return (
@@ -47,6 +50,8 @@ export function Toast({ toast, onDismiss }: Props) {
           <span className="toast__icon" aria-hidden="true">{toast.tone === "good" && toast.text.startsWith("🎉") ? <Icon name="trophy" size={22} /> : <Icon name={ICON[toast.tone]} size={22} />}</span>
           {/* Goal toasts carry their own 🎉 in the text: it moves into the round badge. */}
           <span className="spacer"><TermText text={toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text} /></span>
+          {/* Round 13 (A): a toast can carry one link — "animations" opens Settings at the Animations switch */}
+          {toast.link === "animations" && <button className="btn btn--ghost btn--tap toast__link" onClick={() => { openSettingsAt("animations"); onDismiss(); }}>Settings</button>}
           <button className="iconbtn iconbtn--tap" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" size={20} /></button>
         </div>
       )}
