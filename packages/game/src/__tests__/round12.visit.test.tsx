@@ -270,7 +270,7 @@ describe("the co-op day", () => {
     // ending deletes the host's document (and its marker, nothing else being open)
     await endHosting(host, code, writer);
     expect(db.paths("fpc/u_host")).toEqual([]);
-    expect(guestSees.at(-1)).toBeNull();
+    expect(guestSees.at(-1)!.stage).toBe("ended"); // gone after being seen reads as ended, not "the session has gone"
     s1(); s2();
   });
   it("the writer sends one write at a time and coalesces a burst into the newest body", async () => {

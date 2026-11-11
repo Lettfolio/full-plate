@@ -53,11 +53,23 @@ difficulty, updatedAt, chunkCount, encoding ("gzip-b64"|"b64"), bytes (raw envel
 is above `chunkCount`; `backupOf` = the slot a "Backup of …" backs up). `updatedAt` is wall-clock UI metadata ("played 2 days ago") and the
 conflict tiebreak — it never reaches the sim.
 
-No access rules beyond the defaults are needed: `data/users/{self}` is private to each viewer (even from the artifact's
-owner). Its default write level is `interact`, so a player must open the artifact as its owner or be shared it as
-**Contributor** or above; a Viewer/Commenter's first write is refused and the store falls back to the device (the mark
-says "This device only"). The publisher declares `capabilities: {db: {}, user: {}, downloads: {}}` (`downloads` for
-Save to a file inside claude.ai; without it the `<a download>` fallback is used).
+`data/users/{self}` is private to each viewer (even from the artifact's owner). Its write level is `interact`, so a
+player must open the artifact as its owner or be shared it as **Contributor** or above; a Viewer/Commenter's first
+write is refused and the store falls back to the device (the mark says "This device only"). `downloads` is for Save
+to a file inside claude.ai; without it the `<a download>` fallback is used.
+
+**Round 14 (B): the artifact now declares access rules.** The root is raised to `write: "admin"` (so a Contributor can
+no longer write documents anywhere in the db), with `{ path: "data/users/{self}", write: "interact" }` beside it so
+the saves above work exactly as before, and the shared-play prefixes `fps`/`fpr`/`fpc` are each writable only under
+the viewer's own id. The full `capabilities` object the publisher passes (db with rules, user, downloads, room) and the
+per-level table are in COOP-NOTES.md "Round 14 — B"; `scripts/lib/dbRules.ts` is the source and a test keeps the two
+identical. Nothing about the save documents themselves changed.
+
+**Migration (R14).** None needed: the published artifact's db holds no Round 12/13 share or co-op documents
+(`fp-share/…`, `fp-coop/…`; checked before this round). Those paths are simply no longer read or written; under the
+new rules only an Editor or the owner could write there. The private record `data/users/<id>/r12/g/social` keeps its
+path and gains `v: 2` and a `coop` map; an old record's share codes (no check letters for the owner's id) are replaced
+by a new code on the next share. Its device copy is now kept per account (`full-plate:social:v1:<hash of id>`).
 
 ### Writing (push)
 

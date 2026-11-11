@@ -320,9 +320,11 @@ const ME_LOCAL = "full-plate:social:v1";
 const MAX_ME = 60;
 /** Most a player shares at once (one per game). */
 export const MAX_SHARES = 12;
-function readLocalMe(): Me {
+/** This device's copy of the private record, per account (two people on one device keep their own). */
+const meLocalKey = (uid: string) => `${ME_LOCAL}:${fnv1a(uid)}`;
+function readLocalMe(uid: string): Me {
   try {
-    const o = obj(JSON.parse(prefsStorage().getItem(ME_LOCAL) ?? "{}"));
+    const o = obj(JSON.parse(prefsStorage().getItem(meLocalKey(uid)) ?? "{}"));
     return { shares: strMap(o.shares), coop: coopMap(o.coop) };
   } catch { return { shares: {}, coop: {} }; }
 }
@@ -342,7 +344,7 @@ function coopMap(v: unknown): Record<string, CoopNote> {
 }
 const trimMap = <T>(m: Record<string, T>, n = MAX_ME) => Object.fromEntries(Object.entries(m).slice(-n));
 export async function readMe(l: { db: SDb; uid: string }): Promise<Me> {
-  const local = readLocalMe();
+  const local = readLocalMe(l.uid);
   try {
     const s = await l.db.doc(mePath(l.uid)).get();
     if (!s.exists) return local;
@@ -353,7 +355,7 @@ export async function readMe(l: { db: SDb; uid: string }): Promise<Me> {
 }
 export async function writeMe(l: { db: SDb; uid: string }, me: Me): Promise<void> {
   const body = { kind: "fp-social", v: 2, shares: trimMap(me.shares), coop: trimMap(me.coop, 20) };
-  try { prefsStorage().setItem(ME_LOCAL, JSON.stringify(body)); } catch { /* storage blocked */ }
+  try { prefsStorage().setItem(meLocalKey(l.uid), JSON.stringify(body)); } catch { /* storage blocked */ }
   await l.db.doc(mePath(l.uid)).set(body);
 }
 

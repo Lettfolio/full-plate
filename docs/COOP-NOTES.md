@@ -50,6 +50,9 @@ in as commands at the host's current tick. Not built in Round 12; built in Round
 
 ## Data layout (all under the artifact's db)
 
+> **Superseded by "Round 14 — B" at the end of this file.** The R12 paths below had no owner the platform enforced
+> (S14-2): they are no longer read or written. Kept as the record of what shipped in Rounds 12–13.
+
 | Path | Written by | Body |
 | --- | --- | --- |
 | `fp-share/<CODE>/v/snap` | the owner | `ShareSnapshot` + `owner` (a hash of the owner's id) |
@@ -177,7 +180,7 @@ shows the restaurant's night.
   the base's restaurant/staff names pass `cleanLabel`. Everything heard is coerced like a save (`decodeBase`,
   `decodeFloor`, `checkSpot`: ids by pattern, indexes in range or the row is dropped, numbers clamped, lists capped).
 
-### The capability declaration (the publisher must pass this)
+### The capability declaration (Round 13 — superseded by "Round 14 — B" below, which adds the `db` rules)
 
 ```js
 capabilities: {
@@ -230,3 +233,165 @@ machine is busy.
   "where the platform admits them").
 - The emit budget in practice (the game stays near 20 a second per side: snapshots ≤ 10, presence ≤ 10, heartbeats 2).
 - That the declaration above is accepted as written (topic grammar `^[a-z][a-z0-9_.-]{0,47}$`, three of the 16).
+
+## Round 14 — B: one writer per shared document, enforced by the rules (S14-2, S14-11)
+
+The second red team showed that with the default rules (any Contributor writes any shared document) a friend with a
+code could rewrite or delete a share, forge or overwrite reviews, rewrite the co-op host's live nonce, or write a plan
+as the guest. The fix is in where documents live, so that the platform — not the page — decides who writes them.
+
+### Where everything lives now
+
+Every shared document sits under the platform id of the ONLY person who may write it, at a `{self}` path:
+
+| path | written by | holds |
+| --- | --- | --- |
+| `fps/<uid>` | `<uid>` | "I share" marker, `{kind: "fp-pub", v: 2}` (nothing else) |
+| `fps/<uid>/s<hash>/snap` | `<uid>` | one snapshot per shared game (`<hash>` = SHA-256 of the code, 32 hex) |
+| `fpr/<uid>` | `<uid>` | `<uid>`'s own reviews of other people's shares: `r: {<key>: {stars, picks, nick, date}}`, `k: [<key>…]`; one entry per share, newest 30 kept; `<key>` = 8,192 rounds of SHA-256 over the code |
+| `fpc/<uid>` | `<uid>` | co-op marker; a guest's lists `j`, the slow join keys of sessions it joined |
+| `fpc/<uid>/c<hash>/host` | the host | `HostDoc`, plus `guest`: the one guest id the host let in |
+| `fpc/<uid>/c<hash>/guest` | the guest | `GuestDoc` |
+| `data/users/<uid>/r12/g/social` | `<uid>` (private) | my shares by game, my co-op sessions (for clean-up) |
+
+**The author comes from the path.** `openShare` reports `ownerId` and `mine` from the path the snapshot was found at;
+a review's `id` is the path segment of the visitor's document; a co-op partner's id (`JoinResult.partnerId`, the second
+argument of `watchGuest`'s callback, and `partnerOf(code)` in `lib/coop/session.ts`) is the path segment of the
+document they wrote. No document carries an id field that is believed. The Round 12 owner hash is gone (S14-11): two
+shares of one player share only the id in their paths, which the rules need.
+
+**A code is still all a visitor needs.** A code is 8 random letters plus 2 check letters computed from the random part
+and the owner's id (`codeCheck`). The visitor lists the markers under `fps` (or `fpc` for a co-op day), keeps the ids
+whose check letters fit, and reads `…/s<hash(code)>/snap` under each. Only the owner can have written there. Someone
+else who has the code can write a look-alike under their own id, but it is found only if the check letters fit their
+id too (1 in 961 per account); if two ever fit, the code opens nothing and says "ask for a new code" rather than
+showing either.
+
+**Enumeration stays impractical.** Listing the markers gives ids, not codes. From an id, reaching a snapshot needs the
+code's 8 random letters: 31^8 ≈ 8.5 × 10^11 guesses per player, each a db call (the per-viewer call rate applies). The
+review and join keys in `fpr`/`fpc` are readable, so they are slow hashes (8,192 rounds, ≈ 60 ms in a browser):
+cracking one offline costs 31^8 × 8,192 × (number of players) hashes, years of a GPU for a pretend restaurant's
+snapshot and one star rating. The old shared paths are not read any more.
+
+**Reviews.** Each visitor writes one entry per share in their own document; nobody else can write or delete it. The
+owner's list is a query on `fpr` for documents listing the share's key: one review per visitor, dates in the future
+read as today, newest first, at most 50 — pruned by count on read, never by deleting, and never by a client-supplied
+time. **Hide** on the owner's Visitors list hides that visitor on this device (localStorage), nothing else. Nicknames
+are still the visitor's choice (Mallory can call herself "Carol"), but she cannot touch Carol's review.
+
+**Snapshot review lines** are shown only if they are the game's own words: `lib/visit.ts gameLine` rebuilds them from
+the review templates (this rating or "rough"; `{dish}`, `{restaurant}` and `{segment}` filled as the sim fills them).
+An owner's own prose is dropped on read.
+
+**The co-op lobby.** The guest finds the host's document from the code (check letters). The host finds would-be
+guests by the join key in their markers and pins the first whose guest document is there into its own document
+(`guest`); from then on it reads only that guest's document, and a later `guestJoin` answers `"taken"`. A guest who
+sees the host pin someone else treats the session as over. Nobody can rewrite the other side's nonce, role or plan.
+(Who gets to be first is still first-come: S14-3's live-room pin is Builder A's.)
+
+### Lifecycle
+
+| event | what goes |
+| --- | --- |
+| Stop sharing | the snapshot; the `fps` marker with the last share |
+| Delete a game (Your games › Delete) | its share and its co-op day (`lib/socialLife.ts`; the slot is read with `peek`, which writes nothing, before it is deleted) |
+| A game is lost (game over, not a career evening) | the same (App's effect on `gameover`) |
+| End the co-op day (host) / Leave (guest) | that side's document (after writing "ended"), the guest's join key, the marker when nothing is open |
+| A session's two hours pass | its documents are swept by their own writer next time they open Friends or Visit a friend (`sweepCoop`); readers treat it as over meanwhile |
+
+Visitors' reviews of a stopped share stay in the visitors' documents (only they can write them): they point at a code
+that opens nothing, and each visitor's list keeps only its newest 30. The owner can't delete them; under `write:
+"self"` nor can the artifact's owner, short of publishing looser rules.
+
+**Budget** (25,000 documents per artifact): per player at most 1 share marker + 12 snapshots (`MAX_SHARES`; the 13th is
+refused "the shared space is full") + 1 reviews document + 1 co-op marker + 1 live host document (+ 1 guest document
+when joined elsewhere) = **17**, so the worst case is about 1,470 players who never clean up; one document is ≤ 30 kB
+(a snapshot is under 20 kB, a reviews document under 3 kB). The root is raised to `admin`, so a Contributor can't
+create documents anywhere else (before, any path was writable).
+
+**Migration.** The published artifact's db holds no `fp-share/…` or `fp-coop/…` documents (checked before this round),
+so nothing is moved; the old paths are simply not read. A device whose private record still lists an R12 code gets a
+new code on its next share (`share` replaces any code whose check letters don't fit the owner).
+
+### The capability declaration (the publisher must pass this)
+
+`scripts/lib/dbRules.ts` holds it (`CAPABILITIES`); a test checks this block matches it character for character:
+
+```json
+{
+  "db": {
+    "rules": [
+      {
+        "path": "",
+        "read": "view",
+        "write": "admin"
+      },
+      {
+        "path": "data/users/{self}",
+        "write": "interact"
+      },
+      {
+        "path": "fps",
+        "read": "view",
+        "write": "self"
+      },
+      {
+        "path": "fps/{self}",
+        "read": "view",
+        "write": "interact"
+      },
+      {
+        "path": "fpr",
+        "read": "view",
+        "write": "self"
+      },
+      {
+        "path": "fpr/{self}",
+        "read": "view",
+        "write": "interact"
+      },
+      {
+        "path": "fpc",
+        "read": "view",
+        "write": "self"
+      },
+      {
+        "path": "fpc/{self}",
+        "read": "view",
+        "write": "interact"
+      }
+    ]
+  },
+  "user": {},
+  "downloads": {},
+  "room": {
+    "topics": {
+      "fp-in": "interact",
+      "fp-st": "interact",
+      "fp-emo": "interact"
+    }
+  }
+}
+```
+
+| path | Viewer / Commenter (`view`) | Contributor (`interact`) | Editor / granted Owner (`admin`) | the artifact's owner (`owner`) |
+| --- | --- | --- | --- | --- |
+| `fps/<own id>/…`, `fpr/<own id>`, `fpc/<own id>/…` | read | read, write | read, write | read, write |
+| `fps/<other>/…`, `fpr/<other>`, `fpc/<other>/…` | read | read | read | read |
+| `data/users/<own id>/…` (saves, the private record) | read (writes refused: "This device only") | read, write | read, write | read, write |
+| `data/users/<other>/…` | — | — | — | — |
+| anything else (old `fp-share/…` included) | read | read | read, write | read, write |
+
+So: a Viewer can visit but can't review, share or join; a Contributor does everything for themselves and nothing to
+anyone else's documents; Editors and the owner can write the unused rest of the db but, like everyone, never another
+player's share, review or co-op side (`self` is a level nobody holds). The `room` topics are as Round 13 declared them.
+
+### Tests and the mock
+
+`scripts/lib/dbRules.ts` is the rules engine (levels, inheritance, `{self}`, the "whichever gives more" rule on one's own
+subtree, `data/users/{self}` always present, declaration checks). The Playwright mock (`mockClaude.mjs`
+`createMockStore`) and the vitest double (`src/__tests__/ruleDb.ts`) both enforce it; `installMockClaude(ctx, store,
+{uid, level})` and `store.as(uid, level)` act as anyone at any level. `round14.ownership.test.tsx` replays each S14-2
+attack as a Contributor and checks it is refused. `scripts/playtest-friends.mjs` adds an attacker context that tries
+them against the built game.
+

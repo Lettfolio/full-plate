@@ -154,9 +154,14 @@ export async function leaveAsGuest(l: L, code: string, writer: DocWriter<GuestDo
  * given and the host's `guest` is another id).
  */
 export function watchHost(db: SDb, hostId: string, code: string, dish: (id: string) => boolean, next: (h: HostDoc | null) => void, error?: (code: string) => void, me?: string): () => void {
+  let last: HostDoc | null = null;
   return db.doc(hostPath(hostId, code)).onSnapshot((s) => {
     const h = s.exists ? checkHost(s.data(), dish) : null;
-    next(h && me && h.guest && h.guest !== me ? null : h);
+    if (h && me && h.guest && h.guest !== me) { last = null; next(null); return; }
+    // the host deletes the document when the day ends: once seen, its going means "ended"
+    if (!h && last) { next({ ...last, stage: "ended" }); return; }
+    last = h;
+    next(h);
   }, (e) => error?.(e.code));
 }
 /**
@@ -170,7 +175,15 @@ export function watchGuest(l: L, writer: DocWriter<HostDoc>, code: string, dish:
   let stopQ = () => {};
   const follow = (id: string) => {
     partners.set(code, id);
-    stopDoc = l.db.doc(guestPath(id, code)).onSnapshot((s) => { if (!dead) next(s.exists ? checkGuest(s.data(), dish) : null, id); }, (e) => error?.(e.code));
+    let last: GuestDoc | null = null;
+    stopDoc = l.db.doc(guestPath(id, code)).onSnapshot((s) => {
+      if (dead) return;
+      const g = s.exists ? checkGuest(s.data(), dish) : null;
+      // the guest deletes the document on leaving: once seen, its going means "left"
+      if (!g && last) { next({ ...last, ended: true }, id); return; }
+      last = g;
+      next(g, id);
+    }, (e) => error?.(e.code));
   };
   const pinned = writer.current.guest;
   if (pinned && UID_RE.test(pinned)) follow(pinned);
