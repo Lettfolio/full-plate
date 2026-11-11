@@ -41,7 +41,8 @@ export function mapKey(key: string): { pan?: [number, number]; zoom?: number; re
 /**
  * Round 13 (B): pan and pinch for a map frame, shared by the world map and the city boards. Touch: one finger drags,
  * two pinch, a double tap zooms in (and back out from the top). Trackpad: pinch (ctrl+wheel) zooms at the pointer,
- * two-finger scroll pans a zoomed map. Mouse: drag, wheel zooms. Keyboard on the frame: arrows, + / −, 0.
+ * two-finger scroll pans a zoomed map. Mouse: drag, wheel zooms. Keyboard (focus on a pin or a map button): arrows,
+ * + / −, 0.
  */
 export function useMapGestures(frame: RefObject<HTMLElement | null>, opsIn: MapOps) {
   const ops = useRef(opsIn);
@@ -163,16 +164,18 @@ export function ZoomFrame({ label, children }: { label: string; children: ReactN
     atLimit: (f) => (f < 1 && vRef.current.k <= 1) || (f > 1 && vRef.current.k >= ZF_MAX),
   });
   const zoomed = v.k > 1.001;
+  const { onKeyDown, ...pointer } = handlers;
+  // keys work while focus is anywhere in the wrap (a button on the board, or the size buttons): the frame itself is not a
+  // Tab stop, so nothing new joins the Tab order
   return (
-    <div className="zoomframe-wrap">
+    <div className="zoomframe-wrap" onKeyDown={onKeyDown}>
       <div
         ref={frame}
         className={`zoomframe ${zoomed ? "zoomframe--zoomed" : ""}`}
         data-zoom={v.k.toFixed(2)}
         role="region"
         aria-label={`${label}. Arrow keys move it, plus and minus zoom, 0 resets.`}
-        tabIndex={0}
-        {...handlers}
+        {...pointer}
       >
         <div className="zoomframe__inner" style={zoomed ? { transform: `translate(${v.tx.toFixed(1)}px, ${v.ty.toFixed(1)}px) scale(${v.k.toFixed(3)})` } : undefined}>
           {children}

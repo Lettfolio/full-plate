@@ -169,6 +169,12 @@
   html .servsheet__peek .watchcard { padding: 10px 12px; }
   html .servsheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 4px 10px calc(16px + env(safe-area-inset-bottom, 0px)); }
   html .servsheet__body[hidden] { display: none; }
+  /* Decorate: the room preview bleeds into the panel's padding so its canvas is at least the 320 px the floor is laid
+     out at (it was 274 px: table numbers drew at 11 px) */
+  html .decorate > .decorate__preview { margin-inline: -18px; }
+  html .decorate__preview > .panel { padding-inline: 10px; }
+  /* the Stars map: the city board over its side notes (two columns left the board 64 px wide upright) */
+  html .starsmap__layout { grid-template-columns: minmax(0, 1fr); }
   /* the menu matrix as a ranked list (screens/planning/MenuMatrixList.tsx) */
   html .mmlist { display: flex; flex-direction: column; gap: 14px; }
   html .mmlist__group { border: 1.5px solid var(--border-subtle); border-radius: var(--radius-md); padding: 10px 12px 12px; background: var(--surface-panel); }
@@ -227,6 +233,9 @@
   html .status__moreacts > .savemark--saving { color: var(--on-ink-soft); }
   html .status__moreacts > .savemark--memory { color: var(--hud-down); border-color: var(--hud-down); }
   html .status__moreacts > .status__sound[aria-checked="false"] { color: var(--on-ink-soft); }
+  html .status__morebtn:hover:not(:disabled), html .status__moreacts > .shellbtn:hover:not(:disabled) { background: rgba(251, 244, 230, 0.14); border-color: var(--on-ink); }
+  html .status__moreacts > .savemark { width: auto; padding: 0 14px 0 12px; }
+  html .status__moreacts .savemark__text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
   html .status__more {
     position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 30;
     display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px;
@@ -298,6 +307,9 @@
   html .status__moreacts > .savemark--saving { color: var(--on-ink-soft); }
   html .status__moreacts > .savemark--memory { color: var(--hud-down); border-color: var(--hud-down); }
   html .status__moreacts > .status__sound[aria-checked="false"] { color: var(--on-ink-soft); }
+  html .status__morebtn:hover:not(:disabled), html .status__moreacts > .shellbtn:hover:not(:disabled) { background: rgba(251, 244, 230, 0.14); border-color: var(--on-ink); }
+  html .status__moreacts > .savemark { width: auto; padding: 0 14px 0 12px; }
+  html .status__moreacts .savemark__text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
   html .status__more {
     position: absolute; right: 8px; top: calc(100% + 4px); z-index: 30; width: min(460px, calc(100vw - 16px));
     display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 14px;

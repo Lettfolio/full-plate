@@ -248,7 +248,9 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     let disposed = false;
     const fit = () => {
       if (camRef.current) { camRef.current.fit(); return; }
-      const r = stage.getBoundingClientRect(); view?.resize(r.width, r.height, canvasDpr());
+      // R13-B: the canvas's own box (inside the stage's border), so the room is drawn 1:1, never 2–3 px squeezed
+      const box = floorRef.current, r = stage.getBoundingClientRect();
+      view?.resize(box?.clientWidth || r.width, box?.clientHeight || r.height, canvasDpr());
     };
     const ro = new ResizeObserver(fit);
     ro.observe(stage);
@@ -296,8 +298,8 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     return () => {
       gone = true;
       camRef.current?.destroy(); camRef.current = null; setZoom(1);
-      const r = stageRef.current?.getBoundingClientRect();
-      if (r) viewRef.current?.resize(r.width, r.height, canvasDpr());
+      const box = floorRef.current;
+      if (box) viewRef.current?.resize(box.clientWidth, box.clientHeight, canvasDpr());
     };
   }, [phone, viewReady]);
   // more tables bought mid-game make the phone room taller
@@ -675,7 +677,7 @@ function SheetHandle({ state, onChange, controls }: { state: SheetState; onChang
         const d = drag.current;
         if (!d || d.id !== e.pointerId) return;
         const dy = e.clientY - d.y;
-        if (Math.abs(dy) < 36) return;
+        if (Math.abs(dy) < 56) return; // one step per 56 px of drag
         const i = SHEET_STATES.indexOf(state);
         const to = SHEET_STATES[Math.max(0, Math.min(2, i + (dy < 0 ? 1 : -1)))]!;
         d.moved = true; d.y = e.clientY;

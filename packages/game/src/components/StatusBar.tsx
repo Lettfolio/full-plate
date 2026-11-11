@@ -124,7 +124,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
         <div className="status status--phone">
           {who}
           {money}
-          <button ref={more.button} type="button" className={`btn btn--ghost btn--tap shellbtn status__morebtn ${bankWarn ? "status__morebtn--warn" : ""}`} aria-expanded={more.open} aria-controls={more.id} aria-label={`More: ${career ? "rung, reputation, mood" : "loan, popularity, prestige"}, sound, words, settings, save${bankWarn ? " (the bank is waiting)" : ""}`} onClick={() => more.setOpen(!more.open)}>
+          <button ref={more.button} type="button" className={`btn btn--ghost btn--tap shellbtn status__morebtn ${bankWarn ? "status__morebtn--warn" : ""}`} aria-expanded={more.open} aria-controls={more.id} aria-label={`More: ${career ? "your rung, reputation and mood" : "loan, popularity and prestige"}, sound, words and the game menu${bankWarn ? " (the bank is waiting)" : ""}`} onClick={() => more.setOpen(!more.open)}>
             <span aria-hidden="true" className="status__moredots">⋯</span>
           </button>
           <div id={more.id} className="status__more" hidden={!more.open} role="region" aria-label="More">

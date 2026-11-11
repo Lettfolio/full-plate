@@ -134,9 +134,8 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
         ref={frame}
         className={`worldmap__frame ${k > 1 ? "worldmap__frame--zoomed" : ""}`}
         data-zoom={k.toFixed(2)}
-        tabIndex={0}
         role="region"
-        aria-label="World map. Arrow keys move it, plus and minus zoom, 0 resets."
+        aria-label="World map. On a city or a map button: arrow keys move it, plus and minus zoom, 0 resets."
         {...gestures}
         onMouseLeave={() => setTip(null)}
       >
@@ -277,7 +276,7 @@ export function quietLabels(e: Pick<EmpireState, "cities" | "hq">, view: View, p
       : side === "l" ? { x0: p.x - off - w, y0: p.y - h / 2, x1: p.x - off, y1: p.y + h / 2 }
       : side === "b" ? { x0: p.x - w / 2, y0: p.y + off, x1: p.x + w / 2, y1: p.y + off + h }
       : { x0: p.x - w / 2, y0: p.y - off - h, x1: p.x + w / 2, y1: p.y - off };
-    if (hit(b)) out.add(p.c.id); else kept.push(b);
+    if (hit(b) && p.c.id !== picked && p.c.id !== e.hq.homeCityId) out.add(p.c.id); else kept.push(b); // the picked city and HQ always keep their names
   }
   return out;
 }
