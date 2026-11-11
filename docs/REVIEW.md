@@ -1676,3 +1676,316 @@ re-checked on read, no free text between players).
 6. **Glossary words as touch targets**: 400–470 inline terms under 44 px per run (R11.11 item 1).
 7. **S12**: no CSP; Pages origin shared. **G14**: `SET_OWNER_PROFILE` still a public sim command.
 8. Floor frame drops at 4× (R12-F6); probe/audit still not in CI.
+
+# Round 13 — six branches: a lighter floor, phone beyond CSS, hands-on on a phone, depth, hardening, live co-op
+
+Master `7e5ad5a` (Round 12) + six `--no-ff` merges in the order A → E → B → C → D → F (the builders' 42 commits kept as
+they are), then the review's fixes and this doc. Scratch: `scratchpad/r13/` (scripts and logs in `r13/review/`);
+screenshots: `scratchpad/shots/r13/review/`. Comparisons are against `7e5ad5a` (and `496776e` for frame times), built
+on this machine. Nothing else ran during the review (load 0.9–1.5 throughout).
+
+## R13.1 What merged
+
+| Branch | Tip | Commits | What | Merge |
+|---|---|---|---|---|
+| r13-a | `2def2bf` | 10 | Floor stamps + PersonCache (R12-F6), auto "lite" juice with a once-per-device toast → Settings › Animations, one `--z-*` stacking scale, the probe ignores what's behind a modal (R12-F8) and measures offscreen canvas text where it lands, probe + both audits in CI (`ui-checks.yml`, non-blocking) | clean (`5af4e20`) |
+| r13-e | `311db93` | 7 | Meta CSP on the Pages build only (`FP_TARGET=pages`), localStorage namespaced by path with a one-time migration and memory when blocked (`lib/storage.ts`), G14 (`SET_OWNER_PROFILE` once, at the handover), glossary words with ≥ 44 px hit areas (`termTap`), share snapshot fuzzing | 2 conflicts (`1d182c9`) |
+| r13-b | `458c285` | 10 | Phone: ⋯ header sheet, service panel as a bottom sheet (peek/half/full), floor density + camera (pinch, double-tap, ±), ranked-list menu matrix, map pan/pinch/keys with de-overlapping labels, probe phone rows | 4 conflicts (`39a8dae`) |
+| r13-c | `5ad9886` | 5 | The hands-on shift on a phone: sideways thumb columns, an upright layout with a drag stick, follow camera, hit slop, buzz, uniforms in the kitchen, a 3-card how-to; golden scores pinned | 2 conflicts (`9c37830`) |
+| r13-d | `16fd935` | 5 | Cookbook edit/versions/rest/delete/order, Empire formula picker, Stars refine, regulars memo past day 400, owner's brand on a visited room, brand on MyShift/maps/challenge, regular of the month, thank-you notes; 3 corpus saves | 2 conflicts (`80c1291`) |
+| r13-f | `bff5256` | 5 | Live co-op shift over `room` (host-authoritative snapshots, acked guest results, session tags, replay check), `HandsOnShift` `remote` prop, `createMockRoom`, two-player playtest | 4 conflicts (`93ac85c`) |
+
+## R13.2 Collisions and how they were resolved
+
+1. **UI-NOTES.md** (every merge): the six "Round 13 — X" sections appended in merge order A, E, B, C, D, F. The F merge's
+   three-way hunks interleaved D's and F's similar sub-headings, so the file was rebuilt as master's text plus F's
+   section verbatim.
+2. **Probe (A × E × B).** `probe.mjs` auto-merged: E's hit-area measurement (`.term::before`) sits inside A's
+   modal-inert walk, so a glossary word behind an open sheet is skipped before its hit area is measured. `harness.mjs`
+   carries A's offscreen canvas-text accounting and B's two lines. `probe-baseline.json` conflicted at E and B: A's
+   was kept until the single re-baseline on the merged build (R13.6).
+3. **RenderOptions / RestaurantView (A × B).** Both new fields kept (`juice`, `density`). Density reaches A's caches
+   through `layoutKey` (B): a phone layout's `tablesKey` ends `|phone`, which is in the scene layer's key, and a new
+   layout object clears the stamp cache (`keyFor !== L`), so table tops, badges, mood faces and ticket cards are
+   re-drawn at the phone's larger radii; PersonCache keys on the person size. Brand: the scene key carries palette,
+   name and decor as in R12; staff uniforms go through `brandLook` per frame (PersonCache keys on the look).
+4. **Service.tsx (A × B).** The frame loop keeps A's floor-load watch (`load.frame`, `juice`, `__fpFloorJuice`) and
+   `notifyRef`, plus B's `phone` in the live ref and `density: "phone"` on render. B's sheet/handle and `.service__floor`
+   wrapper auto-merged around A's loop. StatusBar: B's restructure auto-merged; A's `--z-*` scale applies to the ⋯ sheet
+   (`.status__more` z 30 inside the header's z 10 stack).
+5. **HandsOnShift.tsx (C × E × F).** C's one-tree-three-layouts taken. E's storage line conflicted with C's raw
+   `window.localStorage` read for the phone how-to flag: now `prefsStorage()` (namespaced, memory when blocked). F's
+   prop, `live` ref and `onFrame` auto-merged; F's `{remote?.layer(stage)}` hunk sat in the old single-layout tree and
+   moved into C's shared `overlays` fragment, which renders inside `.handson__stage` in desk, sideways and upright.
+   **Found in the merge:** F's partner canvas used `viewMetrics(stage)` — the desktop metrics — while C's phone
+   layouts draw the room with a compact strip (sideways) and a following camera (upright), so the partner and their
+   name tag were drawn off the room on a phone. The layer now gets the layout's view flags and a focus getter
+   (`RemoteStage`, `focusOf`), and `PartnerCanvas` makes the same `viewMetrics(view, you)` call `render()` does, every
+   frame (in the F merge commit).
+6. **lib/coop/flag.ts (E × F).** E's `prefsStorage` import and F's `useSyncExternalStore`/`HandsOnRemote` imports.
+7. **phone.css (B × F).** B's then F's rules at the end of each of the two media blocks; R12-D's test (two blocks,
+   `html ` prefix) passes.
+8. **map.css (B × D).** B's ZoomFrame/quiet-label block and D's pin-logo block both kept. D's logo is an element
+   inside the pin's mark, so it pans and scales with the pin inside B's transformed frame.
+9. **Auto-merged and checked:** App.tsx (A's `notify` link, D's `useVoicesMemo`/`onCookbook`/envelope `cookbook`/
+   chapter `memo`, F's `tapReducer(appReducer)`, `useCoopRemote`, `remote`, dock `live`; E's `installTermTap()` in
+   main.tsx); Settings/SettingsBody (A's `openSettingsAt`/`focusRow`, C's Buzz row, E's hyphenated ids; `r7shell`
+   passes); `state/paths.ts`/`saveCheck.ts`/`useSaves.ts`/`gameReducer.ts` (D's cookbook and memo fields with E's
+   hardening and A's `ToastMsg.link`); corpus `index.json` (D's three saves: 31 → 34 files); theme.css (A's `--z-*`
+   block at the end, E's term block in its section); workflows (A's `ui-checks.yml`, E's `FP_TARGET=pages`; the
+   pipeline test passes); `vite.config.ts` (E's CSP plugin); `mockClaude.mjs` (F's `createMockRoom`); glossary
+   (C's `pass`, `ticketRail`); `lib/layout.ts` (B's `usePhone*`).
+
+## R13.3 Fixes in this pass
+
+- `93ac85c` (in the F merge) **the live partner on a phone**: F's layer drew the partner with desktop metrics while
+  C's phone layouts move the room (R13.2 item 5). Seen fixed in the 844×390 guest's shot (`coop-phone/06-…`): Alice's
+  plum ring and tag on the kitchen floor where the host's view puts her.
+- `7c43180` **storage**: B's service-sheet height and A's eased-floor note were the last raw `localStorage` uses (C's
+  how-to flag was routed in the C merge, F's `flag.ts` by E). On Pages they would have written un-namespaced keys E's
+  migration had already moved past, and thrown away nothing but a preference in a private window. Both go through
+  `prefsStorage()`; `round13.review.test.ts` fails on any raw `localStorage`/`sessionStorage` outside `lib/storage.ts`
+  (comments and strings blanked before the scan).
+- `5bfc4b5` **phone incident toast** (A's note): the stage toast region is pinned at the floor's centre and pulled back
+  by half its width, so shrink-to-fit only had the room right of centre — ~190 px less the icon and the close button
+  at 390 wide, one or two words a line. Now `width: max-content`, capped at min(560 px, 100vw − 24 px): 366 px, the
+  text in three lines (`review/A/12-390x844-day2-mid-service`, `rv/01-phone-toast-over-floor`). **Skip link bar**
+  (C's upright shots): "What the words mean (?)" sat at `left: 260px`, wrapped to three lines on a phone and its bottom
+  showed under `top: -80px` as a dark bar at the top right. Unfocused, both links are now off screen by their own
+  height (bottom −16 px measured); focused, both start at the left edge on a phone (12–243 px, no sideways scroll).
+- `48d7568` **invented dishes for the live guest** (F's left-out): the base message now carries the recipes on
+  tonight's menu (compact arrays, dropped one at a time and then entirely if the 3.8 kB budget would be crossed); the
+  guest re-checks each with `checkCustomDish` exactly as a save's recipe is checked, keeps only those its menu names,
+  and its `HandsOnShift` gets a pack with them derived (new optional `pack` prop). Measured: the invented-dish save's
+  base fits (2 recipes); the guest's canvas drew "Pick up Midnight for T1", "Serve Mess to T1" (no "Custom:…").
+  `content` gains `syncedCustomDishes()`; test `round13.review.coop.test.ts` (hostile recipes dropped with their dish).
+- `728e24a` **live co-op HUD on a phone**: F's sideways rule put the HUD at `top: 4px`, over C's 52 px compact strip's
+  score box (seen with an 844×390 guest); the upright rule put it over the canvas's hint line. Both start at 56 px.
+- `646cc43` probe re-baselined once (R13.6).
+
+## R13.4 Tests
+
+`pnpm -r typecheck` clean. `pnpm -r test`: **1,505 passed**, 0 failed (sim-core 302, content 105, handson 107, sim-career 61, sim-stars 72, sim-empire 106, game 752), against 1,368 on
+`7e5ad5a`: +137 = the builders' +133 (A 22, B 14, C 23, D 35, E 21, F 18) and the review's 4 (storage scan ×2,
+live guest's invented dishes ×2); nothing deleted. sim-core +1 (E's G14 test), handson +10 (C's golden scores
+chef 437 / server 361 / bar 647 and phone layout), content +14 (D). No timeout, each run alone on a quiet machine.
+Serialise byte-identity, corpus (34 saves) and the career-handover tests (E's `round13.hardening` G14 case: the
+handover still sets the owner's skills through `applyOwnerProfile`; a second call is refused) pass.
+
+## R13.5 Bundle (vite kB, minified; both built here)
+
+Main chunk **165.64 → 181.53 kB** (budget 200; 18.5 kB left): A +1.9 (slow-frame watch, toast link, Settings opener),
+E +2.7 (`lib/storage.ts`, `termTap`), B +8.3 (⋯ sheet and service sheet live in StatusBar/Service), D +1.9 (cookbook
+and memo reducer cases), F +0.6 (`flag.ts` remote store, reducer tap), C and the review ~0.5. Main CSS 145.6 → 158.6 kB.
+JS total 1,481 → 1,592 kB. The plain build carries **no** CSP meta; `FP_TARGET=pages` carries
+`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:;
+connect-src 'self'; media-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'` and
+no inline script; the two builds' asset lists are identical.
+
+Changed or new chunks (R12 → R13; the 32 others are byte-for-byte the same size):
+
+| chunk | R12 | R13 | | chunk | R12 | R13 |
+|---|---|---|---|---|---|---|
+| content | 200.28 | 206.22 | | InventDishSheet | 8.81 | 9.67 |
+| index | 165.64 | 181.53 | | regulars | 6.02 | 7.14 |
+| sim-core | 140.82 | 140.96 | | MenuMatrixPanel | 4.16 | 6.96 |
+| HandsOnShift | 112.66 | 25.00 | | SettingsBody | 6.30 | 6.85 |
+| render (handson, shared by HandsOnShift and CoopLive) | — | 100.37 | | Challenge | 6.21 | 6.81 |
+| voicesData | 56.62 | 58.73 | | CookbookStrip | 2.63 | 5.44 |
+| EmpireTab | 49.21 | 51.46 | | GuideEnvelope | 3.02 | 3.81 |
+| VisitFriend | 43.54 | 49.69 | | EveningExtras | 2.89 | 3.31 |
+| RestaurantView | 42.18 | 45.34 | | RegularsBook | 3.06 | 3.28 |
+| CoopLive | — | 32.98 | | rival | — | 3.11 |
+| StarsTab | 24.73 | 28.20 | | ChapterCard | 2.43 | 3.06 |
+| saveCheck (2) | 16.33 / 3.54 | 16.33 / 4.54 | | floorCamera | — | 2.70 |
+| mapParts | 9.93 | 14.81 | | layout | — | 2.02 |
+| MyShift | 13.82 | 14.29 | | HouseBrandCard | — | 1.30 |
+| StaffTab, sprites, postcard, challenge, DecorateTab, RestaurantTab, gossip, GossipTicker | ±0.1 | | | RegularOfMonth / voicesMemo / haptics | — | 1.06 / 0.76 / 0.36 |
+
+R12's 3.05 kB `voices` chunk is no longer separate (Rollup regrouped it with D's `regulars`/`rival` split). HandsOnShift split: the hands-on renderer is
+now its own chunk because the live co-op screen loads it too.
+
+## R13.6 Probe (built plain dist, two full ten-run probes, identical except one ticker contrast; baseline = the higher of the two)
+
+before = `7e5ad5a`'s baseline.
+
+| run | screens | targets < 44 | text < 13 | canvasText < 13 | contrast | overflow screens | covered | underBar | errors |
+|---|---|---|---|---|---|---|---|---|---|
+| 1280x800-normal | 43 → 43 | 458 → 17 | 0 → 0 | 0 → 0 | 4 → 2 | 0 → 0 | 5 → 5 | 60 → 58 | 0 → 0 |
+| 1024x768-normal | 43 → 43 | 470 → 17 | 0 → 0 | 0 → 0 | 4 → 2 | 0 → 0 | 12 → 12 | 19 → 18 | 0 → 0 |
+| 768x1024-normal | 43 → 43 | 439 → 17 | 0 → 0 | 0 → 0 | 4 → 2 | 0 → 0 | 33 → 33 | 29 → 28 | 0 → 0 |
+| 390x844-normal | 44 → 44 | 404 → 7 | 7 → 0 | 88 → **0** | 4 → 1 | 0 → 0 | 0 → 0 | 36 → 33 | 0 → 0 |
+| 844x390-normal | 43 → 43 | 468 → 17 | 0 → 0 | 51 → **0** | 5 → 2 | 0 → 0 | 0 → 0 | 21 → 21 | 0 → 0 |
+| 1280x800-large | 43 → 43 | 444 → 17 | 0 → 0 | 0 → 0 | 4 → 2 | 0 → 0 | 8 → 8 | 34 → 33 | 0 → 0 |
+| 1024x768-large | 43 → 43 | 469 → 17 | 0 → 0 | 0 → 0 | 4 → 2 | 0 → 0 | 13 → 13 | 8 → 7 | 0 → 0 |
+| 768x1024-large | 43 → 43 | 438 → 17 | 0 → 0 | 0 → 0 | 4 → 2 | 0 → 0 | 31 → 31 | 24 → 22 | 0 → 0 |
+| 390x844-large | 44 → 44 | 400 → 7 | 7 → 0 | 82 → **0** | 5 → 1 | 0 → 0 | 0 → 0 | 33 → 34 | 0 → 0 |
+| 844x390-large | 43 → 43 | 467 → 17 | 0 → 0 | 52 → **0** | 5 → 2 | 0 → 0 | 0 → 0 | 10 → 12 | 0 → 0 |
+
+Why each moved (A's probe changes measured on the Round 12 build, `r13/probe-base`, separate them from the game's):
+- **targets < 44, 458–470 → 17 (7 on the upright phone)**: A's modal-inert walk first (−83/−84 per run: 71 Menu terms
+  behind the invent sheet, 8 behind the board meeting, 3 behind the fork card, 1 behind the brand kit), then E's hit
+  areas (every inline glossary word ≥ 44 × 44; the probe measures the hit area). The 17 left are words *inside
+  buttons*, which have no hit area of their own because the button is the target: "Footfall" ×4 on the lease cards,
+  "86" ×5 on each service screen's 86 buttons (×2 screens), "HQ" ×3 in the Empire's money row. Upright the lease cards
+  and the 86 buttons are laid out differently: 7. All are also counted under < 24 (17/7): they're sub-targets.
+- **text < 13 on the upright phone 7 → 0**: B's list matrix replaces the scatter plot's axis labels (the 7 were
+  "12.3 more popular →", "12.7 Cheeseburger & fries" …).
+- **canvasText < 13 on phones 88/82 → 0 and 51/52 → 0** — the honest number with A's corrected measurement (which reads
+  96/98 and 60/65 on the Round 12 build, and 112/117 and 77/72 on A's own branch). Upright: B's phone density draws the
+  floor's 13 px labels at 13 × (scroller ÷ 340) CSS px, and the Decorate preview bleeds to 320 px (its table numbers
+  were 11.1 px); upright and sideways hands-on: C's compact strip and following camera (the watch-shift, onboarding and
+  turn-sideways screens were 13–21 each at 12.9 px). Every canvas text on every screen of both phone runs is ≥ 13 CSS px.
+- **contrast 4 → 2 (phones 4–5 → 1–2)**: A's modal-inert walk (the dimmed ★ behind the shift-scorecard and career-evening
+  dialogs). The two left are the dim ★ on the Stars tab (1.12) and the menu matrix's ● key (2.13); upright the list
+  matrix has no ● key, so 1.
+- **underBar −1/−2** on tablet/desktop: bars behind modals (A). On phones, per screen against the Round 12 build under
+  the same probe: day-1 Menu +2 (the goals line and both Menu tabs land under the action dock / tab bar at the probe's
+  scroll position: B's shorter ⋯ header moves the page up), the Empire tab's HQ row +1/+2, the evening's "Hire →" ±1;
+  the list matrix −2 (no plot), service at 4× −3 (the speed row the toast used to cover is now in the sheet's peek).
+  Net: upright normal 36 → 33, **upright Bigger 33 → 34 and sideways Bigger 10 → 12** (the only rises, sideways: the
+  Menu's "margin" word and the HQ row under the dock). All reachable by scrolling, which is what underBar means.
+- covered, overflow, errors, screens unchanged.
+
+Type audit (1280, 1024, 768-touch; Normal and Bigger): **129 screens per text size, 0 DOM and 0 canvas text runs
+< 13 px, 0 page errors**, within baseline.
+
+## R13.7 Balance (headless, real pack, 200 seeds × 365 days, normal)
+
+| strategy | `7e5ad5a` | merged |
+|---|---|---|
+| typical | 90.0 % | **90.0 %** (180/200) |
+| cheap | 68.0 % | **68.0 %** (136/200) |
+| nohire | 0 % | **0 %** |
+| balanced | 98.5 % | **98.5 %** |
+| premium | 99.0 % | **99.0 %** |
+| learner | 98.0 % | **98.0 %** |
+| decorator | 88.0 % | **88.0 %** |
+
+`git diff 7e5ad5a -- packages/sim-*/`: only E's `SET_OWNER_PROFILE` gate in `sim-core/src/commands.ts` (planning, once,
+before the first service), its comment in `types.ts` and its test. `packages/handson/`: C's presentation only
+(`render.ts`, `touch.ts`, `index.ts` exports, a new test); no rule, timing or RNG file touched; C's golden scores pass.
+
+## R13.8 Frame times (A's method: `scripts/perf-floor.mjs`, built dist, headless Chromium software raster, owner-planning save, service filled to 12:40, 4× CPU throttle, 5 s of rAF gaps; FP_PERF_RUNS=1, rounds interleaved 11b → R12 → R13)
+
+Three rounds of everything, then three more of 1024 × 4× (its first set held one R13 outlier, 82 — so a second set
+decides it). Frames over 20 ms ("dropped") / vsyncs missed, mean of the rounds:
+
+| | 11b `496776e` | R12 `7e5ad5a` | **R13 merged** | A's table (11b / R12 / R13-A) |
+|---|---|---|---|---|
+| 1024×768, 1× | 13.7 / 15.7 | 11.0 / 11.7 | **10.7 / 13.0** (3, 6, 23) | 30 / 21 / 13 |
+| 1024×768, 4× (6 rounds) | 68.7 / 83.8 | 65.5 / 80.2 | **55.0 / 71.5** (49, 82, 61, 34, 48, 56) | 77 / 82 / 65 |
+| 390×844, 1× | 18.7 / 21.0 | 21.3 / 22.0 | **15.0 / 16.0** | 27 / 34 / 19 |
+| 390×844, 4× | 49.3 / 55.7 | 60.0 / 69.7 | **23.3 / 25.0** (14, 17, 39) | 59 / 71 / 59 |
+
+JS per frame: 1024 4× 3.0–3.7 (11b), 3.1–4.6 (R12), 2.6–5.1 (R13); phone 1.8–2.4 / 2.2–2.9 / 1.8–2.2. Median gap 16.7
+everywhere. The ordering is A's (R13 ≤ 11b at 4×, better than both at 1×); this machine was quieter than A's, so every
+absolute number is lower. **The phone is not like for like**: with B's density the merged upright floor is a
+376×661 scroller at dpr 1.8 (bigger tables, two a row, the camera on) where 11b/R12 drew 356–372 × 268–298 at dpr 2;
+it drops far fewer frames, but it is a different picture. Unthrottled (A's playtest re-run on the merged dist, days 1–2
+at 4× on 1024×768 and 390×844): 0–1 frames over 20 ms in every 5 s window, juice "full" throughout; the slow-floor
+fallback (forced) eased to "lite" after 8.0 s and its toast's Settings button focused the Animations row.
+
+## R13.9 Playtests (built dist, `vite preview` / a static server on 127.0.0.1, Playwright Chromium; 0 page errors and 0 console errors in every run)
+
+The builders' playtests were re-pointed at the merged tree (`r13/review/play-{A,B,C,D,e}.mjs`) and the review added
+`play-rv.mjs` and two variants of F's live playtest.
+
+1. **Tablet 1024×768 touch.** A's (`review/A`): days 1–3 at 4×, frame windows, the slow-floor toast → Settings ›
+   Animations, the header over the dock at all five probe viewports. D's (`review/D`, every check passed): a cookbook
+   save, invent "Lighthouse noodles" → in the cookbook → rename in place → change ingredients = new version with v1
+   kept with its sales → rest → delete refused while on the menu → delete → reorder, all surviving a reload; no control
+   < 44 px or text < 13 px in the cookbook. E's on the **Pages** build (`review/E`): a tap 8 px under "margin" focuses it
+   and shows the tip; the lab's adjacent-line words split the gap; a button 4 px from a word still presses; new game →
+   day 2 → postcard PNG → save export/import; **0 CSP violations**, plain and with the mock runtime (the injected
+   inline control script was blocked: the policy is live). No single run went to day 5 in one sitting; days 1–3 (A),
+   1–2 (B, E) and the saves above cover the steps.
+2. **Phone 390×844 (iPhone 14 flags, touch only).** B's (`review/B`): new game day 1–2 with only phone UI — ⋯ sheet
+   opens/closes (Esc), brand kit, invent sheet, list matrix, service sheet peek (174 px) → half → full (drag) and
+   ArrowDown/Home, floor pinch to 2.5×, double-tap 1× ↔ 2×, + and reset, evening, postcard, 0 sideways scroll; then
+   844×390: planning, ⋯ sheet, service, evening. C's at **844×390** (`review/C`): a full cook shift with real touches
+   and drags — how-to cards 1–3, 160 s, 8 plates, 666 points, the page never scrolled or zoomed; then **upright**:
+   turn card → "Play it upright anyway" → how-to → 60 s with the drag stick (83 points) → turned sideways mid-shift
+   (sideways layout, 688×382 canvas) → back upright (turn card, then upright again). No dark bar at the top (the skip
+   link fix).
+3. **Saves.** Empire (D's formula save): the invented pie in the brand formula, the take-out button, logos on pins
+   with shops; world map pinched to 3.33× with the pin's logo still on its pin (`review/B/29`), quiet labels 6 → 0 when
+   zoomed; city board pinch 2.67× and reset. Stars: refine this season; the group logo on the Stars map; city board
+   double-tap 2×. Day-450 memo save: Marcus's day-2 and day-10 beats still in the book (the same save without a memo
+   loses the day-2 beat — the backfill keeps what's left).
+4. **Friends.** G's `playtest-friends.mjs`: every check passed (share, visit, review, co-op day, emotes, service,
+   evening, end, no-db lines; mock round trips 304–306 ms); D's visit check: the room's awning is the owner's
+   (#123c69, the visitor's page #c4412b). F's `playtest-coop-live.mjs`, every check passed:
+
+   | night | round trip | snapshots | size min / median / max (B) | guest results applied | replay |
+   |---|---|---|---|---|---|
+   | 0 ms (5 s blackout mid-shift: "gone quiet", back) | 18 ms | 5.1 / s | 164 / 820 / 1,625 | 35 | identical (297 actions) |
+   | 150 ms ±60, 20 % loss | 381 ms | 5.1 / s | 165 / 644 / 1,401 | 53 | identical (293) |
+   | 400 ms ±80, 20 % loss ("link is slow" offered) | 919 ms | 5.0 / s | 168 / 170 / 728 | 10 | identical (255) |
+
+   A host page without `room` gets the Round 12 turn-based day ("no live offer"; the guest plans as before). **Invented
+   dishes** (`playtest-coop-invented.mjs`, host = the corpus invented-dish save, 150 ms + 20 %): the guest drew
+   "Pick up Midnight for T1", "Serve Mess to T1"; replay identical (292 actions). **Phone guest** (844×390): the
+   partner on the room where the host's view puts them, the HUD under the strip (after `728e24a`).
+5. **Saves load.** Every corpus save through Load a save file: 33/34 open into the game; the 34th, `r7-gameover`, is a
+   lost game, which (since Round 11) is archived in Your games rather than offered by Continue — imported, not refused.
+   A **Round 12 device save** made by the `7e5ad5a` build on the same origin (new game, day 1) is continued by the
+   merged build on its evening. **Path prefix** (E's migration, one origin, `/` then `/full-plate/`): the old game's
+   keys all move under `full-plate/`, Continue opens it, a sibling `/other-game/` sees nothing — and B's sheet height
+   (`half`), C's phone how-to flag and A's eased-floor note move with them.
+6. **Blocked storage** (localStorage getter throws), tablet and 844×390: today's challenge intro, a new game, the
+   hands-on how-to (desk spotlight steps; the phone's 3 cards), day 1 to its evening, "Not saved" on the mark, Settings
+   › Bigger text applied, Save to a file works. 0 errors.
+7. **Reduced motion + Animations off**: `data-motion="off"`, `document.getAnimations()` empty on planning and service;
+   music running (service scene, 112 bpm, gain 0.19). On the Pages build under the CSP the music runs the same and a
+   hands-on shift starts: 0 violations.
+
+## R13.10 Findings
+
+| id | status | what |
+|---|---|---|
+| R13-F1 | FIXED `93ac85c` | Live partner drawn with desktop metrics in C's phone layouts (off the room) |
+| R13-F2 | FIXED `7c43180` | Service-sheet height and eased-floor note wrote raw, un-namespaced localStorage |
+| R13-F3 | FIXED `5bfc4b5` | Phone incident toast one or two words wide (A's note) |
+| R13-F4 | FIXED `5bfc4b5` | Skip link's bottom showed as a dark bar at the top right on narrow screens (C's shots) |
+| R13-F5 | FIXED `48d7568` | Live guest had no invented dishes (F's left-out) |
+| R13-F6 | FIXED `728e24a` | Live HUD over the compact strip's score box at 844×390 |
+| R12-F6 | CLOSED (A) | Floor 4× frame drops back at or below Round 11b (R13.8) |
+| R12-F7 | CLOSED (D) | Visited room wears the owner's awning |
+| R12-F8 | CLOSED (A) | Probe ignores what's behind a modal |
+| R13-N1 | NOTED | An emote sent on a lossy link can be lost (moments aren't re-sent by design); the 20 %-loss variant missed one |
+| R13-N2 | NOTED | A live guest on a phone sees the 3-card how-to while the host's clock runs (skippable; the desk guest gets the R7 steps the same way) |
+
+RED-TEAM.md: S12, G14 and T1 updated (below).
+
+## R13.11 Still open
+
+1. **The artifact build has no CSP**: the meta policy is on the Pages build only, because the claude.ai artifact wraps
+   the page in its own document and injects its runtime (E's UI-NOTES section has the reasons). **Same-origin reads on
+   Pages**: namespacing stops collisions, not another project page on `<owner>.github.io` reading the keys (the
+   browser's rule); the saves hold no secrets.
+2. **Live co-op**, only a real claude.ai session can confirm (COOP-NOTES): real round trips and loss, named-room
+   admission across organizations, the emit budget, the declaration as written.
+3. Words inside buttons (17 per run) stay sub-targets of their ≥ 44 px buttons.
+4. The phone frame-time comparison isn't like for like (B's bigger floor); judge her phone by eye.
+5. `ui-checks.yml` is non-blocking until it has run green once on GitHub (A's note says how to make it blocking).
+6. U10 (the year's length) unchanged.
+
+**Publishing (capability declaration, checked against COOP-NOTES and the 0.2.96 `room`/`db`/`user`/`downloads`
+type definitions):** pass
+
+```js
+capabilities: {
+  db: {},
+  user: {},
+  downloads: {},
+  room: { topics: { "fp-in": "interact", "fp-st": "interact", "fp-emo": "interact" } },
+}
+```
+
+`db` needs no `rules`: account saves and prefs live in each viewer's private `data/users/<id>/` (private by default);
+shares, reviews and the co-op lobby documents are shared paths at the default levels (everyone admitted reads,
+Contributor and above writes), which is what the game expects and re-checks on every read. `user: {}` gives the id
+only (no `profile` scope: no names or emails). `room` opens exactly the three topics the game emits to `interact`
+(`ROOM_DECLARATION` in `lib/coop/realtime.ts`); everything else stays admin-only and named rooms need no declaration.
+The game has run on the stored default declaration of db, user and downloads so far; the only addition is `room`.
