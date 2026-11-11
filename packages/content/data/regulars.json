@@ -443,5 +443,13 @@
     "You never once rushed me out, even when I sat there for three hours with one coffee. Legends.",
     "I'll still be here next week. You're stuck with me. Sorry. Not sorry.",
     "Thank you. That's it. That's the note. I'm better at eating than writing."
+  ],
+  "lapsed": [
+    "{name} waited three weeks for that order, then went elsewhere that night. No hard feelings. Their story carries on.",
+    "{name} gave up on that order and ate somewhere else that night. They'll be back. They always are.",
+    "That order never quite happened, so {name} went elsewhere that night. They texted later: 'next time'.",
+    "{name} had the big night somewhere else in the end. They came in the next week to tell you all about it anyway.",
+    "The order lapsed. {name} improvised with a meal deal and says it was 'fine'. It was not fine.",
+    "{name} went elsewhere that night. The review they left there was two words long: 'not yours'."
   ]
 }

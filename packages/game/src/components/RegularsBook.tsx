@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { avatarFor, type AvatarSpec, type GameState } from "@full-plate/sim-core";
 import type { RegularDef } from "@full-plate/content/voices";
-import { lines, orderText, regularsOf, storyOf, thanksNote, type RegularState } from "../lib/regulars";
+import { lapseDay, lines, orderText, regularsOf, storyOf, thanksNote, type RegularState } from "../lib/regulars";
 import type { VoicesMemo } from "../state/paths";
 import { dishLabel, fill, weekdayName } from "../lib/voiceKit";
 import { WEEKDAY_NAMES } from "../lib/calendar";
@@ -47,6 +47,7 @@ function Person({ game, s }: { game: GameState; s: RegularState }) {
             <div className="xs">
               {fill(onMenu ? L.onMenu : L.notOnMenu, { dish })} {fill(L.waiting, { dish, weekday: WEEKDAY_NAMES[s.open!.weekday] })}
               {s.open!.triedDay !== undefined && <> {fill(L.tryAgain, { weekday: WEEKDAY_NAMES[s.open!.weekday] })}</>}
+              {" "}If it hasn't happened by day {lapseDay(s.open!) + 1}, they'll go elsewhere that night and the story moves on.
             </div>
           </div>
         ) : <p className="small"><Icon name="check" size={16} /> {L.finished}</p>}
