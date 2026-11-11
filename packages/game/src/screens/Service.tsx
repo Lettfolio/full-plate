@@ -31,15 +31,17 @@ import { goalsQuiet } from "../lib/goals";
 import { DayRhythm } from "../components/DayRhythm";
 import { playSfx, setRush, type Sfx } from "../lib/sfx";
 import { CountUp } from "../lib/motion";
+import { prefsStorage } from "../lib/storage";
 
 /** Round 13 (B): the upright phone's service panel is a bottom sheet in one of three heights (remembered per device). */
 export type SheetState = "peek" | "half" | "full";
 export const SHEET_STATES: readonly SheetState[] = ["peek", "half", "full"];
 const SHEET_KEY = "full-plate:service-sheet:v1";
 export function readSheet(): SheetState {
-  try { const v = localStorage.getItem(SHEET_KEY); return v === "half" || v === "full" ? v : "peek"; } catch { return "peek"; }
+  try { const v = prefsStorage().getItem(SHEET_KEY); return v === "half" || v === "full" ? v : "peek"; } catch { return "peek"; }
 }
-function writeSheet(v: SheetState): void { try { localStorage.setItem(SHEET_KEY, v); } catch { /* private window: this visit only */ } }
+// R13 review: through lib/storage.ts (E) — namespaced on Pages and migrated with the rest; memory when blocked.
+function writeSheet(v: SheetState): void { try { prefsStorage().setItem(SHEET_KEY, v); } catch { /* full: this visit only */ } }
 /** Round 13 (B): the next sheet height for a key on the handle (null: not ours). */
 export function sheetKey(state: SheetState, key: string): SheetState | null {
   const i = SHEET_STATES.indexOf(state);

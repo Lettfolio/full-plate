@@ -10,9 +10,11 @@
  * a save) are ignored, so only a sustained slow floor counts. No allocation per frame (a fixed ring of booleans).
  *
  * The note ("…small effects eased off…" with a Settings link) is shown once per device: `noteDue()` / `noteShown()`,
- * remembered in localStorage (`full-plate:floor-eased-note`), wrapped in try/catch so a blocked storage just shows it
+ * remembered in device storage (`full-plate:floor-eased-note`, lib/storage.ts: namespaced, memory when blocked), wrapped in try/catch so a blocked storage just shows it
  * again next time.
  */
+
+import { prefsStorage } from "./storage";
 
 export const SLOW_MS = 20; // a 60 Hz frame that missed its slot
 export const WINDOW = 90; // ~1.5 s at 60 fps
@@ -56,10 +58,10 @@ export function createFloorLoad(onLite?: () => void): FloorLoad {
 
 /** Whether the once-per-device note is still to be shown. */
 export function noteDue(): boolean {
-  try { return typeof localStorage === "undefined" || localStorage.getItem(NOTE_KEY) !== "1"; } catch { return true; }
+  try { return prefsStorage().getItem(NOTE_KEY) !== "1"; } catch { return true; }
 }
 export function noteShown(): void {
-  try { localStorage.setItem(NOTE_KEY, "1"); } catch { /* storage blocked: say it again next time */ }
+  try { prefsStorage().setItem(NOTE_KEY, "1"); } catch { /* storage full: say it again next time */ }
 }
 
 /** The note itself (a toast with a Settings › Animations link). */
