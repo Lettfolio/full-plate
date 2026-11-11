@@ -38,6 +38,7 @@ import { ArrowLabel, Icon } from "../components/Icon";
 import { Panel } from "../components/Panel";
 import { CountUp } from "../lib/motion";
 import { withNewDishReview } from "@full-plate/content";
+import { eveningReviewText } from "../lib/reviewLines";
 
 /** Round 12 (A): tonight beat every earlier night (at least two of them, and tonight made money). */
 export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boolean {
@@ -253,6 +254,9 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   }
   const r = result;
   const reviews = withNewDishReview(r.reviews, meta, game.seed, game.restaurantName, r); // R12-F: an invented dish's first night
+  // Round 14 (F, U10): no line twice in one evening, and the dish named as it is now (display only; the save keeps the sim's words).
+  const reviewWords = eveningReviewText(reviews, { pools: content.reviewTemplates ?? {}, restaurant: game.restaurantName, dishName: (id) => content.dishes.find((d) => d.id === id)?.name });
+  const sameAgain = reviewWords.filter((x) => x === null).length;
   // profit = revenue − vat − food − prep waste − spoilage − labour − rent − overheads − incident costs − loan (sim-core stats.ts).
   // Plate waste is already inside food cost, so it is shown as a note, not a line.
   const vat = r.vat ?? 0;
@@ -393,15 +397,16 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
           <Panel title="What people said" sub={`${reviews.length} review${reviews.length === 1 ? "" : "s"}`}>
             {reviews.length === 0 ? <div className="empty small">Nobody wrote anything today.</div> : (
               <div className="reviews">
-                {reviews.map((rv, i) => (
+                {reviews.map((rv, i) => reviewWords[i] === null ? null : (
                   <div key={i} className="review">
                     <span className="review__icon" title={SOURCE[rv.source].label} aria-hidden="true">{SOURCE[rv.source].icon}</span>
                     <div>
                       <div className="row"><Stars rating={rv.rating} size={14} /><span className="review__src">{SOURCE[rv.source].label}{rv.dishId ? ` · ${dishName(content, rv.dishId)}` : ""}</span></div>
-                      <div className="review__text">“<TermText text={rv.text} />”</div>
+                      <div className="review__text">“<TermText text={reviewWords[i] ?? rv.text} />”</div>
                     </div>
                   </div>
                 ))}
+                {sameAgain > 0 && <p className="small muted" data-testid="reviews-same">{sameAgain} more {sameAgain === 1 ? "guest" : "guests"} said much the same.</p>}
               </div>
             )}
           </Panel>
