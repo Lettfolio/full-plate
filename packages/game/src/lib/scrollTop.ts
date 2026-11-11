@@ -96,15 +96,19 @@ export function restoreScroll(y: number, s: Scroller = pageScroller, ms = 1200):
 }
 
 let pendingLanding: string | null = null;
+let lastLanding: string | null = null;
+/** For tests: the last landing a shortcut asked for (jsdom can't scroll, so this is what can be checked). */
+export function lastLandingRequested(): string | null { return lastLanding; }
 /**
  * A shortcut asks the next tab to open on `selector` (a CSS selector) instead of its top. The tab change picks it up
  * (`takeLanding`) and `landOn` scrolls it into view once it has rendered.
  */
-export function requestLanding(selector: string): void { pendingLanding = selector; }
+export function requestLanding(selector: string): void { pendingLanding = selector; lastLanding = selector; }
 export function takeLanding(): string | null { const s = pendingLanding; pendingLanding = null; return s; }
 
 /** Scrolls the first element matching `selector` into view (centred), waiting up to `ms` for a lazy tab to render it. */
 export function landOn(selector: string, ms = 2000): () => void {
+  lastLanding = selector;
   if (!live()) return () => {};
   let raf = 0; const t0 = performance.now();
   const step = () => {

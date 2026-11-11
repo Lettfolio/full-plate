@@ -9,7 +9,7 @@ import { prefsStorage } from "./storage";
  *
  * Rules (so it never nags): never before Day 2; at most one item a day (once a day has shown an item, that day shows
  * that item or nothing — dismissing it doesn't bring on the next); an item dismissed or used is gone for good on this
- * device; Settings › "New things to try" turns the card off. Preferences, not the save: `full-plate:try-next:v1`
+ * device, and one left alone for three days retires itself; Settings › "New things to try" turns the card off. Preferences, not the save: `full-plate:try-next:v1`
  * through lib/storage (memory only when storage is blocked).
  */
 export type TryId = "cook" | "brand" | "invent" | "challenge" | "postcard" | "regulars" | "rival" | "share";
@@ -46,7 +46,12 @@ export interface TryState {
   dismissed: TryId[];
   /** The day that last showed an item: which game (seed) and day, and the item. */
   today?: { key: string; id: TryId | null };
+  /** How many days each item has been shown; after `SHOW_DAYS` without being used it retires itself. */
+  seen?: Partial<Record<TryId, number>>;
 }
+
+/** An item shown on this many days and left alone stops coming back (so an ignored tip doesn't nag). */
+export const SHOW_DAYS = 3;
 
 export const TRY_KEY = "full-plate:try-next:v1";
 const IDS = new Set<string>(TRY_ITEMS.map((i) => i.id));
@@ -59,7 +64,9 @@ export function readTry(): TryState {
     const dismissed = Array.isArray(p.dismissed) ? p.dismissed.filter((x): x is TryId => typeof x === "string" && IDS.has(x)) : [];
     const t = p.today;
     const today = t && typeof t.key === "string" && (t.id === null || (typeof t.id === "string" && IDS.has(t.id))) ? { key: t.key, id: t.id as TryId | null } : undefined;
-    return { off: p.off === true, dismissed, ...(today ? { today } : {}) };
+    const seen: Partial<Record<TryId, number>> = {};
+    if (p.seen && typeof p.seen === "object") for (const [k, v] of Object.entries(p.seen)) if (IDS.has(k) && typeof v === "number" && Number.isFinite(v)) seen[k as TryId] = Math.max(0, Math.floor(v));
+    return { off: p.off === true, dismissed, ...(today ? { today } : {}), ...(Object.keys(seen).length ? { seen } : {}) };
   } catch { return { off: false, dismissed: [] }; }
 }
 
@@ -93,16 +100,16 @@ export function pickTry(s: TryState, key: string, f: TryFacts): { id: TryId | nu
     const id = s.today.id && !s.dismissed.includes(s.today.id) ? s.today.id : null;
     return { id, next: s };
   }
-  const item = TRY_ITEMS.find((i) => !s.dismissed.includes(i.id) && i.due(f));
+  const item = TRY_ITEMS.find((i) => !s.dismissed.includes(i.id) && (s.seen?.[i.id] ?? 0) < SHOW_DAYS && i.due(f));
   if (!item) return { id: null, next: s }; // nothing due: don't use up the day
-  return { id: item.id, next: { ...s, today: { key, id: item.id } } };
+  return { id: item.id, next: { ...s, today: { key, id: item.id }, seen: { ...s.seen, [item.id]: (s.seen?.[item.id] ?? 0) + 1 } } };
 }
 
 /** The day key: this game (seed + name) and its day. */
 export const tryKey = (game: Pick<GameState, "seed" | "restaurantName" | "day">): string => `${game.seed}:${game.restaurantName}:${game.day}`;
 
-/** Remembers today's pick (called by the card once it shows). */
-export function noteTryShown(key: string, id: TryId): void {
+/** Remembers today's pick (called by the card once it shows): stores what `pickTry` worked out for this day. */
+export function noteTryShown(key: string, next: TryState): void {
   const s = state();
-  if (s.today?.key !== key) write({ ...s, today: { key, id } });
+  if (s.today?.key !== key) write(next);
 }

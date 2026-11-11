@@ -98,7 +98,7 @@ function openHireGoalRole(game: GameState): StaffRole | undefined {
 }
 
 /** Round 14 (E, U1): where a shortcut to a tab should land (the thing it is about), by tab. */
-function landingFor(tab: TabId, game: GameState): string | null {
+export function landingFor(tab: TabId, game: GameState): string | null {
   if (tab === "menu" && game.menu.length === 0) return ".starter";
   if (tab === "staff") return ".candidate--wanted, .hiresheet";
   return null;

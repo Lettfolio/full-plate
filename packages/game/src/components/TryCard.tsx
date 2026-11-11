@@ -13,14 +13,14 @@ import { dismissTry, noteTryShown, pickTry, tryKey, useTryState, type TryFacts, 
  * for good. No motion, no sound.
  */
 const COPY: Record<TryId, { icon: IconName; title: string; body: string; go: string }> = {
-  cook: { icon: "chefHat", title: "Run the kitchen yourself", body: "Open tonight and cook it with your own hands: you plate up, the team does the rest. Or tap Cook it yourself once service is on.", go: "Open and cook it myself" },
-  brand: { icon: "paint", title: "Make it look like yours", body: "Pick a logo, two house colours and how the name is lettered. They show on the awning, the menu and your postcards.", go: "Open the brand kit" },
-  invent: { icon: "chefHat", title: "Invent a dish", body: "Pick the ingredients, name it, set the price. Your own recipes go in your cookbook.", go: "Invent a dish" },
-  challenge: { icon: "target", title: "Today's challenge", body: "The same restaurant for everyone today, five days to post a score. This game is saved and waits for you.", go: "Try today's challenge" },
-  postcard: { icon: "restaurant", title: "Send a postcard", body: "A picture of your room with last night's numbers on it, to save or send.", go: "Make a postcard" },
-  regulars: { icon: "people", title: "You've got a regular", body: "Someone keeps coming back. Their story, and the dish they'd love to see, are in the Regulars book.", go: "See your regulars" },
-  rival: { icon: "restaurant", title: "Someone's watching", body: "The chef across the road has started posting about you. Have a look.", go: "See what they said" },
-  share: { icon: "people", title: "Show a friend", body: "Share your restaurant with a code, or visit theirs.", go: "Share with a friend" },
+  cook: { icon: "chefHat", title: "Run the kitchen yourself", body: "Open and plate up with your own hands tonight; the team does the rest.", go: "Cook tonight" },
+  brand: { icon: "paint", title: "Make it look like yours", body: "A logo, two house colours, your lettering: on the awning, the menu and your postcards.", go: "Brand kit" },
+  invent: { icon: "chefHat", title: "Invent a dish", body: "Pick the ingredients, name it, set the price.", go: "Invent one" },
+  challenge: { icon: "target", title: "Today's challenge", body: "Everyone gets the same restaurant today: five days to post a score. This game is saved.", go: "Try it" },
+  postcard: { icon: "restaurant", title: "Send a postcard", body: "Your room and last night's numbers, to save or send.", go: "Make one" },
+  regulars: { icon: "people", title: "You've got a regular", body: "Someone keeps coming back. Their story is in the Regulars book.", go: "See them" },
+  rival: { icon: "restaurant", title: "Someone's watching", body: "The chef across the road has started posting about you.", go: "Read it" },
+  share: { icon: "people", title: "Show a friend", body: "Share your restaurant with a code, or visit theirs.", go: "Friends" },
 };
 
 export function TryCard({ game, meta, onGo }: { game: GameState; meta?: PathMeta | undefined; onGo: (id: TryId) => void }) {
@@ -42,8 +42,8 @@ export function TryCard({ game, meta, onGo }: { game: GameState; meta?: PathMeta
     canShare,
   }), [game.day, game.history.length, game.menu, meta?.voices, canShare]); // eslint-disable-line react-hooks/exhaustive-deps
   const key = tryKey(game);
-  const { id } = pickTry(s, key, facts);
-  useEffect(() => { if (id) noteTryShown(key, id); }, [id, key]);
+  const { id, next } = pickTry(s, key, facts);
+  useEffect(() => { if (id) noteTryShown(key, next); }, [id, key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!id) return null;
   const c = COPY[id];
   return (
