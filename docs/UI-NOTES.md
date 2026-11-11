@@ -2245,3 +2245,65 @@ The partner's walk bob and the smoothing between presence updates follow Setting
   includes the mock's Playwright hops (page → Node → page); on a busier machine earlier the same nights read 118 / 450 /
   993 ms and 3.6–4.5 snapshots a second (timers starved at 10–30 fps), which is why the engines are also pumped from
   the animation frame. Emits per side stay near 20 a second (snapshots ≤ 10, presence ≤ 10, heartbeats 2).
+
+## Round 14 — D: a fair daily challenge
+
+Fixes RED-TEAM-2 G2, U8, G6, G7, S14-6 and answers the cross-engine determinism worry. The simulation is untouched:
+everything below is built with ordinary commands and state fields the sim already has (`footfallMods`, `starterLoan`).
+
+**On screen**
+- **Title**: "Today's challenge" now carries a second line with today's scenario name and, once she has one, her best
+  today ("Rush week · your best 2,150"). It reads `lib/challengeToday.ts` (date, template rotation, bests: no sim, no
+  lazy chunk). The button's name stays "Today's challenge"; the line is its description.
+- **From inside a game**: Settings' game menu (the gear, or ⋯ › Settings on a phone) has **Today's challenge**
+  ("Saves this game first. You come back to it after."). App saves and flushes the slot, opens the challenge, and the
+  intro's back button reads "Back to <restaurant>"; the score screen's second button and Save & quit during that
+  challenge also go back to the same game (`App.tsx` `openChallengeFromGame` / `leaveChallenge`, `chReturn`). Not
+  offered during service or inside a challenge.
+- **Intro goal lines** are rewritten for what each template now asks (`GOAL_HINT`, with glossary terms for takings and
+  popularity).
+- **Score screen**: a new **Guests** line (2 points each); **Takings** counts each bill up to a cap (1.5× what a guest
+  spent there last week; the note says so when it bit); **Losses** include money borrowed during the run. A missed goal
+  gets a **What went wrong** line (`whyMissed`: the bank, days shut, prices far over the suggested ones, the kitchen
+  running out of food, then the goal's own shortfall). Five Skips now reads "From day 4 the room was nearly empty: the
+  kitchen had run out of food. Order stock each evening…".
+- **Codes** are eight characters ("4FG8 8NCQ"): code version, date, score, an 8-bit fingerprint of the built starting
+  state, a 7-bit check. Compare says what their code says ("Their code says 2,150: 170 more than yours."), never who
+  won. Refused politely: an old six-letter code ("from before the daily challenge changed"), another code version, a
+  score above the day's ceiling (`ceilingOf`: the goal, 5★, and every seat the room could ever hold, full, twelve turns a
+  service, five days, each bill at the cap; about 15–25k against honest play's 2–5k). Same day, different fingerprint:
+  "You two were given different versions of today's challenge (different game versions or browsers), so the scores
+  can't be compared." The other side's box is dashed when the two aren't comparable.
+
+**The scenarios** (`lib/challenge.ts`)
+- Built on the starter-library pack (`careerContent`), so no `fd_`/`ff_` dish or another game's invented dish reaches
+  the menu (G2).
+- Rush and Festival add a `footfallMods` entry (source "challenge", ×1.5 and ×1.3, five days: it ticks down each
+  morning and is gone after the fifth, G7). Rival adds ×0.85 (the place across the road pulling people away) and prices
+  ×1.3.
+- Inspector comes on night 4 or 5 and wants that night at least the same weekday's stars a week before less 0.3 (capped
+  at 4.6★), **from at least 80 % of that night's guests**: a kitchen left to run out, or prices that empty the room,
+  can't pass on a handful of happy guests (U8). Rival asks for 85 % of last week's guests and popularity no more than 4
+  below where it started.
+- Rescue scores the five days' own profit (bills capped as above), so the starter loan and any cash from elsewhere don't
+  count; the target is the last five days' profit + £50 ("Lose less than £460 by Monday (the last five days lost
+  £516)" when that's still negative). The bank's once-only first-wage loan is marked spent at build (`starterLoan:
+  true`), so firing everyone to borrow isn't a move (G6).
+- Rush 1.05× last week's guests (with the 1.5× crowd), Walkout 0.9×, Festival 1.1× last week's takings.
+- `ChallengeMeta` gains optional `v`, `template`, `fair`, `fp`, `guests`, `loan0`, `prev` (all in `saveCheck.ts`); a run
+  saved before this round still loads and scores (fallback cap, no fingerprint). Bests carry `v` and `fp`; a best from
+  before Round 14 stays in "Your best days" but isn't "your best today". Mirrored best keys gain a `:2` suffix.
+- A late autosave that was still packing when the run ended no longer writes the run back (`saveRun`/`clearRun`).
+
+**Guards**: `round14.challengeFair.<template>.test.ts` (six files, `challengeFair.ts` + `challengePlayers.ts`): 90
+consecutive dates from 11 Nov 2026 × all six templates, each played by five Skips, typical, balanced, a simple best
+effort (fix the stated problem / as is / a fresh team × balanced or typical), and seven degenerate scripts (prices at
+£200, prices ×3, never restock, fire everyone, shut five days, fire and borrow and stay shut, fire and borrow and run it
+alone). Five Skips miss on every date; every degenerate script scores below the best honest one on every date; an honest
+script meets the goal on every date; the best script stays under half the ceiling. `FP_CHALLENGE_DATES` shortens it
+locally. `round14.challengeEngine.test.ts`: the build with Math.log/cos/sqrt/exp/pow nudged ±1 ulp and +10⁶ ulps
+(each alone and all together, six dates) is byte-identical. `round14.challenge.test.tsx`: the reviewers' reproductions.
+
+**Left out**: the score code still has no secret (nothing offline can stop someone typing a made-up score below the
+ceiling); the compare line is worded accordingly. The fingerprint is 8 bits, so two different builds match by chance 1
+time in 256. Yesterday's challenge still can't be replayed.
