@@ -238,5 +238,7 @@ console.log(`\n| run | ${cols.join(" | ")} |\n|---|${cols.map(() => "---").join(
 for (const [tag, s] of Object.entries(totals)) console.log(`| ${tag} | ${cols.map((c) => s[c]).join(" | ")} |`);
 console.log(`\nDetail: ${join(OUT, "probe.json")}`);
 // Live screens (a running service/shift) show whichever ticker lines that moment has (older lines fade by design),
-// so their contrast count moves by a line or two between runs: checked with a slack of 3.
-process.exit(checkBaseline("probe", totals, { contrastLive: 3 }));
+// so their contrast count moves by a line or two between runs: checked with a slack of 3. Round 13 (A): the same goes
+// for canvas labels on a phone's live floor ("13 waiting", the guests' names, which tickets are up): measured where
+// they land since R13, they move by ±12 run to run (117–141 on 390×844 across four runs): a slack of 20.
+process.exit(checkBaseline("probe", totals, { contrastLive: 3, "canvasText<13": 20 }));
