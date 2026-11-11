@@ -68,10 +68,32 @@ export function createPerfMeter(name: string): PerfMeter {
   return meter;
 }
 
-/** devicePixelRatio, capped at 2 (a 3× phone backing store costs 2.25× the fill for no visible gain). */
+/**
+ * Round 13 (A): the floor's per-pass profile, for scripts/perf-floor.mjs. Off unless a playtest sets
+ * `window.__fpPassProfile = {}` (then the renderer reads it once a frame). While on, each paint pass is followed by a
+ * 1×1 `getImageData`, which makes the canvas rasterise what that pass recorded, so `ms[pass]` is the pass's JS plus
+ * its raster — the cost the rAF callback's own timing (`work`) can't see. That flush is itself slow, so frame gaps are
+ * measured with the profile off.
+ */
+export interface PassProfile { ms: Record<string, number>; frames: number }
+export function passProfile(): PassProfile | null {
+  const p = (globalThis as { __fpPassProfile?: Partial<PassProfile> | null }).__fpPassProfile;
+  if (!p) return null;
+  p.ms ??= {}; p.frames ??= 0;
+  return p as PassProfile;
+}
+
+/**
+ * Round 13 (A): the one cap on a canvas's backing store, in device pixels per CSS pixel. A 3× phone at 3 would fill
+ * 2.25× the pixels of 2 for no visible gain on these drawings; the floor, the hands-on kitchen and their cached layers
+ * all use it (RestaurantView.resize clamps to it too, for callers that pass a raw devicePixelRatio).
+ */
+export const MAX_CANVAS_DPR = 2;
+
+/** devicePixelRatio, capped at MAX_CANVAS_DPR. */
 export function canvasDpr(): number {
   const d = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-  return Math.min(2, Math.max(1, d));
+  return Math.min(MAX_CANVAS_DPR, Math.max(1, d));
 }
 
 let motionQuery: MediaQueryList | null | undefined;

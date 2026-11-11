@@ -8,6 +8,7 @@
  *   FP_PORT         the preview's port (default: a free one the OS picks)
  *   FP_SKIP_GEN=1   reuse scripts/.audit-saves instead of regenerating them with the real sim
  *   FP_SKIP_BUILD=1 don't build when dist/ is missing
+ *   FP_DIST         serve this built folder instead of dist/ (Round 13 — A: perf-floor.mjs compares two builds)
  *   PLAYWRIGHT_PATH a node_modules folder holding `playwright` when the repo doesn't (default search: the package,
  *                   then /opt/npm-tools/node_modules)
  * Flags: --update-baseline (write today's counts as the new baseline), --no-baseline (report only, exit 0).
@@ -67,43 +68,90 @@ function freePort() {
 /** A private preview of dist/ (built first if missing), on 127.0.0.1 only. Returns { url, stop }. */
 export async function startPreview() {
   if (process.env.FP_URL) return { url: process.env.FP_URL, stop() {} };
-  if (!existsSync(join(PKG, "dist/index.html"))) {
+  const dist = process.env.FP_DIST;
+  if (!dist && !existsSync(join(PKG, "dist/index.html"))) {
     if (process.env.FP_SKIP_BUILD) { console.error("dist/ is missing: run `pnpm --filter @full-plate/game build`."); process.exit(2); }
     execSync("pnpm build", { cwd: PKG, stdio: "inherit" });
   }
   const port = Number(process.env.FP_PORT) || (await freePort());
   const url = `http://127.0.0.1:${port}/`;
   const vite = join(PKG, "node_modules/.bin/vite");
-  const proc = spawn(existsSync(vite) ? vite : "npx", existsSync(vite) ? ["preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"] : ["vite", "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { cwd: PKG, stdio: "ignore" });
+  const args = ["preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort", ...(dist ? ["--outDir", dist] : [])];
+  const proc = spawn(existsSync(vite) ? vite : "npx", existsSync(vite) ? args : ["vite", ...args], { cwd: PKG, stdio: "ignore" });
   for (let i = 0; i < 120 && !(await reachable(url)); i++) await new Promise((r) => setTimeout(r, 250));
   if (!(await reachable(url))) { proc.kill(); console.error(`preview did not start on ${url}`); process.exit(2); }
   return { url, stop: () => proc.kill() };
 }
 
 /**
- * Runs in the page before any app code: records the effective CSS px of every canvas text draw. Static layers paint
- * into an OffscreenCanvas (or a detached <canvas>) at w·dpr and are blitted at CSS w: font px × transform ÷ that dpr.
+ * Runs in the page before any app code: records the effective CSS px of every canvas text draw.
+ *
+ * Text drawn straight onto a canvas on the page: font px × the context's scale × the canvas's CSS-to-backing ratio.
+ * Round 13 (A): text drawn into an offscreen surface (the cached scene layer, the floor's stamps) is measured where
+ * it lands: it is held against its surface (and the ImageBitmap that surface becomes), and when that is drawn onto a
+ * page canvas — directly or via another offscreen surface — each label is recorded at font px × every scale on the
+ * way (the surface's own transform, the blit's dw/sw, the target's transform, the page canvas's CSS ratio). Before,
+ * offscreen text was assumed to be blitted 1:1 at the page's dpr, which missed a floor canvas the page shrinks (a
+ * phone) and anything drawn into a stamp.
  */
 export function canvasProbe() {
   window.__canvasText = [];
-  const layerDpr = () => Math.min(2, window.devicePixelRatio || 1);
-  for (const C of [CanvasRenderingContext2D, ...(typeof OffscreenCanvasRenderingContext2D !== "undefined" ? [OffscreenCanvasRenderingContext2D] : [])]) {
+  const pending = new WeakMap(); // offscreen surface / ImageBitmap → [[device px on that surface, text]]
+  const push = (px, text) => {
+    if (!(px > 0)) return; // a canvas that isn't displayed (0 px wide) shows nothing
+    window.__canvasText.push([Math.round(px * 10) / 10, String(text).slice(0, 30)]);
+    if (window.__canvasText.length > 20000) window.__canvasText.splice(0, 10000);
+  };
+  const onPage = (el) => typeof el?.isConnected === "boolean" && el.isConnected;
+  const cssOf = (el) => el.getBoundingClientRect().width / (el.width || 1);
+  const scaleOf = (ctx) => { const t = ctx.getTransform(); return Math.hypot(t.a, t.b); };
+  const hold = (surface, list) => {
+    const l = pending.get(surface) ?? [];
+    for (const e of list) if (l.length < 400) l.push(e);
+    pending.set(surface, l);
+  };
+  const Ctxs = [CanvasRenderingContext2D, ...(typeof OffscreenCanvasRenderingContext2D !== "undefined" ? [OffscreenCanvasRenderingContext2D] : [])];
+  for (const C of Ctxs) {
     for (const fn of ["fillText", "strokeText"]) {
       const orig = C.prototype[fn];
       C.prototype[fn] = function (text, ...rest) {
         try {
           const m = /(\d+(?:\.\d+)?)px/.exec(this.font);
-          const t = this.getTransform();
-          const el = this.canvas;
-          const onPage = typeof el.isConnected === "boolean" && el.isConnected;
-          const css = onPage ? el.getBoundingClientRect().width / (el.width || 1) : 1 / layerDpr();
-          const px = m ? Number(m[1]) * Math.hypot(t.a, t.b) * css : 0;
-          if (String(text).trim() && px > 0) window.__canvasText.push([Math.round(px * 10) / 10, String(text).slice(0, 30)]);
-          if (window.__canvasText.length > 20000) window.__canvasText.splice(0, 10000);
+          const dev = m ? Number(m[1]) * scaleOf(this) : 0; // device px on this context's surface
+          if (String(text).trim() && dev > 0) {
+            if (onPage(this.canvas)) push(dev * cssOf(this.canvas), text);
+            else hold(this.canvas, [[dev, String(text)]]);
+          }
         } catch { /* never break the game */ }
         return orig.call(this, text, ...rest);
       };
     }
+    const draw = C.prototype.drawImage;
+    C.prototype.drawImage = function (src, ...a) {
+      try {
+        const list = pending.get(src);
+        if (list?.length) {
+          const sw = a.length >= 8 ? a[2] : src.width, dw = a.length >= 8 ? a[6] : a.length >= 4 ? a[2] : src.width;
+          const k = (dw / (sw || 1)) * scaleOf(this);
+          if (onPage(this.canvas)) { const css = cssOf(this.canvas); for (const [px, t] of list) push(px * k * css, t); }
+          else hold(this.canvas, list.map(([px, t]) => [px * k, t]));
+        }
+      } catch { /* never break the game */ }
+      return draw.call(this, src, ...a);
+    };
+    const clear = C.prototype.clearRect;
+    C.prototype.clearRect = function (x, y, w, h) {
+      try { if (!onPage(this.canvas) && x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) pending.delete(this.canvas); } catch { /* ignore */ }
+      return clear.call(this, x, y, w, h);
+    };
+  }
+  if (typeof OffscreenCanvas !== "undefined" && OffscreenCanvas.prototype.transferToImageBitmap) {
+    const t = OffscreenCanvas.prototype.transferToImageBitmap;
+    OffscreenCanvas.prototype.transferToImageBitmap = function () {
+      const bmp = t.call(this);
+      try { const l = pending.get(this); if (l) { pending.set(bmp, l); pending.delete(this); } } catch { /* ignore */ }
+      return bmp;
+    };
   }
 }
 

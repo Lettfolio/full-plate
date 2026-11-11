@@ -131,7 +131,11 @@ Never delete a corpus file; when the format changes, add a new one.
 - Browser checks outside vitest: `pnpm --filter @full-plate/game probe` and `audit` (Playwright on the built game,
   every screen, with a committed baseline). See README and `docs/PIPELINE.md`.
 - CI: `.github/workflows/pages.yml` on push to master — frozen install, typecheck, test, build, deploy to Pages;
-  least-privilege permissions and SHA-pinned actions (PIPELINE.md).
+  least-privilege permissions and SHA-pinned actions (PIPELINE.md). Round 13: `.github/workflows/ui-checks.yml` runs
+  the probe and both type audits against the build on pull requests and pushes — a separate check that doesn't hold
+  up a deploy (UI-NOTES "Round 13 — A" says how to make it required).
+- Floor frame times: `node scripts/perf-floor.mjs` (the app at 4×, 4× CPU throttle, software raster; `--passes` per
+  paint pass) and `--bench` (the renderer alone on fixed states, `floor-bench.html`); UI-NOTES "Round 13 — A".
 
 ## Conventions worth knowing before you change things
 

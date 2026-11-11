@@ -11,7 +11,8 @@ const loadRestaurantView = () => import("../canvas/RestaurantView").then((m) => 
 if (typeof window !== "undefined" && "requestIdleCallback" in window) window.requestIdleCallback(() => { void loadRestaurantView(); });
 import { canvasDpr, createPerfMeter, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
 import { content, MINUTES_PER_TICK, SERVICE_TICKS } from "../sim";
-import type { AppState } from "../state/gameReducer";
+import type { AppState, ToastLink } from "../state/gameReducer";
+import { createFloorLoad, EASED_NOTE, noteDue, noteShown } from "../lib/floorLoad";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
 import { IncidentCard, useFadingIncidents } from "../components/IncidentCard";
@@ -48,7 +49,7 @@ interface Props {
   send: (cmd: Command) => void;
   runTicks: (n: number) => void;
   /** Show a short message (used for incidents at 4x instead of pausing). */
-  notify?: (text: string) => void;
+  notify?: (text: string, link?: ToastLink) => void;
   /**
    * Round 3, employee shift without hands-on (no sim hook, a manager rung, or a day off): a read-only "watch your
    * shift". The owner answers incidents, comp and 86 are hidden, and the player's sprite is ringed.
@@ -175,6 +176,8 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const mine = career ? playerAvatar(career.look ?? 0, career.role) : undefined;
   const playerLook = mine ? { id: PLAYER_ID, skin: mine.skin, hair: mine.hair } : undefined;
   const live = useRef({ game, speed, selected, hoverTable, runTicks, highlight, playerLook });
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
   live.current = { game, speed, selected, hoverTable, runTicks, highlight, playerLook };
 
   // Incident alert: pause (1x/2x, if enabled) or a toast (4x). Fires once per INCIDENT_STARTED.
@@ -222,18 +225,23 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     if (app.meta.mode !== "career") void import("../lib/regulars").then((m) => { names = m.floorNames; });
     // Round 8: `?perf=1` draws a frame-time counter in the corner (off by default)
     const perf = perfEnabled() ? createPerfMeter("floor") : undefined;
+    // Round 13 (A): a sustained slow floor eases off the small effects (never the sim) and says so once (lib/floorLoad.ts)
+    const load = createFloorLoad(() => { if (noteDue()) { noteShown(); notifyRef.current?.(EASED_NOTE, "animations"); } });
     let raf = 0;
     let last = performance.now();
     let carry = 0;
     const frame = (now: number) => {
       perf?.begin(performance.now());
       const L = live.current;
-      const due = ticksDue(carry, now - last, modalOpen() ? 0 : L.speed); // a sheet over service holds the clock
+      const modal = modalOpen();
+      const due = ticksDue(carry, now - last, modal ? 0 : L.speed); // a sheet over service holds the clock
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() || !getSettings().animations, ...(names ? { guestNames: names(L.game) } : {}) });
-      if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
+      const still = prefersReducedMotion() || !getSettings().animations;
+      const juice = load.frame(now, !!view && L.speed > 0 && !still && !modal);
+      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: still, juice, ...(names ? { guestNames: names(L.game) } : {}) });
+      if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); (globalThis as { __fpFloorJuice?: string }).__fpFloorJuice = juice; }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);

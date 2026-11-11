@@ -1977,3 +1977,33 @@ kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(-
 /* The evening's Postcard button (top right) overlapped the brand logo (bottom right of the same head) by ~15 px at
    1024–1280: on a wide head it moves left of the logo's column. */
 @media (min-width: 700px) { :root[data-brand] .evening__head.beathead .postcard__open { right: 60px; } }
+
+/* ═══════════ Round 13 — A: one stacking scale (R12.11 item 4) ═══════════
+   Every z-index in the app is one of these. The page's own bars (the action dock, a phone's tab bar) sit low; the
+   header — and so everything that opens from it: Help, the save mark, glossary tips, a phone's ⋯ sheet, Settings —
+   sits above them, so nothing the header opens can slide under the dock at any size; then the page's floating bits,
+   the dialog backdrop, the toast. A new layer takes a token here, not a number (theme.css and phone.css both). */
+:root {
+  --z-raised: 1;     /* a card lifted over its neighbours (the win card) */
+  --z-onboard: 3;    /* the hands-on coach marks, over the kitchen */
+  --z-dock: 6;       /* the pinned action dock (sticky, in the page) */
+  --z-tabbar: 8;     /* phone: the planning tabs along the bottom (phone.css) */
+  --z-header: 10;    /* the header and all it opens: above the page's bars */
+  --z-tip: 30;       /* a glossary tip, in the page */
+  --z-popover: 40;   /* popovers; the co-op dock (visit.css) */
+  --z-modal: 50;     /* a dialog's backdrop; the skip link */
+  --z-toast: 60;     /* the toast; the header while one of its dialogs is open (so its sheet clears the toast's region too) */
+  --z-tip-phone: 70; /* phone: the glossary tip card along the bottom (phone.css) */
+}
+.win__card { z-index: var(--z-raised); }
+.onboard { z-index: var(--z-onboard); }
+.actiondock { z-index: var(--z-dock); }
+.status, .status-wrap { z-index: var(--z-header); }
+.term__tip { z-index: var(--z-tip); }
+.popover { z-index: var(--z-popover); }
+.modal-back, .skiplink { z-index: var(--z-modal); }
+.toast-region { z-index: var(--z-toast); }
+.status-wrap:has(.modal-back) { z-index: var(--z-toast); }
+/* the link a toast can carry (Round 13 — A: "Settings", to the Animations switch) */
+.toast .toast__link { color: var(--paper); background: transparent; border-color: rgba(255,255,255,0.45); flex: none; }
+.toast .toast__link:hover { background: rgba(255,255,255,0.12); }

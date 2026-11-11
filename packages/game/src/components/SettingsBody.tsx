@@ -35,6 +35,8 @@ interface BodyProps extends SettingsProps {
   /** The "Save to a file" line, kept by the header button so it survives closing the sheet (as before R12-D). */
   fileNote: string | null;
   setFileNote: (s: string | null) => void;
+  /** Round 13 (A): open with this row's control focused (a toast's "Settings" link). */
+  focusRow?: "animations" | undefined;
 }
 
 /**
@@ -44,7 +46,7 @@ interface BodyProps extends SettingsProps {
  *
  * Later rounds: add Settings rows HERE (at the end of the row list, before `.sheet__game`), not in Settings.tsx.
  */
-export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, difficulty, onClose, fileNote, setFileNote }: BodyProps) {
+export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, difficulty, onClose, fileNote, setFileNote, focusRow }: BodyProps) {
   const [saving, setSaving] = useState<"saving" | SavedWhere | null>(null);
   const saveAndQuit = async () => {
     if (!onQuit) return;
@@ -77,7 +79,7 @@ export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
           <Choice<UnderlineTerms> label="Underline words I can tap" value={s.underlineTerms} onChange={(v) => set({ underlineTerms: v })} options={[{ id: "first", label: "First time" }, { id: "always", label: "Always" }]} />
           {/* R12-A */}
           <label className="sheet__row sheet__check">
-            <input type="checkbox" className="switch" checked={s.animations} onChange={(e) => set({ animations: e.target.checked })} />
+            <input type="checkbox" className="switch" data-settings-row="animations" {...(focusRow === "animations" ? { "data-autofocus": true } : {})} checked={s.animations} onChange={(e) => set({ animations: e.target.checked })} />
             <span>Animations <span className="xs muted">(the floor's little moments, numbers that count up, fades between screens; off makes them instant)</span></span>
           </label>
           {/* R12-A */}

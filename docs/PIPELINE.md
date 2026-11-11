@@ -115,9 +115,15 @@ Reading it:
 
 The baseline (`scripts/probe-baseline.json`, keys `probe`, `audit-normal`, `audit-large`) is committed at these
 counts. Animations are let finish before each measurement (`settle`), so a fade caught half-way doesn't count. Lower it
-when D's portrait/terms work lands. CI does not run
-the probe yet: it needs Playwright's Chromium (~150 MB) on the runner. To add it, a separate job (`contents: read`)
-with `npx playwright install --with-deps chromium` then `pnpm --filter @full-plate/game probe`.
+when D's portrait/terms work lands. ~~CI does not run the probe yet~~ Round 13 (A): `.github/workflows/ui-checks.yml`
+runs it — one job (`contents: read`, `permissions: {}` above it, actions SHA-pinned): frozen install, build, Playwright
+`1.63.0` installed with `--ignore-scripts` into a folder beside the checkout (so the lockfile is untouched; the harness
+finds it through `PLAYWRIGHT_PATH`), `playwright install --with-deps chromium`, then `probe`, `audit`, `audit:large`;
+the probe's report and screenshots are uploaded when it fails. It runs on pull requests and pushes to master and is
+**not** required: `pages.yml` doesn't wait for it. Once it has run green on master, make it blocking by adding
+`ui-checks` as a required status check in the branch protection rule for `master` (Settings › Branches); to gate the
+deploy itself, move the job into `pages.yml` and give `build` a `needs: ui-checks`. Since Round 13 the probe skips
+whatever is behind an open modal (R12-F8).
 
 ## Test honesty (T2)
 

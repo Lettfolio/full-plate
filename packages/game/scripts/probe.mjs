@@ -16,6 +16,8 @@
  *   overflow     sideways scroll (page or the .screen scroller), px.
  *   covered      a control whose centre is under something else (behind an open modal is fine); `underBar` when that
  *                something is a sticky/fixed bar (the action dock) — reachable by scrolling, so counted apart.
+ *   (Round 13 — A, R12-F8: with a modal open — aria-modal, on its backdrop — only the top modal is measured: the page
+ *   behind it, and anything inert or aria-hidden, counts for none of the above.)
  *   terms        each glossary term focused: its tip must show and must not widen the page.
  *   errors       page errors and console errors.
  *
@@ -76,6 +78,13 @@ function metrics(min) {
     return { kind: "colour", bases };
   }
 
+  // Round 13 (A, R12-F8): with a modal open (a dialog with aria-modal, on its backdrop) only the top modal is on screen
+  // for the player — the page behind it is dimmed, can't be reached, and was measured on its own screen. Count neither
+  // its targets, its text nor its terms; nor anything inert or aria-hidden.
+  const modals = [...document.querySelectorAll('[aria-modal="true"], .modal-back')].filter((m) => visible(m));
+  const top = modals.length ? (modals.at(-1).closest(".modal-back") ?? modals.at(-1)) : null;
+  const behind = (el) => (!!top && !top.contains(el)) || !!el.closest('[inert], [aria-hidden="true"]');
+
   const small = [], lowContrast = [], overCanvas = [];
   const seen = new Set();
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -83,7 +92,7 @@ function metrics(min) {
     const text = n.textContent.replace(/\s+/g, " ").trim(); if (!text) continue;
     const el = n.parentElement;
     if (!el || el.closest("script,style,noscript,title,.sr-only,.visually-hidden")) continue;
-    if (!visible(el)) continue;
+    if (!visible(el) || behind(el)) continue;
     const range = document.createRange(); range.selectNodeContents(n);
     const box = [...range.getClientRects()].find((r) => r.width > 0 && r.height > 0); if (!box) continue;
     const cs = getComputedStyle(el);
@@ -121,7 +130,7 @@ function metrics(min) {
   let tiny = 0;
   const measured = new Set();
   for (const el of set) {
-    if (!visible(el)) continue;
+    if (!visible(el) || behind(el)) continue;
     // a click-away backdrop or a wrapper around real controls isn't a target of its own
     if (handlerOnly.has(el) && (el.querySelector(NATIVE) || el.matches(".modal-back"))) continue;
     if (el.tagName === "CANVAS") continue; // the floor canvas is the whole play area
@@ -160,7 +169,11 @@ function termCheck() {
   const sc = document.querySelector(".screen");
   const overOf = () => Math.max(document.documentElement.scrollWidth - innerWidth, sc ? sc.scrollWidth - sc.clientWidth : 0);
   const base = overOf(); // a screen that already scrolls sideways (portrait) isn't widened by its terms
+  // Round 13 (A, R12-F8): terms behind an open modal aren't reachable (see metrics)
+  const modals = [...document.querySelectorAll('[aria-modal="true"], .modal-back')].filter((m) => m.getBoundingClientRect().width > 0);
+  const top = modals.length ? (modals.at(-1).closest(".modal-back") ?? modals.at(-1)) : null;
   for (const t of document.querySelectorAll(".term[tabindex]")) {
+    if ((top && !top.contains(t)) || t.closest('[inert], [aria-hidden="true"]')) continue;
     const r = t.getBoundingClientRect(); if (!r.width) continue;
     // Round 11b: a term inside a closed <details> (the Evening's "Where the money went": VAT) is not on screen and
     // can't take focus until the player opens it.
@@ -225,5 +238,7 @@ console.log(`\n| run | ${cols.join(" | ")} |\n|---|${cols.map(() => "---").join(
 for (const [tag, s] of Object.entries(totals)) console.log(`| ${tag} | ${cols.map((c) => s[c]).join(" | ")} |`);
 console.log(`\nDetail: ${join(OUT, "probe.json")}`);
 // Live screens (a running service/shift) show whichever ticker lines that moment has (older lines fade by design),
-// so their contrast count moves by a line or two between runs: checked with a slack of 3.
-process.exit(checkBaseline("probe", totals, { contrastLive: 3 }));
+// so their contrast count moves by a line or two between runs: checked with a slack of 3. Round 13 (A): the same goes
+// for canvas labels on a phone's live floor ("13 waiting", the guests' names, which tickets are up): measured where
+// they land since R13, they move by ±12 run to run (117–141 on 390×844 across four runs): a slack of 20.
+process.exit(checkBaseline("probe", totals, { contrastLive: 3, "canvasText<13": 20 }));

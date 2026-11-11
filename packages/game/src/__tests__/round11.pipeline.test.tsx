@@ -4,6 +4,7 @@
  *   S8  every action is pinned to a full commit SHA (with its tag in a comment)
  *   S9  no dev/preview server listens on the LAN unless asked (`dev:lan`); Node ≥ 22 is declared
  *   S13 the self-hosted fonts' licence ships with the game and Settings credits it
+ *   R13-A the probe and type audit run in CI (ui-checks.yml) with the same least-privilege and pinning rules
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -51,6 +52,40 @@ describe("GitHub Pages workflow (S7, S8)", () => {
     const d = read(".github/dependabot.yml");
     expect(d).toMatch(/package-ecosystem: github-actions/);
     expect(d).toMatch(/package-ecosystem: npm/);
+  });
+});
+
+describe("UI checks workflow (Round 13 — A: probe and type audit in CI)", () => {
+  const yml = read(".github/workflows/ui-checks.yml");
+  it("runs on pull requests and pushes to master, with nothing granted but a read of the repository", () => {
+    expect(yml).toMatch(/^on:\n\s+pull_request:\n\s+push:\n\s+branches: \[master\]/m);
+    expect(yml).toMatch(/^permissions: \{\}$/m);
+    const j = jobs(yml);
+    expect(Object.keys(j)).toEqual(["ui-checks"]);
+    expect(j["ui-checks"]).toMatch(/permissions:\n\s+contents: read\n/);
+    expect(j["ui-checks"]).not.toMatch(/pages: write|id-token|contents: write|pull-requests: write/);
+  });
+  it("builds, then runs the probe and both audits against the build, with one pinned Playwright", () => {
+    expect(yml).toMatch(/pnpm install --frozen-lockfile/);
+    expect(yml).toMatch(/pnpm --filter @full-plate\/game build/);
+    expect(yml).toMatch(/pnpm --filter @full-plate\/game probe/);
+    expect(yml).toMatch(/pnpm --filter @full-plate\/game run audit\n/);
+    expect(yml).toMatch(/pnpm --filter @full-plate\/game run audit:large/);
+    expect(yml).toMatch(/PLAYWRIGHT_VERSION: \d+\.\d+\.\d+\n/);
+    expect(yml).toMatch(/--ignore-scripts "playwright@\$PLAYWRIGHT_VERSION"/);
+    expect(yml).toMatch(/playwright" install --with-deps chromium/);
+  });
+  it("pins every action to a 40-character commit SHA with its tag noted", () => {
+    const uses = [...yml.matchAll(/uses:\s*(\S+)(.*)$/gm)];
+    expect(uses.length).toBeGreaterThanOrEqual(4);
+    for (const [, ref, rest] of uses) {
+      expect(ref, ref).toMatch(/^[\w.-]+\/[\w.-]+@[0-9a-f]{40}$/);
+      expect(rest, ref).toMatch(/# v\d+\.\d+\.\d+/);
+    }
+  });
+  it("doesn't hold up the deploy (non-blocking until it has run green and is made required)", () => {
+    expect(read(".github/workflows/pages.yml")).not.toMatch(/ui-checks/);
+    expect(yml).toMatch(/To make it blocking/);
   });
 });
 

@@ -1,0 +1,61 @@
+name: UI checks (probe and type audit)
+
+# Round 13 (A): the layout/touch probe and the type audit (normal and Bigger text) against the built game, on every
+# pull request and every push to master. A separate workflow, so it never holds up a deploy: pages.yml doesn't wait
+# for it. To make it blocking once it has run green: require the "ui-checks" status check in the branch protection
+# rule for master (Settings › Branches), and/or add `needs: ui-checks` to pages.yml's build job (moving this job there).
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Nothing by default; the one job reads the repository and nothing else (red-team S7).
+permissions: {}
+
+concurrency:
+  group: ui-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+# Every action is pinned to a full commit SHA (red-team S8); the comment is the tag it was resolved from.
+jobs:
+  ui-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      # the harness looks for `playwright` here (scripts/lib/harness.mjs PLAYWRIGHT_PATH); one exact version, no ranges
+      PLAYWRIGHT_VERSION: 1.63.0
+      PLAYWRIGHT_PATH: ${{ github.workspace }}/../pw/node_modules
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @full-plate/game build
+      - name: Playwright and its Chromium (outside the workspace, so the lockfile is untouched)
+        run: |
+          mkdir -p "$PLAYWRIGHT_PATH/.."
+          npm install --prefix "$PLAYWRIGHT_PATH/.." --no-save --no-audit --no-fund --ignore-scripts "playwright@$PLAYWRIGHT_VERSION"
+          "$PLAYWRIGHT_PATH/.bin/playwright" install --with-deps chromium
+      - name: Probe (every screen, five viewports, both text sizes; fails above scripts/probe-baseline.json)
+        run: pnpm --filter @full-plate/game probe
+      - name: Type audit (normal text)
+        if: ${{ !cancelled() }}
+        run: FP_SKIP_GEN=1 pnpm --filter @full-plate/game run audit
+      - name: Type audit (Bigger text)
+        if: ${{ !cancelled() }}
+        run: FP_SKIP_GEN=1 pnpm --filter @full-plate/game run audit:large
+      - name: Keep the probe's screenshots and report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-out
+          path: packages/game/scripts/.probe-out
+          retention-days: 7

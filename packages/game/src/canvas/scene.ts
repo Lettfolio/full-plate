@@ -4,7 +4,8 @@
  */
 import { C, D, art } from "./frame";
 import type { Layout } from "./layout";
-import { alpha, chair, counter, label, linear, mix, noise, plant, radial, roundRect, tableTop } from "./paint";
+import { alpha, chair, counter, label, linear, mix, noise, plant, radial, roundRect, setting, tableTop } from "./paint";
+import { lerp } from "./layout";
 
 // ───────────────────────── static layers ─────────────────────────
 
@@ -232,6 +233,15 @@ export function paintFurniture(ctx: CanvasRenderingContext2D, L: Layout, name: s
   ctx.fillStyle = C.paper; roundRect(ctx, ox, oy, ow, 19, 5); ctx.fill();
   ctx.strokeStyle = C.basilDeep; ctx.lineWidth = 1.5; ctx.stroke();
   label(ctx, "OPEN", ox + ow / 2, oy + 14, { align: "center", size: 13, weight: 900, colour: C.basilDeep, spacing: 2 });
+}
+
+/**
+ * Round 13 (A): every table's place settings, laid in the cached scene. They used to be drawn live for each empty table
+ * every frame (a save/rotate/restore and five small shapes per seat); a table with anything on it now covers them with
+ * its pre-drawn top (RestaurantView.drawTables).
+ */
+export function paintSettings(ctx: CanvasRenderingContext2D, L: Layout) {
+  for (const s of L.tables.values()) for (const seat of s.seats) setting(ctx, lerp(s.x, seat.x, 0.52), lerp(s.y, seat.y, 0.52), seat.a, Math.max(3, s.r * 0.16));
 }
 
 /** The evening light layer (drawn with "lighter" at dusk strength): table lamps, street lamps, windows on the pavement. */
