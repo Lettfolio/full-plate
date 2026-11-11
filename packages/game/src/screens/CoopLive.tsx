@@ -221,6 +221,9 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
     ended.current = true;
     engine.current?.end(why);
     setCoopRemote(null);
+    // still on the line on their own: the sim backs off the host's own role again (it was "server" for the guest)
+    const g = game$.current;
+    if (g.phase === "service" && g.handsOn && g.handsOn.role !== hostRole) send$.current({ type: "SET_HANDS_ON", role: hostRole });
     void writer.patch({ live: { ...live, state: "ended", why, at: Date.now() } });
     const rec = coopTap.rec;
     coopTap.rec = null;
@@ -317,7 +320,8 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
   const remote: HandsOnRemote | null = useMemo(() => {
     if (!room) return null;
     const pres = presenceSender(room);
-    return { onFrame: (s) => pres(s), layer: (stage) => <LiveLayer stage={stage} spot={spot} read={read} /> };
+    // pumped from every frame as well as the timer: a busy page delays timers more than frames
+    return { onFrame: (s) => { pres(s); engine.current?.pump(); }, layer: (stage) => <LiveLayer stage={stage} spot={spot} read={read} /> };
   }, [room, read]);
   useEffect(() => { if (started.current && !ended.current && remote) setCoopRemote(remote); }, [remote, game.phase]);
 
@@ -335,9 +339,11 @@ interface GuestProps {
   hostNick: string;
   /** Back to the turn-based co-op screen (its evening card shows tonight's numbers). */
   onExit: (why: EndWhy | "cant", msg?: string) => void;
+  /** The host's db document says this live night is off or over (the room's own "end" may have been lost). */
+  dbOver?: EndWhy | null;
 }
 
-export function GuestLive({ code, live, hostNick, onExit }: GuestProps) {
+export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: GuestProps) {
   const role = live.guestRole;
   const [room, setRoom] = useState<NamedRoomLike | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -380,7 +386,9 @@ export function GuestLive({ code, live, hostNick, onExit }: GuestProps) {
 
   const g = engine.current;
   const view = g?.view ?? null;
-  const ended = g?.status.ended ?? null;
+  const ended = g?.status.ended ?? (dbOver && view ? dbOver : null);
+  // called off before the doors opened (the host disarmed it, or moved on to another day): back to the day
+  useEffect(() => { if (dbOver && !engine.current?.view) onExit(dbOver, dbOver === "host" ? `${hostNick} isn't playing live tonight after all.` : undefined); }, [dbOver]); // eslint-disable-line react-hooks/exhaustive-deps
   const pres = useMemo(() => (room ? presenceSender(room) : null), [room]);
   const readRef = useRef<() => LayerInfo>(() => ({ partner: hostNick, partnerRole: role === "server" ? "chef" : "server", rtt: null, note: null, emote: null, onEmote: () => {} }));
   readRef.current = () => {
@@ -397,7 +405,7 @@ export function GuestLive({ code, live, hostNick, onExit }: GuestProps) {
     };
   };
   const read = useCallback(() => readRef.current(), []);
-  const remote: HandsOnRemote | null = useMemo(() => (!pres ? null : { onFrame: (s) => pres(s), layer: (stage) => <LiveLayer stage={stage} spot={spot} read={read} /> }), [pres, read]);
+  const remote: HandsOnRemote | null = useMemo(() => (!pres ? null : { onFrame: (s) => { pres(s); engine.current?.pump(); }, layer: (stage) => <LiveLayer stage={stage} spot={spot} read={read} /> }), [pres, read]);
 
   const leaveShift = () => { g?.leave(); setLeft(true); };
 
