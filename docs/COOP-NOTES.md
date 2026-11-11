@@ -46,7 +46,7 @@ If the realtime path turns out fast in practice (the panel's "link N ms" will sa
 capability (the runtime's live presence/event channel: "messages can drop", event topics need Contributor via
 `{room: {topics: {act: "interact"}}}`), not the db: guest actions as room events, the host's tick snapshot as room
 presence, and the db only for the invite. `HandsOnShift` would take an optional `remote` prop that feeds those actions
-in as commands at the host's current tick. Not built.
+in as commands at the host's current tick. Not built in Round 12; built in Round 13 (below).
 
 ## Data layout (all under the artifact's db)
 
@@ -99,3 +99,134 @@ The sim is untouched. A guest's plan reaches the host's game only through `send(
 host's own taps dispatch — as `SET_MENU_ITEM` / `SET_ROTA`, which the sim validates as usual; the round12 test applies
 the same plan twice from the same state and gets byte-identical games. Nothing co-op lives in `GameState` or the save:
 the host flag is localStorage, the share registry is the private db document plus localStorage.
+
+## Round 13 (F): the live shift, over the `room` capability
+
+Round 12 ruled out a shared shift over the **db** (30 s fallback delivery, a write budget). Round 13 builds it over
+the **room** capability (room.d.ts, contract 0.2.96): the live channel for whoever has the page open right now —
+events on topics, per-viewer presence, named sub-rooms; nothing stored, messages can drop. The turn-based day stays,
+unchanged, as the fallback and as the late-joiner/lobby record.
+
+### What it does
+
+The host arms tonight in the co-op panel ("I cook, Sam serves" / "I serve, Sam cooks" → **Go live tonight**). When
+the doors open the host is put on their station (the owner's ordinary hands-on "Jump in") and the guest's page opens
+the same service in the other role. Both see each other walk about (the game's own sprite, a name tag, smoothed),
+the round trip ("link N ms"), the six emotes, and one line when something is up (the guest went quiet, the link is
+slow). At closing time the guest sees their own numbers and goes back to the turn-based screen, whose evening card
+shows the restaurant's night.
+
+### Design: host-authoritative
+
+- **The host's game is the only game.** The host runs the real sim and their own hands-on session in App's
+  `HandsOnShift`. The guest runs a hands-on session of their own (walking, verbs, timing are all local, so their own
+  taps answer at once) against a throwaway `GameState` rebuilt from the host's snapshots (`skeletonOf`/`viewOf`: a
+  fresh `newGame` with the host's tables, menu, team, customers and tickets laid over it — the same trick as Round 12's
+  visit).
+- **Only results travel guest → host** (`fp-in`, `{k:"act", p:[[seq, results[]], …]}`): a plate served, a table
+  cleared, a bill taken, plates dropped (server); a ticket claimed, a plate cooked, a dropped plate (chef). The host
+  checks each one (`checkResult`): shape, ranges (quality 0–100, speed 0–1, drop cost ≤ £50, ≤ 3 ticket ids), and the
+  **guest's role only** — another role's verb, `RAIL_RESIZED`, a command, anything else is dropped. What passes goes
+  through the game's own `handsOnResults` action at the host's current tick, i.e. as the same PLAYER_* commands the
+  host's own taps make; the sim still refuses a stale one (a plate an AI server already carried), harmlessly.
+- **Exactly once, over a lossy channel.** The guest keeps every batch until the host's snapshot acknowledges its seq
+  (`a`), re-sending the whole unacknowledged list every 250 ms (new input goes at once, ≥ 80 ms apart). The host applies
+  only `ack + 1`, in order, so duplicates and reordered copies change nothing. The guest's session hides what it has
+  done until the snapshot catches up (its own `served`/`cleared`/`paid` marks — the handson package's existing
+  "a tick behind" handling), which is the optimistic local echo.
+- **Absolute state host → guest** (`fp-st`): `{k:"base"}` (tables, menu, team, roles: what doesn't change during a
+  service) every 2 s and at once when a guest says hello or reports a stale base; `{k:"st"}` (clock tick, tables'
+  dirt and occupancy, customers, tickets, the sim's hands-on role, the ack, the host's measured round trip) at most
+  10 a second on change and at least 5 a second regardless. A dropped one is replaced by the next; an older one that
+  arrives late (lower seq) is ignored. Ids and dishes are coded as indexes into the base; a crowded floor trims queues
+  first, then leavers, then the oldest tickets, to stay under 3.8 KB (room.d.ts: 4 KiB per message).
+- **Where you are** goes in room **presence** (`{fp:{x,y,f,c,r}}`, ≤ 10 Hz, only on change): high-rate state belongs
+  there (room.d.ts), and it is display only — never authority. Each side draws only its pinned partner's.
+- **Which role the sim backs off.** `GameState.handsOn` holds ONE human role, and the sim is untouched, so co-op sets
+  it to `server` whenever a human serves (the host serving, or the guest serving and here): plates then wait at the
+  pass for the human server, and the AI servers carry them after `HANDS_ON.passHoldTicks` (the normal fallback). The
+  human chef cooks alongside the AI cooks without a reserved rail (claims via PLAYER_CLAIMED work with any hands-on
+  role). A guest server quiet for **3 s** is "away": the host sends `SET_HANDS_ON` with the host's own role (so a host
+  chef gets their reserved tickets back and plates go straight out), and back to `server` when the guest returns.
+  A guest chef who goes quiet needs nothing: their claims time out (`claimTimeoutTicks`) and the AI cooks take over.
+  Reserving both a chef's rail and a server's pass at once would need a sim change (two hands-on roles); not done.
+- **Determinism.** The host's game stays a pure function of the state when the doors opened and the ordered list of
+  app actions the reducer saw (the host's ticks and results, the guest's applied batches, the role switches). App's
+  reducer is wrapped (`tapReducer`, lib/coop/flag.ts) to log them while a live shift is on (each action object once —
+  StrictMode calls reducers twice); at closing time `HostLive` replays the log through `appReducer` and compares the
+  game JSON byte for byte (`window.__fpCoopReplay`). `round13.live.test.ts` does the same for whole bot shifts at 0 ms,
+  150 ms + 20% loss, 400 ms + 20% loss, a quiet guest, and guest-as-chef.
+
+### Safety
+
+- **A room per session**: `fp-` + SHA-256(code, nonce) (`roomName`). The nonce (24 × [a-z0-9], ≈124 bits, crypto RNG)
+  is made when the host arms the night and lives only in the host's db document, so only someone with the code can
+  read it; an old code never opens a new night's room. The lobby room (everyone viewing the artifact) is never used.
+- **Every message carries a tag**: SHA-256(nonce, sender's `peer`) (`tagOf`). `peer` is stamped by the platform and
+  can't be forged, so a stranger in the room — who could only be there by guessing a 28-hex name — can't speak for the
+  host or the guest, and can't replay their messages from their own peer. Messages from agents, our own echoes,
+  and untagged or mis-tagged data are dropped (counted in `refused`).
+- **Pinning**: the host pins the first genuine guest peer (and its `by` when the platform vouches for one); another
+  peer can take that place only with the same `by`, or after the pinned one has been quiet 3 s (a reload is a new
+  peer). The guest pins the host the same way. Presence is read only from the pinned partner.
+- **Rate limits**: host side 15 `fp-in` messages a second (burst 30), 16 results a batch, 20 batches pending; emotes
+  ignored faster than one a second from the partner (and the bar sends one per 1.5 s).
+- **No owner commands from the guest, ever**: the guest sends results, never commands; the host turns only the
+  role's own result kinds into commands.
+- **No free text**: emotes are ids from the fixed six; names on screen are the db nicknames (Round 12's filter) and
+  the base's restaurant/staff names pass `cleanLabel`. Everything heard is coerced like a save (`decodeBase`,
+  `decodeFloor`, `checkSpot`: ids by pattern, indexes in range or the row is dropped, numbers clamped, lists capped).
+
+### The capability declaration (the publisher must pass this)
+
+```js
+capabilities: {
+  db: {},
+  user: {},
+  downloads: {},
+  room: { topics: { "fp-in": "interact", "fp-st": "interact", "fp-emo": "interact" } },
+}
+```
+
+`db`/`user`/`downloads` are as SAVES.md has them (no rules beyond the defaults). `room` opens exactly the three topics
+the game sends on (`ROOM_DECLARATION` in realtime.ts) to the interact level; the host sends `fp-st`, so the host needs
+it too, not only the guest. Nothing is sent on the lobby room; named rooms need no declaration.
+
+| Access level (share menu) | Saves | Visit a friend | Reviews, co-op day (db writes) | Live shift (room topics) |
+| --- | --- | --- | --- | --- |
+| Viewer / Commenter | this device only | yes (read) | no ("ask for Contributor access") | no: `emit` is `not_permitted`; the guest screen says "Live play needs Contributor access", the host's panel the same; presence alone carries nothing that matters |
+| Contributor (`interact`) | account | yes | yes | yes, as host or guest |
+| Editor (`admin`) / Owner | account | yes | yes | yes |
+
+A Viewer could still join a named room by name and set presence or listen — but would need the code to read the
+nonce, and everything they could send there is dropped by the tag check anyway.
+
+### Fallbacks
+
+- `claude.use("room")` is null (GitHub Pages, signed out, published without `room`, an older platform), a join fails,
+  or the guest's page can't (its document lacks `rt: true`): no live offer; the Round 12 turn-based day, unchanged.
+  The host's panel says "Sam's page can't do live play"; the guest's screen says "this page can't join live play".
+- The guest can always tap **Play the turn-based day instead** before the doors open.
+- **Slow link**: the round trip is measured live (host's snapshot time echoed in the guest's 2 Hz heartbeat, minus the
+  time the guest held it; median of the last 8) and shown as "link N ms" on both sides. Above **400 ms for 8 s**, the
+  host gets "The link is slow (N ms)…" with **Finish on my own** (ends live: the AI covers the guest's role; the guest
+  sees why and goes back to the turn-based day); the guest sees the same warning.
+- The host taps **Back to the office**: after 1.5 s off the canvas the live shift ends (the guest would otherwise be
+  playing a dining room running at office speed). **Skip to close** ends it at closing time, as normal.
+- Lost host (nothing for 5 s): the guest sees "Lost touch…" and a button back to the co-op day.
+
+### Measured (mock runtime, two Playwright contexts on a shared, heavily loaded build machine)
+
+See UI-NOTES "Round 13 — F" for the table. The mock (`scripts/lib/mockClaude.mjs` `createMockRoom`) adds latency per
+message, jitter (so messages reorder), loss (your own echo is never lost) and enforces topic rights and the 4 KiB
+limit; it rides on Playwright bindings (page → Node → page), which add their own few-to-tens of ms, more when the
+machine is busy.
+
+### Only a real claude.ai session can confirm
+
+- The real round trip and loss rate, and how they hold over a 3-minute shift on home Wi-Fi.
+- That named rooms are offered to these viewers (`join` may answer `not_permitted` on some platforms; the game then
+  falls back) and that two friends in **different organizations** are admitted to the same room (room.d.ts: guests
+  "where the platform admits them").
+- The emit budget in practice (the game stays near 20 a second per side: snapshots ≤ 10, presence ≤ 10, heartbeats 2).
+- That the declaration above is accepted as written (topic grammar `^[a-z][a-z0-9_.-]{0,47}$`, three of the 16).

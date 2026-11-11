@@ -1537,3 +1537,97 @@ controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-st
   guest's plan (dish off, price up, staff toggled) → "Use it" → the host's menu changed, guest told; emotes both ways;
   service → the guest sees "running tonight's service" → Skip to evening → the guest sees the numbers; End → the guest
   sees it, the panel goes; no-db context: both entry points show the one line. 0 page errors.
+
+## Round 13 — F: a real-time co-op shift
+
+Two friends in one hands-on service, live: the host cooks and the guest serves (or the reverse), each on their own
+screen, over the artifact runtime's `room` capability. Round 12's code + nickname flow and its turn-based day are
+unchanged and remain the fallback. Design, safety, the capability declaration and access levels: **COOP-NOTES
+"Round 13 (F)"**.
+
+### On screen
+
+- **Host, planning** (the co-op panel, once a guest has joined and both pages can reach the room): "Play tonight's
+  service live" with two toggles (**I cook, Sam serves** / **I serve, Sam cooks**) and **Go live tonight**. Armed, the
+  panel says "Live tonight. You're cooking, Sam is serving. Open the doors when you're both ready." and whether Sam is
+  in the room yet; **Not live tonight** takes it back. If only the guest's page can't, one line says so.
+- **Host, service**: opening the doors puts the host on their station (the owner's "Jump in", so **Back to the
+  office** and **Skip to close** are there as usual); the panel steps aside. On the stage: the guest drawn with the
+  game's own sprite and a plum ring and name tag where they are, and, top right under the score box (over the office,
+  nobody's station): "Sam is serving · link N ms", one amber line when something is up ("Sam has gone quiet: the team
+  is covering the tables until they're back", "The link is slow (N ms), so Sam's taps arrive late" + **Finish on my
+  own**), the guest's last emote for 4 s, and **Emote** (opens the six).
+- **Guest**: when the host arms the night, the co-op screen shows "Live tonight: you're serving" (with **Play the
+  turn-based day instead**); when the doors open the shift fills the window — the same hands-on screen the host has,
+  in the guest's role, with the host drawn in the kitchen and the same HUD ("Alice is cooking · link N ms").
+  "Skip to end of shift" leaves the shift (the team covers). At close: "Doors closed" with their own plates served /
+  tables cleared / bills taken (or plates cooked / plate quality) and points, then **Back to the co-op day**, where
+  Round 12's evening card has the restaurant's night.
+
+### Where the code lives
+
+| File | What |
+| --- | --- |
+| `lib/coop/realtime.ts` | the protocol, pure: snapshot codec (`encodeBase`/`decodeBase`, `encodeFloor`/`decodeFloor`, `skeletonOf`/`viewOf`), the guest's-input check (`checkResult`), session tags and room names, `LiveHost` / `LiveGuest` engines, presence spots |
+| `lib/coop/room.ts` | `claude.use("room")` once (`getRoom`, null = absent), `joinLive` (named room + our own peer label) |
+| `lib/coop/sha256.ts` | synchronous SHA-256 for tags and room names |
+| `lib/coop/protocol.ts` | `HostDoc.live` (the lobby record: nonce, guest's role, ready/on/ended, day) and `GuestDoc.rt`, both coerced; `newNonce` |
+| `lib/coop/flag.ts` (main chunk) | `setCoopRemote`/`useCoopRemote` (the host's live partner for App's HandsOnShift) and `tapReducer`/`coopTap` (the action log for the replay check) |
+| `screens/CoopLive.tsx` (lazy chunk) | `HostLive` (room, engine, jump-in at doors-open, end + replay at close, the remote), `GuestLive` (room, engine, its own HandsOnShift), the HUD and the partner canvas |
+| `screens/CoopShiftDock.tsx`, `CoopShiftGuest.tsx` | arming / joining (additions only) |
+| `screens/HandsOnShift.tsx` | one optional `remote` prop: `onFrame(session)` after each step and `layer(stage)` over the stage (absent: unchanged) |
+| `App.tsx` | the reducer wrapped by `tapReducer`; `remote` on HandsOnShift when set; the dock gets `live={{handsOn, jumpIn, sendResults}}` |
+| `scripts/lib/mockClaude.mjs` | `createMockRoom`: room.d.ts's named rooms with latency, jitter (reordering), loss, topic rights, 4 KiB |
+| `scripts/playtest-coop-live.mjs` | three whole live nights (0 ms; 150 ms + 20% loss; 400 ms + 20% loss), a blackout, emotes, the replay check, the no-room fallback |
+| `__tests__/round13.live.test.ts`, `round13.live.screens.test.tsx`, `coopNet.ts` | protocol under loss, whole bot shifts + replay, strangers, the screens |
+
+### Settings, motion, sound
+
+The partner's walk bob and the smoothing between presence updates follow Settings › Animations and
+`prefers-reduced-motion` (off: the partner snaps to each update, no bob). No sounds. Every control ≥ 44 px; HUD text
+13 px (canvas name tag 13 px bold).
+
+### Left out, and why
+
+- **Reserving both a chef's rail and the server's pass at once**: `GameState.handsOn` holds one human role and the sim
+  is untouched; co-op tells it "server" while a human serves (plates wait at the pass), so the human chef cooks
+  alongside the AI cooks without a reserved rail. Needs a sim change (two hands-on roles).
+- **Bar as a co-op role**: chef and server only (the two that make a loop: cook → pass → table).
+- **Career mode co-op**: the panel is owner-only already (App mounts it `!career`).
+- **Invented dishes on the guest's screen**: the guest draws dishes its own content knows; a ticket for a dish the
+  host invented is left off the guest's rail (the host still cooks it).
+- **Watching (a third friend)**: the room would carry it, but nobody asked, and a viewer can't send anyway.
+- **Chat**: never. Six emotes.
+
+### Checks (built dist)
+
+- **Bundle**: main `index` 165.64 → **166.21 kB** (+0.57: `flag.ts`'s remote store and reducer tap, App's three
+  lines). New lazy chunk `CoopLive` 31.4 kB (realtime + the screens + the handson sprite/palette bits it draws with).
+  `VisitFriend` 43.54 → 49.35 kB (arming/joining UI, `room.ts`, `protocol.ts` additions). `HandsOnShift` 16.89 kB.
+- **Tests** 1,368 → **1,386** (+18: `round13.live.test.ts` 13 — codec, input checks, lobby record, five whole bot
+  shifts at 0 / 150 ms + 20% loss / 400 ms + 20% loss / a quiet guest / guest-as-chef, each replayed byte-identically,
+  pre-service, strangers; `round13.live.screens.test.tsx` 5). `pnpm -r typecheck` clean.
+- **Type audit** normal and Bigger: 129 screens each, 0 text < 13 px, 0 errors, within baseline (the live shift needs
+  two players and the room mock, so it is covered by the playtest, not the audit).
+- **Probe**: no co-op screen is in the probe. `underBar` 1–2 lower than baseline on six desktop runs; `canvasText<13`
+  higher on the four phone runs (88→93, 51→62, 82→86, 52→63), all on live service / hands-on frames (`20-service`,
+  `21-service-4x`, `61-watch-shift`, `62*`: table numbers and staff names from the existing renderer, how many people
+  are on the floor at capture time on a machine at load ~20). HandsOnShift without `remote` is unchanged and the
+  Service screen untouched, so this is timing noise; baseline not updated.
+- **Balance** (200 seeds): typical 90.0 / cheap 68.0 / nohire 0 — sim packages and `handson` byte-identical to master.
+- **Playtest** (`scripts/playtest-coop-live.mjs`, built dist, two contexts at 1024×768 with touch, `?autopilot=0.6` bots
+  on both sides; shots `scratchpad/shots/r13/F/`, host and guest at the same moments): invite → join → offer → arm →
+  "Live tonight" on both → doors open → host on the pass, guest's floor up → emote heard → 5 s blackout (host: "Bob has
+  gone quiet…", back after) → whole shift → "Doors closed" with the guest's numbers → the Round 12 evening card → next
+  day, three times; then a host with no `room`: no offer, the turn-based plan as before. 0 page errors.
+
+| Night (mock room) | Round trip shown | Snapshots | Size min / median / max (bytes) | Guest results applied | Replay |
+| --- | --- | --- | --- | --- | --- |
+| 0 ms | 53 ms | 5.1 / s | 164 / 820 / 1,625 | 34 | identical (301 actions) |
+| 150 ms one way, ±60 jitter, 20% loss | 399 ms | 5.2 / s | 165 / 622 / 1,402 | 49 | identical (305) |
+| 400 ms one way, ±80 jitter, 20% loss | 918 ms ("slow" offered) | 5.0 / s | 168 / 170 / 566 | 9 | identical (249) |
+
+  The third night's restaurant was nearly empty (a quiet day in the save), hence the small snapshots. The round trip
+  includes the mock's Playwright hops (page → Node → page); on a busier machine earlier the same nights read 118 / 450 /
+  993 ms and 3.6–4.5 snapshots a second (timers starved at 10–30 fps), which is why the engines are also pumped from
+  the animation frame. Emits per side stay near 20 a second (snapshots ≤ 10, presence ≤ 10, heartbeats 2).
