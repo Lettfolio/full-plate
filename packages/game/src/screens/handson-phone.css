@@ -1,0 +1,91 @@
+/* Round 13 — C: the hands-on shift on a phone (screens/HandsOnShift.tsx, screens/handsonPhone.ts). Loaded with the
+   hands-on chunk. The first block is the one tree every layout shares; the rest sits under phone.css's two queries
+   (lib/layout.ts PHONE_PORTRAIT_QUERY / PHONE_LANDSCAPE_QUERY) with the `html ` prefix, so a laptop or a tablet keeps
+   the R7 layout exactly. Thumb targets are 48 px or more, 8 px or more apart; nothing sits under a notch or the home
+   indicator (env(safe-area-inset-*), 0 where the page isn't edge to edge). */
+
+.handson__body { flex: 1; min-height: 0; min-width: 0; display: flex; gap: inherit; }
+/* the canvas never sizes its stage (its px size is set from the stage: in flow, a wider canvas would widen the stage) */
+.handson--phone .handson__stage canvas { position: absolute; left: 0; top: 0; }
+.handson__main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: inherit; }
+
+/* no page scroll, rubber-band, pinch or double-tap zoom, text selection or long-press menu during a shift */
+html.fp-handson, html.fp-handson body { overscroll-behavior: none; }
+.handson--touch, .handson--touch * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.handson--touch .handson__stage, .handson--touch .handson__side, .handson--touch .handson__controls { touch-action: none; }
+.handson--touch .handson__btn { touch-action: manipulation; }
+
+/* the phone how-to: one card, centred on the stage, that fits a 390 px-high screen */
+.howto { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 12px; background: rgba(43, 38, 34, 0.42); }
+.howto__card {
+  width: min(440px, 100%); max-height: 100%; overflow-y: auto; background: var(--paper); border: 2px solid var(--ink);
+  border-radius: var(--radius-lg, 16px); box-shadow: 0 6px 0 rgba(43, 38, 34, 0.25); padding: 14px 18px 12px;
+}
+.howto__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.howto__count { font-size: var(--fs-xs, 13px); font-weight: 800; color: var(--ink-soft); }
+.howto__card h3 { margin: 6px 0 4px; font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.howto__card p { margin: 0 0 10px; font-size: var(--fs-sm, 15px); line-height: 1.4; }
+.howto__actions { display: flex; justify-content: flex-end; gap: 12px; }
+.howto__actions .handson__btn { min-height: 48px; }
+
+@media (max-width: 480px) {
+  /* upright: a slim bar, the kitchen (its camera follows her), then the thumb controls */
+  html .app:has(.handson--upright) > .status-wrap { display: none; }
+  html .handson--upright { padding: calc(6px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-right, 0px)) 0 calc(8px + env(safe-area-inset-left, 0px)); gap: 6px; }
+  html .handson--upright .handson__bar { flex-wrap: nowrap; gap: 6px; }
+  html .handson--upright .handson__when { flex: 1 1 auto; min-width: 0; }
+  html .handson--upright .handson__when .handson__kicker { max-width: 100%; }
+  html .handson--upright .handson__clock { font-size: 20px; line-height: 1.1; }
+  html .handson--upright .handson__stage { border-radius: 12px; }
+  html .handson--upright .handson__controls {
+    flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 4px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  html .handson--upright .handson__btns { display: flex; align-items: flex-end; gap: 16px; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  /* sideways: the canvas fills the height between two thumb columns */
+  html .handson--sideways { padding: 0; gap: 0; }
+  html .handson--sideways .handson__body { gap: 0; }
+  html .handson--sideways .handson__main { padding: 4px 0 calc(4px + env(safe-area-inset-bottom, 0px)); gap: 4px; }
+  html .handson--sideways .handson__stage { border-radius: 10px; border-width: 1.5px; }
+  html .handson--sideways .handson__side {
+    flex: none; width: 72px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 8px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  html .handson--sideways .handson__side--l { width: calc(72px + env(safe-area-inset-left, 0px)); padding-left: env(safe-area-inset-left, 0px); }
+  html .handson--sideways .handson__side--r { width: calc(84px + env(safe-area-inset-right, 0px)); padding-right: env(safe-area-inset-right, 0px); }
+}
+
+/* both phone layouts: the buttons */
+@media (max-width: 480px), (max-height: 500px) and (orientation: landscape) {
+  html .handson--phone .handson__gap { flex: 1; min-height: 0; }
+  html .handson--phone .handson__btn { min-height: 48px; }
+  html .handson--phone .handson__help { width: 48px; height: 48px; flex: none; }
+  html .handson--phone .handson__pause, html .handson--phone .handson__skip, html .handson--phone .handson__leave {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+    width: 60px; height: 52px; padding: 2px 4px; font-size: 18px; line-height: 1;
+  }
+  html .handson--phone .handson__leave { font-size: var(--fs-xs, 13px); font-weight: 800; }
+  html .handson--phone .handson__word { font-size: 13px; font-weight: 800; line-height: 1.2; }
+  html .handson--phone .handson__use, html .handson--phone .handson__drop {
+    touch-action: none; border: 3px solid var(--ink); border-radius: 50%; font-family: var(--font-display); font-weight: 600; color: var(--ink); cursor: pointer; flex: none;
+  }
+  html .handson--phone .handson__use { width: 76px; height: 76px; font-size: 21px; background: var(--star); box-shadow: 0 5px 0 var(--star-edge); }
+  html .handson--phone .handson__use:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--star-edge); }
+  html .handson--phone .handson__drop { width: 60px; height: 60px; font-size: 16px; background: var(--paper); box-shadow: 0 4px 0 var(--line-strong); }
+  html .handson--phone .handson__drop:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line-strong); }
+  html .handson--phone .handson__use:focus-visible, html .handson--phone .handson__drop:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+
+  /* the drag pad: a ring the thumb lands in; the knob follows it */
+  html .handson__stick { flex: none; touch-action: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; cursor: grab; }
+  html .handson__stickring {
+    position: relative; display: grid; place-items: center; width: 120px; height: 120px; border-radius: 50%;
+    background: var(--cream-deep, #efe6d4); border: 2px dashed var(--line-strong);
+  }
+  html .handson__knob { width: 52px; height: 52px; border-radius: 50%; background: var(--paper); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--line-strong); }
+  html .handson__stick .handson__word { color: var(--ink-soft); }
+  html .howto__card { padding: 12px 16px 10px; }
+  html .howto__card h3 { font-size: 20px; }
+}

@@ -1,17 +1,23 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
-  botInput, createInputSource, createSession, hitTest, padToMin, railSlotRect, railTagRect, readPalette, render, shiftTempo, stationRect, summarise,
-  updateSession, yourStations, type HandsOnResult, type HandsOnRole, type HandsOnSession, type InputSource, type Rect, type ShiftSummary,
+  botInput, createInputSource, createSession, hitTest, nextHint, padToMin, railSlotRect, railTagRect, readPalette, render, shiftTempo, stationRect, summarise,
+  updateSession, yourStations, type HandsOnResult, type HandsOnRole, type HandsOnSession, type HandsOnView, type InputSource, type Rect, type ShiftSummary,
   type Palette, type StationPlan,
 } from "@full-plate/handson";
 import { content, HOOKS, SERVICE_TICKS } from "../sim";
 import { clockLabel } from "../lib/calendar";
 import { modalOpen } from "../lib/modal";
 import { cardPlacement, markOnboardSeen, onboardingSteps, onboardSeen, type OnboardStep } from "../lib/onboarding";
-import { createTouchControl, prefersTouch } from "../lib/touchControl";
+import { createTouchControl, dragStick, prefersTouch } from "../lib/touchControl";
 import { canvasDpr, createPerfMeter, devSwitches, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
 import { prefsStorage } from "../lib/storage";
+import { getSettings } from "../lib/settings";
+import { BUZZ, buzz } from "../lib/haptics";
+import { brandLook, canvasBrand } from "../canvas/brand";
+import { layoutView, markPhoneHowToSeen, phoneHowToSeen, useHandsOnLayout, type HandsOnLayout } from "./handsonPhone";
+import { HandsOnHowTo, phoneHowToCards } from "./HandsOnHowTo";
+import "./handson-phone.css";
 
 /**
  * Real seconds per sim tick while a hands-on session is live with no station (HANDSON-NOTES: a 120-tick service is 3
@@ -69,8 +75,23 @@ export const shiftKicker = (role: HandsOnRole, jumpIn: boolean | undefined, stat
 /** Round 7: autopilot playtests page through the onboarding by themselves (seconds a step). */
 const AUTOPILOT_STEP_SECS = 2.5;
 
+/**
+ * Round 13 (C): the canvas view for a stage at a layout — size, the phone options (strip header, camera, hit slop),
+ * and the house uniform. The frame's draw, the taps' hit test and the onboarding spotlights all use this one.
+ */
+export function stageView(stage: { width: number; height: number }, layout: HandsOnLayout): HandsOnView {
+  return { width: stage.width, height: stage.height, ...layoutView(layout), dress: (role, look) => brandLook(look, role, canvasBrand()) };
+}
+
+/** Round 13 (C): what a finished batch of results feels like in the hand (Settings › Sound and Buzz). */
+export function resultBuzz(results: readonly HandsOnResult[]): number | readonly number[] | undefined {
+  if (results.some((r) => r.type === "DROPPED")) return BUZZ.oops;
+  if (results.some((r) => r.type === "PLATE_COOKED" || r.type === "TABLE_SERVED" || r.type === "PAYMENT_TAKEN")) return BUZZ.done;
+  return undefined;
+}
+
 /** Round 7: an onboarding step's spotlight on the stage (CSS px), from the session's own layout. */
-export function onboardTargetRect(step: OnboardStep, session: HandsOnSession, view: { width: number; height: number }): Rect | undefined {
+export function onboardTargetRect(step: OnboardStep, session: HandsOnSession, view: HandsOnView): Rect | undefined {
   if (step.target.kind === "rail") {
     if (session.role !== "chef" || !session.opts.station) return railSlotRect(view, 0, false);
     return { ...railTagRect(view), w: railTagRect(view).w + railSlotRect(view, 0).w + 14 };
@@ -93,12 +114,20 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const [, force] = useState(0);
+  // Round 13 (C): a phone sideways or upright gets its own layout (screens/handsonPhone.ts); the frame reads it live.
+  const layout = useHandsOnLayout();
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const phone = layout !== "desk";
   // Round 7: touch play (tap to walk, press to use) and the first-shift onboarding.
-  const [touch, setTouch] = useState(prefersTouch);
+  const [touchSeen, setTouch] = useState(prefersTouch);
+  const touch = touchSeen || phone;
   const touchCtl = useRef(createTouchControl());
   const inputRef = useRef<InputSource | null>(null);
   const storage = prefsStorage(); // R13-E: namespaced, memory when blocked
-  const [onboard, setOnboard] = useState<number | null>(() => (onboardSeen(storage, game.seed, role) ? null : 0));
+  // Round 13 (C): on a phone the three-card how-to (once per role on this device) stands in for the R7 spotlight steps.
+  const [onboard, setOnboard] = useState<number | null>(() =>
+    (layout !== "desk" ? phoneHowToSeen(storage, role) || onboardSeen(storage, game.seed, role) : onboardSeen(storage, game.seed, role)) ? null : 0);
   const onboardRef = useRef(onboard);
   onboardRef.current = onboard;
   const [stage, setStage] = useState({ width: 0, height: 0 });
@@ -160,7 +189,11 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
           results.push(...r.results);
           acc -= STEP;
         }
-        if (results.length) L.sendResults(results);
+        if (results.length) {
+          L.sendResults(results);
+          const b = resultBuzz(results);
+          if (b !== undefined) buzz(b);
+        }
         const spt = secondsPerTick(sessionRef.current!, L.game);
         const due = Math.floor(tickAcc / spt);
         if (due > 0) {
@@ -171,14 +204,28 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
       }
       if (!alive || !wrapRef.current) return;
       const rect = wrapRef.current.getBoundingClientRect();
+      // Round 13 (C): Settings › Animations off stills the canvas too (it already followed prefers-reduced-motion).
       render(ctx, sessionRef.current!, L.game, {
-        width: rect.width, height: rect.height, dpr: canvasDpr(), keyLabel: touchRef.current ? "USE" : "E", palette, reducedMotion: prefersReducedMotion(),
+        ...stageView(rect, layoutRef.current), dpr: canvasDpr(), keyLabel: touchRef.current ? "USE" : "E", palette,
+        reducedMotion: prefersReducedMotion() || !getSettings().animations,
       });
       if (perf) { perf.end(performance.now()); ctx.setTransform(canvasDpr(), 0, 0, canvasDpr(), 0, 0); perf.draw(ctx, 6, rect.height - 26); }
       if (now - lastHud > 500) { lastHud = now; force((x) => x + 1); }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
+    // Round 13 (C): playtests (the dev flag only) drive the shift with real touches: where a station is drawn, where
+    // the hint points, and whether the package's bot would be holding USE right now. Read-only.
+    const devHook = devSwitches();
+    if (devHook) {
+      const at = () => (wrapRef.current ? wrapRef.current.getBoundingClientRect() : undefined);
+      (window as unknown as { __fpHandsOn?: unknown }).__fpHandsOn = {
+        hint: () => (sessionRef.current ? nextHint(sessionRef.current, live.current.game)?.stationId ?? null : null),
+        rect: (id: string) => { const r = at(); const sess = sessionRef.current; const sr = r && sess ? stationRect(sess, stageView(r, layoutRef.current), id) : undefined; return sr && r ? { x: r.left + sr.x, y: r.top + sr.y, w: sr.w, h: sr.h } : null; },
+        state: () => { const sess = sessionRef.current; if (!sess) return null; const b = botInput(sess, live.current.game, 1); return { prompt: sess.prompt ? { stationId: sess.prompt.stationId, enabled: sess.prompt.enabled } : null, verb: sess.activeAction?.verb ?? null, wantsUse: !!b.interact, points: sess.score.points, plates: sess.score.plates, served: sess.score.served, carrying: sess.carrying?.kind ?? null, player: { x: sess.player.x, y: sess.player.y } }; },
+        layout: () => layoutRef.current,
+      };
+    }
     canvas.focus();
     force((x) => x + 1); // the onboarding's steps and spotlight need the session: draw them now, not at the next HUD tick
     return () => {
@@ -187,17 +234,34 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
       ro.disconnect();
       input.dispose();
       inputRef.current = null;
+      if (devHook) delete (window as unknown as { __fpHandsOn?: unknown }).__fpHandsOn;
       if (sessionRef.current) onDone(summarise(sessionRef.current));
     };
     // The session lives for the whole mount; role/playerStaffId don't change while mounted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Round 13 (C): no page scroll, rubber-band, pinch or double-tap zoom while a shift is on (html.fp-handson in
+  // handson-phone.css; iOS Safari's pinch is a `gesturestart` it only skips when told to).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("fp-handson");
+    const stop = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", stop);
+    return () => { root.classList.remove("fp-handson"); document.removeEventListener("gesturestart", stop); };
+  }, []);
 
   const s = sessionRef.current;
-  const steps = s ? onboardingSteps({ role, touch, ...(station ? { station: { appliance: yourStations(s)[0] } } : {}) }) : [];
-  const finish = useCallback(() => { markOnboardSeen(storage, game.seed, role); setOnboard(null); canvasRef.current?.focus(); }, [storage, game.seed, role]);
-  const next = () => (onboard === null ? undefined : onboard + 1 >= steps.length ? finish() : setOnboard(onboard + 1));
+  const deskSteps = s ? onboardingSteps({ role, touch, ...(station ? { station: { appliance: yourStations(s)[0] } } : {}) }) : [];
+  const phoneCards = phone ? phoneHowToCards(role, layout, station) : [];
+  const stepCount = phone ? phoneCards.length : deskSteps.length;
+  const finish = useCallback(() => {
+    markOnboardSeen(storage, game.seed, role);
+    if (layoutRef.current !== "desk") markPhoneHowToSeen(storage, role);
+    setOnboard(null);
+    canvasRef.current?.focus();
+  }, [storage, game.seed, role]);
+  const next = () => (onboard === null ? undefined : onboard + 1 >= stepCount ? finish() : setOnboard(onboard + 1));
 
   // Round 7: autopilot playtests page through the onboarding on their own.
   // R7 review: keyed on the step — with no deps the 500 ms HUD re-render reset the timer forever, so an autopilot
@@ -207,103 +271,214 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
     const id = window.setTimeout(() => next(), AUTOPILOT_STEP_SECS * 1000);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboard, steps.length]);
+  }, [onboard, stepCount]);
 
+  // Round 13 (C): a finger that travels on the canvas is a drag stick (lib/touchControl dragStick) — unless the press
+  // was the USE button (at her station, or during a verb), which stays a press however the finger wobbles.
+  const drag = useRef<{ id: number; x: number; y: number; use: boolean } | null>(null);
   const onPointerDown = (e: RPointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === "touch" && !touch) setTouch(true);
+    if (e.pointerType === "touch" && !touchSeen) setTouch(true);
     const sess = sessionRef.current;
     if (!sess || onboard !== null || paused) return;
     const r = e.currentTarget.getBoundingClientRect();
-    touchCtl.current.press(sess, hitTest(sess, { width: r.width, height: r.height }, e.clientX - r.left, e.clientY - r.top));
+    const did = touchCtl.current.press(sess, hitTest(sess, stageView(r, layout), e.clientX - r.left, e.clientY - r.top));
+    if (did === "use") buzz(BUZZ.tap);
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, use: did === "use" };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
-  const onPointerUp = () => touchCtl.current.release();
+  const onPointerMove = (e: RPointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || d.use) return;
+    touchCtl.current.stick(dragStick(e.clientX - d.x, e.clientY - d.y));
+  };
+  const onPointerUp = () => { drag.current = null; touchCtl.current.release(); };
   /** R7 review (seam d): a bar button pressed with the mouse/finger hands the keys straight back to the cook (Space
    *  would otherwise press Pause again); a keyboard press (detail 0) keeps focus on the button. */
   const toCookIfPointer = (e: { detail: number }) => { if (e.detail > 0) canvasRef.current?.focus(); };
   const touchRef = useRef(touch);
   touchRef.current = touch;
 
+  // Round 13 (C): the upright drag pad — a floating stick: where the thumb lands is the centre.
+  const knobRef = useRef<HTMLSpanElement>(null);
+  const pad = useRef<{ id: number; x: number; y: number } | null>(null);
+  const padKnob = (dx: number, dy: number) => {
+    const k = knobRef.current;
+    if (!k) return;
+    const d = Math.hypot(dx, dy), cap = 44, f = d > cap ? cap / d : 1;
+    k.style.transform = `translate(${dx * f}px, ${dy * f}px)`;
+  };
+  const onPadDown = (e: RPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (onboard !== null || paused) return;
+    pad.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onPadMove = (e: RPointerEvent<HTMLDivElement>) => {
+    const p = pad.current;
+    if (!p || p.id !== e.pointerId) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    padKnob(dx, dy);
+    touchCtl.current.stick(dragStick(dx, dy, 8, 44));
+  };
+  const onPadUp = () => { pad.current = null; padKnob(0, 0); touchCtl.current.stick(null); };
+
   const progress = Math.min(1, game.tick / SERVICE_TICKS);
-  const step = onboard !== null ? steps[onboard] : undefined;
-  const spot = step && s && stage.width ? onboardTargetRect(step, s, stage) : undefined;
-  return (
-    <div className={`handson${touch ? " handson--touch" : ""}`}>
-      <div className="handson__bar">
-        <div className="handson__when">
-          <div className="xs faint handson__kicker">{shiftKicker(role, jumpIn, station)}</div>
-          <div className="handson__clock">{clockLabel(game.tick)}</div>
-        </div>
-        <div className="clock__track" style={{ flex: 1 }}>
-          <div className="clock__bar"><div className="clock__fill" style={{ width: `${progress * 100}%` }} /></div>
-          <div className="clock__ends"><span>12:00</span><span>22:00</span></div>
-        </div>
-        {!touch && (
-          <div className="handson__keys xs muted" aria-hidden="true">
-            <kbd>WASD</kbd> walk · <kbd>E</kbd> use · <kbd>Q</kbd> drop
-          </div>
-        )}
-        <button className="btn handson__btn handson__help" onClick={() => setOnboard(0)} aria-label="How to play" title="How to play">?</button>
-        <button className="btn handson__btn" onClick={(e) => { setPaused((p) => !p); toCookIfPointer(e); }} aria-pressed={paused}>{paused ? "▶ Resume" : "❚❚ Pause"}</button>
-        {jumpIn && onLeave && <button className="btn handson__btn" onClick={() => s && onLeave(summarise(s))}>Back to the office</button>}
-        <button className="btn btn--ghost handson__btn" onClick={() => { if (s) onScore?.(summarise(s)); onSkip(); }}>{jumpIn ? "Skip to close" : "Skip to end of shift"}</button>
-      </div>
-      {!HOOKS.player && (
-        <div className="banner banner--amber" role="status">
-          <span aria-hidden="true">🧪</span>
-          <span>Practice mode: this build's sim doesn't take hands-on results yet, so the team cooks and serves as usual while you play.</span>
-        </div>
-      )}
-      <div className="handson__stage" ref={wrapRef}>
-        <canvas
-          ref={canvasRef}
-          tabIndex={0}
-          aria-label={`Hands-on ${role} shift. ${touch ? "Tap a station to walk there; press it, or the USE button, to use it." : "Walk with WASD or the arrow keys; E to use a station."}`}
-          onPointerDown={onPointerDown}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
-        {touch && onboard === null && (
-          <div className="handson__pad">
-            <button
-              className="handson__drop"
-              aria-label="Drop what you're holding"
-              onPointerDown={(e) => { e.preventDefault(); touchCtl.current.drop(true); }}
-              onPointerUp={() => touchCtl.current.drop(false)}
-              onPointerCancel={() => touchCtl.current.drop(false)}
-              onPointerLeave={() => touchCtl.current.drop(false)}
-            >Drop</button>
-            <button
-              className="handson__use"
-              aria-label="Use (hold to cook or pour)"
-              onPointerDown={(e) => { e.preventDefault(); touchCtl.current.use(true); }}
-              onPointerUp={() => touchCtl.current.use(false)}
-              onPointerCancel={() => touchCtl.current.use(false)}
-              onPointerLeave={() => touchCtl.current.use(false)}
-            >USE</button>
-          </div>
-        )}
-        {step && (
-          <div className="onboard" role="dialog" aria-modal="false" aria-labelledby="onboard-title">
-            {spot && <div className="onboard__spot" style={{ left: spot.x, top: spot.y, width: spot.w, height: spot.h }} aria-hidden="true" />}
-            <div
-              className={`onboard__card onboard__card--${spot ? cardPlacement(spot, stage.height) : "below"}`}
-              style={spot ? onboardCardStyle(spot, stage) : { left: "50%", top: 24, transform: "translateX(-50%)" }}
-            >
-              <div className="onboard__steps" aria-label={`Step ${(onboard ?? 0) + 1} of ${steps.length}`}>
-                {steps.map((_, i) => <span key={i} className={`onboard__dot${i === onboard ? " onboard__dot--on" : ""}`} />)}
-              </div>
-              <h3 id="onboard-title">{step.title}</h3>
-              <p>{step.text}</p>
-              <div className="onboard__actions">
-                <button className="btn btn--ghost handson__btn" onClick={finish}>Skip</button>
-                <button className="btn btn--primary handson__btn" onClick={next} autoFocus>{onboard! + 1 >= steps.length ? "Let's cook!" : "Next"}</button>
-              </div>
+  const step = onboard !== null && !phone ? deskSteps[onboard] : undefined;
+  const view = stage.width ? stageView(stage, layout) : undefined;
+  const spot = step && s && view ? onboardTargetRect(step, s, view) : undefined;
+
+  const help = <button className="btn handson__btn handson__help" onClick={() => setOnboard(0)} aria-label="How to play" title="How to play">?</button>;
+  const pauseBtn = (
+    <button className="btn handson__btn handson__pause" onClick={(e) => { setPaused((p) => !p); toCookIfPointer(e); }} aria-pressed={paused} aria-label={phone ? (paused ? "Resume" : "Pause") : undefined}>
+      {phone ? <><span aria-hidden="true">{paused ? "▶" : "❚❚"}</span><span className="handson__word" aria-hidden="true">{paused ? "Resume" : "Pause"}</span></> : paused ? "▶ Resume" : "❚❚ Pause"}
+    </button>
+  );
+  const leaveBtn = jumpIn && onLeave
+    ? <button className="btn handson__btn handson__leave" onClick={() => s && onLeave(summarise(s))}>{phone ? "Office" : "Back to the office"}</button>
+    : null;
+  const skipBtn = (
+    <button className="btn btn--ghost handson__btn handson__skip" onClick={() => { if (s) onScore?.(summarise(s)); onSkip(); }} aria-label={phone ? (jumpIn ? "Skip to close" : "Skip to end of shift") : undefined}>
+      {phone ? <><span aria-hidden="true">⏭</span><span className="handson__word" aria-hidden="true">Skip</span></> : jumpIn ? "Skip to close" : "Skip to end of shift"}
+    </button>
+  );
+  const useBtn = (
+    <button
+      className="handson__use"
+      aria-label="Use (hold to cook or pour)"
+      onPointerDown={(e) => { e.preventDefault(); touchCtl.current.use(true); buzz(BUZZ.tap); }}
+      onPointerUp={() => touchCtl.current.use(false)}
+      onPointerCancel={() => touchCtl.current.use(false)}
+      onPointerLeave={() => touchCtl.current.use(false)}
+    >USE</button>
+  );
+  const dropBtn = (
+    <button
+      className="handson__drop"
+      aria-label="Drop what you're holding"
+      onPointerDown={(e) => { e.preventDefault(); touchCtl.current.drop(true); }}
+      onPointerUp={() => touchCtl.current.drop(false)}
+      onPointerCancel={() => touchCtl.current.drop(false)}
+      onPointerLeave={() => touchCtl.current.drop(false)}
+    >Drop</button>
+  );
+  const kicker = (
+    <div className="handson__when">
+      <div className="xs faint handson__kicker">{shiftKicker(role, jumpIn, station)}</div>
+      <div className="handson__clock">{clockLabel(game.tick)}</div>
+    </div>
+  );
+  const canvasEl = (
+    <canvas
+      ref={canvasRef}
+      tabIndex={0}
+      aria-label={`Hands-on ${role} shift. ${touch ? "Tap a station to walk there, or drag to steer; press it, or the USE button, to use it." : "Walk with WASD or the arrow keys; E to use a station."}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    />
+  );
+  const overlays: ReactNode = (
+    <>
+      {step && (
+        <div className="onboard" role="dialog" aria-modal="false" aria-labelledby="onboard-title">
+          {spot && <div className="onboard__spot" style={{ left: spot.x, top: spot.y, width: spot.w, height: spot.h }} aria-hidden="true" />}
+          <div
+            className={`onboard__card onboard__card--${spot ? cardPlacement(spot, stage.height) : "below"}`}
+            style={spot ? onboardCardStyle(spot, stage) : { left: "50%", top: 24, transform: "translateX(-50%)" }}
+          >
+            <div className="onboard__steps" aria-label={`Step ${(onboard ?? 0) + 1} of ${deskSteps.length}`}>
+              {deskSteps.map((_, i) => <span key={i} className={`onboard__dot${i === onboard ? " onboard__dot--on" : ""}`} />)}
+            </div>
+            <h3 id="onboard-title">{step.title}</h3>
+            <p>{step.text}</p>
+            <div className="onboard__actions">
+              <button className="btn btn--ghost handson__btn" onClick={finish}>Skip</button>
+              <button className="btn btn--primary handson__btn" onClick={next} autoFocus>{onboard! + 1 >= deskSteps.length ? "Let's cook!" : "Next"}</button>
             </div>
           </div>
+        </div>
+      )}
+      {phone && onboard !== null && <HandsOnHowTo cards={phoneCards} step={onboard} onNext={next} onSkip={finish} />}
+      {paused && <div className="paused-badge">PAUSED</div>}
+    </>
+  );
+  const practice = !HOOKS.player && (
+    <div className="banner banner--amber" role="status">
+      <span aria-hidden="true">🧪</span>
+      <span>Practice mode: this build's sim doesn't take hands-on results yet, so the team cooks and serves as usual while you play.</span>
+    </div>
+  );
+  const noMenu = (e: { preventDefault(): void }) => e.preventDefault(); // a long press (hold to cook) is not a context menu
+
+  // One tree for every layout (the side columns and the controls row are slots that are empty off a phone), so turning
+  // the phone mid-shift keeps the same canvas and stage elements — the frame loop and its ResizeObserver hold them.
+  const sideways = layout === "sideways", upright = layout === "upright";
+  return (
+    <div className={`handson${touch ? " handson--touch" : ""}${phone ? ` handson--phone handson--${layout}` : ""}`} onContextMenu={touch ? noMenu : undefined}>
+      {!sideways && (
+        <div className="handson__bar">
+          {kicker}
+          {!upright && (
+            <div className="clock__track" style={{ flex: 1 }}>
+              <div className="clock__bar"><div className="clock__fill" style={{ width: `${progress * 100}%` }} /></div>
+              <div className="clock__ends"><span>12:00</span><span>22:00</span></div>
+            </div>
+          )}
+          {!touch && (
+            <div className="handson__keys xs muted" aria-hidden="true">
+              <kbd>WASD</kbd> walk · <kbd>E</kbd> use · <kbd>Q</kbd> drop
+            </div>
+          )}
+          {help}
+          {pauseBtn}
+          {leaveBtn}
+          {skipBtn}
+        </div>
+      )}
+      <div className="handson__body">
+        {sideways && (
+          <div className="handson__side handson__side--l">
+            {help}
+            {pauseBtn}
+            {skipBtn}
+            <span className="handson__gap" />
+            {onboard === null && dropBtn}
+          </div>
         )}
-        {paused && <div className="paused-badge">PAUSED</div>}
+        <div className="handson__main">
+          {practice}
+          <div className="handson__stage" ref={wrapRef}>
+            {canvasEl}
+            {!phone && touch && onboard === null && (
+              <div className="handson__pad">
+                {dropBtn}
+                {useBtn}
+              </div>
+            )}
+            {overlays}
+          </div>
+        </div>
+        {sideways && (
+          <div className="handson__side handson__side--r">
+            {leaveBtn}
+            <span className="handson__gap" />
+            {onboard === null && useBtn}
+          </div>
+        )}
       </div>
+      {upright && (
+        <div className="handson__controls">
+          <div className="handson__stick" onPointerDown={onPadDown} onPointerMove={onPadMove} onPointerUp={onPadUp} onPointerCancel={onPadUp} aria-hidden="true">
+            <span className="handson__stickring"><span className="handson__knob" ref={knobRef} /></span>
+            <span className="handson__word">Drag to walk</span>
+          </div>
+          <div className="handson__btns">
+            {onboard === null && dropBtn}
+            {onboard === null && useBtn}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

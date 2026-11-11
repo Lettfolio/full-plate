@@ -1978,3 +1978,57 @@ nothing for reduced motion to turn off. The ⋯ sheet's Sound switch is the exis
   service side by side, Skip, evening — no sideways scroll. Empire save upright: world map (6 names dropped at 1×),
   pinch → 3.3× (0 dropped), drag, keys on a pin (0 → 1×, + → 1.4×), double-tap on the sea → 2.56×, Harbourton city
   board pinch → 2.67×, "Back to the whole" → 1×; Stars save: city board double-tap → 2×. **0 page errors.**
+
+## Round 13 — C: the hands-on shift on a phone, and uniforms in the kitchen
+
+The hands-on shift (cook or serve yourself) was letterboxed into ~450×200 px on a phone held sideways and blocked by
+"Turn your phone sideways" upright. **Presentation only**: no rule, timing, scoring or RNG change in `packages/handson`
+or any sim; `handson/test/r13.phone.test.ts` pins the hint-following bot's score for a fixed seed (chef 437 / server
+361 / bar 647 points, taken on master `7e5ad5a` before any change) and re-checks it while drawing every 6th frame at
+the desktop, sideways and upright views.
+
+**On screen.** The shift picks one of three layouts from phone.css's two queries (`screens/handsonPhone.ts`):
+- **desk** (laptop, tablet): as before — bar on top, the 80 px canvas header, USE/Drop over the stage on touch.
+- **sideways** (844×390, 932×430): no header or bar. The canvas fills the height between two thumb columns: `?`,
+  Pause, Skip (icon over a 13 px word, 60×52) and Drop (60 px) on the left; Office (jump-in) and USE (76 px) on the right.
+  The canvas header becomes a **52 px ticket strip** (`HandsOnView.compact`): 104 px slips (TABLE n, "+2" more dishes, the
+  first dish with its status dot, whose band, the wait bar; a sous/helper pill sits on the dish line) and a slim score box
+  (points · plates · time or clock). Tiles go 13 → 22 px at 844×390 (25 px at 932×430): the whole kitchen, no camera.
+- **upright** (after "Play it upright anyway"): a slim bar (kicker, clock, ?, Pause, Skip), the kitchen with a
+  **following camera** (`HandsOnView.follow`: tiles sized by the height, ~26 px; the kitchen pans with her, clamped at its
+  edges; the scene layer is cached at the kitchen's own size so walking never rebuilds it), and underneath a **drag pad**
+  (a floating stick, "Drag to walk"), Drop and USE. The turn card's copy now says upright works too.
+- One React tree for all three (the side columns and the controls row are empty slots elsewhere), so turning the phone
+  mid-shift keeps the same canvas and stage — the frame loop and its ResizeObserver hold them (tested).
+- Side columns and the controls row pad with `env(safe-area-inset-*)`. `index.html` has no `viewport-fit=cover` (E's
+  file), so today Safari letterboxes the notch itself and the insets are 0; with `cover` the columns widen by the inset.
+
+**Touch feel.** Drag anywhere on the canvas to steer (`lib/touchControl.ts dragStick`: 14 px before a tap becomes a
+drag, then a quarter to full speed by 56 px, direction exact); a press that was USE (at her station, or during a verb)
+stays a press. Tap targets round a station are 56 px on a phone (`hitSlop`, 44 elsewhere). During a shift `html.fp-handson`
+stops rubber-banding, the stage/columns/controls are `touch-action: none`, no text selection, no long-press callout or
+context menu (hold to cook is a long press), and iOS `gesturestart` (pinch) is cancelled. **Buzz**: `lib/haptics.ts`,
+`navigator.vibrate` 8 ms on USE, 18 ms when a plate/serve/payment lands, a double buzz on a drop — only with
+Settings › Sound on and the new Settings › "Buzz when you cook or serve" (shown only where the browser can vibrate:
+Android; iPhone Safari has no vibrate API). The canvas now also stills under Settings › Animations off (it followed
+only prefers-reduced-motion).
+
+**Uniforms.** `HandsOnView.dress(role, look)`: every staff sprite (her, colleagues, the sous chef, the helper) goes
+through R12-B's `brandLook` with the page's `canvasBrand()` — chefs keep whites and wear the colour as the neckerchief
+(and apron, for the apron style); servers and bar wear the style in the uniform colour with the accent trim and cap.
+Her gold "you" ring still marks her.
+
+**How-to.** On a phone, three cards (`screens/HandsOnHowTo.tsx`) replace the R7 spotlight steps: Walk (tap or drag) ·
+Do the job (where USE and Drop are, tap vs hold) · the role's goal (chef: the ticket rail and the pass, glossary terms
+added: `pass`, `ticketRail`; server; bar). "1 of 3", Skip, "Start the shift"; the clock holds while it's up. Seen once per
+role on the device, never again (`full-plate:onboard:v1:phone:<role>`, so the R9 account mirror carries it); `?` replays it.
+
+**Code.** `handson/src/render.ts` (`compact`/`follow`/`hitSlop`/`dress`, `viewMetrics(view, focus)`, `railGeom`,
+`drawStrip`, the shared `railGroups`/`slipAge`), `handson/src/touch.ts` (camera-aware rects, hit slop),
+`game/src/screens/HandsOnShift.tsx` (layouts, drag, pad, buzz, dress, a dev-only `window.__fpHandsOn` for touch playtests),
+`screens/handsonPhone.ts`, `screens/HandsOnHowTo.tsx`, `screens/handson-phone.css` (lazy chunk), `lib/haptics.ts`,
+`lib/touchControl.ts`, `lib/settings.ts` (`haptics`), `components/SettingsBody.tsx` (one row), `components/RotateCard.tsx` (copy).
+
+**Left out.** No camera sideways (the whole kitchen fits at 22 px); no pinch-zoom of the kitchen; the strip shows only the
+first dish of a slip (the count says how many more); the desk layout's spotlight onboarding is unchanged; haptics do
+nothing on an iPhone (no API); the R7 USE/Drop pad on a tablet is as it was.

@@ -6,6 +6,8 @@ import { usePhonePortrait } from "../lib/layout";
  * so an upright phone gets this card instead of a squashed kitchen. It is an `aria-modal` dialog, which is what
  * HandsOnShift already checks (lib/modal.ts) to hold the shift: the clock stops until the phone is turned, or until
  * the player chooses to carry on upright. Turning the phone back upright brings the card back.
+ * Round 13 (C): "anyway" now gets a real upright layout (HandsOnShift's `upright`: a following camera, a drag pad and
+ * USE/Drop under the kitchen), not the sideways kitchen squeezed into 390 px.
  */
 export function RotateCard() {
   const portrait = usePhonePortrait();
@@ -25,7 +27,7 @@ export function RotateCard() {
             <path d="M62 14 l-1 -8 M62 14 l-8 -2" fill="none" stroke="var(--tomato)" strokeWidth="3" strokeLinecap="round" />
           </svg>
           <h2 id="rotate-t">Turn your phone sideways</h2>
-          <p id="rotate-d">The kitchen needs the width: stations along the back, the pass along the front. The shift is on hold until you turn it.</p>
+          <p id="rotate-d">The kitchen fits best sideways: stations along the back, the pass along the front. Upright works too: the kitchen slides along with you and the controls sit underneath. The shift is on hold until you choose.</p>
           <button ref={btn} className="btn btn--ghost btn--tap" onClick={() => setAnyway(true)}>Play it upright anyway</button>
         </div>
       </div>
