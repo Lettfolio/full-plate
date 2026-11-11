@@ -9,7 +9,8 @@ const PostcardButton = lazy(() => import("../components/PostcardDialog").then((m
 const EveningExtras = lazy(() => import("../components/EveningExtras").then((m) => ({ default: m.EveningExtras })));
 import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
-import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
+import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish, zeroNightCause, ZERO_HEADLINE } from "../lib/evening";
+import { unplateable } from "../lib/plateable";
 import { incidentLines, INCIDENT_ICON } from "../lib/incidents";
 import { decorLines } from "../lib/decor";
 import { coveringPhrase } from "../lib/staff";
@@ -276,15 +277,18 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const tableOk = !spendCheck(content, game, TABLE_COST).risky;
   const hire = hirePromptText(game);
   const over = game.phase === "gameover";
+  // Round 14 (F, U5): a night nobody ate says why in the headline (closed, empty larder, nobody on).
+  const zero = zeroNightCause(r, game, r.day === game.day ? unplateable(content, game).length : 0, weekdayIndex(r.day));
 
   return (
     <div className="page">
       <div className="evening">
         <div className="evening__head beathead">
           <DayRhythm beat="evening" weekday={WEEKDAY_NAMES[weekdayIndex(r.day)]!} />
-          <h1 title={`Day ${r.day + 1} · ${dateLabel(r.day)}`}>{good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
+          <h1 title={`Day ${r.day + 1} · ${dateLabel(r.day)}`}>{zero ? ZERO_HEADLINE[zero].title : good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
           {/* R12-B */}<Suspense fallback={null}><PostcardButton game={game} result={r} /></Suspense>
         </div>
+        {zero && <p className="callout callout--warn" style={{ gridColumn: "1 / -1", margin: 0 }} role="note" data-testid="zero-night">{ZERO_HEADLINE[zero].line}</p>}
         {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
         {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
         <div className="evening__money"><TonightMoney game={game} r={r} /></div>

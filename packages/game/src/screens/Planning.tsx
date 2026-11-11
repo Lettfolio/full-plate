@@ -77,7 +77,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
-  const [confirmAlone, setConfirmAlone] = useState(false);
+  // Round 14 (F, U5): and any day nothing on the menu can be cooked (every dish out of stock).
+  const [confirm, setConfirm] = useState<"alone" | "food" | null>(null);
   const today = weekdayIndex(game.day);
   const active = game.menu.filter((m) => m.active);
   const onShift = game.staff.filter((s) => s.rota[today]);
@@ -108,6 +109,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
   if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll be serving`, tone: "warn", tab: "staff" });
   const noStock = opening ? 0 : unplateable(content, game).length;
+  const cantCook = !opening && active.length > 0 && noStock >= active.length;
   if (noStock) hints.push({ text: `${noStock} dish${noStock > 1 ? "es" : ""} out of stock today — order in the evening`, tone: "bad", tab: "stock" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
   const tired = tiredSlots(game);
@@ -226,11 +228,29 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           }}>
             Closed for the refit — next day →
           </button>
-        ) : confirmAlone ? (
+        ) : confirm === "alone" ? (
           <div className="openbar__confirm" role="alertdialog" aria-labelledby="alone-q">
             <span id="alone-q"><b>Open with nobody to help?</b> You'll cook and serve on your own: slow food, long queues.</span>
-            <button className="btn btn--green" autoFocus onClick={() => { setConfirmAlone(false); setTab("staff"); }}>Hire someone first</button>
-            <button className="btn btn--ghost" onClick={() => { setConfirmAlone(false); send({ type: "START_SERVICE" }); }}>Open anyway</button>
+            <button className="btn btn--green" autoFocus onClick={() => { setConfirm(null); setTab("staff"); }}>Hire someone first</button>
+            <button className="btn btn--ghost" onClick={() => { setConfirm(null); send({ type: "START_SERVICE" }); }}>Open anyway</button>
+          </div>
+        ) : confirm === "food" ? (
+          <div className="openbar__confirm" role="alertdialog" aria-labelledby="food-q" data-testid="confirm-nofood">
+            <span id="food-q">
+              <b>Nothing on your menu can be cooked today.</b> Every dish is out of stock, so nobody will eat, and wages and rent are paid anyway.
+              {" "}Stock you order now arrives tomorrow morning{HOOKS.closeToday ? "; closing today pays the rent and half the wages of anyone on the rota" : ""}.
+            </span>
+            {HOOKS.closeToday && (
+              <button className="btn btn--green" autoFocus onClick={() => {
+                setConfirm(null);
+                risk.lines.forEach(([ingredientId, qty]) => send({ type: "ORDER_STOCK", ingredientId, qty }));
+                send(asCommand({ type: "CLOSE_TODAY" }));
+              }}>
+                {risk.lines.length ? <>Order stock (≈<MoneyText pence={risk.cost} whole />) and close today</> : "Close today"}
+              </button>
+            )}
+            <button className="btn btn--ghost" autoFocus={!HOOKS.closeToday} onClick={() => { setConfirm(null); setTab("menu"); }}>Change the menu</button>
+            <button className="btn btn--ghost" onClick={() => { setConfirm(null); send({ type: "START_SERVICE" }); }}>Open anyway</button>
           </div>
         ) : (
           <>
@@ -248,7 +268,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
             className="btn btn--primary btn--xl"
             disabled={game.phase !== "planning" || !active.length}
             title={active.length ? undefined : "Add at least one dish to your menu first"}
-            onClick={() => (opening && game.staff.length === 0 ? setConfirmAlone(true) : send({ type: "START_SERVICE" }))}
+            onClick={() => (opening && game.staff.length === 0 ? setConfirm("alone") : cantCook ? setConfirm("food") : send({ type: "START_SERVICE" }))}
           >
             <ArrowLabel text="Open for service →" />
           </button>
