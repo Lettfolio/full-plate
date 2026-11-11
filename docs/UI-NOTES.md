@@ -2283,8 +2283,9 @@ on, so a kept scroll position can't pass unnoticed.
 - **Toasts** (U11): upright, a toast spans the width just above the dock (one or two lines); in service on any phone it
   sits along the top edge over the header, clear of the floor's middle, the peek and Skip; sideways and at 200 % zoom it
   sits top right, at most 46 % of the width.
-- **Small screens** (U12): 320 px has no sideways scroll (the Today's menu / Menu matrix toggle was 16 px too wide) and
-  the tab bar's tabs share the width. Sideways and at 200 % zoom the panel's Skip to evening sticks to the panel's foot.
+- **Small screens** (U12): 320 px has no sideways scroll (the Today's menu / Menu matrix toggle was 16 px too wide, and
+  once someone was hired a staff card's seven 44 px day buttons widened the layout viewport to 374 px: they wrap now)
+  and the tab bar's tabs share the width. Sideways and at 200 % zoom the panel's Skip to evening sticks to the panel's foot.
   `viewport-fit=cover` in `index.html`; the header, the sheet's peek and the sideways page/header/service padding take
   the safe-area insets (the tab bar, dialogs and the hands-on frame already did).
 - **Hands-on upright** (U17): the how-to never shows under "Turn your phone sideways" — the turn card first, then the
@@ -2292,8 +2293,9 @@ on, so a kept scroll position can't pass unnoticed.
   glossary term ("Back to watching"); "On the **pass**" in the Jump in card tips the pass.
 - **Postcard** (U18): **Share postcard** opens the phone's share sheet with the PNG where `navigator.canShare({files})`
   says yes (Save stays beside it); elsewhere Save postcard as before. The room in the picture is the night's busiest
-  moment of service, drawn paused (`lib/floorFrame.ts`: Service hands each frame over, the one with most guests in is
-  kept by reference), not the empty room after closing; after a reload it falls back to the room as it stands. A **Best
+  moment of service, drawn paused (`lib/floorFrame.ts`: the app reducer hands over every service tick, "ticks" and
+  "skipShift", so a skipped night counts too; the one with most guests in is kept by reference — a memory-only cache
+  that changes no state), not the empty room after closing; after a reload it falls back to the room as it stands. A **Best
   night yet** badge sits on the room's corner (and a line in the dialog) when the night made more profit than every
   other day, two nights in.
 - **New thing to try** (discoverability; `components/TryCard.tsx`, lazy, rules in `lib/tryNext.ts`): one card under the
@@ -2303,9 +2305,9 @@ on, so a kept scroll position can't pass unnoticed.
   hands-on shift), brand kit (Day 2), invent a dish (Day 3), today's challenge (Day 3; saves and leaves the game),
   postcard (after the first profitable night), regulars (when the first joins), rival (when they first post), share
   with a friend (Day 5, only where claude.ai's db is reachable). **Settings › New things to try** turns it off.
-  Stored in `full-plate:try-next:v1` through `lib/storage` (prefs, not the save). On a phone a row of **chips** under the
-  Menu heading (Invent a dish, Recipe book) and the Restaurant heading (Brand kit, Postcard, Rival, Regulars, Friends)
-  jumps to cards that sat two to four screens down.
+  Stored in `full-plate:try-next:v1` through `lib/storage` (prefs, not the save). On a phone (either way up) a row of 44 px
+  **chips** at the top of the Menu tab (Your cookbook — where Invent a dish is —, Recipe book) and the Restaurant tab
+  (Brand & postcard, Rival, Regulars, Friends) jumps to cards that sat two to four screens down.
 - **Polish** (U20): game-over tiles wrap ("1.9" and its stars stay in the tile); per-dish pictures (`lib/dishIcon.ts`:
   🥖 garlic bread, 🍤 prawn cocktail, 🍲 soup…; drinks matched only against drink words, so steak & ale pie is a pie);
   "Recipe book — Recipes that come with the game…" and "Your cookbook — Recipes you made up…"; one restock wording
@@ -2319,7 +2321,8 @@ on, so a kept scroll position can't pass unnoticed.
 | `lib/scrollTop.ts`, `lib/floorFrame.ts`, `lib/dishIcon.ts`, `lib/tryNext.ts`, `components/TryCard.tsx` | new |
 | `App.tsx` | the screen-change effect (`screenKey`), `onCookTonight` / `onChallenge` to Planning |
 | `screens/Planning.tsx` | tab memory + landings (`goTo`, `landingFor`), TryCard mount, phone chips, dock wording (F also touches the open-for-service confirm) |
-| `screens/Service.tsx` | `PeekJumpIn` / `peekJumpRole`, peek wording, `noteFloorFrame`, the "pass" term |
+| `screens/Service.tsx` | `PeekJumpIn` / `peekJumpRole`, peek wording, the "pass" term |
+| `state/gameReducer.ts` | two lines: `noteFloorFrame(game)` in the "ticks" and "skipShift" loops (no state change) |
 | `screens/NewGame.tsx`, `screens/StartPicker.tsx` | U7 order; owner skips the street on the picker |
 | `components/Toast.tsx`, `RotateCard.tsx`, `screens/HandsOnHowTo.tsx`, `HandsOnShift.tsx` (one line), `lib/glossary.ts` (`office`) | as above |
 | `lib/postcard.ts`, `components/PostcardDialog.tsx` | share, busy frame, best-night badge |

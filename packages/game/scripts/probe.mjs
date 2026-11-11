@@ -180,15 +180,19 @@ function metrics(min) {
     const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
     const label = (el.getAttribute("aria-label") || el.textContent || el.tagName).replace(/\s+/g, " ").trim().slice(0, 36);
     if (el.tagName !== "INPUT" && el.tagName !== "SELECT" && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible") { clipped.push(`spills ${label}`); continue; }
+    // per axis: a scroller (auto/scroll) in that axis makes what's past its edge reachable, so ancestors beyond it don't count
+    let sx = false, sy = false;
     for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
       const cs = getComputedStyle(a);
-      const hx = cs.overflowX === "hidden" || cs.overflowX === "clip", hy = cs.overflowY === "hidden" || cs.overflowY === "clip";
-      if (!hx && !hy) continue;
-      if (a.matches(".worldmap__frame, .zoomframe, .service__floor, [data-pan]")) break; // a map you pan: off its edge is reachable
+      if (a.matches(".worldmap__frame, .zoomframe, .service__floor, [data-pan]")) break; // a map you pan
+      const hx = !sx && (cs.overflowX === "hidden" || cs.overflowX === "clip"), hy = !sy && (cs.overflowY === "hidden" || cs.overflowY === "clip");
       const ar = a.getBoundingClientRect();
       if ((hx && (r.left < ar.left - 1 || r.right > ar.right + 1)) || (hy && (r.top < ar.top - 1 || r.bottom > ar.bottom + 1))) {
         clipped.push(`${label} ← ${(typeof a.className === "string" && a.className ? a.className : a.tagName).slice(0, 40)}`); break;
       }
+      if (/auto|scroll/.test(cs.overflowX)) sx = true;
+      if (/auto|scroll/.test(cs.overflowY)) sy = true;
+      if (sx && sy) break;
     }
   }
   const sw = document.documentElement.scrollWidth, vw = innerWidth;
