@@ -2245,3 +2245,110 @@ The partner's walk bob and the smoothing between presence updates follow Setting
   includes the mock's Playwright hops (page → Node → page); on a busier machine earlier the same nights read 118 / 450 /
   993 ms and 3.6–4.5 snapshots a second (timers starved at 10–30 fps), which is why the engines are also pumped from
   the animation frame. Emits per side stay near 20 a second (snapshots ≤ 10, presence ≤ 10, heartbeats 2).
+
+## Round 14 — C: never lose a save to a hiccup
+
+Red-team findings U2/S14-4 (High), S14-7, S14-9, S14-10 and U15 (`RED-TEAM-2.md`). Guarded by
+`src/__tests__/round14.c.test.tsx`.
+
+### A part that won't load is a connection problem, not a damaged save (U2/S14-4)
+
+- **`lib/lazyRetry.tsx`** is the only way the game makes a `React.lazy` component (the test fails on a bare `lazy(`
+  anywhere else; the 50 existing call sites converted, plus the storage notice's two). The import is tried three times
+  (now, 0.4 s, 1.5 s), then throws a typed `ChunkLoadError`. Before giving up it fetches `index.html` (no cache) and
+  compares its module script names with the page's own: different names mean a new version was deployed under an open
+  page (`stale`).
+- **Every lazy part has its own `ChunkBoundary`** (made by `lazyRetry`, in the main chunk on purpose). On screen, where
+  the part would be: a warm callout, "**Couldn't load this part.** Check your connection, then try again. Your game is
+  safe." with **Try again** and, where the screen gives one (`ChunkBack`), **Back**: a planning tab → "Back to the
+  menu", a hands-on shift → "Back to the floor", the title's screens → "Back to title", the game screens → "Back to
+  title" (Save & quit), the gossip strip → none. The rest of the game stays up; nothing touches the save.
+- **Chromium keeps a failed module import for the life of the page**, so a Try again that fails too turns the callout
+  into "**Still couldn't load this part.** Reloading the page fixes it: your game is saved first." with **Reload**
+  ("You're offline. When you're back online, reload…" while `navigator.onLine` is false). Each try gets a fresh, keyed
+  boundary (a boundary reset in place let the second failure through to CrashGuard), and a part closed after a failure
+  tries afresh when reopened.
+- **A new version**: "**A new version of Full Plate is ready.** Reload to get it: your game is saved first." with
+  **Reload**. App registers `setSaveBeforeReload` (save the slot, then flush), `reloadSaved()` waits at most 2 s.
+- **CrashGuard** (`components/CrashGuard.tsx`) recognises a chunk error that got past a boundary: "Couldn't load the
+  next part of the game." / "A new version of Full Plate is ready." with **Reload** and **Back to title**, never Delete.
+  On the genuine-damage page **Delete this game…** (and each "Delete…" in the title's list) now opens a confirm that
+  names the game — "Delete Bella's Bites?" — with **Save a copy to a file** first (the raw save as stored, unchecked,
+  via `store.saveToFile`), **Delete Bella's Bites** and **Keep it**.
+- **Prefetch** (`lib/prefetchSoon.ts` in the main chunk, the list in `lib/prefetch.ts`, its own 6 kB chunk): half a
+  second after the planning screen settles, in idle time, every chunk the rest of the day can need — each planning tab
+  and what it opens (menu matrix, cookbook, invent sheet, brand card, share card, Regulars book, bank cards), the
+  service floor (RestaurantView, decor art, regulars, floor camera), the evening and what hangs off it (extras,
+  postcard, morning post, chapter card, regular of the month, game over), the header's sheets (Settings, Words, Save),
+  `saveFiles`/`saveCodec` (Save to a file offline) and the storage notice; the chosen path's tab too. Offline it waits
+  for `online` rather than spoiling the module map. The hands-on shift and the co-op/visit screens are not prefetched
+  (big, optional); offline they show the callout with Back.
+
+### Storage (S14-7, U15)
+
+- **`lib/storage.ts` migration**: the saves move before the index (which moves last, and only when every other key is
+  across); each copy is read back before the old key goes (a copy that doesn't match is taken back); a key another tab
+  rewrote meanwhile is kept. Until every key is across, the page reads through a **merged view** — the scoped key if
+  there is one, else the old one; a write to a key still in the old place goes there, in place (no room for a second
+  copy needed); a remove clears both — so no index points at a save it can't reach and, with the storage full, the old
+  location stays in charge. A Round 13 half-move (index across, a save left behind) is read the same way and finished
+  on a later visit when there's room. `storageFull()` reports the unfinished move.
+- **The notice** (`components/StorageNotice.tsx`, a lazy chunk; `lib/storageTrouble.ts` decides, in the main chunk):
+  when the account isn't keeping the games and this device can't (`!status.local`) or its storage is full, a warm
+  one-line callout with a warning icon, **Save to a file** and a × ("Hide this notice", for this visit):
+  - game screens (under the header, mounted by `StatusBar`; not during service, not for a daily challenge): "This game
+    can't be saved on this device right now. Keep a copy: [Save to a file]" or "This device's storage is full, so this
+    game may not be saved here.";
+  - title: "This browser can't keep games right now: each one is gone when the page closes. Keep a copy of each game
+    from Your games. [Your games]" (opens the picker, where each game has Save to a file), or the "full" wording.
+  The ⋯ sheet's save mark is unchanged.
+
+### Saves (S14-10)
+
+`state/saveCheck.ts`: a menu or set-menu row naming a recipe that is deleted or an old version (`!isLive`) is dropped
+on load rather than the save refused; `checkedDecode` returns `repairs` and opening the slot shows a toast: "Dish 12,
+Dish 13, Dish 14 and 25 more came off the menu: those recipes are no longer in your cookbook." The game never puts one
+there itself (delete is refused while a recipe is on a menu; a new version swaps the row), so real saves are untouched
+(all corpus saves load byte-identically). Parked Empire shops' menus and the brand formula are not repaired (left out:
+no reachable path puts a dead recipe there, and the 12-recipe cap the reviewer got round is the live menu's).
+
+### Dev switches (S14-9)
+
+`?autopilot=` / `?perf=` and the playtest hooks are a build flag now (`FP_PLAYTEST=1` → `__FP_PLAYTEST__`), not the
+`full-plate:dev` localStorage key any page on the origin could set. `docs/PIPELINE.md` "Playtest switches are a build
+flag" has the scripts' side (`harness.mjs` `playtestDist()`).
+
+### Settings
+
+No new switch: the callouts don't move (no motion to honour) and make no sound.
+
+### Left out
+
+- Busting the module cache to make Try again work in place (`import(url + "?r=1")`): the failed chunk's own imports
+  are cached as failed too, so it would only work for a chunk with no new dependencies; Reload is the honest cure.
+- A service worker for true offline play (installing one changes how every deploy reaches a player: a decision, not a
+  fix).
+- `Service.tsx`'s own floor import (E's file) still has no catch; the prefetch covers it.
+
+### Numbers
+
+- **Bundle**: main `index` 181.53 → **188.69 kB** (+7.16: `lazyRetry` + its boundary, CrashGuard's confirm and chunk
+  pages, the storage merged view, `storageTrouble`, `prefetchSoon`, App/StatusBar/Planning wiring). The prefetch list
+  is its own chunk (`prefetch` 6.44 kB: its ~30 imports cost the main chunk ~4 kB) and so is the notice
+  (`StorageNotice` 1.59 kB). `HandsOnShift` 25.00 → 24.21 (the playtest hooks are dropped from the shipped build),
+  `saveCheck` 4.54 → 5.17. `CookbookStrip.css` is now emitted as `invent.css` (same 5.17 kB; the prefetch imports the
+  invent sheet directly).
+- **Tests** 1,505 → **1,527** (+22, `round14.c.test.tsx`); two existing tests updated for the new flow (the CrashGuard
+  delete now has a confirm; the Decorate-tab source check looks for `lazyRetry`). `pnpm -r typecheck` clean.
+- **Probe** within baseline (no count rose; nothing new is on a screen the walk reaches). **Type audit** normal and
+  Bigger: 129 screens each, 0 text < 13 px, 0 errors. Corpus: every save loads; the Round 10 and the reviewer's Round
+  14 save fuzzers pass.
+- **Balance** (200 seeds): typical 90.0 / cheap 68.0 / nohire 0 (no sim package touched).
+- **Playtest** (built dist, `vite preview` on 127.0.0.1, 1024×768 with touch; shots `scratchpad/shots/r14/C/`): offline
+  from the lease → Staff shows the callout, Back to the menu, online → Try again → "Still couldn't…" → Reload → title
+  → Continue → the staff room; offline after 3 s of planning → every tab, the menu matrix, service, the evening, the
+  postcard and day 2 with no failed request; the reviewer's StaffTab-404 → the callout, no Delete, the save keys
+  untouched; storage blocked → the notice on the title and the planning screen, dismissible; a redeploy under a
+  running service (every asset renamed) → Jump in → "A new version of Full Plate is ready" → Reload (saved first) →
+  Continue, same day. The reviewer's `u-offline-crash.mjs` (phone and iPad) and `u-offline-day.mjs` end on the game,
+  not the crash page. 0 page errors.
