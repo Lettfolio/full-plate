@@ -1537,3 +1537,196 @@ controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-st
   guest's plan (dish off, price up, staff toggled) → "Use it" → the host's menu changed, guest told; emotes both ways;
   service → the guest sees "running tonight's service" → Skip to evening → the guest sees the numbers; End → the guest
   sees it, the panel goes; no-db context: both entry points show the one line. 0 page errors.
+
+## Round 13 — A: a lighter floor at 4×, easing off when it can't keep up, one stacking scale, the probe in CI
+
+Nothing here changes what happens in the game: the sim packages are untouched (headless typical / cheap / nohire
+90.0 / 68.0 / 0 at 200 seeds), nothing new is in GameState or the save, and the floor draws the same picture.
+
+### What was slow (R12-F6), and how it was measured
+
+`scripts/perf-floor.mjs` scripts the R8.6 / R12.8 method so anyone can repeat it: the built dist under `vite preview`
+on 127.0.0.1, headless Chromium with the GPU off (software raster), the audit save `owner-planning`, service opened at
+1× and left to fill until 12:40, then the speed under test, a 4× CPU throttle (CDP `Emulation.setCPUThrottlingRate`),
+600 ms to settle, and every rAF interval for 5 s (12:40 → about 16:30 at 4×: the lunchtime rush, queue and all). It
+taps rather than clicks (a mouse left over the page makes Chromium send a hit-testing mousemove after every layout,
+~4 ms a frame under the throttle — not something her tablet does). It reports median / mean / p95 gap, frames over
+20 ms ("dropped") and vsyncs missed, plus the renderer's JS per frame (`?perf=1`).
+
+- `--passes` runs the same window with `window.__fpPassProfile` set: the renderer flushes the canvas to pixels after
+  each paint pass (a 1×1 `getImageData`) and times it, so each pass's figure is its JS **and** its raster — the part
+  the rAF callback's own timing can't see (Chromium rasterises a 2D canvas when the frame commits). The flush slows
+  the frame, so a `--passes` run's gaps aren't comparable; the gap tables come from plain runs.
+- `--bench` is the renderer alone: `floor-bench.html` + `src/dev/floorBench.ts` (dev server only, not in the build)
+  open the same save, run the sim like the app at 4× (8 ticks a second, so frame *i* draws tick 8 + i·8/60), and draw
+  300 frames back to back, each flushed, under the 4× throttle: **ms of canvas work per frame**, same states and same
+  times for every build. `FP_BENCH_ROOT` benches another checkout (copy the page and `src/dev/` into it).
+- `--trace <dir>` keeps a Chromium trace of the window; `scripts/perf-trace.mjs` sums it by event and thread.
+
+The numbers below were re-taken on a quiet machine (load 1–2, 2 cores) at the end of the round.
+
+What the profile showed on the Round 12 build (ms per frame, 4× throttle, 1024×768 floor 632×643 at dpr 1):
+`tables` 4.1 (occupied tops redrawn over the cached ones, then plates or menus on top: 3–4× overdraw), `kitchen` 1.6
+(**the ticket cards**: each label drawn under the sway's ±1.2° rotation, which software raster does glyph by glyph as
+paths — 1.2 ms for five cards), `people` up to 3.5 in the app (**sprite builds**: every new guest is a new look, ~2.2
+new sprites a frame at 4×, each a fresh canvas and ~40 path fills, 1.2 ms each under the throttle; and the cache
+cleared itself completely at 400, rebuilding the whole room in one frame), the badges and name tags 0.5–1 (text and
+discs every frame). JS per frame was 2 ms; the rest was raster.
+
+### What changed (`canvas/stamps.ts`, `canvas/RestaurantView.ts`, `canvas/scene.ts`)
+
+- **Stamps** (`StampCache`): small pictures drawn once and blitted — ImageBitmaps where the browser has them (~25%
+  quicker to blit than a canvas in software raster), sized in whole device pixels so they blit 1:1, LRU-capped at 480,
+  cleared on resize / layout / palette / decor change. `exact` stamps keep their quarter-pixel position (baked into
+  the bitmap) so a table top lands exactly on the cached table under it.
+  - an occupied table: top + menus or plates in one stamp (per table, stage, party size, decor); a dirty table: top +
+    crockery (clipped to the top, so the top's shadow isn't laid twice); the mood face (three per table size);
+  - **place settings now live in the cached scene** (`paintSettings`), covered by those stamps when a table is in use;
+  - the ticket card, its pin and its dots: one stamp per (table, age colour, plated dots, tilt), the tilt quantised to
+    0.2° steps (under 0.1 px at the card's corner) and drawn as before, then blitted upright; the plates on the pass;
+  - table-number badges (free / taken); staff name tags (measured once per name, not every frame);
+  - the burner glow: one gradient faded by the flicker (was a new gradient per burner per frame).
+- **People** (`PersonCache`): the same pictures as handson's `SpriteCache` (same `drawPerson`, box, key and 8-frame
+  walk), as ImageBitmaps, LRU (drops the oldest eighth at 900, never the whole room), and a **build budget** of three
+  new pictures a frame: past it, a walker shows its last drawn frame for that frame (16 ms) instead of the floor
+  stalling. handson's own `SpriteCache` (the hands-on kitchen) is unchanged.
+- Off-canvas walkers (arriving, or gone up the street) aren't drawn; at most 16 "+£" notes in the air; one customer
+  map per frame shared by the passes; `drawBeats` compacts in place; `label()` touches `letterSpacing` only for the
+  labels that use it; **one named dpr cap**, `MAX_CANVAS_DPR = 2` (`lib/perfMeter.ts`), used by `canvasDpr()` and
+  `RestaurantView.resize`.
+- Not changed: the static scene cache (it already held floors, walls, decor, the awning and the furniture, keyed on
+  layout, name, palette and decor), the evening light, the glow bands (a thick stroke is cheaper than a mostly-empty
+  bitmap of the same ring — measured), the patience rings, the scene blit.
+
+### Numbers (before / after; exact commands so they can be repeated)
+
+**Renderer alone** — `node scripts/perf-floor.mjs --bench --passes` (FP_PERF_RUNS=5, best of five, 4× CPU throttle,
+software raster; `FP_BENCH_ROOT=<checkout>/packages/game` for the other builds, with `floor-bench.html` and `src/dev/`
+copied in). Measured on a quiet machine (load 1–2); runs within ±10%. ms of canvas work per frame:
+
+| floor | Round 11b (`496776e`) | Round 12 (`7e5ad5a` + profile hook) | Round 13 A |
+|---|---|---|---|
+| 1024×768 (632×643, dpr 1) | 7.9 | 7.8 | **5.4** |
+| 390×844 (372×268, dpr 2) | 8.5 | 8.8 | **5.9** |
+
+Per pass, Round 12 → 13, same session (ms/frame): 1024 — tables 2.63 → 1.58, kitchen 1.06 → 0.88, overlay (badges)
+0.35 → 0.22; 390 — tables 3.39 → 1.50, kitchen 1.64 → 1.02, overlay 0.76 → 0.28; scene, glows, staff, people and
+beats within noise. In the app at 4× (`--passes`, where guests keep arriving) the people pass was up to 3.5 on Round 12,
+2.7 of it sprite builds (2.24 builds a frame); PersonCache's budget caps that at three builds a frame.
+
+**In the app** — `node scripts/perf-floor.mjs` (R12.8's method: 4× CPU throttle; FP_PERF_RUNS=1, three rounds
+interleaved 11b → 12 → 13; `FP_DIST=<build>`), quiet machine. Means of three; 5 s windows from 12:40 (≈280 frames at
+60 fps):
+
+| | frames > 20 ms | vsyncs missed | JS / frame |
+|---|---|---|---|
+| 1024×768, service 4× — 11b | 77 | 103 | 4.2 ms |
+| 1024×768, service 4× — R12 | 82 | 111 | 4.8 ms |
+| 1024×768, service 4× — **R13** | **65** | **85** | 4.1 ms |
+| 390×844, service 4× — 11b | 59 | 72 | 2.4 ms |
+| 390×844, service 4× — R12 | 71 | 87 | 3.2 ms |
+| 390×844, service 4× — **R13** | **59** | **76** | 3.5 ms |
+| 1024×768, service 1× — 11b / R12 / **R13** | 30 / 21 / **13** | 34 / 25 / **14** | |
+| 390×844, service 1× — 11b / R12 / **R13** | 27 / 34 / **19** | 30 / 37 / **20** | |
+
+So 4× is back to Round 11b's level (1024: better; 390: equal), and 1× is better than both. Single runs swing ±25%
+(one R13 1024 run had 86): compare means or the bench. (Earlier in the round, with five other builders on this 2-core
+machine at load 11–29, all three builds saturated at the 4× throttle and only a 3× throttle separated them — same
+order: R13 ≤ 11b < R12.) Unthrottled, the playtest below saw 0 frames over 20 ms in every window.
+
+**Bundle**: main `index` 165.64 → 167.57 kB (+1.9: the slow-frame watch, the toast link, the Settings opener); the
+lazy `RestaurantView` chunk 42.18 → 46.83 kB; `SettingsBody` 6.39 kB; main CSS 145.56 → 146.20 kB.
+
+### Paused frame, before and after (Animations on)
+
+`perf-floor.mjs --bench --shots` draws two fixed states (`still(200)`: 14:50 at 4×; `still(40)`) at a fixed time on
+both builds; `scratchpad/shots/r13/A/bench-{r12,new}/` and the ×4-amplified differences `bench-diff-*.png`,
+`zoom-compare-lunch.png`. Mean difference 0.09–0.12 / 255 per channel; 0.35–0.5% of pixels differ by more than 8, 0.04–0.08% by more than 32; the differing pixels are anti-aliased edges: name tags and
+badges a fraction of a pixel apart (snapped to device pixels, as the sprites always were), the ticket cards' tilt
+(quantised), table rims (a disc drawn over its own cached copy). Side by side at 3× nothing reads differently.
+
+### Easing off on a struggling device (`lib/floorLoad.ts`, `screens/Service.tsx`)
+
+Service feeds every rAF time to `createFloorLoad()`. If more than 30% of the last 90 frames took over 20 ms, for 3 s on
+end, the floor switches to `juice: "lite"` for the rest of that service: one steam wisp instead of three, no sizzle,
+no steam on the pass, no breathing. Movement, the queue, the paid coin, the five-star glow and every number are as
+before; the sim never knows (ticks follow elapsed time, not frames). Paused time, an open sheet, reduced motion and
+gaps over 250 ms (a tab switch) don't count. It doesn't switch back mid-service (no flicker); the next service starts
+full. The first time on a device, a toast says so — "This device was struggling to keep up, so the floor's small
+effects are eased off for now. Animations in Settings turns them off altogether." — with a **Settings** button that
+opens the sheet with the Animations switch focused (`openSettingsAt("animations")` in `components/Settings.tsx`: an
+`fp:open-settings` event the header's gear answers; with no gear mounted it clicks the Settings button and focuses
+the row). A toast with a link stays 9 s. Remembered in localStorage `full-plate:floor-eased-note` (try/catch: blocked
+storage just says it again next time). No new Settings row: Animations off already removes all of it.
+
+### One stacking scale (R12.11 item 4; `theme.css`, the marked block at the end)
+
+`--z-raised 1 · --z-onboard 3 · --z-dock 6 · --z-tabbar 8 · --z-header 10 · --z-tip 30 · --z-popover 40 · --z-modal 50 ·
+--z-toast 60 · --z-tip-phone 70`, and the rules that had numbers now use them. The rule: the page's own bars sit low;
+the header — and therefore everything that opens from it (glossary tips in the header, a phone's tip card along the
+bottom, Settings, the save mark, B's ⋯ sheet) — sits above them; then floating bits, the dialog backdrop, the toast.
+Before, the header was 5 and the dock 6, so a header tip card on a phone went under the dock and the tab bar; R12
+patched only "a header dialog is open". `phone.css` and `visit.css` keep their numbers (B's and G's files; they
+match the scale: 8, 60, 70, 40) — switch them to the tokens when next in there. Checked at all five probe viewports:
+a fixed box inside the header is on top at the dock's button and the tab bar (playtest below).
+
+### The probe and what's behind a modal (R12-F8; `scripts/probe.mjs`)
+
+With a modal open (`aria-modal="true"` on its backdrop) only the top modal is measured; the page behind it — and
+anything `inert` or `aria-hidden` — counts for no target, text, contrast or term. Re-baselined (`scripts/probe-baseline.json`), every change explained by
+re-running the Round 12 probe on the same build: **targets<44 / term −83 per run (−84 on 390×844)** = the Menu tab's
+71 terms behind the invent sheet + 8 behind the board meeting + 3 behind the fork card + 1 behind the brand kit;
+**targets<24 −79**; **contrast −2 (−3 on phones)**: the dimmed ★ behind the shift-scorecard and career-evening dialogs;
+**underBar −1/−2**: bars behind modals.
+
+The same commit fixes how canvas text is measured (`harness.mjs canvasProbe`, shared with the type audit): text drawn
+into an offscreen surface (a cached layer, a stamp) is now recorded where it is blitted, at every scale on the way.
+It used to be assumed 1:1 at the page's dpr, which missed a floor canvas the phone layout shrinks (to 12.9 px) and would
+have missed every stamp. **canvasText<13 on phones +19 to +31** — measured the same on the Round 12 build with the
+fixed probe (129 / 86 there vs 117–141 / 70–92 here): a correction, not a change in the floor. Phone live floors move
+±12 run to run on that metric, so it gets a slack of 20 (as contrastLive has 3). The header's new z-index moved no
+count (per-screen diff: only the live `21-service-4x` frame differs, both ways, as in R12).
+
+### Probe and audits in CI (`.github/workflows/ui-checks.yml`)
+
+On every pull request and push to master: frozen install, build, Playwright 1.63.0 (exact, `--ignore-scripts`, outside
+the workspace so the lockfile is untouched; the harness finds it via `PLAYWRIGHT_PATH`) with its Chromium, then
+`probe`, `audit`, `audit:large`; the probe's report and screenshots are uploaded if it fails. `permissions: {}` with
+`contents: read` for the one job; every action SHA-pinned with its tag; the pipeline test covers it. **Not blocking**:
+`pages.yml` doesn't wait for it. To make it blocking once it has run green: require the `ui-checks` status check in
+the branch protection rule for master (Settings › Branches); to gate the deploy too, move the job into `pages.yml`
+and add `needs: ui-checks` to `build`.
+
+### Left out, and why
+
+- **Dirty-rect drawing.** At 4× nearly every region of the floor changes every frame (walkers, steam, the ticket
+  sway, patience rings), so tracking dirty rectangles would cost more than the one full blit of the cached scene
+  (0.2 ms unthrottled).
+- **A second canvas for the static scene.** In software compositing, a transparent live canvas over an opaque one is
+  composited every frame anyway, and the live one then needs a full clear — no saving over one blit.
+- **The DOM side of the service screen** (React re-rendering the panel each tick, the ticker slide-ins, the rush tint):
+  the traces show it costs about the same as Round 11b's, so it isn't the regression; it is the next place to look.
+- **handson's SpriteCache** (the hands-on kitchen) still uses canvases and clear-all-at-400: C's package this round.
+- **Glow bands and patience rings** as stamps: measured slower than the strokes.
+- A Settings switch for the easing-off: Animations already turns everything off, and on a device that isn't
+  struggling it never engages.
+
+### Checks
+
+- Tests: workspace 1,368 → **1,390** (game 640 → 662: `round13.perf.test.tsx` 18, the pipeline test +4; nothing
+  deleted). `round11.fit.test.tsx` gets an `afterAll` that awaits Service's lazy imports: on a busy machine they could
+  land after vitest tore the environment down (EnvironmentTeardownError, failing `pnpm -r test`; reproduced on master).
+  Typecheck clean.
+- Headless balance, 200 seeds × 365 days, normal: typical 90.0 % / cheap 68.0 % / nohire 0 % (no sim file touched).
+- Type audit normal and Bigger: 129 screens each, 0 text under 13 px (DOM and canvas), 0 errors, within baseline.
+- Probe: re-baselined as above; a fresh run on the final build (quiet machine) is **within the new baseline** (phone canvasText 112 / 77 / 117 / 72 against 117 / 70 / 113 / 72 + slack 20).
+- Playtest (built dist under `vite preview` on 127.0.0.1, Chromium, touch, quiet machine; shots in
+  `scratchpad/shots/r13/A/`): owner save, days 1–2 at 4× at 1024×768 and 390×844, `?perf=1`, three 5 s windows per
+  service (12:20, 15:40, 19:00): median 16.7 ms, p95 16.7–16.8, **0 frames over 20 ms in all twelve windows**, juice
+  stayed "full"; evenings and next mornings reached (`01`–`14`). Fallback: an 8× CPU throttle at 1× → "lite" after
+  8.5 s, the toast with its Settings button (`15-fallback-toast`), tapped → the sheet open with the Animations switch
+  focused (`16-…`); after a reload the note key is set. Stacking at all five probe viewports, Round 12 vs 13
+  (`22-…`–`31-…`; `old/` holds the first, loaded-machine playtest): a fixed box inside the header was under the action dock (and the phone tab bar) on Round 12
+  everywhere, on top on Round 13 everywhere. 0 page errors, 0 console errors.
+- Seen in passing, not mine: on a 390×844 phone the incident toast over the floor is very narrow (one or two words a
+  line, `old/12-390x844-day2-mid-service`) — `.toast-region--stage` max-width with the phone floor; B's phone pass.
