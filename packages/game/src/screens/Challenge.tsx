@@ -2,7 +2,7 @@
  * Round 12 (C): "Today's challenge" — the intro screen (today's scenario, carry on / start, your bests) and the bar
  * shown above the game while a challenge runs (goal, day of five, autosave to the challenge's own save). Lazy chunk.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
 import { Term } from "../components/Term";
@@ -10,24 +10,26 @@ import { ConfirmDialog } from "../components/Dialog";
 import { content } from "../sim";
 import { CHALLENGE_DAYS, type PathMeta } from "../state/paths";
 import {
-  bestFor, buildChallenge, clearRun, encodeScore, goalOf, loadRun, peekRun, prettyCode, prettyDate, saveRun, scenarioFor,
-  TEMPLATES, todayKey, topBests, type StoredRun, type TemplateId,
+  bestFor, buildChallenge, CHALLENGE_VERSION, clearRun, encodeScore, goalOf, loadRun, peekRun, prettyCode, prettyDate, saveRun, scenarioFor,
+  templateOf, TEMPLATES, todayKey, topBests, type StoredRun, type TemplateId,
 } from "../lib/challenge";
 import "./challenge.css";
 import { defaultBrand, lettering, logoDataUrl } from "../lib/brand";
 
-/** What each template asks, before the restaurant is built (the exact number comes with it). */
-export const GOAL_HINT: Record<TemplateId, string> = {
-  rescue: "Stop the money leaking: finish the five days in profit.",
-  rush: "Serve a fifth more guests than last week.",
-  inspector: "Cook so well every night that the inspector's night scores 4.4★ or more. You won't know which night it is.",
-  walkout: "Rehire, then serve nearly as many guests as before the walkout.",
-  rival: "Win the street back: popularity up by three by the last night.",
-  festival: "Big weekend: a quarter more takings than a normal week, with half the team off at the weekend.",
+/** What each template asks, before the restaurant is built (the exact numbers come with it). */
+export const GOAL_HINT: Record<TemplateId, ReactNode> = {
+  rescue: <>Stop the money leaking: do at least £50 better than the last five days (profit is <Term id="takings" inline>takings</Term> less every cost). Money borrowed doesn't count.</>,
+  rush: <>Half as many people again are heading your way. Serve 15% more guests than last week.</>,
+  inspector: <>On night 4 or 5 (you won't know which) an inspector eats here. They want a busy room and good stars, like that night last week.</>,
+  walkout: <>Rehire, then serve nearly as many guests as before the walkout.</>,
+  rival: <>Prices went up and the rival's pulling people away. Keep the guests coming without your <Term id="popularity" inline>popularity</Term> sliding.</>,
+  festival: <>The streets are full Thursday to Monday, and half the team booked the weekend off. Take a tenth more than a normal five days.</>,
 };
 
 interface Props {
   onBack: () => void;
+  /** Round 14: "Back to <restaurant>" when she came here from inside a game (App returns her to it). */
+  backLabel?: string;
   onPlay: (game: GameState, meta: PathMeta) => void;
 }
 
@@ -43,7 +45,7 @@ function ChallengeBrand({ name }: { name: string }) {
   );
 }
 
-export function Challenge({ onBack, onPlay }: Props) {
+export function Challenge({ onBack, onPlay, backLabel = "Back" }: Props) {
   const today = todayKey();
   const sc = scenarioFor(today);
   const [run, setRun] = useState<StoredRun | null>(() => peekRun());
@@ -84,7 +86,7 @@ export function Challenge({ onBack, onPlay }: Props) {
   return (
     <div className="page challenge">
       <div className="challenge__head">
-        <button className="btn btn--ghost btn--tap" onClick={onBack}><Icon name="back" size={20} />Back</button>
+        <button className="btn btn--ghost btn--tap" onClick={onBack}><Icon name="back" size={20} />{backLabel}</button>
         <h1>Today's challenge</h1>
       </div>
       <div className="challenge__grid">
@@ -122,7 +124,7 @@ export function Challenge({ onBack, onPlay }: Props) {
           )}
           {best && (
             <p className="challenge__best">
-              Your best today: <b>{best.score.toLocaleString("en-GB")}</b> · code <span className="challenge__code challenge__code--sm">{prettyCode(encodeScore(best.date, best.score))}</span>
+              Your best today: <b>{best.score.toLocaleString("en-GB")}</b>{best.fp !== undefined && <> · code <span className="challenge__code challenge__code--sm">{prettyCode(encodeScore(best.date, best.score, best.fp))}</span></>}
             </p>
           )}
         </section>
@@ -163,7 +165,7 @@ export function Challenge({ onBack, onPlay }: Props) {
  */
 export function ChallengeHud({ game, meta }: { game: GameState; meta: PathMeta }) {
   const c = meta.challenge!;
-  const sc = scenarioFor(c.date);
+  const sc = scenarioFor(c.date, templateOf(c));
   const goal = goalOf(game, c);
   const dayOf = Math.min(CHALLENGE_DAYS, game.day - c.startDay + 1);
   const last = game.day >= c.startDay + CHALLENGE_DAYS - 1 && (game.phase === "evening" || game.phase === "event");

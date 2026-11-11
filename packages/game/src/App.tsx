@@ -209,6 +209,22 @@ export function App() {
   };
   // Round 12 (C): a daily challenge plays in the normal game view, saved in its own place (never a slot).
   const [chOver, setChOver] = useState(false);
+  // Round 14 (D): today's challenge opened from inside a game (Settings' game menu): the game is saved first, and
+  // leaving the challenge (Back, or the score screen's button) opens it again.
+  const [chReturn, setChReturn] = useState<string | null>(null);
+  const openChallengeFromGame = async () => {
+    const back = slotId;
+    if (back && game) { await store.save(back, game, meta).catch(() => "none"); await store.flush(back).catch(() => "none"); }
+    quitToTitle();
+    setChReturn(back);
+    setShell({ view: "challenge" });
+  };
+  const leaveChallenge = () => {
+    const back = chReturn;
+    setChReturn(null);
+    if (back) { quitToTitle(); void continueSlot(back); } else quitToTitle();
+  };
+  const returnName = chReturn ? slots.find((x) => x.slotId === chReturn)?.restaurantName : undefined;
   const playChallenge = (g: GameState, m: PathMeta) => {
     noteSlot(null); setSlotId(null); setChOver(false); setPlanTab("menu");
     dispatch({ type: "load", game: g, meta: m });
@@ -246,7 +262,7 @@ export function App() {
           {...(slots.length || status.cloud !== "waiting" ? { saveNote: saveNote(status) } : {})}
           onNew={newGame}
           onYourGames={() => { setTitleNote(null); setPicker("browse"); }}
-          onChallenge={() => { setTitleNote(null); setShell({ view: "challenge" }); }}
+          onChallenge={() => { setTitleNote(null); setChReturn(null); setShell({ view: "challenge" }); }}
           onContinue={() => { const s0 = slots.find((x) => !x.archived); if (s0) void continueSlot(s0.slotId); }}
           onVisit={() => setShell({ view: "friend" })}
         />
@@ -269,7 +285,7 @@ export function App() {
   }
 
   if (shell.view === "challenge") {
-    return <Suspense fallback={<Loading />}><Challenge onBack={() => setShell({ view: "title" })} onPlay={playChallenge} /></Suspense>;
+    return <Suspense fallback={<Loading />}><Challenge onBack={chReturn ? leaveChallenge : () => setShell({ view: "title" })} {...(chReturn ? { backLabel: `Back to ${returnName ?? "your game"}` } : {})} onPlay={playChallenge} /></Suspense>;
   }
   if (shell.view === "friend") return <Suspense fallback={<Loading />}><VisitFriend onBack={() => setShell({ view: "title" })} /></Suspense>;
 
@@ -304,7 +320,7 @@ export function App() {
   if (!game) return null;
 
   if (meta.challenge && (chOver || game.phase === "gameover")) {
-    return <Suspense fallback={<Loading />}><ChallengeScore game={game} meta={meta} onAgain={() => { quitToTitle(); setShell({ view: "challenge" }); }} onTitle={quitToTitle} /></Suspense>;
+    return <Suspense fallback={<Loading />}><ChallengeScore game={game} meta={meta} onAgain={() => { quitToTitle(); setShell({ view: "challenge" }); }} onTitle={leaveChallenge} {...(chReturn ? { titleLabel: `Back to ${returnName ?? "your game"}` } : {})} /></Suspense>;
   }
 
   if (meta.win && !meta.win.dismissed) {
@@ -360,11 +376,12 @@ export function App() {
       <StatusBar
         game={game}
         meta={meta}
-        onQuit={inService ? undefined : quitToTitle}
+        onQuit={inService ? undefined : meta.challenge && chReturn ? leaveChallenge : quitToTitle}
         onNewGame={inService ? undefined : () => { quitToTitle(); setPicker("new"); }}
         onSave={slotId ? async () => { await store.save(slotId, game, meta); return store.flush(slotId); } : undefined}
         onSaveFile={slotId ? saveFile : undefined}
         saveMark={slotId ? <SaveIndicator slotId={slotId} store={store} /> : undefined}
+        onChallenge={inService || meta.challenge || !slotId ? undefined : () => void openChallengeFromGame()}
       />
       {meta.challenge && <Suspense fallback={null}><ChallengeHud game={game} meta={meta} /></Suspense>}
       <main className={`screen ${inService ? "screen--fixed" : ""}`}>
