@@ -27,7 +27,7 @@ import { content, newGame } from "../../sim";
 import { cleanLabel } from "../../state/share";
 import { emoteOf, END_WHYS, type Emote, type EmoteId, type EndWhy, type LiveRole } from "./protocol";
 export type { EndWhy, LiveDoc, LiveRole } from "./protocol";
-export { checkLive } from "./protocol";
+export { checkLive, newNonce } from "./protocol";
 import { sha256Hex } from "./sha256";
 
 // ───────────────────────── vocabulary ─────────────────────────
@@ -69,13 +69,6 @@ const num = (v: unknown, lo: number, hi: number, d = lo): number => (typeof v ==
 const isId = (v: unknown): v is string => typeof v === "string" && ID.test(v);
 /** An index into a list of `n`, or -1 (out of range is refused, not clamped). */
 const idx = (v: unknown, n: number): number => (typeof v === "number" && Number.isInteger(v) && v >= 0 && v < n ? v : -1);
-
-export function newNonce(rand: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
-  const A = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let out = "";
-  while (out.length < 24) for (const b of rand(32)) { if (b < 252 && out.length < 24) out += A[b % 36]; }
-  return out;
-}
 
 /** The named room for a session: from the code AND the nonce, so an old code never opens a new session's room. */
 export const roomName = (code: string, nonce: string): string => `fp-${sha256Hex(`fp-room|${code}|${nonce}`).slice(0, 28)}`;

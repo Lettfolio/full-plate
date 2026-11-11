@@ -71,3 +71,24 @@
 .coopguest__toggle[aria-pressed="true"] { background: var(--basil-wash); border-color: var(--basil); }
 .coopguest__toggle[aria-pressed="false"] { color: var(--ink-soft); text-decoration: line-through; }
 .coopguest__send { flex-wrap: wrap; }
+
+/* ── Round 13 (F): the live co-op shift ── */
+/* the guest's shift fills the window, as the host's does inside the app */
+.cooplive { position: fixed; inset: 0; z-index: 60; background: var(--surface-page, var(--cream)); }
+.cooplive .handson { height: 100%; }
+.cooplive__card { max-width: 560px; }
+/* the partner (drawn on its own canvas over the stage) and the co-op HUD: top right under the score box, over the
+   office (nobody's station), clear of the ticket rail, the hint line and the USE pad */
+.cooplive__partner { position: absolute; left: 0; top: 0; pointer-events: none; }
+.cooplive__hud { position: absolute; right: 10px; top: 92px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: min(340px, 45%); pointer-events: none; z-index: 2; }
+.cooplive__hud > * { pointer-events: auto; }
+.cooplive__link, .cooplive__note, .cooplive__heard { margin: 0; background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--r-sm); padding: 5px 12px; box-shadow: var(--shadow); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cooplive__note { border-color: var(--amber); background: var(--amber-wash); }
+.cooplive__act { margin-left: 4px; }
+.cooplive__glyph { font-size: 22px; line-height: 1; }
+.cooplive__emotes { display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; align-items: center; gap: 6px; }
+.cooplive__emotes .emotes { background: var(--paper); border: 1.5px solid var(--line); border-radius: 999px; padding: 4px; box-shadow: var(--shadow); }
+.cooplive__emotebtn { gap: 6px; box-shadow: var(--shadow); }
+.cooparm { background: var(--sky-wash, var(--paper)); border: 1px solid var(--sky); border-radius: var(--r-sm); padding: 10px; }
+.cooparm__roles { display: flex; flex-wrap: wrap; gap: 6px; }
+.cooparm__roles .btn[aria-pressed="true"] { background: var(--basil); border-color: var(--basil-deep); color: #fff; }

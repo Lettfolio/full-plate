@@ -129,6 +129,10 @@
   /* R12 review: the evening's best/worst dish pair goes one over the other — two 1fr columns took the longest word as
      their minimum, so a "Cheeseburger" pushed the page 9–32 px sideways (seen in the review's phone playtest) */
   html .dishpair { grid-template-columns: minmax(0, 1fr); }
+
+  /* R13-F: the live co-op HUD over the hands-on stage takes the full width under the stage's corner pad */
+  html .cooplive__hud { left: 6px; right: 6px; top: auto; bottom: 6px; max-width: none; align-items: flex-start; }
+  html .cooparm__roles .btn { flex: 1 1 100%; }
 }
 
 /* A phone held sideways: very little height, plenty of width. */
@@ -167,4 +171,7 @@
   html .modal-back { padding: 8px; }
   html .modal { max-height: calc(100dvh - 16px); overflow-y: auto; }
   html .gameover { padding: 16px; }
+
+  /* R13-F: the live co-op HUD: one compact column in the short stage */
+  html .cooplive__hud { top: 4px; right: 4px; gap: 4px; max-width: min(300px, 40%); }
 }

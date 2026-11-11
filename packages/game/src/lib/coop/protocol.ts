@@ -93,6 +93,13 @@ export interface LiveDoc {
   why?: EndWhy;
 }
 const NONCE_RE = /^[a-z0-9]{24}$/;
+/** 24 characters of [a-z0-9] (≈124 bits) by crypto.getRandomValues with rejection sampling. */
+export function newNonce(rand: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+  const A = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  while (out.length < 24) for (const b of rand(32)) { if (b < 252 && out.length < 24) out += A[b % 36]; }
+  return out;
+}
 export function checkLive(v: unknown): LiveDoc | null {
   const o = obj(v);
   if (typeof o.nonce !== "string" || !NONCE_RE.test(o.nonce)) return null;

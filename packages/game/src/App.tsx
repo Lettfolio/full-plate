@@ -59,7 +59,9 @@ const EventModal = lazy(() => loadEvent().then((m) => ({ default: m.EventModal }
 // Round 12 (G): Visit a friend (a shared restaurant or a co-op day), and the host's co-op panel.
 const VisitFriend = lazy(() => loadFriends().then((m) => ({ default: m.VisitFriend })));
 const CoopShiftDock = lazy(() => loadFriends().then((m) => ({ default: m.CoopShiftDock })));
-import { loadFriends, useHostOn } from "./lib/coop/flag";
+import { loadFriends, tapReducer, useCoopRemote, useHostOn } from "./lib/coop/flag";
+/** R13-F: the app reducer, logged while a live co-op shift is on (lib/coop/flag.ts `coopTap`). */
+const reducer = tapReducer(appReducer);
 /** Warm the new-game screens' chunks once the title has painted (a tablet shouldn't wait on "New game"). */
 function prefetchStartScreens(): void {
   const go = () => { void loadStart().catch(() => {}); void loadNewGame().catch(() => {}); };
@@ -97,9 +99,10 @@ export function randomSeed(): number {
 }
 
 export function App() {
-  const [app, dispatch] = useReducer(appReducer, initialAppState);
+  const [app, dispatch] = useReducer(reducer, initialAppState);
   const [shell, setShell] = useState<Shell>({ view: "title" });
   const coop = useHostOn();
+  const coopRemote = useCoopRemote(); // R13-F
   const game = app.game;
   const meta = app.meta;
 
@@ -404,6 +407,7 @@ export function App() {
             onSkip={() => dispatch({ type: "skipShift" })}
             onDone={setLastShift}
             onScore={reportScore}
+            {...(coopRemote ? { remote: coopRemote } : {})}
           />
         )}
         {inService && !meta.handsOn && (
@@ -469,7 +473,7 @@ export function App() {
         {chapter > 0 && <ChapterCard game={game} n={chapter} chapters={Math.floor(forkDayOf(meta) / CHAPTER_DAYS)} onClose={() => dispatch({ type: "chapterSeen", n: chapter })} />}
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
-      {coop && !career && <Suspense fallback={null}><CoopShiftDock game={game} send={send} /></Suspense>}
+      {coop && !career && <Suspense fallback={null}><CoopShiftDock game={game} send={send} live={{ handsOn: meta.handsOn?.role ?? null, jumpIn: (role) => dispatch({ type: "handsOnStart", meta: { role, jumpIn: true } }), sendResults }} /></Suspense>}
       <Toast toast={app.toast} onDismiss={dismissToast} />
       <WordsSheet />
     </div>

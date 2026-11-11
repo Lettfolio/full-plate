@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
   botInput, createInputSource, createSession, hitTest, padToMin, railSlotRect, railTagRect, readPalette, render, shiftTempo, stationRect, summarise,
@@ -55,6 +55,16 @@ interface Props {
   onDone: (summary: ShiftSummary) => void;
   /** The running score, reported just before each sim tick (so the evening's career step sees the shift). */
   onScore?: (summary: ShiftSummary) => void;
+  /** Round 13 (F): a live co-op partner (screens/CoopLive.tsx). Absent: the shift is exactly as before. */
+  remote?: HandsOnRemote;
+}
+
+/** Round 13 (F): what a live co-op shift hooks into the loop — where you are each frame, and a layer over the stage. */
+export interface HandsOnRemote {
+  /** Every frame, after the session steps (co-op publishes where you are). */
+  onFrame(session: HandsOnSession): void;
+  /** Drawn over the stage: your partner, the link, the emotes. */
+  layer(stage: { width: number; height: number }): ReactNode;
 }
 
 const ROLE_LABEL: Record<HandsOnRole, string> = { chef: "On the pass", server: "On the floor", bar: "Behind the bar" };
@@ -82,11 +92,11 @@ export function onboardTargetRect(step: OnboardStep, session: HandsOnSession, vi
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
  * its results into PLAYER_* commands, advances the sim at its own pace and draws. Mirrors handson/demo/main.ts.
  */
-export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
+export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore, remote }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const live = useRef({ game, runTicks, sendResults, onScore });
-  live.current = { game, runTicks, sendResults, onScore };
+  const live = useRef({ game, runTicks, sendResults, onScore, remote });
+  live.current = { game, runTicks, sendResults, onScore, remote };
   const sessionRef = useRef<HandsOnSession | null>(null);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(paused);
@@ -174,6 +184,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
         width: rect.width, height: rect.height, dpr: canvasDpr(), keyLabel: touchRef.current ? "USE" : "E", palette, reducedMotion: prefersReducedMotion(),
       });
       if (perf) { perf.end(performance.now()); ctx.setTransform(canvasDpr(), 0, 0, canvasDpr(), 0, 0); perf.draw(ctx, 6, rect.height - 26); }
+      L.remote?.onFrame(sessionRef.current!);
       if (now - lastHud > 500) { lastHud = now; force((x) => x + 1); }
       raf = requestAnimationFrame(frame);
     };
@@ -282,6 +293,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
             >USE</button>
           </div>
         )}
+        {remote?.layer(stage)}
         {step && (
           <div className="onboard" role="dialog" aria-modal="false" aria-labelledby="onboard-title">
             {spot && <div className="onboard__spot" style={{ left: spot.x, top: spot.y, width: spot.w, height: spot.h }} aria-hidden="true" />}
