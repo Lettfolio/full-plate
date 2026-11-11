@@ -134,10 +134,10 @@ export function App() {
   const slotRef = useRef(slotId);
   slotRef.current = slotId;
   // R14 (C, U2): "A new version is ready — Reload" saves the game being played first.
-  const live = useRef({ slotId, game, meta });
-  live.current = { slotId, game, meta };
+  const playing = useRef({ slotId, game, meta });
+  playing.current = { slotId, game, meta };
   useEffect(() => {
-    setSaveBeforeReload(async () => { const l = live.current; if (l.slotId && l.game) { await store.save(l.slotId, l.game, l.meta); await store.flush(l.slotId); } });
+    setSaveBeforeReload(async () => { const l = playing.current; if (l.slotId && l.game) { await store.save(l.slotId, l.game, l.meta); await store.flush(l.slotId); } });
     return () => setSaveBeforeReload(null);
   }, [store]);
 
