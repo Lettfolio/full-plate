@@ -154,3 +154,27 @@ describe("S14-5: 'Use it' shows every change and applies only what was shown", (
     expect(sent).toHaveLength(all.length);
   });
 });
+
+describe("R13-N2: the live guest reads the how-to in the lobby, not on the host's clock", () => {
+  it("the lobby offers the steps before the doors open", async () => {
+    phone(false);
+    const { CoopShiftGuest } = await import("../screens/CoopShiftGuest");
+    const db = new MemDb();
+    const code = "ABCDEFGHJK";
+    setRoomForTests(async () => ({
+      join: async (name: string) => ({
+        name, emit: async () => {}, on: () => () => {}, presence: async () => {},
+        peers: () => [{ peer: "me", by: null, isMe: true, sameTab: true, kind: "viewer" as const, presence: {}, updatedAt: 0 }],
+        onPeers: () => () => {}, connected: () => true, onConnection: () => () => {}, leave: async () => {},
+      }),
+    }));
+    const game = planningGame();
+    const first = hostDoc({ nick: "Ali", createdAt: Date.now(), board: { day: game.day, restaurant: "Chez Live", menu: game.menu.map((m) => ({ dishId: m.dishId, price: m.price, active: m.active })), staff: [] }, live: { nonce: "n".repeat(24), guestRole: "server", state: "ready", day: game.day, at: 1 } });
+    await db.doc(hostPath(code)).set(first as unknown as Record<string, unknown>);
+    const writer = new DocWriter(db, guestPath(code), guestDoc({ nick: "Sam", joinedAt: Date.now() }));
+    render(<CoopShiftGuest db={db} code={code} first={first} writer={writer} onExit={() => {}} />);
+    await flush();
+    expect(await screen.findByText("How the shift works", undefined, { timeout: 8000 })).toBeTruthy();
+    expect(screen.getByText(/Pick up the food/)).toBeTruthy();
+  });
+});

@@ -141,7 +141,7 @@ try {
     await b.getByRole("button", { name: "Back to the co-op day" }).click();
     check(await until(async () => /Tonight at/.test(await text(b, ".coopguest")), 15000), "guest sees the evening numbers (Round 12 card)");
     if (i < nights.length - 1) {
-      const next = a.getByRole("button", { name: /Next day|Tomorrow/ }).first();
+      const next = a.getByRole("button", { name: /Next day|Tomorrow|morning post/ }).first();
       await next.click();
       const ev = a.locator(".modal .btn").first(); if (await ev.count()) await ev.click().catch(() => {});
       await a.waitForTimeout(1200);

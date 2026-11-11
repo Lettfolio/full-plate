@@ -62,15 +62,21 @@ export function phoneSpot(doc: Document = document, dockWidth = 352): PhoneSpot 
 }
 function usePhoneSpot(): PhoneSpot | null {
   const [spot, setSpot] = useState<PhoneSpot | null>(() => (typeof document === "undefined" ? null : phoneSpot()));
+  const [phone, setPhone] = useState(phoneNow);
   useEffect(() => {
-    let raf = 0;
-    const read = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => setSpot((old) => { const n = phoneSpot(); return JSON.stringify(n) === JSON.stringify(old) ? old : n; })); };
-    read();
-    const t = setInterval(read, 400);
-    addEventListener("resize", read);
-    addEventListener("scroll", read, { passive: true });
-    return () => { clearInterval(t); cancelAnimationFrame(raf); removeEventListener("resize", read); removeEventListener("scroll", read); };
+    const again = () => setPhone(phoneNow());
+    addEventListener("resize", again);
+    return () => removeEventListener("resize", again);
   }, []);
+  useEffect(() => {
+    const read = () => setSpot((old) => { const n = phoneSpot(); return JSON.stringify(n) === JSON.stringify(old) ? old : n; });
+    read();
+    if (!phone) return;
+    // the page's own bottom furniture moves (the sheet opens, a dock appears): follow it while on a phone
+    const t = setInterval(read, 400);
+    addEventListener("scroll", read, { passive: true });
+    return () => { clearInterval(t); removeEventListener("scroll", read); };
+  }, [phone]);
   return spot;
 }
 
