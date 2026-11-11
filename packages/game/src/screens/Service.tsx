@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import type { Command, CustomerId, GameState, Incident, TableId } from "@full-plate/sim-core";
 import { playerAvatar } from "@full-plate/sim-core";
@@ -22,13 +22,33 @@ import { clockLabel, WEEKDAY_NAMES, weekdayIndex } from "../lib/calendar";
 import { dishName, segmentName } from "../lib/content";
 import { coveringPhrase } from "../lib/staff";
 import { getSettings, setSettings, startSpeed, useSettings } from "../lib/settings";
-import { pointWord, useCoarsePointer } from "../lib/layout";
+import { pointWord, useCoarsePointer, usePhoneNarrow } from "../lib/layout";
+import type { FloorCamera } from "../lib/floorCamera";
 import { Term } from "../components/Term";
 import { TermText } from "../components/TermText";
 import { goalsQuiet } from "../lib/goals";
 import { DayRhythm } from "../components/DayRhythm";
 import { playSfx, setRush, type Sfx } from "../lib/sfx";
 import { CountUp } from "../lib/motion";
+
+/** Round 13 (B): the upright phone's service panel is a bottom sheet in one of three heights (remembered per device). */
+export type SheetState = "peek" | "half" | "full";
+export const SHEET_STATES: readonly SheetState[] = ["peek", "half", "full"];
+const SHEET_KEY = "full-plate:service-sheet:v1";
+export function readSheet(): SheetState {
+  try { const v = localStorage.getItem(SHEET_KEY); return v === "half" || v === "full" ? v : "peek"; } catch { return "peek"; }
+}
+function writeSheet(v: SheetState): void { try { localStorage.setItem(SHEET_KEY, v); } catch { /* private window: this visit only */ } }
+/** Round 13 (B): the next sheet height for a key on the handle (null: not ours). */
+export function sheetKey(state: SheetState, key: string): SheetState | null {
+  const i = SHEET_STATES.indexOf(state);
+  if (key === "ArrowUp" || key === "PageUp") return SHEET_STATES[Math.min(2, i + 1)]!;
+  if (key === "ArrowDown" || key === "PageDown") return SHEET_STATES[Math.max(0, i - 1)]!;
+  if (key === "Home") return "peek";
+  if (key === "End") return "full";
+  return null;
+}
+const SHEET_WORD: Record<SheetState, string> = { peek: "Show more", half: "Show all", full: "Show the floor" };
 
 /** Round 7: an hour of service in ticks (for the live summary's "this hour" trend). */
 export const HOUR_TICKS = Math.max(1, Math.round(60 / MINUTES_PER_TICK));
@@ -152,6 +172,25 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const [hoverTable, setHoverTable] = useState<TableId | null>(null);
   const [focusIncident, setFocusIncident] = useState<string | null>(null);
   const [settings] = useSettings();
+  // Round 13 (B): an upright phone gets the floor to itself, a bottom sheet for the panel and a floor camera.
+  const phone = usePhoneNarrow();
+  const [sheet, setSheetRaw] = useState<SheetState>(readSheet);
+  const setSheet = (v: SheetState) => { setSheetRaw(v); writeSheet(v); };
+  const floorRef = useRef<HTMLDivElement>(null);
+  const camRef = useRef<FloorCamera | null>(null);
+  const [viewReady, setViewReady] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const bodyId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const peekRef = useRef<HTMLDivElement>(null);
+  // the floor stops just above the sheet's peek, whatever its height (Bigger text, a career watch card)
+  useEffect(() => {
+    const peek = peekRef.current, root = rootRef.current;
+    if (!phone || !peek || !root || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => root.style.setProperty("--servsheet-peek", `${Math.ceil(peek.getBoundingClientRect().height)}px`));
+    ro.observe(peek);
+    return () => { ro.disconnect(); root.style.removeProperty("--servsheet-peek"); };
+  }, [phone]);
 
   const cards = useFadingIncidents(game.incidents);
   const liveIncidents = cards.filter((c) => !c.leaving).map((c) => c.inc);
@@ -174,8 +213,8 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   const career = app.meta.career;
   const mine = career ? playerAvatar(career.look ?? 0, career.role) : undefined;
   const playerLook = mine ? { id: PLAYER_ID, skin: mine.skin, hair: mine.hair } : undefined;
-  const live = useRef({ game, speed, selected, hoverTable, runTicks, highlight, playerLook });
-  live.current = { game, speed, selected, hoverTable, runTicks, highlight, playerLook };
+  const live = useRef({ game, speed, selected, hoverTable, runTicks, highlight, playerLook, phone });
+  live.current = { game, speed, selected, hoverTable, runTicks, highlight, playerLook, phone };
 
   // Incident alert: pause (1x/2x, if enabled) or a toast (4x). Fires once per INCIDENT_STARTED.
   const lastAlert = useRef(app.incidentAlert.seq);
@@ -207,7 +246,10 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     const stage = stageRef.current!;
     let view: RestaurantView | null = null;
     let disposed = false;
-    const fit = () => { const r = stage.getBoundingClientRect(); view?.resize(r.width, r.height, canvasDpr()); };
+    const fit = () => {
+      if (camRef.current) { camRef.current.fit(); return; }
+      const r = stage.getBoundingClientRect(); view?.resize(r.width, r.height, canvasDpr());
+    };
     const ro = new ResizeObserver(fit);
     ro.observe(stage);
     void loadRestaurantView().then((RV) => {
@@ -215,6 +257,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       view = new RV(canvas);
       viewRef.current = view;
       fit();
+      setViewReady(true);
     });
 
     // Round 12 (E): regulars and the food blogger are named guests on the owner's floor (a tag when tapped).
@@ -232,13 +275,33 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       carry = due.carry;
       last = now;
       if (due.n > 0) L.runTicks(due.n);
-      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() || !getSettings().animations, ...(names ? { guestNames: names(L.game) } : {}) });
+      view?.render(L.game, { content, ...(L.playerLook ? { playerLook: L.playerLook } : {}), speed: L.speed, selected: L.selected, hoverTable: L.hoverTable, highlight: L.highlight, now, reducedMotion: prefersReducedMotion() || !getSettings().animations, ...(names ? { guestNames: names(L.game) } : {}), ...(L.phone ? { density: "phone" as const } : {}) });
       if (perf && view) { perf.end(performance.now()); perf.draw(canvas.getContext("2d")!, 6, 6); }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => { disposed = true; cancelAnimationFrame(raf); ro.disconnect(); viewRef.current = null; };
   }, []);
+
+  // Round 13 (B): the phone floor's camera (lazy): attached on an upright phone, detached when the phone turns.
+  useEffect(() => {
+    const view = viewRef.current, scroller = floorRef.current, canvas = canvasRef.current;
+    if (!phone || !viewReady || !view || !scroller || !canvas) return;
+    let gone = false;
+    void import("../lib/floorCamera").then(({ createFloorCamera }) => {
+      if (gone) return;
+      camRef.current = createFloorCamera({ scroller, canvas, view, tableCount: () => live.current.game.tables.length, dpr: canvasDpr, onZoom: setZoom });
+      camRef.current.fit();
+    });
+    return () => {
+      gone = true;
+      camRef.current?.destroy(); camRef.current = null; setZoom(1);
+      const r = stageRef.current?.getBoundingClientRect();
+      if (r) viewRef.current?.resize(r.width, r.height, canvasDpr());
+    };
+  }, [phone, viewReady]);
+  // more tables bought mid-game make the phone room taller
+  useEffect(() => { camRef.current?.fit(); }, [game.tables.length]);
 
   // keyboard: space = pause/resume, 1/2/4 = speeds (not while a control has focus)
   useEffect(() => {
@@ -253,6 +316,10 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       } else if (e.key === "1") pickSpeed(1);
       else if (e.key === "2") pickSpeed(2);
       else if (e.key === "3" || e.key === "4") pickSpeed(4);
+      // Round 13 (B): the phone floor's zoom
+      else if (camRef.current && (e.key === "+" || e.key === "=")) camRef.current.zoomBy(1.25);
+      else if (camRef.current && (e.key === "-" || e.key === "_")) camRef.current.zoomBy(0.8);
+      else if (camRef.current && e.key === "0") camRef.current.reset();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -277,10 +344,12 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
   useEffect(() => { if (selected && !sel) setSelected(null); }, [selected, sel]);
 
   const toLocal = (e: React.MouseEvent) => {
+    if (camRef.current) return camRef.current.toLogical(e.clientX, e.clientY);
     const r = canvasRef.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
   const onClick = (e: React.MouseEvent) => {
+    if (camRef.current?.swallowClick()) return; // the end of a drag, not a tap
     const p = toLocal(e);
     const hit = viewRef.current?.pick(game, p.x, p.y);
     setSelected(hit?.customerId ?? null);
@@ -329,9 +398,52 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     .map((c) => ({ c, n: game.tables.findIndex((x) => x.id === c.tableId) + 1 }))
     .sort((a, b) => a.n - b.n);
 
+  const watchCard = watch ? (
+    <div className="card watchcard" role="status">
+              <div className="row">
+                <span aria-hidden="true">👀</span>
+                <b className="spacer">{watch.title}</b>
+              </div>
+              {watch.note && <div className="small muted">{watch.note}</div>}
+              <div className="row row--wrap" style={{ marginTop: 8 }}>
+                {watch.onPlay && <button className="btn btn--primary watchcard__play" onClick={watch.onPlay}>{watch.playLabel ?? "Play my shift"}</button>}
+                {onSkip && <button className="btn btn--sm" onClick={onSkip}>Skip to end of shift</button>}
+              </div>
+            </div>
+  ) : null;
+  const speedDeck = (
+    <div className="speeds speeds--deck" role="group" aria-label="Speed">
+              {SPEEDS.map((sp) => (
+                <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => pickSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
+                  <span className="speed__icon" aria-hidden="true"><Icon name={SPEED_ICON[sp]!} size={20} /></span>
+                  <span className="speed__word">{sp === 0 ? (speed === 0 ? "Paused" : "Pause") : `${sp}×`}</span>
+                </button>
+              ))}
+            </div>
+  );
+  // Round 13 (B): the peek's "one most urgent thing": the newest problem to answer, else that you're covering a job,
+  // else the clock and tonight's numbers.
+  const firstLive = liveIncidents[0];
+  const openIncident = (id: string) => {
+    if (sheet === "peek") setSheet("half");
+    window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-incident="${CSS.escape(id)}"] .incident__opt:not(:disabled)`)?.focus());
+  };
+  const urgent = firstLive ? (
+    <button type="button" className="servsheet__alert" onClick={() => openIncident(firstLive.id)}>
+      <Icon name="warning" size={20} /><span className="servsheet__alerttext">{firstLive.title}</span>
+      <span className="servsheet__alertgo">{liveIncidents.length > 1 ? `+${liveIncidents.length - 1} · ` : ""}Decide</span>
+    </button>
+  ) : covering.length > 0 ? (
+    <span className="servsheet__line servsheet__line--amber" role="status"><Icon name="warning" size={18} /><span>You're covering {coveringPhrase(covering)}</span></span>
+  ) : (
+    <span className="servsheet__line"><b>{clockLabel(game.tick)}</b>{rush && <span className="rushchip">Rush on</span>}<span>{covers} served</span>{walkouts > 0 && <span className="servsheet__bad">{walkouts} walked out</span>}</span>
+  );
+
   return (
-    <div className={`service ${rush ? "service--rush" : ""}`} data-rush={rush ? "1" : undefined}>
+    <div ref={rootRef} className={`service ${rush ? "service--rush" : ""}`} data-rush={rush ? "1" : undefined}>
       <div className="service__stage" ref={stageRef}>
+        {/* Round 13 (B): the canvas sits in a scroller: on an upright phone it pans and zooms there (lib/floorCamera) */}
+        <div className="service__floor" ref={floorRef} style={{ position: "absolute", inset: 0 }}>
         <canvas
           ref={canvasRef}
           onClick={onClick}
@@ -341,24 +453,35 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
           aria-label={`Restaurant floor: ${seatedParties} tables in use, ${queueing} people queueing outside. ${tap} a table to select it.`}
           role="img"
         />
+        </div>
         {speed === 0 && <div className="paused-badge">PAUSED</div>}
-      </div>
-
-      <aside className="service__side">
-        {!watch && <DayRhythm beat="service" weekday={WEEKDAY_NAMES[weekdayIndex(game.day)]!} compact />}
-        {watch && (
-          <div className="card watchcard" role="status">
-            <div className="row">
-              <span aria-hidden="true">👀</span>
-              <b className="spacer">{watch.title}</b>
-            </div>
-            {watch.note && <div className="small muted">{watch.note}</div>}
-            <div className="row row--wrap" style={{ marginTop: 8 }}>
-              {watch.onPlay && <button className="btn btn--primary watchcard__play" onClick={watch.onPlay}>{watch.playLabel ?? "Play my shift"}</button>}
-              {onSkip && <button className="btn btn--sm" onClick={onSkip}>Skip to end of shift</button>}
-            </div>
+        {phone && (
+          <div className="floorzoom" role="group" aria-label="Floor zoom">
+            <button type="button" className="mapbtn" aria-label="Zoom in on the floor" disabled={zoom >= 2.49} onClick={() => camRef.current?.zoomBy(1.4)}>+</button>
+            <button type="button" className="mapbtn" aria-label="Zoom out on the floor" disabled={zoom <= 1.01} onClick={() => camRef.current?.zoomBy(1 / 1.4)}>−</button>
+            {zoom > 1.01 && <button type="button" className="mapbtn" aria-label="Reset the floor view" onClick={() => camRef.current?.reset()}>
+              <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4M4 4l5 5M16 16l-5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            </button>}
           </div>
         )}
+      </div>
+
+      <aside className={`service__side ${phone ? "service__side--sheet" : ""}`} data-sheet={phone ? sheet : undefined} aria-label={phone ? "Service panel" : undefined}>
+        {phone && (
+          <div className="servsheet__peek" ref={peekRef}>
+            <SheetHandle state={sheet} onChange={setSheet} controls={bodyId} />
+            {watch ? watchCard : (
+              <div className="servsheet__urgent">
+                {urgent}
+                {onSkip && <button className="btn service__skip servsheet__skip" data-main-action aria-label="Skip to evening" onClick={onSkip}><Icon name="fastest" size={20} />Skip</button>}
+              </div>
+            )}
+            {speedDeck}
+          </div>
+        )}
+        <SheetBody phone={phone} hidden={phone && sheet === "peek"} id={bodyId}>
+        {!watch && <DayRhythm beat="service" weekday={WEEKDAY_NAMES[weekdayIndex(game.day)]!} compact />}
+        {!phone && watchCard}
         {cards.length > 0 && (
           <div className="incidents" aria-label="Problems to deal with">
             {cards.map(({ inc, leaving }) => (
@@ -379,17 +502,10 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             </div>
           </div>
           <StaffStrip game={game} send={send} readOnly={!!watch} />
-          <div className="speeds speeds--deck" role="group" aria-label="Speed" style={{ marginTop: 12 }}>
-            {SPEEDS.map((sp) => (
-              <button key={sp} className={`speed speed--${sp}`} aria-pressed={speed === sp} aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`} onClick={() => pickSpeed(sp)} title={sp === 0 ? "Pause (Space)" : `${SPEED_WORD[sp]} (${sp === 4 ? "4" : sp})`}>
-                <span className="speed__icon" aria-hidden="true"><Icon name={SPEED_ICON[sp]!} size={20} /></span>
-                <span className="speed__word">{sp === 0 ? (speed === 0 ? "Paused" : "Pause") : `${sp}×`}</span>
-              </button>
-            ))}
-          </div>
+          {!phone && speedDeck}
           {/* Round 11 (D, U10): the owner can skip the rest of tonight — the same ticks run at once (problems left
               unanswered sort themselves out, as when watching), so the evening is exactly what watching would give. */}
-          {!watch && onSkip && (
+          {!phone && !watch && onSkip && (
             <button className="btn service__skip" data-main-action onClick={onSkip}>
               <Icon name="fastest" size={20} />Skip to evening
             </button>
@@ -506,6 +622,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
             })}
           </div>
         </div>}
+        </SheetBody>
       </aside>
     </div>
   );
@@ -534,4 +651,46 @@ function LiveTile({ icon, label, value, trend, good, bad = false, flashKey }: { 
       )}
     </div>
   );
+}
+
+/**
+ * Round 13 (B): the sheet's grab handle: a button (Enter/Space step through peek → half → full → peek; arrow keys,
+ * Page Up/Down, Home and End pick a height) that can also be dragged up and down with a finger.
+ */
+function SheetHandle({ state, onChange, controls }: { state: SheetState; onChange: (s: SheetState) => void; controls: string }) {
+  const drag = useRef<{ y: number; id: number; moved: boolean } | null>(null);
+  const next = SHEET_STATES[(SHEET_STATES.indexOf(state) + 1) % 3]!;
+  return (
+    <button
+      type="button"
+      className="servsheet__handle"
+      aria-expanded={state !== "peek"}
+      aria-controls={controls}
+      aria-label={`Service panel: ${state === "peek" ? "speed and the one thing to watch" : state === "half" ? "half open" : "fully open"}. ${SHEET_WORD[state]}.`}
+      aria-keyshortcuts="ArrowUp ArrowDown Home End"
+      onClick={() => { if (drag.current?.moved) { drag.current = null; return; } onChange(next); }}
+      onKeyDown={(e) => { const to = sheetKey(state, e.key); if (to) { e.preventDefault(); if (to !== state) onChange(to); } }}
+      onPointerDown={(e) => { drag.current = { y: e.clientY, id: e.pointerId, moved: false }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* jsdom */ } }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d || d.id !== e.pointerId) return;
+        const dy = e.clientY - d.y;
+        if (Math.abs(dy) < 36) return;
+        const i = SHEET_STATES.indexOf(state);
+        const to = SHEET_STATES[Math.max(0, Math.min(2, i + (dy < 0 ? 1 : -1)))]!;
+        d.moved = true; d.y = e.clientY;
+        if (to !== state) onChange(to);
+      }}
+      onPointerUp={() => { if (drag.current && !drag.current.moved) drag.current = null; }}
+      onPointerCancel={() => { drag.current = null; }}
+    >
+      <span className="servsheet__grip" aria-hidden="true" />
+      <span className="servsheet__hint" aria-hidden="true">{SHEET_WORD[state]}</span>
+    </button>
+  );
+}
+
+/** The sheet's body on a phone (hidden at peek: out of the Tab order and the reading order); nothing extra elsewhere. */
+function SheetBody({ phone, hidden, id, children }: { phone: boolean; hidden: boolean; id: string; children: ReactNode }) {
+  return phone ? <div className="servsheet__body" id={id} hidden={hidden}>{children}</div> : <>{children}</>;
 }

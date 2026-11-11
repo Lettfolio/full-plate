@@ -24,19 +24,48 @@ export interface Layout {
   aisles: number[];
   /** Round 8: a bar counter on the right of the dining room when the tables leave room for it. */
   bar?: { x: number; y: number; w: number; h: number };
+  /** Round 13 (B): laid out for an upright phone (RenderOptions.density). */
+  density?: FloorDensity;
+}
+
+/** Round 13 (B): "phone" = an upright phone's floor: two tables a row at most, bigger tables and people. */
+export type FloorDensity = "phone";
+
+/**
+ * Round 13 (B): the upright phone's floor. The room is laid out `logicalW` wide (never under 320, the view's minimum)
+ * and drawn at the scroller's width, so it is scaled up by `scale` (≥ 1 on any phone 340 px wide or more) — every label
+ * the view draws at 13 px lands at 13 × scale CSS px. Each row of two tables gets at least `minCellH` logical px; a
+ * room with more tables than fit is taller than the screen and scrolls (lib/floorCamera.ts).
+ */
+export const PHONE_FLOOR = { logicalW: 340, minCellH: 104, zoomMax: 2.5 } as const;
+
+/** The logical size of an upright phone's floor for a scroller `cssW` × `cssH` CSS px and `tables` tables. */
+export function phoneFloorSize(cssW: number, cssH: number, tables: number): { w: number; h: number; scale: number } {
+  const w = Math.max(320, Math.min(PHONE_FLOOR.logicalW, Math.floor(cssW)));
+  const scale = Math.max(0.5, cssW / w);
+  const rows = Math.ceil(Math.max(1, tables) / 2);
+  const need = 136 + 120 + 30 + rows * PHONE_FLOOR.minCellH;
+  return { w, h: Math.max(320, Math.floor(cssH / scale), need), scale };
+}
+
+/** The layout's cache key: the tables (id and seats) plus the density, so a phone room never reuses a desktop layer. */
+export function layoutKey(tables: readonly Table[], density?: FloorDensity): string {
+  return tables.map((t) => `${t.id}:${t.seats}`).join(",") + (density ? `|${density}` : "");
 }
 
 export function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 export function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 export function dist(a: Pt, b: Pt) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-export function computeLayout(w: number, h: number, tables: Table[]): Layout {
+export function computeLayout(w: number, h: number, tables: Table[], density?: FloorDensity): Layout {
+  const phone = density === "phone";
   const kitchenH = clamp(h * 0.2, 96, 136);
   const paveH = clamp(h * 0.18, 84, 120);
   const wallY = h - paveH;
   const passH = 22;
   const kitchen = { x: 0, y: 0, w, h: kitchenH };
-  const pass = { x: w * 0.06, y: kitchenH - passH, w: w * 0.62, h: passH };
+  // phone: a shorter pass leaves room on its right for the "No server" sign the view draws there
+  const pass = { x: w * 0.06, y: kitchenH - passH, w: w * (phone ? 0.34 : 0.62), h: passH };
   const stoveCount = 4;
   const stoves = Array.from({ length: stoveCount }, (_, i) => ({ x: w * 0.12 + i * (w * 0.5 / (stoveCount - 1)), y: 26 }));
   const door = { x: w * 0.8, w: Math.max(54, w * 0.07) };
@@ -47,13 +76,13 @@ export function computeLayout(w: number, h: number, tables: Table[]): Layout {
   // table grid — leave a walkway column in front of the door
   const n = Math.max(1, tables.length);
   const usableW = dining.w * 0.86;
-  const cols = clamp(Math.round(Math.sqrt((n * usableW) / Math.max(1, dining.h))), 1, n);
+  const cols = clamp(Math.round(Math.sqrt((n * usableW) / Math.max(1, dining.h))), 1, phone ? Math.min(2, n) : n);
   const rows = Math.ceil(n / cols);
   const cellW = usableW / cols;
   const cellH = dining.h / rows;
   const maxSeats = Math.max(2, ...tables.map((t) => t.seats));
-  const baseR = clamp(Math.min(cellW, cellH) * 0.21, 14, 40);
-  const person = clamp(baseR * 0.36, 5, 10);
+  const baseR = phone ? clamp(Math.min(cellW, cellH) * 0.25, 18, 40) : clamp(Math.min(cellW, cellH) * 0.21, 14, 40);
+  const person = phone ? clamp(baseR * 0.42, 8, 12) : clamp(baseR * 0.36, 5, 10);
   const slots = new Map<TableId, TableSlot>();
   let right = 0;
   tables.forEach((t, i) => {
@@ -81,8 +110,8 @@ export function computeLayout(w: number, h: number, tables: Table[]): Layout {
   return {
     w, h, kitchen, pass, stoves, dining, wallY, door, doorIn, doorOut,
     pavement: { y: wallY, h: paveH }, tables: slots, person,
-    tablesKey: tables.map((t) => `${t.id}:${t.seats}`).join(","),
-    aisles, ...(bar ? { bar } : {}),
+    tablesKey: layoutKey(tables, density),
+    aisles, ...(bar ? { bar } : {}), ...(density ? { density } : {}),
   };
 }
 

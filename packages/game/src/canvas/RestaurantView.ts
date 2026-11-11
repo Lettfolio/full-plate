@@ -23,7 +23,7 @@ import { weekdayIndex } from "../lib/calendar";
 import { readFloorPalette } from "./floorPalette";
 import type { RoomLook } from "./decorArt";
 import { art, C, D, loadDecorArt, motion, PLAIN, setFrame, setPalette } from "./frame";
-import { aislePath, clamp, computeLayout, dist, lerp, type Layout, type Pt, type TableSlot } from "./layout";
+import { aislePath, clamp, computeLayout, dist, layoutKey, lerp, type FloorDensity, type Layout, type Pt, type TableSlot } from "./layout";
 import { L_PERSON_STAFF, SEATED, staffLook, type Floaty, type Sprite, type StaffSprite } from "./people";
 import { pickTable } from "./interaction";
 import { brandLook, canvasBrand, type CanvasBrand } from "./brand";
@@ -68,6 +68,8 @@ export interface RenderOptions {
   brand?: CanvasBrand | null;
   /** Round 12 (E): named guests (regulars, the food blogger); the selected party's name shows as a tag over its table. */
   guestNames?: ReadonlyMap<CustomerId, string>;
+  /** Round 13 (B): "phone" lays the room out for an upright phone (layout.ts: two tables a row, bigger people). */
+  density?: FloorDensity;
 }
 
 export class RestaurantView {
@@ -96,6 +98,8 @@ export class RestaurantView {
   private keyName = "";
   private keyPalette = -1;
   private keyDecor = "";
+  /** Round 13 (B): the last frame's RenderOptions.density (pick() lays out the same room). */
+  private density: FloorDensity | undefined;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -124,14 +128,15 @@ export class RestaurantView {
   get layerBuilds(): number { return this.layers.builds; }
 
   private ensureLayout(game: GameState): Layout {
-    const key = game.tables.map((t) => `${t.id}:${t.seats}`).join(",");
+    const key = layoutKey(game.tables, this.density);
     if (!this.layout || this.layout.tablesKey !== key || this.layout.w !== this.w || this.layout.h !== this.h) {
-      this.layout = computeLayout(this.w, this.h, game.tables);
+      this.layout = computeLayout(this.w, this.h, game.tables, this.density);
     }
     return this.layout;
   }
 
   render(game: GameState, opts: RenderOptions) {
+    this.density = opts.density;
     const L = this.ensureLayout(game);
     const dt = this.firstFrame ? 0 : clamp((opts.now - this.lastNow) / 1000, 0, 0.1);
     this.lastNow = opts.now;
