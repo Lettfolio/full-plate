@@ -2019,3 +2019,17 @@ kbd { font-family: var(--font-body); font-weight: 800; border: 1.5px solid var(-
 /* the link a toast can carry (Round 13 — A: "Settings", to the Animations switch) */
 .toast .toast__link { color: var(--paper); background: transparent; border-color: rgba(255,255,255,0.45); flex: none; }
 .toast .toast__link:hover { background: rgba(255,255,255,0.12); }
+
+/* ═══════════ Round 13 review ═══════════ */
+/* The incident toast over the floor: its region is pinned at the stage's centre and shifted back by half its width,
+   so a shrink-to-fit width only had the room right of the centre — on an upright phone (B's full-width floor) that
+   was ~190 px less the icon and the close button, one or two words a line. Size it to its text, capped to the screen. */
+.toast-region--stage { width: max-content; max-width: min(560px, calc(100vw - 24px)); }
+.toast-region--stage .toast { max-width: 100%; }
+/* The skip links hid at top: -80px, but "What the words mean (?)" sits at left: 260px and wraps on a narrow screen,
+   so its bottom showed as a dark bar at the top right (C's upright shift). Off screen by its own height, whatever it
+   is; on a phone both start at the left edge when focused. */
+.skiplink:not(:focus):not(:focus-visible) { top: 0; transform: translateY(calc(-100% - 16px)); }
+@media (max-width: 600px) {
+  .skiplink, .skiplink--words { left: 12px; max-width: calc(100vw - 24px); }
+}
