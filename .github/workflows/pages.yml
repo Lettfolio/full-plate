@@ -32,7 +32,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r typecheck
       - run: pnpm -r test
+      # Round 13 (E, S12): the Pages build carries a meta Content-Security-Policy (packages/game/src/csp.config.ts).
       - run: pnpm --filter @full-plate/game build
+        env:
+          FP_TARGET: pages
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: packages/game/dist
