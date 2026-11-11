@@ -5,8 +5,14 @@
 export function prefetchSoon(path?: "empire" | "stars"): () => void {
   if (import.meta.env.MODE === "test") return () => {}; // the unit tests load modules on their own terms
   let live = true;
-  const go = () => { if (live) void import("./prefetch").then((m) => m.prefetchDay(path), () => {}); };
+  // Offline, wait for the connection: a failed import is kept for the life of the page (Chromium), so fetching now
+  // would spoil the parts for later.
+  const go = (): void => {
+    if (!live) return;
+    if (navigator.onLine === false) { window.addEventListener("online", go, { once: true }); return; }
+    void import("./prefetch").then((m) => m.prefetchDay(path), () => {});
+  };
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
   const t = setTimeout(() => (w.requestIdleCallback ? w.requestIdleCallback(go, { timeout: 1500 }) : go()), 500);
-  return () => { live = false; clearTimeout(t); };
+  return () => { live = false; clearTimeout(t); window.removeEventListener("online", go); };
 }

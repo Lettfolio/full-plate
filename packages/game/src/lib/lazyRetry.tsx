@@ -11,7 +11,7 @@
  *   saves the game first (`setSaveBeforeReload`, App).
  * The boundary is in the main chunk on purpose: the thing that explains a missing chunk can't be one.
  */
-import { Component, createContext, lazy, useContext, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
+import { Component, createContext, lazy, useContext, useEffect, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 
 export class ChunkLoadError extends Error {
   /** True when the server has a newer build than this page (its chunks were replaced). */
@@ -78,26 +78,32 @@ export function ChunkBack({ to, children }: { to: BackTo | null; children: React
   return <BackCtx.Provider value={to}>{children}</BackCtx.Provider>;
 }
 
-interface BoundaryProps { children: ReactNode; retry: () => void; back: BackTo | null }
+interface BoundaryProps { children: ReactNode; retry: () => void; back: BackTo | null; tries: number }
 interface BoundaryState { error: unknown; busy: boolean }
 
 /** Catches a chunk that won't load; anything else is thrown on to the next boundary (CrashGuard). */
 export class ChunkBoundary extends Component<BoundaryProps, BoundaryState> {
   state: BoundaryState = { error: null, busy: false };
   static getDerivedStateFromError(error: unknown): Partial<BoundaryState> { return { error, busy: false }; }
-  private again = () => { this.props.retry(); this.setState({ error: null }); };
+  private again = () => this.props.retry();
   private reload = () => { this.setState({ busy: true }); void reloadSaved(); };
   render() {
     const { error, busy } = this.state;
     if (error === null) return this.props.children;
     if (!isChunkError(error)) throw error;
-    const stale = isStale(error), back = this.props.back;
+    const back = this.props.back;
+    // Chromium keeps a failed module import for the life of the page, so once Try again has failed, the cure is a
+    // reload (the game is saved first). A new version (stale) needs one straight away.
+    const stale = isStale(error), stuck = stale || this.props.tries > 0;
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
     return (
       <div className="callout callout--warn chunkfail" role="alert" data-chunkfail={stale ? "stale" : "offline"} style={{ margin: 12 }}>
-        <p><b>{stale ? "A new version of Full Plate is ready." : "Couldn't load this part."}</b>{" "}
-          {stale ? "Reload to get it: your game is saved first." : "Check your connection, then try again. Your game is safe."}</p>
+        <p><b>{stale ? "A new version of Full Plate is ready." : stuck ? "Still couldn't load this part." : "Couldn't load this part."}</b>{" "}
+          {stale ? "Reload to get it: your game is saved first."
+            : stuck ? `${offline ? "You're offline. When you're back online, reload" : "Reloading the page fixes it"}: your game is saved first.`
+              : "Check your connection, then try again. Your game is safe."}</p>
         <div className="row row--wrap" style={{ gap: 12, marginTop: 8 }}>
-          {stale
+          {stuck
             ? <button type="button" className="btn btn--primary btn--tap" disabled={busy} onClick={this.reload}>{busy ? "Saving…" : "Reload"}</button>
             : <button type="button" className="btn btn--primary btn--tap" onClick={this.again}>Try again</button>}
           {back && <button type="button" className="btn btn--tap" onClick={back.go}>{back.label}</button>}
@@ -119,11 +125,14 @@ export function lazyRetry<T extends AnyComponent>(load: () => Promise<{ default:
   const make = () => lazy(() => retryImport(load).catch((e: unknown) => { failed = true; throw e; }));
   let Inner = make();
   function Retrying(props: ComponentProps<T>) {
-    const [, force] = useState(0);
+    const [n, force] = useState(0);
+    // Closed after a failure: opening it again (a tab tapped again) is a fresh try too.
+    useEffect(() => () => { if (failed) { failed = false; Inner = make(); } }, []);
     const back = useContext(BackCtx);
     const retry = () => { if (failed) { failed = false; Inner = make(); } force((n) => n + 1); };
     const C = Inner as AnyComponent;
-    return <ChunkBoundary retry={retry} back={back}><C {...props} /></ChunkBoundary>;
+    // A fresh boundary each try (keyed): a boundary that caught once and is reset in place lets a second failure past.
+    return <ChunkBoundary key={n} retry={retry} back={back} tries={n}><C {...props} /></ChunkBoundary>;
   }
   Retrying.preload = () => retryImport(load).then(() => undefined, () => undefined);
   return Retrying;

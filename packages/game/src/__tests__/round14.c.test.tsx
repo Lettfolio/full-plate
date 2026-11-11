@@ -91,6 +91,32 @@ describe("U2/S14-4: a chunk that won't load is a connection problem", () => {
     expect(calls).toBe(4);
   });
 
+  it("a Try again that fails too stays in its panel (not CrashGuard) and offers Reload, saving first", async () => {
+    const Part = lazyRetry(async () => { throw offlineErr(); });
+    const order: string[] = [];
+    setSaveBeforeReload(async () => { order.push("saved"); });
+    quiet(() => render(<CrashGuard reload={() => order.push("reload")}><p>The planning screen</p><Suspense fallback={<p>Loading…</p>}><Part /></Suspense></CrashGuard>));
+    expect(await screen.findByText("Couldn't load this part.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Still couldn't load this part.")).toBeTruthy();
+    expect(screen.getByText("The planning screen")).toBeTruthy();
+    expect(screen.queryByText(/Couldn't load the next part of the game/)).toBeNull();
+    expect(screen.getByRole("alert").textContent).toMatch(/your game is saved first/);
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeTruthy();
+  });
+
+  it("opening a part again after it failed (a tab tapped again) tries afresh", async () => {
+    let ok = false;
+    const Part = lazyRetry(async () => { if (!ok) throw offlineErr(); return { default: () => <p>Staff room</p> }; });
+    const view = render(<Suspense fallback={null}><Part /></Suspense>);
+    expect(await screen.findByText("Couldn't load this part.")).toBeTruthy();
+    view.unmount();
+    ok = true;
+    render(<Suspense fallback={null}><Part /></Suspense>);
+    expect(await screen.findByText("Staff room")).toBeTruthy();
+  });
+
   it("a stale page (new version deployed) offers Reload, which saves the game first", async () => {
     const Part = lazyRetry(async () => { throw new ChunkLoadError("gone", true); });
     const order: string[] = [];
