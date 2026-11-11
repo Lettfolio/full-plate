@@ -1,4 +1,5 @@
 import type { Command, ContentPack, DayResult, GameState, Goal, LogEntry, SimEvent } from "@full-plate/sim-core";
+import { noteFloorFrame } from "../lib/floorFrame";
 import type { CareerCommand, CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
@@ -366,6 +367,7 @@ function reduce(s: AppState, a: AppAction): AppState {
         if (career) { const o = ownerResponds(game, s.meta); game = o.game; events.push(...o.events); }
         const res = tick(pack, game);
         game = res.state;
+        noteFloorFrame(game); // R14-E (U18): the postcard's picture of the night (lib/floorFrame; memory only)
         events.push(...res.events);
         n++;
         if (!career && res.events.some((e) => e.type === "INCIDENT_STARTED")) break;
@@ -384,6 +386,7 @@ function reduce(s: AppState, a: AppAction): AppState {
         events.push(...o.events);
         const res = tick(pack, game);
         game = res.state;
+        noteFloorFrame(game); // R14-E (U18): a skipped night still gives the postcard its busiest moment (memory only)
         events.push(...res.events);
         n++;
       }

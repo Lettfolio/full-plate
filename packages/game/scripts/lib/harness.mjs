@@ -209,9 +209,10 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     }, [owner ? save(owner) : null, career ?? null, speed, text]);
     await page.reload(); await page.waitForTimeout(350);
   }
-  // Round 14 (E, U1): before moving on, scroll the page (and the .screen box) to its foot, so a screen that keeps the
-  // last one's position shows in the probe's notAtTop count instead of passing because nothing had scrolled.
-  const toFoot = async () => { await page.evaluate(() => { const sc = document.querySelector(".screen"); if (sc) sc.scrollTop = sc.scrollHeight; window.scrollTo(0, document.documentElement.scrollHeight); }); await page.waitForTimeout(80); };
+  // Round 14 (E, U1): on an upright phone, before moving on, scroll the page (and the .screen box) to its foot, so a
+  // screen that keeps the last one's position shows in the probe's notAtTop count instead of passing because nothing
+  // had scrolled. Wider screens walk exactly as before.
+  const toFoot = async () => { if ((page.viewportSize()?.width ?? 9999) > 480) return; await page.evaluate(() => { const sc = document.querySelector(".screen"); if (sc) sc.scrollTop = sc.scrollHeight; window.scrollTo(0, document.documentElement.scrollHeight); }); await page.waitForTimeout(80); };
   const cont = async () => { await page.getByRole("button", { name: /^Continue/ }).first().click(); await page.waitForTimeout(700); };
   const tab = async (name) => { await toFoot(); await page.getByRole("tab", { name }).first().click(); await page.waitForTimeout(400); };
   // FP_WALK_DEBUG=1 prints the whole error (Playwright's call log says which element got in the way).

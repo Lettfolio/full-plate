@@ -104,7 +104,7 @@ describe("U1: screens and tabs start at the top; shortcuts land on what they're 
     const probe = readFileSync(join(SRC, "../scripts/probe.mjs"), "utf8");
     const harness = readFileSync(join(SRC, "../scripts/lib/harness.mjs"), "utf8");
     expect(probe).toMatch(/notAtTop/);
-    expect(harness).toMatch(/const toFoot = async/);
+    expect(harness).toMatch(/const toFoot = async \(\) => \{ if \(\(page\.viewportSize\(\)\?\.width \?\? 9999\) > 480\) return;/);
     expect(harness).toMatch(/const tab = async \(name\) => \{ await toFoot\(\);/);
   });
 

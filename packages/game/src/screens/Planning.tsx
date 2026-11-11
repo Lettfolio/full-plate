@@ -86,8 +86,8 @@ const TRY_GO: Record<Exclude<TryId, "cook" | "challenge">, [PlanningTab, string]
 };
 /** Round 14 (E): on a phone, a row of chips under the Menu and Restaurant headings jumps to what sits screens below. */
 const TAB_CHIPS: Partial<Record<PlanningTab, [string, string][]>> = {
-  menu: [["Invent a dish", ".cookbook"], ["Recipe book", ".library"]],
-  restaurant: [["Brand kit", ".brandcard"], ["Postcard", ".postcard__open"], ["Rival", ".rival"], ["Regulars", ".voices-row"], ["Friends", ".visitcard"]],
+  menu: [["Your cookbook", ".cookbook"], ["Recipe book", ".library"]],
+  restaurant: [["Brand & postcard", ".brandcard"], ["Rival", ".rival"], ["Regulars", ".voices-row"], ["Friends", ".visitcard"]],
 };
 
 interface Hint { text: string; tone: "warn" | "bad" | "good"; tab?: TabId }

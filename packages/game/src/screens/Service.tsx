@@ -26,7 +26,6 @@ import { getSettings, setSettings, startSpeed, useSettings } from "../lib/settin
 import { pointWord, useCoarsePointer, usePhoneNarrow } from "../lib/layout";
 import type { FloorCamera } from "../lib/floorCamera";
 import { Term } from "../components/Term";
-import { noteFloorFrame } from "../lib/floorFrame";
 import { TermText } from "../components/TermText";
 import { goalsQuiet } from "../lib/goals";
 import { DayRhythm } from "../components/DayRhythm";
@@ -196,8 +195,6 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
     return () => { ro.disconnect(); root.style.removeProperty("--servsheet-peek"); };
   }, [phone]);
 
-  // Round 14 (E, U18): the night's busiest frame, for the postcard's picture of the room
-  useEffect(() => { noteFloorFrame(game); }, [game]);
   const cards = useFadingIncidents(game.incidents);
   const liveIncidents = cards.filter((c) => !c.leaving).map((c) => c.inc);
   // Ring every live incident's subject; the hovered/focused card's subject rings harder.

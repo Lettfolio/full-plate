@@ -2,7 +2,8 @@ import type { GameState } from "@full-plate/sim-core";
 
 /**
  * Round 14 (E, U18): the postcard's room shows the night's guests and plates. The evening's state has an empty room
- * (service is over), so Service hands each frame here and the busiest one of the day is kept — a reference to that
+ * (service is over), so the app reducer hands every service tick here ("ticks" and "skipShift", so a skipped night
+ * counts too) and the busiest one of the day is kept — a reference to that
  * tick's state (the reducer makes a new one each tick, so nothing is copied). The postcard draws it paused.
  * Memory only: after a reload the postcard falls back to the room as it stands (the R12 picture).
  */
@@ -15,7 +16,7 @@ export function busyness(game: GameState): number {
   return n;
 }
 
-/** Called by Service on every frame; keeps the day's busiest. Cheap (one pass over the guests). */
+/** Called by the reducer on every service tick; keeps the day's busiest. Cheap (one pass over the guests). */
 export function noteFloorFrame(game: GameState): void {
   if (game.phase !== "service") return;
   const busy = busyness(game);
