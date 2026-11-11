@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import type { GameState } from "@full-plate/sim-core";
+import type { ContentPack, GameState } from "@full-plate/sim-core";
 import {
   botInput, createInputSource, createSession, hitTest, nextHint, padToMin, railSlotRect, railTagRect, readPalette, render, shiftTempo, stationRect, summarise,
   updateSession, yourStations, type HandsOnResult, type HandsOnRole, type HandsOnSession, type HandsOnView, type InputSource, type Rect, type ShiftSummary,
@@ -64,6 +64,8 @@ interface Props {
   onScore?: (summary: ShiftSummary) => void;
   /** Round 13 (F): a live co-op partner (screens/CoopLive.tsx). Absent: the shift is exactly as before. */
   remote?: HandsOnRemote;
+  /** R13 review: the pack the session names dishes from (a live guest's carries the host's invented dishes). Default: the game's. */
+  pack?: ContentPack;
 }
 
 /** Round 13 (F): what a live co-op shift hooks into the loop — where you are each frame, and a layer over the stage. */
@@ -121,7 +123,7 @@ export function onboardTargetRect(step: OnboardStep, session: HandsOnSession, vi
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
  * its results into PLAYER_* commands, advances the sim at its own pace and draws. Mirrors handson/demo/main.ts.
  */
-export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore, remote }: Props) {
+export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore, remote, pack }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const live = useRef({ game, runTicks, sendResults, onScore, remote });
@@ -157,7 +159,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
     const input = createInputSource(window);
     inputRef.current = input;
     sessionRef.current = createSession(live.current.game, role, {
-      content, tutorial, ...(playerStaffId ? { playerStaffId } : {}), ...(station ? { station, sousLead: true } : {}), ...(look ? { look } : {}),
+      content: pack ?? content, tutorial, ...(playerStaffId ? { playerStaffId } : {}), ...(station ? { station, sousLead: true } : {}), ...(look ? { look } : {}),
     });
     let raf = 0;
     let last = performance.now();

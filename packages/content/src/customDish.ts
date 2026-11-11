@@ -646,6 +646,9 @@ export function syncCustomDishes(roots: readonly ContentPack[], specs: readonly 
   if (changed) syncVersion++;
   return changed;
 }
+/** Round 13 review: the recipes last synced into the packs (the live co-op host sends the ones on tonight's menu). */
+export const syncedCustomDishes = (): readonly CustomDishSpec[] => syncedSpecs ?? [];
+
 /**
  * `pack` itself until the first sync changes anything, then a shallow copy per change: sim-stars memoises its
  * signature pack per pack object, so it needs a new object to see new dishes.

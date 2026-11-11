@@ -17,7 +17,7 @@ import { Icon } from "../components/Icon";
 import { coopTap, setCoopRemote } from "../lib/coop/flag";
 import { emoteOf, type EmoteId, type HostDoc, type LiveDoc, type LiveRole } from "../lib/coop/protocol";
 import {
-  checkSpot, LiveGuest, LiveHost, presenceOf, roomName, spotOf, TOPIC, type EndWhy, type RoomMsg, type Spot,
+  checkSpot, guestContent, LiveGuest, LiveHost, presenceOf, roomName, spotOf, TOPIC, type EndWhy, type RoomMsg, type Spot,
 } from "../lib/coop/realtime";
 import { getRoom, joinLive, type NamedRoomLike } from "../lib/coop/room";
 import type { DocWriter } from "../lib/coop/session";
@@ -410,6 +410,9 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
   const read = useCallback(() => readRef.current(), []);
   const remote: HandsOnRemote | null = useMemo(() => (!pres ? null : { onFrame: (s) => { pres(s); engine.current?.pump(); }, layer: (stage, focus) => <LiveLayer stage={stage} focus={focus} spot={spot} read={read} /> }), [pres, read]);
 
+  // R13 review: the host's invented dishes on tonight's menu, so they cook and serve under their own names here too
+  const baseB = g?.base?.b;
+  const pack = useMemo(() => (g?.base ? guestContent(g.base) : undefined), [baseB]); // eslint-disable-line react-hooks/exhaustive-deps
   const leaveShift = () => { g?.leave(); setLeft(true); };
 
   if (problem) {
@@ -468,6 +471,7 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
           onDone={setSummary}
           onScore={setSummary}
           remote={remote}
+          pack={pack}
         />
       </Suspense>
     </div>

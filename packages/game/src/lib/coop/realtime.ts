@@ -23,7 +23,9 @@
  */
 import type { Customer, CustomerStage, GameState, KitchenTicket, Staff, StaffRole } from "@full-plate/sim-core";
 import type { CookMethod, HandsOnResult, HandsOnSession } from "@full-plate/handson";
-import { content, newGame } from "../../sim";
+import type { ContentPack } from "@full-plate/sim-core";
+import { checkCustomDish, CUSTOM_MAX_PER_GAME, isCustomDishId, syncedCustomDishes, withCustomDishes, type CustomDishSpec } from "@full-plate/content";
+import { content, customRef, newGame } from "../../sim";
 import { cleanLabel } from "../../state/share";
 import { emoteOf, END_WHYS, type Emote, type EmoteId, type EndWhy, type LiveRole } from "./protocol";
 export type { EndWhy, LiveDoc, LiveRole } from "./protocol";
@@ -100,6 +102,8 @@ export interface Base {
   seed: number;
   name: string;
   dishes: string[];
+  /** R13 review: the host's invented dishes on tonight's menu (each re-checked like a save), so the guest can cook/serve them. */
+  custom: CustomDishSpec[];
   staff: { id: string; role: StaffRole; on: boolean; name: string }[];
   tables: { id: string; seats: number }[];
   hostRole: LiveRole;
@@ -142,13 +146,45 @@ export function encodeBase(game: GameState, hostRole: LiveRole): Record<string, 
     tb: game.tables.slice(0, LIMIT.tables).filter((t) => isId(t.id)).map((t) => [t.id, t.seats]),
     hr: hostRole === "chef" ? 0 : 1,
   };
-  return { k: "base", b: fnv(JSON.stringify(body)), ...body };
+  // R13 review: the invented dishes tonight's menu names travel with the base (the guest's pack has only the shipped
+  // dishes); fewest first if the 4 KiB cap would be crossed, and none rather than a base that can't be sent.
+  const specs = new Map(syncedCustomDishes().map((x) => [x.id, x]));
+  let cd = dishes.filter(isCustomDishId).map((id) => specs.get(id)).filter((x): x is CustomDishSpec => !!x).slice(0, CUSTOM_MAX_PER_GAME).map(packSpec);
+  const size = (c: unknown[]) => bytes({ k: "base", b: 0, ...body, ...(c.length ? { cd: c } : {}) });
+  while (cd.length && size(cd) > SNAP_BUDGET) cd = cd.slice(0, -1);
+  const full = cd.length ? { ...body, cd } : body;
+  return { k: "base", b: fnv(JSON.stringify(full)), ...full };
+}
+
+/** A recipe as the base carries it: [id, name, course, icon, [[ingredient, qty], …], createdDay, refined?]. */
+function packSpec(x: CustomDishSpec): unknown[] {
+  const r = [x.id, x.name, x.course, x.icon, x.ingredients.map((i) => [i.id, i.qty]), x.createdDay];
+  return x.refined ? [...r, [x.refined.season, x.refined.suffix, x.refined.prose]] : r;
+}
+/** The guest's side: a recipe back from the wire, or null unless it passes the same check a save's recipe does. */
+function unpackSpec(r: unknown): CustomDishSpec | null {
+  if (!Array.isArray(r) || r.length < 6 || r.length > 7 || !Array.isArray(r[4])) return null;
+  const ingredients = r[4].slice(0, 6).map((i: unknown) => (Array.isArray(i) ? { id: i[0] as string, qty: i[1] as number } : null));
+  if (ingredients.some((i) => i === null)) return null;
+  const ref = Array.isArray(r[6]) ? r[6] : null;
+  const spec = {
+    id: r[0], name: r[1], course: r[2], icon: r[3], ingredients, createdDay: r[5],
+    ...(ref ? { refined: { season: int(ref[0], 0, 1e6), suffix: int(ref[1], 0, 999), prose: int(ref[2], 0, 999) } } : {}),
+  } as CustomDishSpec;
+  return checkCustomDish(spec, customRef).length === 0 ? spec : null;
+}
+
+/** The guest's pack for a base: the shipped dishes plus the host's invented ones on tonight's menu. */
+export function guestContent(base: Pick<Base, "custom">): ContentPack {
+  return base.custom.length ? withCustomDishes(content, base.custom, customRef) : content;
 }
 
 export function decodeBase(raw: unknown): Base | null {
   const o = obj(raw);
   if (o.k !== "base") return null;
-  const known = new Set(content.dishes.map((d) => d.id));
+  const custom = (Array.isArray(o.cd) ? o.cd.slice(0, CUSTOM_MAX_PER_GAME) : []).map(unpackSpec).filter((x): x is CustomDishSpec => x !== null)
+    .filter((x, i, all) => all.findIndex((y) => y.id === x.id) === i);
+  const known = new Set([...content.dishes.map((d) => d.id), ...custom.map((x) => x.id)]);
   const dishes = (Array.isArray(o.d) ? o.d.slice(0, LIMIT.dishes) : []).filter((d): d is string => isId(d) && known.has(d));
   const staff = (Array.isArray(o.sf) ? o.sf.slice(0, LIMIT.staff) : []).flatMap((r) => {
     if (!Array.isArray(r) || !isId(r[0])) return [];
@@ -157,7 +193,7 @@ export function decodeBase(raw: unknown): Base | null {
   });
   const tables = (Array.isArray(o.tb) ? o.tb.slice(0, LIMIT.tables) : []).flatMap((r) => (Array.isArray(r) && isId(r[0]) ? [{ id: r[0], seats: int(r[1], 1, 12, 2) }] : []));
   if (!tables.length) return null;
-  return { b: int(o.b, 0, 2 ** 32), day: int(o.dy, 0, 1e6), seed: int(o.sd, 0, 2 ** 32), name: cleanLabel(o.nm, 32) || "Their restaurant", dishes, staff, tables, hostRole: o.hr === 1 ? "server" : "chef" };
+  return { b: int(o.b, 0, 2 ** 32), day: int(o.dy, 0, 1e6), seed: int(o.sd, 0, 2 ** 32), name: cleanLabel(o.nm, 32) || "Their restaurant", dishes, custom: custom.filter((x) => dishes.includes(x.id)), staff, tables, hostRole: o.hr === 1 ? "server" : "chef" };
 }
 
 /** Host: the floor message. Trims queues, then leavers, then the oldest tickets, to stay under SNAP_BUDGET bytes. */
