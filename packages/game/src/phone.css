@@ -248,6 +248,10 @@
   html .status__morestats .status__stat--bars { flex-direction: column; gap: 8px; }
   html .status__moreacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   html .status__moreacts > .shellbtn, html .status__moreacts > .pill { flex: none; }
+
+  /* R13-F: the live co-op HUD over the hands-on stage takes the full width under the stage's corner pad */
+  html .cooplive__hud { left: 6px; right: 6px; top: auto; bottom: 6px; max-width: none; align-items: flex-start; }
+  html .cooparm__roles .btn { flex: 1 1 100%; }
 }
 
 /* A phone held sideways: very little height, plenty of width. */
@@ -321,4 +325,7 @@
   html .status__morestats .status__stat--bars { flex-direction: column; gap: 8px; }
   html .status__morestats .status__stat .status__sub { display: inline; }
   html .status__moreacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  /* R13-F: the live co-op HUD: one compact column in the short stage */
+  html .cooplive__hud { top: 4px; right: 4px; gap: 4px; max-width: min(300px, 40%); }
 }

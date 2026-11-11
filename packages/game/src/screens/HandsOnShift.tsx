@@ -62,7 +62,24 @@ interface Props {
   onDone: (summary: ShiftSummary) => void;
   /** The running score, reported just before each sim tick (so the evening's career step sees the shift). */
   onScore?: (summary: ShiftSummary) => void;
+  /** Round 13 (F): a live co-op partner (screens/CoopLive.tsx). Absent: the shift is exactly as before. */
+  remote?: HandsOnRemote;
 }
+
+/** Round 13 (F): what a live co-op shift hooks into the loop — where you are each frame, and a layer over the stage. */
+export interface HandsOnRemote {
+  /** Every frame, after the session steps (co-op publishes where you are). */
+  onFrame(session: HandsOnSession): void;
+  /**
+   * Drawn over the stage: your partner, the link, the emotes. `stage` carries the phone layout's view flags (compact
+   * strip, following camera) and `focus` is where you are, so the partner lands where the renderer puts the room
+   * (R13 review: C's phone layouts moved the room under F's layer).
+   */
+  layer(stage: RemoteStage, focus: () => { x: number; y: number } | null): ReactNode;
+}
+
+/** Round 13 (review): the stage a remote layer draws over — its size and the layout's view flags. */
+export type RemoteStage = { width: number; height: number } & Pick<HandsOnView, "compact" | "follow">;
 
 const ROLE_LABEL: Record<HandsOnRole, string> = { chef: "On the pass", server: "On the floor", bar: "Behind the bar" };
 /**
@@ -104,12 +121,14 @@ export function onboardTargetRect(step: OnboardStep, session: HandsOnSession, vi
  * The playable shift (packages/handson): one 60 fps fixed-step loop reads keyboard/gamepad, steps the session, turns
  * its results into PLAYER_* commands, advances the sim at its own pace and draws. Mirrors handson/demo/main.ts.
  */
-export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore }: Props) {
+export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look, tutorial = true, runTicks, sendResults, onLeave, onSkip, onDone, onScore, remote }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const live = useRef({ game, runTicks, sendResults, onScore });
-  live.current = { game, runTicks, sendResults, onScore };
+  const live = useRef({ game, runTicks, sendResults, onScore, remote });
+  live.current = { game, runTicks, sendResults, onScore, remote };
   const sessionRef = useRef<HandsOnSession | null>(null);
+  /** Round 13 (review): where you are, for a live partner's layer (the upright phone's camera follows you). */
+  const focusOf = useCallback(() => sessionRef.current?.player ?? null, []);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
@@ -210,6 +229,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
         reducedMotion: prefersReducedMotion() || !getSettings().animations,
       });
       if (perf) { perf.end(performance.now()); ctx.setTransform(canvasDpr(), 0, 0, canvasDpr(), 0, 0); perf.draw(ctx, 6, rect.height - 26); }
+      L.remote?.onFrame(sessionRef.current!);
       if (now - lastHud > 500) { lastHud = now; force((x) => x + 1); }
       raf = requestAnimationFrame(frame);
     };
@@ -380,6 +400,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
   );
   const overlays: ReactNode = (
     <>
+      {remote?.layer({ ...stage, ...layoutView(layout) }, focusOf)}
       {step && (
         <div className="onboard" role="dialog" aria-modal="false" aria-labelledby="onboard-title">
           {spot && <div className="onboard__spot" style={{ left: spot.x, top: spot.y, width: spot.w, height: spot.h }} aria-hidden="true" />}

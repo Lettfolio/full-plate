@@ -53,6 +53,8 @@ export interface HostDoc {
   answer: { n: number; used: boolean } | null;
   emote: Emote | null;
   ping: { n: number } | null;
+  /** Round 13 (F): tonight's live shift, when the host set one up (realtime.ts). Absent on Round 12 documents. */
+  live?: LiveDoc | null;
 }
 export interface Plan { n: number; day: number; menu: BoardDish[]; on: string[] }
 export interface GuestDoc {
@@ -62,6 +64,8 @@ export interface GuestDoc {
   emote: Emote | null;
   pong: { n: number } | null;
   ended: boolean;
+  /** Round 13 (F): the guest's page can reach the `room` capability (so a live shift is on offer). */
+  rt?: boolean;
 }
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -73,6 +77,37 @@ const counter = (v: unknown): { n: number } | null => (v && typeof v === "object
 const dishes = (v: unknown, dish: (id: string) => boolean): BoardDish[] =>
   (Array.isArray(v) ? v.slice(0, MAX_ITEMS) : []).map(obj).filter((m) => typeof m.dishId === "string" && dish(m.dishId))
     .map((m) => ({ dishId: m.dishId as string, price: int(m.price, 0, 100_000), active: m.active !== false }));
+
+// ── Round 13 (F): the live shift's lobby record (lib/coop/realtime.ts has the rest) ──
+export type LiveRole = "chef" | "server";
+export type EndWhy = "done" | "slow" | "host" | "office" | "lost" | "guest";
+export const END_WHYS: readonly EndWhy[] = ["done", "slow", "host", "office", "lost", "guest"];
+/** The lobby record for a live shift, in the host's db document (`HostDoc.live`): late joiners read it there. */
+export interface LiveDoc {
+  nonce: string;
+  guestRole: LiveRole;
+  state: "ready" | "on" | "ended";
+  /** The game day it is for; a stale "ready" from yesterday is ignored. */
+  day: number;
+  at: number;
+  why?: EndWhy;
+}
+const NONCE_RE = /^[a-z0-9]{24}$/;
+/** 24 characters of [a-z0-9] (≈124 bits) by crypto.getRandomValues with rejection sampling. */
+export function newNonce(rand: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+  const A = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  while (out.length < 24) for (const b of rand(32)) { if (b < 252 && out.length < 24) out += A[b % 36]; }
+  return out;
+}
+export function checkLive(v: unknown): LiveDoc | null {
+  const o = obj(v);
+  if (typeof o.nonce !== "string" || !NONCE_RE.test(o.nonce)) return null;
+  const state = o.state === "on" || o.state === "ended" ? o.state : o.state === "ready" ? "ready" : null;
+  if (!state) return null;
+  const why = END_WHYS.find((w) => w === o.why);
+  return { nonce: o.nonce, guestRole: o.guestRole === "chef" ? "chef" : "server", state, day: int(o.day, 0, 1e6), at: int(o.at, 0, 1e14), ...(why ? { why } : {}) };
+}
 
 /** The host's document as the guest reads it (untrusted: coerced). */
 export function checkHost(raw: unknown, dish: (id: string) => boolean): HostDoc | null {
@@ -99,6 +134,7 @@ export function checkHost(raw: unknown, dish: (id: string) => boolean): HostDoc 
     answer: o.answer ? { n: int(a.n, 0, 1e9), used: a.used === true } : null,
     emote: emote(o.emote),
     ping: counter(o.ping),
+    ...(o.live !== undefined ? { live: checkLive(o.live) } : {}),
   };
 }
 
@@ -118,6 +154,7 @@ export function checkGuest(raw: unknown, dish: (id: string) => boolean): GuestDo
     emote: emote(o.emote),
     pong: counter(o.pong),
     ended: o.ended === true,
+    ...(o.rt === true ? { rt: true } : {}),
   };
 }
 

@@ -5,25 +5,36 @@
  * as ordinary planning commands through the game's own `send` (the sim checks them like any tap); "Not this time"
  * keeps the host's plan. The host's game stays the only authority: nothing the guest writes is applied without a tap.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Command, GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
 import { weekdayIndex } from "../lib/calendar";
 import { getHostFlag, setHostFlag, useHostFlag, type HostFlag } from "../lib/coop/hostFlag";
 import { pendingWriter } from "../lib/coop/hand";
-import { boardOf, eveningOf, planCommands, type EmoteId, type GuestDoc, type HostDoc, type Stage } from "../lib/coop/protocol";
+import { boardOf, eveningOf, planCommands, type EmoteId, type GuestDoc, type HostDoc, type LiveDoc, type LiveRole, type Stage } from "../lib/coop/protocol";
+import { newNonce, type EndWhy } from "../lib/coop/protocol";
+import { getRoom } from "../lib/coop/room";
 import { hostResume, RttMeter, watchGuest, type DocWriter } from "../lib/coop/session";
 import { dishName, known } from "../lib/visit";
 import { gameKey, link, showCode } from "../state/share";
 import { EmoteBar, EmoteHeard } from "./CoopShiftParts";
+import type { HostLiveApi } from "./CoopLive";
 import "./visit.css";
+
+// Round 13 (F): the live shift's host half, its own chunk (only loaded once tonight is armed)
+const HostLive = lazy(() => import("./CoopLive").then((m) => ({ default: m.HostLive })));
 
 const stageOf = (g: GameState): Stage => (g.phase === "planning" ? "plan" : g.phase === "service" ? "service" : "evening");
 const PINGS = 3;
 
 declare global { interface Window { __fpCoopRtt?: number[] } }
 
-interface Props { game: GameState; send: (cmd: Command) => void }
+interface Props {
+  game: GameState;
+  send: (cmd: Command) => void;
+  /** Round 13 (F): what a live shift needs from App (absent: the turn-based day only). */
+  live?: HostLiveApi;
+}
 
 /** Mounted by App while a host flag is stored; renders nothing once it has gone or expired. */
 export function CoopShiftDock(p: Props) {
@@ -32,7 +43,7 @@ export function CoopShiftDock(p: Props) {
   return flag ? <HostDock key={flag.code} {...p} flag={flag} /> : null;
 }
 
-function HostDock({ game, send, flag }: Props & { flag: HostFlag }) {
+function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag }) {
   const [writer, setWriter] = useState<DocWriter<HostDoc> | null>(() => pendingWriter.get(flag.code) ?? null);
   const [guest, setGuest] = useState<GuestDoc | null>(null);
   const [open, setOpen] = useState(true);
@@ -110,6 +121,31 @@ function HostDock({ game, send, flag }: Props & { flag: HostFlag }) {
   const changes = useMemo(() => (plan && plan.n > answered ? planCommands(game, plan, weekday, dishName) : []), [plan, answered, game, weekday]);
   const planWaiting = !!plan && plan.n > answered && plan.day === game.day && game.phase === "planning";
   const [, bump] = useState(0);
+  // ── Round 13 (F): tonight, live ──
+  const [roomOk, setRoomOk] = useState(false);
+  useEffect(() => { let on = true; void getRoom().then((r) => on && setRoomOk(!!r)); return () => { on = false; }; }, []);
+  const [pick, setPick] = useState<LiveRole>("server"); // the guest's role
+  const [liveNote, setLiveNote] = useState<string | null>(null);
+  const liveDoc: LiveDoc | null = writer?.current.live ?? null;
+  const liveActive = !!liveDoc && liveDoc.state !== "ended" && (liveDoc.state === "on" || liveDoc.day === game.day);
+  const arm = () => {
+    if (!writer) return;
+    setLiveNote(null);
+    void writer.patch({ live: { nonce: newNonce(), guestRole: pick, state: "ready", day: game.day, at: Date.now() } });
+    bump((x) => x + 1);
+  };
+  const disarm = () => { if (!writer || !liveDoc) return; void writer.patch({ live: { ...liveDoc, state: "ended", why: "host", at: Date.now() } }); bump((x) => x + 1); };
+  const liveEnded = (why: EndWhy, msg?: string) => {
+    setLiveNote(msg ?? (why === "done" ? "Doors closed on the live shift." : why === "slow" ? "Finished on your own: the link was too slow. The turn-based day still works." : why === "office" ? "Back in the office: the live shift is over." : null));
+    bump((x) => x + 1);
+  };
+  const [liveSt, setLiveSt] = useState({ room: false, guestHere: false });
+  const liveEl = writer && liveActive && liveDoc && liveApi ? (
+    <Suspense fallback={null}>
+      <HostLive key={liveDoc.nonce} game={game} send={send} api={liveApi} code={flag.code} live={liveDoc} writer={writer} guestNick={guest?.nick ?? "Your friend"} onEnded={liveEnded} onStatus={setLiveSt} />
+    </Suspense>
+  ) : null;
+  const doing = (r: LiveRole) => (r === "chef" ? "cooking" : "serving");
   const answer = (used: boolean) => {
     if (!writer || !plan) return;
     if (used) for (const c of changes) send(c.cmd);
@@ -128,17 +164,20 @@ function HostDock({ game, send, flag }: Props & { flag: HostFlag }) {
   useEffect(() => { if (planWaiting) setOpen(true); }, [planWaiting]);
   // another game is open: the session belongs to the one that made it
   if (!mine) return null;
+  // a live shift owns the service: its layer is on the stage, so the panel steps aside. HostLive sits at one place in
+  // the tree whatever the panel shows, so folding the panel or opening the doors never drops the room.
+  if (liveEl && game.phase === "service") return <>{liveEl}</>;
   if (!open) {
-    return (
+    return (<>{liveEl}
       <div className="coopdock coopdock--pill">
         {who && <EmoteHeard from={who} emote={guest?.emote ?? null} />}
         <button className="btn btn--tap coopdock__pill" onClick={() => setOpen(true)} aria-expanded="false">
           <Icon name="people" size={20} />Co-op{who ? ` · ${who}` : ""}{planWaiting ? " · plan in" : ""}
         </button>
       </div>
-    );
+    </>);
   }
-  return (
+  return (<>{liveEl}
     <aside className="coopdock card" aria-label="Co-op day">
       <div className="row">
         <Icon name="people" size={22} />
@@ -170,12 +209,31 @@ function HostDock({ game, send, flag }: Props & { flag: HostFlag }) {
           ) : (
             <p className="small muted">{game.phase === "planning" ? `${who} is planning tonight.` : game.phase === "service" ? `${who} is watching for the evening's numbers.` : `${who} sees tonight's numbers.`}</p>
           )}
+          {liveActive && liveDoc && game.phase === "planning" && (
+            <div className="cooparm stack stack--sm" role="status">
+              <p className="small"><b>Live tonight.</b> You're {doing(liveDoc.guestRole === "server" ? "chef" : "server")}, <b>{who}</b> is {doing(liveDoc.guestRole)}. Open the doors when you're both ready.</p>
+              <p className="small muted">{!liveSt.room ? "Opening the live room…" : liveSt.guestHere ? `${who} is in the room.` : `Waiting for ${who} to join the room…`}</p>
+            </div>
+          )}
+          {!liveActive && game.phase === "planning" && liveApi && roomOk && guest?.rt && (
+            <div className="cooparm stack stack--sm">
+              <p className="small"><b>Play tonight's service live</b>, together, on one floor.</p>
+              <div className="cooparm__roles" role="group" aria-label="Who does what">
+                <button type="button" className="btn btn--tap" aria-pressed={pick === "server"} onClick={() => setPick("server")}>I cook, {who} serves</button>
+                <button type="button" className="btn btn--tap" aria-pressed={pick === "chef"} onClick={() => setPick("chef")}>I serve, {who} cooks</button>
+              </div>
+              <button className="btn btn--green btn--tap" onClick={arm}>Go live tonight</button>
+            </div>
+          )}
+          {liveActive && game.phase === "planning" && <button className="btn btn--ghost btn--tap" onClick={disarm}>Not live tonight</button>}
+          {!liveActive && game.phase === "planning" && liveApi && roomOk && guest && !guest.rt && <p className="small muted">{who}'s page can't do live play, so it's the turn-based day.</p>}
+          {liveNote && <p className="small callout" role="status">{liveNote}</p>}
         </div>
       )}
       {lost && <p className="small callout">Lost touch with the session. It may have ended.</p>}
       <EmoteBar onSend={emote} disabled={!writer || !who} />
       <button className="btn btn--ghost btn--tap btn--danger-text" onClick={() => void end()}>End the co-op day</button>
     </aside>
-  );
+  </>);
 }
 
