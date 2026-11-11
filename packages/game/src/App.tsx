@@ -18,6 +18,7 @@ import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
 import { RotateCard } from "./components/RotateCard";
 import { useBrandStyle } from "./lib/brandHook";
+import { useVoicesMemo } from "./lib/voicesMemoHook";
 
 // Round 3 review: the path and career screens (and the hands-on canvas, which pulls in @full-plate/handson) load on
 // first use. The path *sims* stay in the main bundle: the reducer and the save envelope run them synchronously.
@@ -121,6 +122,7 @@ export function App() {
   useEffect(() => { prefetchStartScreens(); }, []);
   useSlotAutosave(store, slotId, game, meta);
   useBrandStyle(shell.view === "game" ? game : null, meta); // R12-B
+  useVoicesMemo(shell.view === "game" ? game : null, meta, (memo) => dispatch({ type: "voicesMemo", memo })); // R13-D
   const slotRef = useRef(slotId);
   slotRef.current = slotId;
 
@@ -386,6 +388,7 @@ export function App() {
             onTastingMenu={(menuId) => dispatch({ type: "tastingMenu", menuId })}
             onBrand={(code) => dispatch({ type: "brand", code })}
             onInvent={(dish) => dispatch({ type: "invent", dish })}
+            onCookbook={(op) => dispatch({ type: "cookbook", op })}
           />
         )}
         {inService && meta.handsOn && (
@@ -462,11 +465,11 @@ export function App() {
         <Suspense fallback={null}><ForkCard game={game} forkDay={meta.forkDay} onChoose={(choice, brandName) => dispatch({ type: "fork", choice, ...(brandName ? { brandName } : {}) })} /></Suspense>
       )}
       <Suspense fallback={null}>
-        {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} onClose={() => dispatch({ type: "openGuide" })} />}
+        {meta.pendingGuide && <GuideEnvelope game={game} pending={meta.pendingGuide} cookbook={meta.customDishes} onClose={() => dispatch({ type: "openGuide" })} />}
         {!career && meta.empire?.boardMeeting && (game.phase === "planning" || isEvening) && !meta.fork.offered && (
           <BoardMeeting empire={meta.empire} meeting={meta.empire.boardMeeting} send={sendEmpire} />
         )}
-        {chapter > 0 && <ChapterCard game={game} n={chapter} chapters={Math.floor(forkDayOf(meta) / CHAPTER_DAYS)} onClose={() => dispatch({ type: "chapterSeen", n: chapter })} />}
+        {chapter > 0 && <ChapterCard game={game} n={chapter} chapters={Math.floor(forkDayOf(meta) / CHAPTER_DAYS)} memo={meta.voices} onClose={() => dispatch({ type: "chapterSeen", n: chapter })} />}
         {meta.handover && !meta.handoverSeen && <HandoverModal summary={meta.handover} onClose={() => { setPlanTab("menu"); dispatch({ type: "seenHandover" }); }} />}
       </Suspense>
       {coop && !career && <Suspense fallback={null}><CoopShiftDock game={game} send={send} /></Suspense>}

@@ -3,14 +3,18 @@
  * ends, this card scores the month out of five stars from its own results and says one thing to do next. One tap
  * closes it. Presentation only: the sim's year and the fork are unchanged. Lazy chunk.
  */
+import { lazy, Suspense } from "react";
 import type { DayResult, GameState } from "@full-plate/sim-core";
 import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { MoneyText } from "../components/MoneyText";
 import { Stars } from "../components/Stars";
 import { Term } from "../components/Term";
-import { CHAPTER_DAYS } from "../state/paths";
+import { CHAPTER_DAYS, type VoicesMemo } from "../state/paths";
 import "./challenge.css";
+
+// Round 13 (D): "Regular of the month" (lazy: it needs the voices data).
+const RegularOfMonth = lazy(() => import("../components/RegularOfMonth").then((m) => ({ default: m.RegularOfMonth })));
 
 export interface ChapterScore {
   n: number;
@@ -50,9 +54,13 @@ interface Props {
   n: number;
   chapters: number;
   onClose: () => void;
+  /** Round 13 (D): the regulars' memo (PathMeta.voices). */
+  memo?: VoicesMemo | undefined;
+  /** Round 13 (D): the regulars only appear in an owner's own game. */
+  regulars?: boolean | undefined;
 }
 
-export function ChapterCard({ game, n, chapters, onClose }: Props) {
+export function ChapterCard({ game, n, chapters, onClose, memo, regulars = true }: Props) {
   const s = chapterScore(game.history, n, chapters);
   return (
     <Dialog title={`Chapter ${n} done`} kicker={`Chapter ${n} of ${chapters} · days ${(n - 1) * CHAPTER_DAYS + 1}–${n * CHAPTER_DAYS}`} stamp={<Icon name="calendar" size={28} />} onClose={onClose} className="chapter">
@@ -66,6 +74,7 @@ export function ChapterCard({ game, n, chapters, onClose }: Props) {
         <div><dt><Term id="covers" inline>Covers</Term></dt><dd>{s.covers.toLocaleString("en-GB")}</dd></div>
         <div><dt><Term id="popularity" inline>Popularity</Term></dt><dd>{s.popularity >= 0 ? "+" : "−"}{Math.abs(Math.round(s.popularity))}</dd></div>
       </dl>
+      {regulars && <Suspense fallback={null}><RegularOfMonth game={game} from={(n - 1) * CHAPTER_DAYS} to={n * CHAPTER_DAYS - 1} memo={memo} /></Suspense>}
       <p className="chapter__next">{s.next}</p>
       <button className="btn btn--primary btn--tap chapter__ok" data-autofocus onClick={onClose}>{n >= chapters ? "On with the year" : `On to chapter ${n + 1}`}</button>
     </Dialog>

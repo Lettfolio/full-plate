@@ -52,7 +52,7 @@ export function RestaurantTab({ game, send, meta, onBrand }: Props) {
       </aside>
       {meta && <Suspense fallback={null}><BrandCard game={game} meta={meta} onBrand={onBrand} /></Suspense>}
       {/* Round 12 (E): the chef across the road and the Regulars book. */}
-      <div className="voices-row"><RivalCard game={game} /><RegularsCard game={game} /></div>
+      <div className="voices-row"><RivalCard game={game} memo={meta?.voices} /><RegularsCard game={game} memo={meta?.voices} /></div>
       <Suspense fallback={null}><VisitShareCard game={game} brand={meta?.brand} /></Suspense>
     </div>
   );

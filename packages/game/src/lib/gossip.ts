@@ -15,7 +15,7 @@ import type { PathMeta } from "../state/paths";
 import { extras } from "../sim";
 import { blogger, reviewOn, visitsOn } from "./blogger";
 import { beatGossip, regularsOf, type RegularState } from "./regulars";
-import { clippingDay, rivalFor, weekScores, type Rival, type WeekScore } from "./rival";
+import { clipFrom, rivalFor, weekScores, type Rival, type WeekScore } from "./rival";
 import { dishLabel, districtName, fill, h32, meanCovers, pickBy, station, voices, wasOpen, weekdayName } from "./voiceKit";
 
 export type GossipKind = "opening" | "clipping" | "regular" | "blogger" | "spotted" | "rival" | "joke" | "patter" | GossipReaction;
@@ -39,7 +39,7 @@ interface Ctx {
 
 function context(game: GameState, meta?: PathMeta): Ctx {
   const weeks = weekScores(game);
-  return { game, meta, rival: rivalFor(game.seed, game.districtId), weeks, clipping: clippingDay(weeks), regulars: regularsOf(game) };
+  return { game, meta, rival: rivalFor(game.seed, game.districtId), weeks, clipping: clipFrom(meta?.voices, game.seed, weeks), regulars: regularsOf(game, meta?.voices) };
 }
 
 function baseVars(c: Ctx, day: number): Record<string, string | number | undefined> {

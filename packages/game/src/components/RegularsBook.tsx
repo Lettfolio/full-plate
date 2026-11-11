@@ -6,7 +6,8 @@
 import { useMemo } from "react";
 import { avatarFor, type AvatarSpec, type GameState } from "@full-plate/sim-core";
 import type { RegularDef } from "@full-plate/content/voices";
-import { lines, orderText, regularsOf, storyOf, type RegularState } from "../lib/regulars";
+import { lines, orderText, regularsOf, storyOf, thanksNote, type RegularState } from "../lib/regulars";
+import type { VoicesMemo } from "../state/paths";
 import { dishLabel, fill, weekdayName } from "../lib/voiceKit";
 import { WEEKDAY_NAMES } from "../lib/calendar";
 import { Avatar } from "./Avatar";
@@ -49,6 +50,7 @@ function Person({ game, s }: { game: GameState; s: RegularState }) {
             </div>
           </div>
         ) : <p className="small"><Icon name="check" size={16} /> {L.finished}</p>}
+        {thanksNote(game, s) && <p className="thanksnote" data-testid="book-thanks"><span className="xs muted">The note they left:</span> “{thanksNote(game, s)!.text}”</p>}
         {story.some((b) => b.photo) && (
           <div className="regbook__photos" aria-label="Photos">
             {story.filter((b) => b.photo).map((b) => (
@@ -64,8 +66,8 @@ function Person({ game, s }: { game: GameState; s: RegularState }) {
   );
 }
 
-export function RegularsBook({ game, onClose }: { game: GameState; onClose: () => void }) {
-  const regs = useMemo(() => regularsOf(game), [game.seed, game.history.length]); // eslint-disable-line react-hooks/exhaustive-deps
+export function RegularsBook({ game, memo, onClose }: { game: GameState; memo?: VoicesMemo | undefined; onClose: () => void }) {
+  const regs = useMemo(() => regularsOf(game, memo), [game.seed, game.history.length, memo?.day]); // eslint-disable-line react-hooks/exhaustive-deps
   const joined = regs.filter((r) => r.joined !== undefined).sort((a, b) => a.joined! - b.joined!);
   const toCome = regs.length - joined.length;
   return (
