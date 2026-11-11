@@ -35,6 +35,11 @@ export const PHONE_PORTRAIT_QUERY = "(max-width: 480px) and (orientation: portra
 export const useNarrow = (): boolean => useMedia(NARROW_QUERY);
 export const usePhonePortrait = (): boolean => useMedia(PHONE_PORTRAIT_QUERY);
 export const useCoarsePointer = (): boolean => useMedia(COARSE_QUERY);
+/** Round 13 (B): any phone, upright or sideways (either of phone.css's two blocks): the header's "⋯" sheet. */
+export const PHONE_ANY_QUERY = `${PHONE_QUERY}, ${PHONE_LANDSCAPE_QUERY}`;
+export const usePhone = (): boolean => useMedia(PHONE_ANY_QUERY);
+/** Round 13 (B): an upright phone, width only (phone.css's first block): the service sheet, the floor camera, the list matrix. */
+export const usePhoneNarrow = (): boolean => useMedia(PHONE_QUERY);
 
 /** "Tap" on a touch screen, "Click" with a mouse (capitalised when `cap`). */
 export function pointWord(coarse: boolean, cap = true): string {
