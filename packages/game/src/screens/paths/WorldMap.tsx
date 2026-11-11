@@ -5,7 +5,7 @@
  * pins. Pins are real <button>s (tab order, accessible names, 44 px hit areas) and their text is CSS-sized, so no
  * label ever shrinks below 13 px when the map is zoomed out. Geography and the pan/zoom maths are in `worldGeo.ts`.
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import { cityEntryCost, EMPIRE, type City, type EmpireState, type SiteSummary } from "@full-plate/sim-empire";
 import { Term } from "../../components/Term";
 import { Icon } from "../../components/Icon";
@@ -14,7 +14,7 @@ import {
   centreOn, cityPos, clampView, DUNES, HILLS, HOME_VIEW, LABEL_SIDE, LANDS, MAP_H, MAP_W, PATCHES, PEAKS, REGION_GEO, RIVERS,
   routePath, toScreenPct, TREES, zoomAt, ZOOM_MAX, ZOOM_MIN, type Pt, type View,
 } from "./worldGeo";
-import { CityBoard, districtLabel, LegendItem, MapLegend } from "./mapParts";
+import { CityBoard, districtLabel, LegendItem, MapLegend, useMapGestures } from "./mapParts";
 
 // R8 review: B's ownership tokens, so the map, the legend, city bars and charts agree.
 export const OWN_COLOUR = ["var(--own)", "var(--franchise)", "var(--licence)"] as const;
@@ -88,68 +88,29 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
   const hq = e.hq.homeCityId;
   const hubs = new Set(routes.filter((r) => r.commissary).map((r) => r.from));
 
-  // ── pointer pan / pinch, wheel zoom (all clamped) ──
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ startX: number; startY: number; moved: boolean; pinch?: number }>({ startX: 0, startY: 0, moved: false });
-  const suppressClick = useRef(false);
+  // ── pan / pinch / wheel / keys (Round 13 — B: shared with the city boards, mapParts useMapGestures; all clamped) ──
   const unitsPerPx = () => { const w = frame.current?.getBoundingClientRect().width ?? 0; return w > 0 ? MAP_W / w : 1; };
   const toUnits = (cx: number, cy: number): Pt => {
     const r = frame.current?.getBoundingClientRect();
     const s = unitsPerPx();
     return r ? [(cx - r.left) * s, (cy - r.top) * s] : [MAP_W / 2, MAP_H / 2];
   };
-  const onPointerDown = (ev: RPointerEvent<HTMLDivElement>) => {
-    if ((ev.target as HTMLElement).closest(".worldmap__ctl")) return;
-    pointers.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    if (pointers.current.size === 1) gesture.current = { startX: ev.clientX, startY: ev.clientY, moved: false };
-    else if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
-      gesture.current.pinch = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      gesture.current.moved = true;
-    }
-  };
-  const onPointerMove = (ev: RPointerEvent<HTMLDivElement>) => {
-    const prev = pointers.current.get(ev.pointerId);
-    if (!prev) return;
-    const next = { x: ev.clientX, y: ev.clientY };
-    pointers.current.set(ev.pointerId, next);
-    const g = gesture.current;
-    if (pointers.current.size >= 2 && g.pinch) {
-      const [a, b] = [...pointers.current.values()];
-      const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      // Read everything now: the updater runs later, after g.pinch has moved on.
-      const ratio = d / g.pinch, mid = toUnits((a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
-      if (d > 0) setView((v) => zoomAt(v, ratio, mid));
-      g.pinch = d;
-      return;
-    }
-    if (!g.moved && Math.hypot(next.x - g.startX, next.y - g.startY) < 6) return;
-    if (!g.moved) { g.moved = true; try { frame.current?.setPointerCapture(ev.pointerId); } catch { /* jsdom */ } }
-    const s = unitsPerPx(), dx = (next.x - prev.x) * s, dy = (next.y - prev.y) * s;
-    setView((v) => ({ ...v, tx: v.tx + dx, ty: v.ty + dy }));
-  };
-  const onPointerEnd = (ev: RPointerEvent<HTMLDivElement>) => {
-    pointers.current.delete(ev.pointerId);
-    if (pointers.current.size < 2) gesture.current.pinch = undefined;
-    if (pointers.current.size === 0 && gesture.current.moved) { suppressClick.current = true; gesture.current.moved = false; }
-  };
+  const gestures = useMapGestures(frame, {
+    pan: (dx, dy) => { const s = unitsPerPx(); setView((v) => ({ ...v, tx: v.tx + dx * s, ty: v.ty + dy * s })); },
+    // Read the point now: the updater runs later.
+    zoom: (f, cx, cy) => { const at = cx !== undefined && cy !== undefined ? toUnits(cx, cy) : undefined; setView((v) => zoomAt(v, f, at)); },
+    reset: () => setView(HOME_VIEW),
+    zoomed: () => viewRef.current.k > ZOOM_MIN,
+    atLimit: (f) => (f < 1 && viewRef.current.k <= ZOOM_MIN) || (f > 1 && viewRef.current.k >= ZOOM_MAX),
+  });
+  // Round 13 (B): the frame's size in px, for the label de-overlap
+  const [px, setPx] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   useEffect(() => {
     const el = frame.current;
-    if (!el) return;
-    const onWheel = (ev: WheelEvent) => {
-      if (ev.deltaY === 0) return;
-      const r = el.getBoundingClientRect();
-      const s = r.width > 0 ? MAP_W / r.width : 1;
-      const at: Pt = [(ev.clientX - r.left) * s, (ev.clientY - r.top) * s];
-      const f = Math.exp(-ev.deltaY * 0.0022);
-      const v = viewRef.current;
-      // At a clamp, let the page scroll on (zooming out at 1×, or in at 4×) instead of trapping the wheel.
-      if ((f < 1 && v.k <= ZOOM_MIN) || (f > 1 && v.k >= ZOOM_MAX)) return;
-      ev.preventDefault();
-      setViewRaw((p) => zoomAt(p, f, at));
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { const r = el.getBoundingClientRect(); setPx((p) => (p.w === r.width && p.h === r.height ? p : { w: r.width, h: r.height })); });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   /** A focused pin that is off-screen while zoomed: bring it into the middle. */
@@ -162,6 +123,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
   };
 
   const k = view.k;
+  const quiet = useMemo(() => quietLabels(e, view, px, mix, picked), [e, view, px, mix, picked]);
   const gT = `translate(${view.tx.toFixed(2)} ${view.ty.toFixed(2)}) scale(${k.toFixed(4)})`;
   const tipAt = tip && pos.get(tip) ? toScreenPct(view, pos.get(tip)!) : undefined;
   // No tooltip for a pin the zoom has pushed off the frame.
@@ -172,11 +134,10 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
         ref={frame}
         className={`worldmap__frame ${k > 1 ? "worldmap__frame--zoomed" : ""}`}
         data-zoom={k.toFixed(2)}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        onClickCapture={(ev) => { if (suppressClick.current) { suppressClick.current = false; ev.stopPropagation(); ev.preventDefault(); } }}
+        tabIndex={0}
+        role="region"
+        aria-label="World map. Arrow keys move it, plus and minus zoom, 0 resets."
+        {...gestures}
         onMouseLeave={() => setTip(null)}
       >
         <svg className="worldmap__svg" viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true" focusable="false">
@@ -244,7 +205,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
               <button
                 key={c.id}
                 type="button"
-                className={`mappin mappin--${state} mappin--${LABEL_SIDE[c.id] ?? "r"} ${sel ? "mappin--picked" : ""} ${x < -2 || x > 102 || y < -3 || y > 103 ? "mappin--off" : ""}`}
+                className={`mappin mappin--${state} mappin--${LABEL_SIDE[c.id] ?? "r"} ${sel ? "mappin--picked" : ""} ${quiet.has(c.id) ? "mappin--quiet" : ""} ${x < -2 || x > 102 || y < -3 || y > 103 ? "mappin--off" : ""}`}
                 style={{ left: `${x}%`, top: `${y}%` }}
                 aria-label={name}
                 aria-pressed={sel}
@@ -290,6 +251,35 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
       </MapLegend>
     </div>
   );
+}
+
+/**
+ * Round 13 (B): which city names to drop so no two labels (or a label and another pin) overlap at this zoom, on this
+ * frame. Most important first (picked, HQ, most shops, entered); a dropped name comes back as the map is zoomed in, and
+ * shows on hover/focus. Estimates a label box from its length (13–15 px text, ≈ 8.6 px a character).
+ */
+export function quietLabels(e: Pick<EmpireState, "cities" | "hq">, view: View, px: { w: number; h: number }, mix: Map<string, Mix>, picked?: string): Set<string> {
+  const out = new Set<string>();
+  if (px.w <= 0 || px.h <= 0) return out;
+  const total = (id: string) => { const m = mix.get(id); return m ? m.company + m.franchise + m.licence + m.building : 0; };
+  const rank = (c: City) => (c.id === picked ? 1e6 : 0) + (c.id === e.hq.homeCityId ? 1e5 : 0) + total(c.id) * 10 + (c.entered ? 5 : 0);
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const kept: Box[] = [];
+  const hit = (b: Box) => kept.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+  const pins = e.cities.map((c) => {
+    const [sx, sy] = toScreenPct(view, cityPos(c));
+    return { c, x: (sx / 100) * px.w, y: (sy / 100) * px.h };
+  }).filter((p) => p.x > -40 && p.x < px.w + 40 && p.y > -40 && p.y < px.h + 40);
+  for (const p of pins) kept.push({ x0: p.x - 13, y0: p.y - 13, x1: p.x + 13, y1: p.y + 13 }); // every mark stays
+  for (const p of [...pins].sort((a, b) => rank(b.c) - rank(a.c))) {
+    const w = p.c.name.length * 8.6 + 6, h = 18, side = LABEL_SIDE[p.c.id] ?? "r", off = total(p.c.id) ? 22 : 18;
+    const b: Box = side === "r" ? { x0: p.x + off, y0: p.y - h / 2, x1: p.x + off + w, y1: p.y + h / 2 }
+      : side === "l" ? { x0: p.x - off - w, y0: p.y - h / 2, x1: p.x - off, y1: p.y + h / 2 }
+      : side === "b" ? { x0: p.x - w / 2, y0: p.y + off, x1: p.x + w / 2, y1: p.y + off + h }
+      : { x0: p.x - w / 2, y0: p.y - off - h, x1: p.x + w / 2, y1: p.y - off };
+    if (hit(b)) out.add(p.c.id); else kept.push(b);
+  }
+  return out;
 }
 
 const haloColour = (e: EmpireState, id: string) => ((e.brand.recognition[id] ?? 0) >= EMPIRE.WIN_RECOGNITION ? "var(--map-halo-won)" : "var(--map-halo)");
