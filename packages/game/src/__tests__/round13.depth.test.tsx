@@ -376,3 +376,28 @@ describe("brand in the places it was missing", () => {
     expect(r.meta.empire!.brand.formula.menuDishIds).toEqual([id]);
   });
 });
+
+// ── the round 13 corpus saves ──
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
+const corpus = (f: string) => checkedDecode(gunzipSync(readFileSync(join(__dirname, "fixtures/corpus", f))).toString("utf8"));
+
+describe("round 13 corpus saves", () => {
+  it("the cookbook, the day-450 memo and the Empire formula are what their names say", () => {
+    const cb = corpus("r13-owner-cookbook-d8.json.gz");
+    const live = liveDishes(cb.meta);
+    expect(live.map((d) => d.name)).toEqual(["Cottage pie royale", "Strawberry mess", "Harbour stew"]);
+    expect(live[1]!.refined).toBeTruthy();
+    expect(live[0]!.v).toBe(2);
+    expect(olderVersions(cb.meta, live[0]!.id)[0]!.sold).toBeGreaterThan(0);
+    expect(live[2]!.resting).toBe(true);
+    expect(cb.meta.customDishes!.some((d) => d.deleted && d.name === "Mistake soup")).toBe(true);
+    const long = corpus("r13-owner-memo-d450.json.gz");
+    expect(long.game.history[0]!.day).toBeGreaterThan(49);
+    const early = regularsFrom(long.game.seed, long.game.history, long.meta.voices).flatMap((r) => r.done.filter((b) => b.day < 50));
+    expect(early.length).toBeGreaterThanOrEqual(3);
+    const emp = corpus("r13-empire-formula-d30.json.gz");
+    expect(emp.meta.empire!.brand.formula.menuDishIds.some((id) => id.startsWith("custom:"))).toBe(true);
+  });
+});

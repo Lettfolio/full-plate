@@ -72,7 +72,7 @@ export default function CookbookStrip({ meta, game, send, onInvent, onCookbook }
                 <div className="cookbook__top">
                   <span className="cookbook__icon" aria-hidden="true">{d.icon}</span>
                   <b className="spacer">{d.name}{refined && <span className="cookbook__suffix">, {refined.suffix}</span>}</b>
-                  {d.v && <span className="pill cookbook__v">v{d.v}</span>}
+                  {d.v && <span className="pill cookbook__v">Version {d.v}</span>}
                 </div>
                 <div className="xs muted">{COURSE[d.course]} · invented day {d.createdDay + 1}{def ? <> · your price <MoneyText pence={on?.price ?? price} /></> : null}</div>
                 {refined && <div className="xs cookbook__prose">“{refined.prose}”</div>}
