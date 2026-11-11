@@ -17,8 +17,9 @@ const SAVED_SAY: Record<SavedWhere, string> = {
 function Choice<T extends string | number>({ label, value, options, onChange }: { label: string; value: T; options: { id: T; label: string; icon?: IconName }[]; onChange: (v: T) => void }) {
   return (
     <div className="sheet__row">
-      <span className="sheet__label" id={`set-${label}`}>{label}</span>
-      <div className="seg" role="radiogroup" aria-labelledby={`set-${label}`}>
+      {/* R13-E: an id can't hold a space (aria-labelledby splits on it: "Text size" named nothing) */}
+      <span className="sheet__label" id={`set-${label.replace(/\s+/g, "-")}`}>{label}</span>
+      <div className="seg" role="radiogroup" aria-labelledby={`set-${label.replace(/\s+/g, "-")}`}>
         {options.map((o) => (
           <button key={String(o.id)} role="radio" aria-checked={value === o.id} className="seg__opt" onClick={() => onChange(o.id)}>
             {o.icon && <Icon name={o.icon} size={20} />}{o.label}

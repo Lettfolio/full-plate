@@ -912,6 +912,18 @@ button, input { font: inherit; color: inherit; }
    still tappable, still tipped. A term inside a button opens its tip on a tap (data-open) instead of pressing it. */
 .term--inline.term--quiet { text-decoration: none; }
 .term[data-open] > .term__tip { display: block; visibility: visible; }
+/* Round 13 (E, R11.11 item 1): every word is a finger-sized target. An invisible hit area at least 44 × 44 px, centred
+   on the word and never smaller than it (left/right are % of the word's width, top/bottom of its height). Absolutely
+   positioned, so no layout moves and nothing is drawn. Where two words' areas overlap, lib/termTap.ts gives the tap to
+   the nearer word (and to a real control under the finger before either). A word inside a control has none: the
+   control is the target there. */
+.term::before {
+  content: ""; position: absolute;
+  left: min(0px, calc(50% - 22px)); right: min(0px, calc(50% - 22px));
+  top: min(0px, calc(50% - 22px)); bottom: min(0px, calc(50% - 22px));
+}
+.term--inbutton::before,
+:is(button, a, label, summary, [role=button], [role=tab], [role=option], [role=menuitem], [role=radio], [role=checkbox]) .term::before { content: none; }
 
 /* ───────── round 5: Empire side panel for a child (My shops / The brand / Money) ───────── */
 .empire__side { font-size: var(--fs-base); }
