@@ -21,7 +21,9 @@
  */
 import type { DecorSlot, Difficulty, GameState, StaffRole } from "@full-plate/sim-core";
 import { cleanName } from "@full-plate/sim-core/schema";
+import { DECOR_SLOTS } from "../sim";
 import { fnv1a, runtime } from "./saveStore";
+import { prefsStorage } from "../lib/storage";
 
 // ── the subset of db.d.ts used here (doc refs, ordered/limited queries, snapshots) ──
 export interface SDocSnap { id: string; exists: boolean; data(): Record<string, unknown> | undefined }
@@ -147,7 +149,8 @@ export const LIMITS = { tables: 24, menu: 40, staff: 40, reviews: 8, week: 7, te
 
 const int = (v: unknown, lo: number, hi: number, d = lo): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
 const num = (v: unknown, lo: number, hi: number, d = lo): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
-const arr = (v: unknown, max: number): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
+// Round 13 (E): Array.from fills holes (a sparse list would otherwise keep them through .map).
+const arr = (v: unknown, max: number): unknown[] => (Array.isArray(v) ? Array.from(v.slice(0, max)) : []);
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const today = (now = Date.now()): string => new Date(now).toISOString().slice(0, 10);
@@ -192,7 +195,8 @@ export function checkSnapshot(raw: unknown, known: { dish(id: string): boolean; 
   const decor: ShareSnapshot["decor"] = {};
   for (const [slot, v] of Object.entries(obj(o.decor)).slice(0, 12)) {
     const e = obj(v);
-    if (typeof e.itemId === "string" && known.decor(e.itemId)) decor[slot as DecorSlot] = { itemId: e.itemId, since: int(e.since, 0, 1e6) };
+    // Round 13 (E): only the room's real slots (an own "__proto__" key from JSON.parse would otherwise set the object's prototype).
+    if ((DECOR_SLOTS as readonly string[]).includes(slot) && typeof e.itemId === "string" && known.decor(e.itemId)) decor[slot as DecorSlot] = { itemId: e.itemId, since: int(e.since, 0, 1e6) };
   }
   const brand: Record<string, string | number> = {};
   for (const [k, v] of Object.entries(obj(o.brand)).slice(0, 12)) {
@@ -256,7 +260,7 @@ const ME_LOCAL = "full-plate:social:v1";
 const MAX_ME = 60;
 function readLocalMe(): Me {
   try {
-    const o = obj(JSON.parse(window.localStorage.getItem(ME_LOCAL) ?? "{}"));
+    const o = obj(JSON.parse(prefsStorage().getItem(ME_LOCAL) ?? "{}"));
     return { shares: strMap(o.shares), reviewed: strMap(o.reviewed) };
   } catch { return { shares: {}, reviewed: {} }; }
 }
@@ -276,7 +280,7 @@ export async function readMe(l: { db: SDb; uid: string }): Promise<Me> {
 }
 export async function writeMe(l: { db: SDb; uid: string }, me: Me): Promise<void> {
   const body = { kind: "fp-social", shares: trimMap(me.shares), reviewed: trimMap(me.reviewed) };
-  try { window.localStorage.setItem(ME_LOCAL, JSON.stringify(body)); } catch { /* storage blocked */ }
+  try { prefsStorage().setItem(ME_LOCAL, JSON.stringify(body)); } catch { /* storage blocked */ }
   await l.db.doc(mePath(l.uid)).set(body);
 }
 
