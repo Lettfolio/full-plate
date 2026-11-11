@@ -1537,3 +1537,122 @@ controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-st
   guest's plan (dish off, price up, staff toggled) → "Use it" → the host's menu changed, guest told; emotes both ways;
   service → the guest sees "running tonight's service" → Skip to evening → the guest sees the numbers; End → the guest
   sees it, the panel goes; no-db context: both entry points show the one line. 0 page errors.
+
+## Round 13 — D: depth for what Round 12 added
+
+The cookbook, the Empire and Stars paths, the regulars and the brand each get the next layer. Game-side only: no sim
+package changed (headless typical / cheap / nohire unchanged). Tests: `round13.depth.test.tsx` (game, 17) and
+`content/test/round13.cookbook.test.ts` (14).
+
+### On screen
+
+- **Menu › Your cookbook** (`screens/planning/CookbookStrip.tsx`): each card shows the plate, the name (a refined dish
+  adds its suffix in italics and its line of prose), a "Version 2" pill for a later version, "your price", plates sold all time,
+  and the older versions' sales ("Cottage pie royale v1: 34 sold"). Tools on every card (all 44 px):
+  - **Edit** opens the invent sheet in edit mode (`InventDishSheet` `editing`): name, plate, price and ingredients; the
+    course is fixed. The footer says what will happen: "Name, plate and price change straight away. Change an ingredient
+    and it becomes a new version." / "New ingredients make version 2. The old recipe keeps its 34 sold as v1." and the
+    button reads **Save recipe** / **Save as v2**. A price change on today's menu changes the menu too. A new version
+    gets a new id (the sim sees a new dish, sales from zero); on today's menu it takes the old one's row at the same
+    price (and stays "off today" if the old one was).
+  - **Rest** takes it off today's menu and shelves it (dashed card, "Resting"); **Bring back** puts it back in the
+    usable book (then **Add to menu**, at her house price).
+  - **Delete** asks in the card: "Delete X for good? Old nights keep their numbers." **Delete** / **Keep it**; while it
+    is on today's menu, the set menu, the brand formula or another shop's menu the card says "It's on today's menu: take
+    it off there first." with **OK** (the reducer refuses too).
+  - **←** / **→** move it earlier or later (display order only).
+  - Refusals come back as the usual bad toast; a done edit as an info toast.
+- **Empire › The brand › The formula**: under the presets, **On the formula now** (the dish names) and **Your recipes**
+  with **Put it in** / **Take it out** per invented dish, its price at the formula's price level, and (locked formula) a
+  note that a change costs every site some consistency (`<Term id="brandConsistency">`). `FormulaPicker.tsx`.
+- **Stars › Refine a dish** (`RefineCard.tsx`, under the Test kitchen): "one a season · this is spring". With a head
+  chef and an unrefined invented dish: three selects (dish, new name from 8 suffixes, a line for the menu from 10) a
+  preview and **Refine it**; it says the dish will need one more point of skill (39 → 40). After: "This spring's refined
+  dish: X, Director's Cut. Sam will look at another one in the summer." Seasons are the calendar's (Dec–Feb winter…),
+  counted from day 0 (`lib/calendar.ts seasonOf`).
+- **Guide envelope**: when a refined dish sold on a night an inspector came (from the season it was refined), a line
+  under the verdict: "On Tue 12 Apr the inspector had the **Strawberry mess, Director's Cut**. “Slow-cooked, quickly
+  admired.” Somebody wrote that down." (`refinedOnInspection`).
+- **Regulars past day 400**: nothing new to see — the book, the gossip and the clipping now come from a memo
+  (`PathMeta.voices`), so a beat from day 30 is still in the book on day 900.
+- **Thank-you notes**: when a regular's last beat lands, the Evening's "Your regulars tonight" row adds "A note left on
+  the table: “…” — Priya" and the Regulars book keeps it under their finished story.
+- **Chapter card**: "Regular of the month: Priya Nair." with her face, job, how many moments that month and the latest
+  line (`components/RegularOfMonth.tsx`, lazy; nothing when nobody's story moved).
+- **Visit a friend**: the room wears the **owner's** awning and uniforms (R12-F7), from the share's brand fields, else
+  the owner's name's default — never the visitor's.
+- **Career › MyShift**: a read-only **The house brand** card (logo, name in the lettering, the kit's parts, "This is
+  X's brand, and that's your uniform. You can design your own once you run the place.") — `components/HouseBrandCard.tsx`.
+- **Empire world map**: the brand's logo on every pin with shops; **Stars map**: the group logo on her own restaurants
+  (the rival keeps ⚔️). **Today's challenge**: the restaurant's logo and name in its lettering under the scenario line.
+
+### Where the code lives
+
+| File | What |
+| --- | --- |
+| `content/src/customDish.ts` | `cookbookOp` (edit / rest / delete / move / refine, pure; returns the menu commands), `liveDishes`, `olderVersions`, `versionName`, `housePrice`, `refineWords`, `isLive`; caps `CUSTOM_MAX_PER_GAME` (12 live) and `CUSTOM_MAX_RECORDS` (40). |
+| `state/gameReducer.ts` | `{ type: "cookbook", op }` (planning only; syncs the pack first so a new version exists, applies the commands through the normal command path, and undoes everything if the sim refuses one), `{ type: "voicesMemo", memo }`, `cookbookUse` (today's menu, set menu, Empire formula, parked shops). |
+| `state/paths.ts`, `saveCheck.ts`, `useSaves.ts` | `PathMeta.cookbookOrder`, `cookbookRev`, `voices` (VoicesMemo); record fields `price`, `resting`, `v`, `oldOf`, `deleted`, `refined`; every one typed and ranged in `metaSchema`, ≤ 12 live recipes, an `oldOf` must name a recipe in the book, unknown ids dropped from the order, the memo's tuples checked. The autosave key adds `cookbookRev`. |
+| `lib/regulars.ts`, `lib/rival.ts`, `lib/voicesMemo.ts`, `lib/voicesMemoHook.ts` | `regularsFrom(seed, history, memo?)` resumes the fold from the memo (each finished beat now keeps the dish that sold that night); `clipFrom`; `memoFrom` (lazy); `useVoicesMemo` (main chunk, a few lines: after a day ends in an owner's game it imports the voices chunk and dispatches the memo; a save with none is backfilled once from what its history still holds). `thanksNote`, `regularOfMonth`. |
+| Screens | `CookbookStrip`, `InventDishSheet` (edit mode), `FormulaPicker`, `RefineCard`, `GuideEnvelope`, `RegularOfMonth`, `HouseBrandCard`, `VisitRoom` (`visitBrand`, `visitLook`: `--awning` on the room + `RenderOptions.brand`), `Challenge` (`ChallengeBrand`), `WorldMap` / `StarsMap` (an optional `logo` prop each). |
+
+### Rules
+
+- **Deleted and old versions stay in the pack** (hidden): every dish id in the history, a parked shop's menu or an old
+  review keeps resolving, and sim-core / sim-stars / sim-empire never meet an unknown id. Only the cookbook hides them.
+- **The pack's order never changes** with the display order (reordering would change the order the sim iterates).
+- **The franchise economics are untouched for anyone who doesn't press Put it in**: an Empire run with an invented
+  dish in the cookbook but not in the formula is byte-identical to one without it for 30 days (tested); with it in the
+  formula the run goes on through sim-empire's own `SET_FORMULA` (the presets' command) — no sim change was needed.
+  New ingredients and delete are refused while a dish is in the formula, the set menu or a parked shop.
+- **The refine** moves exactly one number (skill + 1); the name suffix and the blurb are text (tested field by field).
+- No new motion and no sound, so no new Settings switch; the cards' tools have no transitions.
+
+### Left out, and why
+
+- **Changing the course** of a recipe: it would be a different dish in every number; invent a new one.
+- **Purging deleted records**: they're cheap and keep every old id valid; the 40-record cap ("The cookbook's archive is
+  full: delete an old version first") is far above what a player makes.
+- **Floor names** (`floorNames`, Service.tsx is Builder B's this round) still fold the regulars without the memo:
+  cosmetic, and past day 400 only the name on a table can differ.
+- **Drag to reorder**: arrow buttons work with touch, keyboard and screen readers; a drag needs a second gesture code path.
+- **A refined dish's name in the sim's own past reviews**: reviews already written keep the name they had.
+
+### Checks (built dist)
+
+- **Main JS 165.64 → 167.55 kB** (budget 200): the reducer's `cookbook` / `voicesMemo` cases and `cookbookUse`, the
+  memo hook, the season helper, the prop threads and the new PathMeta types. Everything else is lazy. New chunks:
+  `HouseBrandCard` 1.30, `RegularOfMonth` 1.06, `voicesMemo` 0.76, `rival` 3.11 (split out of `voices`), `refine.css`
+  0.76. Changed: `content` 200.28 → 206.04 (cookbookOp and the refine pools), `CookbookStrip` 2.63 → 5.44 (+ css 4.34 →
+  5.17), `InventDishSheet` 8.81 → 9.67, `EmpireTab` 49.21 → 51.48 (FormulaPicker, logo; it now loads the `brand` chunk
+  with it), `StarsTab` 24.73 → 28.19 (RefineCard, logo), `GuideEnvelope` 3.02 → 3.81, `MyShift` 13.82 → 14.29,
+  `Challenge` 6.21 → 6.81, `ChapterCard` 2.43 → 3.06, `EveningExtras` 2.89 → 3.31, `RegularsBook` 3.06 → 3.28,
+  `regulars` 6.02 → 7.14, `voicesData` 56.62 → 58.73 (the notes), `VisitFriend` 43.54 → 43.88, `saveCheck` module
+  3.54 → 4.54. Never import `lib/voicesMemo.ts` statically from main-chunk code.
+- Tests 1,368 → **1,403** (content 91 → 105, game 640 → 661 incl. three new corpus files; nothing deleted). Under the
+  shared machine's load sim-core's `pricing.balance` (120 s) and sim-empire's `board.test` (60 s) timed out once in
+  the full run; each passed alone (no sim package is touched).
+- Corpus: `r13-owner-cookbook-d8`, `r13-owner-memo-d450`, `r13-empire-formula-d30` (34 files, 0.86 MB).
+- Type audit normal and Bigger: 129 screens each, 0 text < 13 px, 0 errors, within baseline.
+- Probe: no baseline change. Two runs showed only the live `21-service-4x` frame differing (speed buttons under the
+  canvas/status popup, 768 px in one run, 390 px in the other); a master `7e5ad5a` build probed on the same machine
+  read 768-normal covered 33 and phone canvasText 92/61/92/63 (above the committed 88/51/82/52, machine load), and a
+  rerun of this branch gave 768-normal covered 33. No new screens in the walk (the edits live inside existing cards).
+- Headless balance unchanged: typical 180/200 (90.0 %), cheap 136/200 (68.0 %), nohire 0/200 (0 %).
+- Playtest 1024×768 touch, built dist (shots `scratchpad/shots/r13/D/`, 20; 23 checks, 0 page errors): the cookbook
+  save → invent "Lighthouse noodles" → rename + price → new ingredient ("Save as v2", v1 kept) → rest → delete refused
+  on the menu → delete → move → reload keeps order and deletes (cookbook: no control < 44 px, no text < 13 px, no
+  sideways scroll); Empire 30 days on with the pie in the formula (logos on pins, "Take it out", another day played);
+  day-450 save: Marcus's day 2, 10 and 17 beats in the book, and the same save without a memo drops them; Stars:
+  refine → "This spring's refined dish", group logo on the Stars map; Alice's navy brand shared → Bob's visit room
+  awning #123c69 (his own page default #c4412b); challenge intro brand; MyShift house brand.
+
+### Merge notes
+
+Touched files others may also touch: `App.tsx` (one hook line, `onCookbook`, `cookbook` on GuideEnvelope, `memo` on
+ChapterCard), `screens/Planning.tsx` and `MenuTab.tsx` (prop threads), `state/gameReducer.ts` (two actions +
+`cookbookUse`), `state/paths.ts`, `state/saveCheck.ts` (schema lines + three checks — E hardens `state/*`),
+`state/useSaves.ts` (`:${m.cookbookRev}` at the end of the key), `screens/paths/WorldMap.tsx` / `StarsMap.tsx` (one
+optional `logo` prop and one element each — B's gesture files), `screens/paths/map.css` (block appended),
+`screens/VisitRoom.tsx` (G's; `Room` gets `brand`), `screens/Challenge.tsx` + `challenge.css`, `ChapterCard.tsx`,
+`screens/career/MyShift.tsx` + `career.css`, `components/voices.css`, the corpus `index.json` (three entries appended).
