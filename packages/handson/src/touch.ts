@@ -3,7 +3,7 @@
  * CSS-pixel rectangles and hit tests, using the same metrics render draws with. A tap target is never smaller than
  * MIN_TARGET_PX (Apple's 44 pt), whatever the tile size — at 1024×768 a tile is ~23 px.
  */
-import { RAIL, viewMetrics, type HandsOnView } from "./render";
+import { railGeom, viewMetrics, type HandsOnView } from "./render";
 import type { HandsOnSession } from "./types";
 
 export const MIN_TARGET_PX = 44;
@@ -14,7 +14,7 @@ export interface Rect { x: number; y: number; w: number; h: number }
 export function stationRect(session: HandsOnSession, view: HandsOnView, stationId: string): Rect | undefined {
   const st = session.stations.find((s) => s.id === stationId);
   if (!st) return undefined;
-  const m = viewMetrics(view);
+  const m = viewMetrics(view, session.player); // round 13: a following camera moves with her
   return { x: m.ox + st.x * m.T, y: m.oy + st.y * m.T, w: st.w * m.T, h: st.h * m.T };
 }
 
@@ -27,11 +27,15 @@ export function padToMin(r: Rect, min = MIN_TARGET_PX): Rect {
 /** The header rail's station tag (career chef) and slot `i` (CSS px). */
 export function railTagRect(view: HandsOnView): Rect {
   const m = viewMetrics(view);
-  return { x: RAIL.x, y: 10, w: RAIL.tagW - 8, h: m.header - 20 };
+  const g = railGeom(m);
+  return { x: g.x, y: 10, w: Math.max(0, g.tagW - 8), h: m.header - 20 };
 }
 export function railSlotRect(view: HandsOnView, i: number, withTag = true): Rect {
   const m = viewMetrics(view);
-  return { x: RAIL.x + (withTag ? RAIL.tagW : 0) + i * (RAIL.slipW + RAIL.gap), y: 8, w: RAIL.slipW, h: m.header - 14 };
+  const g = railGeom(m);
+  return m.compact
+    ? { x: g.x + i * (g.slipW + g.gap), y: 5, w: g.slipW, h: m.header - 10 }
+    : { x: g.x + (withTag ? g.tagW : 0) + i * (g.slipW + g.gap), y: 8, w: g.slipW, h: m.header - 14 };
 }
 
 export type Hit = { kind: "station"; stationId: string } | { kind: "rail" };
@@ -43,13 +47,14 @@ const inside = (r: Rect, x: number, y: number) => x >= r.x && x <= r.x + r.w && 
  * falls in (nearest centre wins where padded targets overlap). Undefined on bare floor.
  */
 export function hitTest(session: HandsOnSession, view: HandsOnView, x: number, y: number): Hit | undefined {
-  const m = viewMetrics(view);
-  if (y < m.header) return x < m.w - RAIL.hudW - 6 ? { kind: "rail" } : undefined;
+  const m = viewMetrics(view, session.player);
+  if (y < m.header) return x < m.w - railGeom(m).hudW - 6 ? { kind: "rail" } : undefined;
+  const min = Math.max(MIN_TARGET_PX, view.hitSlop ?? 0);
   let best: { id: string; d: number } | undefined;
   for (const st of session.stations) {
     const r = stationRect(session, view, st.id)!;
     const pad = m.T * 0.35;
-    const t = padToMin({ x: r.x - pad, y: r.y - pad, w: r.w + pad * 2, h: r.h + pad * 2 });
+    const t = padToMin({ x: r.x - pad, y: r.y - pad, w: r.w + pad * 2, h: r.h + pad * 2 }, min);
     if (!inside(t, x, y)) continue;
     const d = Math.hypot(x - (r.x + r.w / 2), y - (r.y + r.h / 2));
     if (!best || d < best.d) best = { id: st.id, d };
