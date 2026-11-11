@@ -169,7 +169,7 @@ describe("evening and header", () => {
 
   it("the Decorate tab is a lazy chunk (Planning only imports it with import())", async () => {
     const src = (await import("node:fs")).readFileSync(`${__dirname}/../screens/Planning.tsx`, "utf8");
-    expect(src).toMatch(/lazy\(\(\) => import\("\.\/planning\/DecorateTab"\)/);
+    expect(src).toMatch(/lazyRetry\(\(\) => import\("\.\/planning\/DecorateTab"\)/); // R14 (C): every lazy part is a lazyRetry
     expect(src).not.toMatch(/^import .*DecorateTab/m);
     await act(async () => {});
   });

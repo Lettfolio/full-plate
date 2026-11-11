@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazyRetry } from "../../lib/lazyRetry";
 import { Icon } from "../../components/Icon";
 import type { Command, DishCourse, DishId, GameState, MenuItem } from "@full-plate/sim-core";
 import { classifyMenu, content, MAX_MENU_ITEMS } from "../../sim";
@@ -9,9 +10,9 @@ import { marginFraction, plateCost } from "../../lib/content";
 import { pct } from "../../lib/format";
 import { judged, QUADRANT, QUADRANT_MIN_DAYS } from "./quadrants";
 // Round 7: the matrix is the expert view, loaded the first time it is opened.
-const MenuMatrixPanel = lazy(() => import("./MenuMatrixPanel"));
+const MenuMatrixPanel = lazyRetry(() => import("./MenuMatrixPanel"));
 // Round 12 (F): "Invent a dish" and the cookbook of invented dishes (its own chunk; the sheet is another).
-const CookbookStrip = lazy(() => import("./CookbookStrip"));
+const CookbookStrip = lazyRetry(() => import("./CookbookStrip"));
 import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../../lib/library";
 import { Term } from "../../components/Term";
 import { useDrinksView } from "../../lib/settings";

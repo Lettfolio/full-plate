@@ -1,4 +1,6 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { ChunkBack, lazyRetry } from "../lib/lazyRetry";
+import { prefetchSoon } from "../lib/prefetchSoon";
 import type { Command, GameState, StaffRole } from "@full-plate/sim-core";
 import { GoalsCard } from "../components/GoalsCard";
 import { HelpPopover } from "../components/HelpPopover";
@@ -14,17 +16,17 @@ import type { CustomDish } from "../lib/customDish";
 import type { CookbookOp } from "@full-plate/content";
 import type { KnownPerson } from "./planning/StaffTab";
 // Round 10: the staff room (portrait cards, hiring sheet, training) loads on first open too.
-const StaffTab = lazy(() => import("./planning/StaffTab").then((m) => ({ default: m.StaffTab })));
+const StaffTab = lazyRetry(() => import("./planning/StaffTab").then((m) => ({ default: m.StaffTab })));
 // Round 3 review: the path tabs load on first open (code-split).
-const EmpireTab = lazy(() => import("./paths/EmpireTab").then((m) => ({ default: m.EmpireTab })));
-const StarsTab = lazy(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
+const EmpireTab = lazyRetry(() => import("./paths/EmpireTab").then((m) => ({ default: m.EmpireTab })));
+const StarsTab = lazyRetry(() => import("./paths/StarsTab").then((m) => ({ default: m.StarsTab })));
 // Round 10: the Decorate tab (catalogue, live room preview) loads on first open too.
-const DecorateTab = lazy(() => import("./planning/DecorateTab").then((m) => ({ default: m.DecorateTab })));
+const DecorateTab = lazyRetry(() => import("./planning/DecorateTab").then((m) => ({ default: m.DecorateTab })));
 // Round 12 (E): the Restaurant tab (with the rival and the Regulars book) and the morning gossip load on demand.
-const RestaurantTab = lazy(() => import("./planning/RestaurantTab").then((m) => ({ default: m.RestaurantTab })));
-const GossipTicker = lazy(() => import("../components/GossipTicker").then((m) => ({ default: m.GossipTicker })));
+const RestaurantTab = lazyRetry(() => import("./planning/RestaurantTab").then((m) => ({ default: m.RestaurantTab })));
+const GossipTicker = lazyRetry(() => import("../components/GossipTicker").then((m) => ({ default: m.GossipTicker })));
 // Round 12 (G): the Stock tab loads on first open too (main-chunk budget: room for the Friends entry points).
-const StockTab = lazy(() => import("./planning/StockTab").then((m) => ({ default: m.StockTab })));
+const StockTab = lazyRetry(() => import("./planning/StockTab").then((m) => ({ default: m.StockTab })));
 import { tiredSlots, tiredText } from "../lib/decor";
 import { stockNeeds, tonightRisk } from "./planning/stockNeeds";
 import { StockWarning } from "./planning/StockWarning";
@@ -78,6 +80,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
   const [confirmAlone, setConfirmAlone] = useState(false);
+  // R14 (C, U2): the rest of the day's chunks come in idle time, so the day can be finished offline.
+  useEffect(() => prefetchSoon(path === "empire" || path === "stars" ? path : undefined), [path]);
   const today = weekdayIndex(game.day);
   const active = game.menu.filter((m) => m.active);
   const onShift = game.staff.filter((s) => s.rota[today]);
@@ -148,7 +152,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
         <div className="planning__help"><HelpPopover /></div>
       </div>
       {/* Round 12 (E): not on the wide Empire / Stars tabs, which need the height for their maps and tracks. */}
-      {meta?.mode !== "career" && !wide && <Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense>}
+      {meta?.mode !== "career" && !wide && <ChunkBack to={null}><Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense></ChunkBack>}
       {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
           {(lastDays || loanTip) && (
@@ -197,6 +201,8 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           </aside>
         )}
         <div className="planning__panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {/* R14 (C, U2): a tab that can't load offers Back to the Menu tab (which is always here). */}
+          <ChunkBack to={tab === "menu" ? null : { label: "Back to the menu", go: () => setTab("menu") }}>
           {tab === "menu" && <MenuTab game={game} send={send} path={path} meta={meta} onInvent={onInvent} onCookbook={onCookbook} />}
           {tab === "staff" && <Suspense fallback={<div className="empty small muted">Opening the staff room…</div>}><StaffTab game={game} send={send} wantRole={wantRole ?? openHireGoalRole(game)} known={knownPeople(meta)} /></Suspense>}
           {tab === "stock" && <Suspense fallback={<div className="empty small muted">Opening the store room…</div>}><StockTab game={game} send={send} needs={needs} opening={opening} /></Suspense>}
@@ -206,6 +212,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
             {tab === "empire" && meta?.empire && sendEmpire && <EmpireTab game={game} meta={meta} empire={meta.empire} send={sendEmpire} onFocusSite={onFocusSite ?? (() => {})} />}
             {tab === "stars" && meta?.stars && sendStars && <StarsTab game={game} meta={meta} stars={meta.stars} send={sendStars} onTastingMenu={onTastingMenu ?? (() => {})} onCookbook={onCookbook} />}
           </Suspense>
+          </ChunkBack>
         </div>
       </div>
       {/* Round 7: the day's one primary button sits in a dock pinned to the bottom-right, on every tab. */}

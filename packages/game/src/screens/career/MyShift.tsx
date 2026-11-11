@@ -1,5 +1,6 @@
 import { formatPounds } from "../../lib/format";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazyRetry } from "../../lib/lazyRetry";
+import { Suspense, useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
 import type { GameState } from "@full-plate/sim-core";
 import {
@@ -32,7 +33,7 @@ interface Props {
 }
 
 // Round 13 (D): the employer's brand, read-only (lib/brand is a lazy chunk).
-const HouseBrandCard = lazy(() => import("../../components/HouseBrandCard").then((m) => ({ default: m.HouseBrandCard })));
+const HouseBrandCard = lazyRetry(() => import("../../components/HouseBrandCard").then((m) => ({ default: m.HouseBrandCard })));
 
 const OWNER_BLURB = { balanced: "A fair boss: steady hours, decent tips", premium: "A fussy boss: high standards, faster growth", cheap: "A cheap boss: long rotas, no training" } as const;
 

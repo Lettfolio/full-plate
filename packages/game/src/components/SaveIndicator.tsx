@@ -1,9 +1,10 @@
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import { getSaveStore, type SaveStore } from "../state/saveStore";
 import { saveMark, useSaves, type SaveMark } from "../state/useSaves";
 import { Icon, type IconName } from "./Icon";
 
-const SaveSheet = lazy(() => import("./SaveSheet").then((m) => ({ default: m.SaveSheet })));
+const SaveSheet = lazyRetry(() => import("./SaveSheet").then((m) => ({ default: m.SaveSheet })));
 
 export const SAVE_LOOK: Record<SaveMark, { icon: IconName; short: string; title: string }> = {
   account: { icon: "cloud", short: "Saved ✓", title: "Saved to your account ✓" },

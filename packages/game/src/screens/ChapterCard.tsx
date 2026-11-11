@@ -3,7 +3,8 @@
  * ends, this card scores the month out of five stars from its own results and says one thing to do next. One tap
  * closes it. Presentation only: the sim's year and the fork are unchanged. Lazy chunk.
  */
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyRetry } from "../lib/lazyRetry";
 import type { DayResult, GameState } from "@full-plate/sim-core";
 import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -14,7 +15,7 @@ import { CHAPTER_DAYS, type VoicesMemo } from "../state/paths";
 import "./challenge.css";
 
 // Round 13 (D): "Regular of the month" (lazy: it needs the voices data).
-const RegularOfMonth = lazy(() => import("../components/RegularOfMonth").then((m) => ({ default: m.RegularOfMonth })));
+const RegularOfMonth = lazyRetry(() => import("../components/RegularOfMonth").then((m) => ({ default: m.RegularOfMonth })));
 
 export interface ChapterScore {
   n: number;
