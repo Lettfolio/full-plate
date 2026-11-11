@@ -2310,5 +2310,12 @@ event deck and incidents are already shown as cards), a same-day emergency order
 - The margin line repeats while she ignores it (same dish, same numbers); it stops once the price is 1.2× usual.
 
 ### Numbers
-See the Round 14 F report: tests, chunk sizes (main 181.5 → 183.2 kB; new lazy `TodayCard` 4.2 kB), audit, probe,
-balance and playtest shots in `scratchpad/shots/r14/F/`.
+- Main chunk 181.5 → **183.24 kB** (Evening: review display, one thing for tomorrow, profit tip, zero-night line;
+  Bank's `loanGone`). New lazy `TodayCard` 4.24 kB (+0.43 kB css); `NewGame` 7.94 kB (LeaseMoney).
+- Tests 1,505 → 1,539 (+34: `round14f.regulars` 7, `.rival` 3, `.reviews` 3, `.nofood` 6, `.money` 8, `.days` 5,
+  content `round14f.softBlurb` 2).
+- Type audit normal and large: 129 screens each, 0 text < 13 px, 0 errors, within baseline.
+- Probe: `underBar` 844×390-normal 21 → 22 and 1024×768-large 7 → 8, both on `30-evening` (the one-thing card in the
+  tip slot moves which line sits under the dock at capture); 1024×768-normal and 1280×800-large went 1 lower. Baseline
+  raised for the two, the rest left as they were.
+- Balance (200 seeds): typical 90.0 / cheap 68.0 / nohire 0; no sim file changed.
