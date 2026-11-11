@@ -1858,3 +1858,123 @@ unsafe character in text or attributes. Two fixes in `checkSnapshot`: decor keep
   `/full-plate/`, `/other-game/`): a game made at the root (old key layout) is offered and continues at
   `/full-plate/`, all keys now scoped; `/other-game/` sees nothing. Blocked storage (a throwing `localStorage`): a new
   game plays, the mark says Not saved, Settings › Bigger applies, Save to a file downloads; 0 errors.
+
+## Round 13 — B: phone, beyond CSS
+
+The four "not fixable in CSS" items from `docs/PHONE-AUDIT.md`, plus the header "⋯" sheet and the service panel
+collapse. Upright = `PHONE_QUERY` (≤ 480 px wide), sideways = `PHONE_LANDSCAPE_QUERY`; desktop and tablet render exactly
+as before (every new branch is behind `usePhone` / `usePhoneNarrow` in `lib/layout.ts`, and jsdom/tests see a desktop).
+Tests: `round13.phone.test.tsx` (14).
+
+### On screen
+
+- **Header "⋯" sheet** (phones, both ways up; `components/StatusBar.tsx`). The header keeps the name, `Day N` + date,
+  and the cash (or a career player's savings). Everything else is behind one 48 px **⋯** button: yesterday's trend and
+  the bank chip, Popularity / Prestige (or rung, Reputation, Mood), the loan, the save mark (with its word), the
+  difficulty pill, **Sound on/off** (a switch; volumes stay in Settings), **Words** (the glossary sheet) and **Settings**.
+  It is a disclosure that drops under the header (`aria-expanded`, `aria-controls`), not a modal: Settings and the save
+  mark open their own sheets from inside it, so it stays mounted while they're up. Escape or a tap outside closes it
+  (not while one of those sheets is open) and focus goes back to ⋯. When the bank chip is showing, ⋯ carries a red dot
+  and its name says "the bank is waiting". Upright the header is two short rows; sideways one row.
+- **Service panel as a bottom sheet** (upright; `screens/Service.tsx` `SheetHandle`, `SheetBody`). The floor gets the
+  screen; the panel is a sheet with three heights:
+  - **peek** — the grab handle, the one most urgent thing, and the speed deck. The urgent thing is the newest problem
+    ("⚠ A plate came back · Decide": opens the sheet half-way and focuses the card's first choice), else "You're
+    covering the kitchen…", else the clock, the rush chip and served / walked-out. A compact **Skip** (named "Skip to
+    evening") sits beside it. On a career watch the watch card (Play my shift / Skip to end of shift) is the urgent thing.
+  - **half** (56 % of the screen) and **full** (all but 40 px) — the rest of the panel, scrolling inside the sheet.
+  The handle is a button: tap/Enter/Space steps peek → half → full → peek; ↑/↓, Page Up/Down, Home/End pick a height;
+  a finger drags it (one step per 56 px). The body is `hidden` at peek, so it is out of the Tab order and the reading
+  order. The height is remembered per device (`localStorage` `full-plate:service-sheet:v1`; a private window just forgets).
+  The floor stops above the peek (`--servsheet-peek`, measured, so Bigger text and the watch card fit).
+- **Floor camera, upright** (`lib/floorCamera.ts`, lazy, 2.7 kB). The room is laid out 340 px wide
+  (`canvas/layout.ts PHONE_FLOOR`, `phoneFloorSize`) and drawn at the scroller's width (≈ 1.1× on a 390 phone), with
+  `RenderOptions.density = "phone"`: two tables a row at most, tables 0.25 × cell (was 0.21), people 8–12 px (was 5–10), a
+  shorter pass so the "No server" sign has room. A room with more tables than fit is taller than the screen and scrolls.
+  Touch: one finger pans, two pinch (1–2.5×), double-tap zooms to 2× and back. Trackpad pinch (ctrl+wheel) zooms; a plain
+  wheel scrolls. **+ / − / reset** buttons (44 px) sit on the floor's right edge; keys `+`, `−`, `0` during service.
+  A tap that ends a drag doesn't select a table. Every canvas label is ≥ 13 CSS px (probe: 88 → 0 upright).
+- **Menu matrix as a list** (upright; `screens/planning/MenuMatrixList.tsx`, inside the matrix's lazy chunk). Four
+  groups in the order Stars, Plough-horses, Puzzles, Dogs — the same names (glossary terms), colours and tips as the
+  chart — each dish ranked by what it made over the last 7 days, then plates sold. A row (52 px) shows rank, name,
+  "N sold · £x a plate"; tapping it opens its numbers (sold, price, food cost a plate, margin a plate, made this week,
+  "New: judged after 7 days" when it is). Sideways and larger keep the chart.
+- **Maps** (`screens/paths/mapParts.tsx useMapGestures`, `ZoomFrame`; `WorldMap.tsx`). One gesture hook for both maps:
+  touch drag / pinch / double-tap, trackpad pinch (ctrl+wheel) and two-finger scroll (pans a zoomed map), mouse drag and
+  wheel (a wheel notch zooms; at a clamp the page scrolls on), and keys while focus is on a pin or a map button (arrows
+  pan 60 px, `+` / `−`, `0` resets). The world map keeps its + / − / Reset buttons and minimap. The **city boards**
+  (the Empire's city map and the Stars map) are wrapped in `ZoomFrame`: at 1× nothing moves or clips; zoomed (to 3×)
+  the board is scaled and clipped, and Enlarge / Shrink / "Back to the whole of …" buttons sit under it. **Pins
+  de-overlap**: `quietLabels` drops a city's name when it would sit on another name or pin at this zoom and frame size
+  (most important kept first: the picked city and HQ always, then most shops, then entered); the pin stays, the name
+  shows on hover/focus/pick, and comes back as you zoom in (a 358 px world map: 6 names dropped at 1×, 0 at 3.3×).
+- **Round 12 cards** checked at 390 × 844 and 844 × 390 (gossip ticker, brand card + kit, cookbook, invent sheet,
+  rival, regulars card + book, Friends, postcard): no sideways scroll, no text under 13 px. Two fixes in `phone.css`:
+  the Stars map's two-column layout left the city board 64 px wide upright (now one column), and the Decorate preview
+  bleeds into its panel's padding so its canvas is ≥ 320 px (its table numbers drew at 11 px).
+
+### Where the code lives (and who else might touch it)
+
+| File | What changed |
+| --- | --- |
+| `components/StatusBar.tsx` | phone branch + `useMoreSheet` + `SoundSwitch`; the desktop JSX is the same pieces in the same order |
+| `screens/Service.tsx` | sheet state, `SheetHandle`, `SheetBody`, the peek; the canvas sits in a `.service__floor` scroller (inline `position:absolute; inset:0`, so desktop is unchanged); the floor camera wiring; desktop `fit` now measures that box (the canvas was laid out 2–3 px wider than it was shown, so sideways labels drew at 12.9 px) |
+| `canvas/layout.ts` | `FloorDensity`, `PHONE_FLOOR`, `phoneFloorSize`, `layoutKey`; `computeLayout(…, density)` (desktop numbers unchanged) |
+| `canvas/RestaurantView.ts` | **only** `RenderOptions.density` and passing it to `computeLayout` / the layout key (A owns the rest) |
+| `lib/floorCamera.ts`, `screens/planning/MenuMatrixList.tsx` | new |
+| `screens/planning/MenuMatrixPanel.tsx`, `screens/paths/mapParts.tsx`, `WorldMap.tsx`, `map.css` | as above |
+| `lib/layout.ts` | `PHONE_ANY_QUERY`, `usePhone`, `usePhoneNarrow` |
+| `phone.css` | one marked "Round 13 — B" section at the end of each block |
+| `scripts/lib/harness.mjs` | two lines: open ⋯ before the walk's Settings and save-mark clicks (A's file) |
+
+### Settings, motion, sound
+
+No new Settings row: the sheet's height and the floor's zoom are layout, not preferences (the height is remembered,
+the zoom resets each service). Nothing animates (the sheet snaps between heights, zoom follows the fingers), so there is
+nothing for reduced motion to turn off. The ⋯ sheet's Sound switch is the existing Settings › Sound.
+
+### Left out, and why
+
+- **The zoomed floor is a little soft**: the view caps its pixel ratio at 2 (A's renderer), so at 2.5× the backing
+  store is upscaled. Lifting the cap for the phone camera is a renderer change for A.
+- **Sideways floor** keeps the desktop layout (it is 490 × 314 and now draws 1:1); no camera sideways.
+- **The hands-on kitchen** on a phone is C's.
+- **A dragged sheet doesn't follow the finger** pixel by pixel — it snaps a height per 56 px. Simple and readable.
+- The "No server: you're serving!" sign can still clip at the floor's right edge sideways (it is drawn at the pass's
+  end by the renderer).
+
+### Checks (built dist)
+
+- **Main JS 165.64 → 173.91 kB** (budget 200): the ⋯ sheet and the service sheet live in StatusBar/Service, which
+  are first-paint code. New lazy chunks: `floorCamera` 2.70 kB, `layout` 2.02 kB (canvas/layout.ts, now shared by the
+  view and the camera); `MenuMatrixPanel` 4.16 → 6.96 kB (the list), `mapParts` 9.93 → 14.81 kB JS + its CSS (the
+  gesture hook and ZoomFrame); `RestaurantView` 42.18 → 40.68 kB (layout moved out); `EmpireTab` 49.21 → 49.19 kB.
+- Tests 1,368 → **1,382** (+14, `round13.phone.test.tsx`); typecheck clean. Type audit Normal and Bigger: 129 screens
+  each, 0 text < 13 px (DOM and canvas), 0 errors, within baseline.
+- **Probe** (all ten runs; only the four phone rows of `probe-baseline.json` rewritten — every tablet/desktop number came
+  in at or under its baseline: underBar −1 to −2, contrastLive 2 → 0, the rest equal):
+
+  | run | targets < 44 (all terms) | text < 13 | canvasText < 13 | contrast | covered | underBar |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | 390×844 Normal | 404 → 382 | 7 → **0** | 88 → **0** | 4 → 3 | 0 → 0 | 36 → 35 |
+  | 844×390 Normal | 468 → 464 | 0 | 51 → **0** | 5 | 0 | 21 |
+  | 390×844 Bigger | 400 → 378 | 7 → **0** | 82 → **0** | 5 → 3 | 0 | 33 → 36 |
+  | 844×390 Bigger | 467 → 463 | 0 | 52 → **0** | 5 | 0 | 10 → 12 |
+
+  Why: terms fall on service (7 → 0: the 86 and Comp words sit in the sheet's body, hidden at peek) and the career
+  screens (the rung term is in the closed ⋯ sheet); text < 13 was the matrix chart; canvas text was the floor drawn at 0.85–0.99 of
+  its layout width (upright and sideways) and the Decorate preview (274 px); contrast −1/−2 are the header's star/dot
+  glyphs now inside the closed ⋯ sheet. underBar moves +1…+3 on the Bigger phone runs because a shorter header changes
+  what sits under the dock at the probe's scroll position (brand-kit shape buttons, Staff tips) — all reachable by
+  scrolling, as before. Screens unchanged (44 / 43). The walk opens ⋯ before Settings and the save mark (harness.mjs).
+- Headless (real pack, 200 seeds): typical **90.0 %**, cheap **68.0 %**, nohire **0 %** — unchanged (no sim package touched).
+- **Playtest** (built dist, `vite preview` on 127.0.0.1, Playwright's iPhone 14 flags, taps only via CDP touch; shots
+  and contact sheet `scratchpad/shots/r13/B/`, `00-contact-playtest.png`): title → New game → Owner → lease ("Pocket
+  Bistro") → day 1 planning (no sideways scroll) → ⋯ open, Sound off/on, Escape closes → Restaurant › Edit brand → logo
+  → Save brand → Menu: five dishes added, Invent a dish ("Midnight toastie", three ingredients) → Put it on the menu →
+  matrix list → Open for service: peek 174 px; tap a table; pinch 80 → 200 px → 2.5×; drag pans; double-tap → 1×,
+  again → 2×; + → 2.5×; reset → 1×; handle dragged up 70 px → half, again → full; ↓ → half; Home → peek; 4× →
+  Skip → evening → Postcard → Next day → day 2 the same → evening. Turned sideways (844×390): planning, ⋯ sheet,
+  service side by side, Skip, evening — no sideways scroll. Empire save upright: world map (6 names dropped at 1×),
+  pinch → 3.3× (0 dropped), drag, keys on a pin (0 → 1×, + → 1.4×), double-tap on the sea → 2.56×, Harbourton city
+  board pinch → 2.67×, "Back to the whole" → 1×; Stars save: city board double-tap → 2×. **0 page errors.**

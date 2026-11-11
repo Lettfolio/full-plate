@@ -96,3 +96,17 @@ every screen checked. Shots `scratchpad/shots/r12/D/01…19`.
 | Service panel collapse | The brief wanted the panel below the floor collapsible; that needs a toggle button in Service.tsx (A's file, and D may only add class names) | A `<details>`-style toggle | 1 hour |
 | Header "⋯" sheet | Done as a compact, scroll-away header instead; a real "⋯" sheet needs a button in StatusBar | A button + sheet | 2 hours |
 | Glossary words as targets | Still ~70 inline terms under 44 px on day-1 Menu (R11.11 item 1, same on every width) | A taller invisible hit area | ½ day |
+
+## Round 13 (B): the "not fixable in CSS" list, done
+
+| Thing | Status |
+| --- | --- |
+| Canvas density | **Done upright**: a phone layout (`RenderOptions.density`), drawn ≈ 1.1×, pan / pinch / double-tap zoom, + / − / reset. Canvas text < 13 px: 88 → **0** upright, 51 → **0** sideways (the sideways floor was laid out 2 px wider than shown). The hands-on kitchen is C's. |
+| Menu matrix | **Done**: a ranked list in the four quadrants upright; text < 13 px 7 → **0**. |
+| World / city map | **Done**: touch and trackpad pan/pinch, double-tap, keys, reset on both; the city boards zoom too; names de-overlap. |
+| Service panel collapse | **Done**: a bottom sheet (peek / half / full), remembered, keyboard and screen-reader operable. |
+| Header "⋯" sheet | **Done** on phones both ways up. |
+| Hands-on controls | C's round. |
+| Glossary words as targets | Not this round (still the largest probe count; it is the same on every width). |
+
+Details: UI-NOTES "Round 13 — B".

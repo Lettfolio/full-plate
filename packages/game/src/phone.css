@@ -129,6 +129,125 @@
   /* R12 review: the evening's best/worst dish pair goes one over the other — two 1fr columns took the longest word as
      their minimum, so a "Cheeseburger" pushed the page 9–32 px sideways (seen in the review's phone playtest) */
   html .dishpair { grid-template-columns: minmax(0, 1fr); }
+
+  /* ── Round 13 — B ─────────────────────────────────────────────────────────────────────────────────────────── */
+
+  /* service, upright: the floor gets the screen and the panel is a bottom sheet (Service.tsx SheetHandle/SheetBody):
+     peek = the handle, the one most urgent thing and the speed deck; half; full. The floor stops above the peek
+     (--servsheet-peek, measured by Service); half and full lie over the floor. */
+  html .service:has(> .service__side--sheet) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 0; padding: 6px 6px calc(var(--servsheet-peek, 172px) + 6px); }
+  html .service__side--sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; flex-direction: column; gap: 0;
+    overflow: hidden; padding: 0; background: var(--surface-panel); border-top: 1.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: 0 -10px 28px -14px rgba(60, 40, 15, 0.55);
+  }
+  html .service__side--sheet[data-sheet="half"] { height: 56dvh; }
+  html .service__side--sheet[data-sheet="full"] { height: calc(100dvh - 40px); }
+  html .servsheet__peek { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 0 10px 8px; }
+  html .servsheet__handle {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 44px; width: 100%;
+    border: 0; background: transparent; color: var(--ink-soft); font: inherit; font-size: var(--fs-micro); font-weight: 800; cursor: grab; touch-action: none;
+  }
+  html .servsheet__grip { width: 44px; height: 5px; border-radius: 3px; background: var(--line-strong, #b9ab98); }
+  html .servsheet__handle:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: -3px; border-radius: var(--radius-sm); }
+  html .servsheet__urgent { display: flex; align-items: stretch; gap: 8px; min-height: 48px; }
+  html .servsheet__urgent > :first-child { flex: 1 1 auto; min-width: 0; }
+  html .servsheet__urgent > .service__skip.servsheet__skip { flex: none; width: auto; min-height: 48px; padding: 0 14px; gap: 6px; margin: 0; }
+  html .servsheet__line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
+  html .servsheet__line b { font-family: var(--font-display); font-size: 20px; color: var(--ink); }
+  html .servsheet__line .rushchip { margin-left: 0; }
+  html .servsheet__line--amber { color: var(--amber-deep); flex-wrap: nowrap; gap: 6px; }
+  html .servsheet__line--amber > :last-child, html .servsheet__line--amber { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html .servsheet__bad { color: var(--tomato-deep); }
+  html .servsheet__alert {
+    display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 12px; text-align: left; font: inherit; font-size: var(--fs-sm); font-weight: 800;
+    color: var(--ink); background: var(--tomato-wash, #fde3dc); border: 1.5px solid var(--tomato); border-radius: var(--radius-md, 12px); cursor: pointer;
+  }
+  html .servsheet__alerttext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html .servsheet__alertgo { flex: none; color: var(--tomato-deep); }
+  html .servsheet__peek .speeds--deck .speed { min-height: 48px; }
+  html .servsheet__peek .watchcard { padding: 10px 12px; }
+  html .servsheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 4px 10px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  html .servsheet__body[hidden] { display: none; }
+  /* Decorate: the room preview bleeds into the panel's padding so its canvas is at least the 320 px the floor is laid
+     out at (it was 274 px: table numbers drew at 11 px) */
+  html .decorate > .decorate__preview { margin-inline: -18px; }
+  html .decorate__preview > .panel { padding-inline: 10px; }
+  /* the Stars map: the city board over its side notes (two columns left the board 64 px wide upright) */
+  html .starsmap__layout { grid-template-columns: minmax(0, 1fr); }
+  /* the menu matrix as a ranked list (screens/planning/MenuMatrixList.tsx) */
+  html .mmlist { display: flex; flex-direction: column; gap: 14px; }
+  html .mmlist__group { border: 1.5px solid var(--border-subtle); border-radius: var(--radius-md); padding: 10px 12px 12px; background: var(--surface-panel); }
+  html .mmlist__group--star { background: #fdf0c9; }
+  html .mmlist__group--ploughhorse { background: #dfeef7; }
+  html .mmlist__group--puzzle { background: #efe3f3; }
+  html .mmlist__group--dog { background: #ece6dd; }
+  html .mmlist__head { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-h3); }
+  html .mmlist__dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); flex: none; }
+  html .mmlist__count { margin-left: auto; font-size: var(--fs-sm); color: var(--ink-soft); font-weight: 800; }
+  html .mmlist__hint, html .mmlist__none { margin: 4px 0 8px; font-size: var(--fs-sm); color: var(--ink-soft); }
+  html .mmlist__none { margin-bottom: 0; }
+  html .mmlist__dishes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  html .mmlist__row {
+    display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; grid-template-areas: "rank name chev" "rank sum chev"; align-items: center; gap: 0 8px;
+    width: 100%; min-height: 52px; padding: 6px 10px; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+    background: rgba(255, 253, 248, 0.85); border: 1.5px solid var(--border-subtle); border-radius: var(--radius-sm);
+  }
+  html .mmlist__row:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: 1px; }
+  html .mmlist__rank { grid-area: rank; font-family: var(--font-display); font-size: 18px; color: var(--ink-soft); text-align: center; }
+  html .mmlist__name { grid-area: name; font-weight: 800; font-size: var(--fs-base); overflow-wrap: anywhere; }
+  html .mmlist__sum { grid-area: sum; font-size: var(--fs-sm); color: var(--ink-soft); }
+  html .mmlist__chev { grid-area: chev; font-size: 16px; color: var(--ink-soft); }
+  html .mmlist__nums { margin: 4px 0 2px; padding: 8px 12px; background: var(--paper); border-radius: var(--radius-sm); display: grid; gap: 4px; font-size: var(--fs-sm); }
+  html .mmlist__nums > div { display: flex; justify-content: space-between; gap: 12px; }
+  html .mmlist__nums dt { color: var(--ink-soft); }
+  html .mmlist__nums dd { margin: 0; font-weight: 800; }
+  /* the floor itself: a scroller the camera pans (lib/floorCamera.ts; touch is ours: one finger pans, two pinch) */
+  html .service:has(> .service__side--sheet) > .service__stage { min-height: 0; }
+  html .service:has(> .service__side--sheet) .service__floor { overflow: auto; touch-action: none; overscroll-behavior: contain; scrollbar-width: thin; }
+  html .floorzoom { position: absolute; top: 132px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+  html .floorzoom .mapbtn {
+    width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border-radius: 50%; font: inherit; font-size: 24px; font-weight: 800; line-height: 1;
+    color: var(--ink); background: var(--surface-panel); border: 1.5px solid var(--border-subtle); box-shadow: 0 3px 8px -4px rgba(60, 40, 15, 0.5); cursor: pointer;
+  }
+  html .floorzoom .mapbtn:disabled { opacity: 0.45; cursor: default; }
+  html .floorzoom .mapbtn:focus-visible { outline: 3px solid var(--sky-deep); outline-offset: 2px; }
+  /* header "⋯" sheet (components/StatusBar.tsx, phone only): name + date | cash | ⋯ ; the rest drops down under it */
+  html .status.status--phone { grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 10px; padding: 6px 12px 8px 16px; align-items: center; position: relative; }
+  html .status--phone > .status__who { display: block; grid-row: 1; grid-column: 1; min-width: 0; }
+  html .status--phone .status__name { font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html .status--phone .status__name .pathbadge { display: none; }
+  html .status--phone .status__when { font-size: var(--fs-xs); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html .status--phone > .status__stat { grid-row: 1; grid-column: 2; align-items: flex-end; text-align: right; }
+  html .status--phone > .status__morebtn { grid-row: 1; grid-column: 3; }
+  html .status__morebtn { position: relative; width: 48px; min-width: 48px; min-height: 48px; padding: 0; color: var(--on-ink); }
+  html .status__moredots { font-size: 28px; line-height: 1; font-weight: 900; transform: translateY(-3px); }
+  html .status__morebtn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.14); }
+  html .status__morebtn--warn::after { content: ""; position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--tomato); box-shadow: 0 0 0 2px var(--surface-ink); }
+  html .status__moreacts .shellbtn { width: auto; min-width: 44px; padding: 0 14px; }
+  html .status__moreacts .shellbtn__text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  html .status__moreacts > .shellbtn, html .status__morebtn { color: var(--on-ink); border-color: rgba(251, 244, 230, 0.45); background: transparent; }
+  html .status__moreacts > .shellbtn:focus-visible, html .status__morebtn:focus-visible { outline-color: var(--focus-ring-on-ink); }
+  html .status__moreacts > .savemark { gap: 6px; white-space: nowrap; }
+  html .status__moreacts > .savemark--account { color: var(--hud-up); }
+  html .status__moreacts > .savemark--saving { color: var(--on-ink-soft); }
+  html .status__moreacts > .savemark--memory { color: var(--hud-down); border-color: var(--hud-down); }
+  html .status__moreacts > .status__sound[aria-checked="false"] { color: var(--on-ink-soft); }
+  html .status__morebtn:hover:not(:disabled), html .status__moreacts > .shellbtn:hover:not(:disabled) { background: rgba(251, 244, 230, 0.14); border-color: var(--on-ink); }
+  html .status__moreacts > .savemark { width: auto; padding: 0 14px 0 12px; }
+  html .status__moreacts .savemark__text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  html .status__more {
+    position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 30;
+    display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px;
+    background: var(--surface-ink); color: var(--on-ink); border-radius: var(--radius-lg);
+    box-shadow: 0 14px 30px -12px rgba(30, 20, 10, 0.55); max-height: calc(100dvh - 90px); overflow-y: auto;
+  }
+  html .status__more[hidden] { display: none; }
+  html .status__morestats { display: flex; flex-direction: column; gap: 10px; }
+  html .status__morestats .status__stat { grid-row: auto; }
+  html .status__morestats .status__stat--bars { flex-direction: column; gap: 8px; }
+  html .status__moreacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  html .status__moreacts > .shellbtn, html .status__moreacts > .pill { flex: none; }
 }
 
 /* A phone held sideways: very little height, plenty of width. */
@@ -167,4 +286,39 @@
   html .modal-back { padding: 8px; }
   html .modal { max-height: calc(100dvh - 16px); overflow-y: auto; }
   html .gameover { padding: 16px; }
+
+  /* ── Round 13 — B: the header's "⋯" sheet sideways (one row: who · cash · ⋯) ── */
+  html .status.status--phone { grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 14px; padding: 4px 12px 6px 16px; position: relative; }
+  html .status--phone > .status__who { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  html .status--phone .status__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  html .status--phone .status__name .pathbadge { display: none; }
+  html .status--phone .status__when { white-space: nowrap; }
+  html .status--phone > .status__stat { flex-direction: row; align-items: baseline; gap: 8px; }
+  html .status__morebtn { position: relative; width: 48px; min-width: 48px; min-height: 48px; padding: 0; color: var(--on-ink); }
+  html .status__moredots { font-size: 28px; line-height: 1; font-weight: 900; transform: translateY(-3px); }
+  html .status__morebtn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.14); }
+  html .status__morebtn--warn::after { content: ""; position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--tomato); box-shadow: 0 0 0 2px var(--surface-ink); }
+  html .status__moreacts .shellbtn { width: auto; min-width: 44px; padding: 0 14px; }
+  html .status__moreacts .shellbtn__text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  html .status__moreacts > .shellbtn, html .status__morebtn { color: var(--on-ink); border-color: rgba(251, 244, 230, 0.45); background: transparent; }
+  html .status__moreacts > .shellbtn:focus-visible, html .status__morebtn:focus-visible { outline-color: var(--focus-ring-on-ink); }
+  html .status__moreacts > .savemark { gap: 6px; white-space: nowrap; }
+  html .status__moreacts > .savemark--account { color: var(--hud-up); }
+  html .status__moreacts > .savemark--saving { color: var(--on-ink-soft); }
+  html .status__moreacts > .savemark--memory { color: var(--hud-down); border-color: var(--hud-down); }
+  html .status__moreacts > .status__sound[aria-checked="false"] { color: var(--on-ink-soft); }
+  html .status__morebtn:hover:not(:disabled), html .status__moreacts > .shellbtn:hover:not(:disabled) { background: rgba(251, 244, 230, 0.14); border-color: var(--on-ink); }
+  html .status__moreacts > .savemark { width: auto; padding: 0 14px 0 12px; }
+  html .status__moreacts .savemark__text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  html .status__more {
+    position: absolute; right: 8px; top: calc(100% + 4px); z-index: 30; width: min(460px, calc(100vw - 16px));
+    display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 14px;
+    background: var(--surface-ink); color: var(--on-ink); border-radius: var(--radius-lg);
+    box-shadow: 0 14px 30px -12px rgba(30, 20, 10, 0.55); max-height: calc(100dvh - 70px); overflow-y: auto;
+  }
+  html .status__more[hidden] { display: none; }
+  html .status__morestats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+  html .status__morestats .status__stat--bars { flex-direction: column; gap: 8px; }
+  html .status__morestats .status__stat .status__sub { display: inline; }
+  html .status__moreacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 }

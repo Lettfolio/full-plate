@@ -242,8 +242,10 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     await page.locator("li.decorate__card").last().hover(); await page.waitForTimeout(500);
     await shot("13b-planning-decorate");
     await page.getByRole("button", { name: /What do I do/ }).click(); await page.waitForTimeout(200); await shot("14-planning-help"); await esc();
-    await page.getByRole("button", { name: "Settings" }).first().click(); await page.waitForTimeout(250); await shot("15-settings", { terms: false }); await esc();
-    await page.locator(".savemark").click(); await page.waitForTimeout(400); await shot("16-save-mark", { terms: false }); await esc();
+    // Round 13 (B): on a phone Settings and the save mark live in the header's "⋯" sheet
+    const more = async () => { const m = page.locator(".status__morebtn"); if (await m.isVisible() && (await m.getAttribute("aria-expanded")) !== "true") { await m.click(); await page.waitForTimeout(200); } };
+    await more(); await page.getByRole("button", { name: "Settings" }).first().click(); await page.waitForTimeout(250); await shot("15-settings", { terms: false }); await esc();
+    await more(); await page.locator(".savemark").click(); await page.waitForTimeout(400); await shot("16-save-mark", { terms: false }); await esc();
     await tab(/^Menu/);
     await page.locator("button.btn--xl.btn--primary").last().click();
     const anyway = page.getByRole("button", { name: "Open anyway" }); if (await anyway.count()) await anyway.click();
