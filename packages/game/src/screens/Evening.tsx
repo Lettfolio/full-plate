@@ -40,6 +40,8 @@ import { Panel } from "../components/Panel";
 import { CountUp } from "../lib/motion";
 import { withNewDishReview } from "@full-plate/content";
 import { eveningReviewText } from "../lib/reviewLines";
+import { oneThingTomorrow } from "../lib/tomorrow";
+import { eveningAdvice } from "../sim";
 
 /** Round 12 (A): tonight beat every earlier night (at least two of them, and tonight made money). */
 export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boolean {
@@ -260,6 +262,23 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   );
 }
 
+/** Round 14 (F): "one thing to change tomorrow" (lib/tomorrow.ts), in the tip's place when the sim has no tip. */
+function OneThingCard({ t, onAct, onGoTo }: { t: NonNullable<ReturnType<typeof oneThingTomorrow>>; onAct?: Props["onAct"]; onGoTo?: Props["onGoTo"] }) {
+  return (
+    <section className="card tip advice" aria-label="One thing for tomorrow" data-testid="one-thing" data-kind={t.kind}>
+      <span className="tip__icon" aria-hidden="true">{t.kind === "ranOut" ? "📦" : t.kind === "waits" ? "⏳" : "💷"}</span>
+      <div className="spacer advice__text">
+        <div className="advice__k">One thing for tomorrow</div>
+        <b className="advice__title"><TermText text={t.title} /></b>
+        <div className="advice__body small">{t.text}</div>
+      </div>
+      {t.act && (t.act.commands && onAct
+        ? <button className="btn btn--sm btn--green" onClick={() => onAct(t.act!.commands!, t.act!.tab, t.act!.done ?? "Done.")}>{t.act.label}</button>
+        : onGoTo && <button className="btn btn--sm" onClick={() => onGoTo(t.act!.tab)}>{t.act.label}</button>)}
+    </section>
+  );
+}
+
 /** "Friday, Saturday and Sunday" */
 export function dayList(days: readonly number[]): string {
   const n = days.map((d) => WEEKDAY_NAMES[d]!);
@@ -298,6 +317,9 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const tableOk = !spendCheck(content, game, TABLE_COST).risky;
   const hire = hirePromptText(game);
   const over = game.phase === "gameover";
+  // Round 14 (F): when the sim has no tip tonight, one thing to change tomorrow from tonight's own numbers.
+  const tip = over || meta?.mode === "career" ? null : eveningAdvice(game, content);
+  const oneThing = tip || over ? undefined : oneThingTomorrow(game, r, (id) => dishName(content, id), (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice);
   // Round 14 (F, U5): a night nobody ate says why in the headline (closed, empty larder, nobody on).
   const zero = zeroNightCause(r, game, r.day === game.day ? unplateable(content, game).length : 0, weekdayIndex(r.day));
 
@@ -311,7 +333,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
         </div>
         {zero && <p className="callout callout--warn" style={{ gridColumn: "1 / -1", margin: 0 }} role="note" data-testid="zero-night">{ZERO_HEADLINE[zero].line}</p>}
         {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
-        {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
+        {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip">{tip ? <AdviceCard game={game} advice={tip} onAct={onAct} /> : oneThing && <OneThingCard t={oneThing} onAct={onAct} onGoTo={onGoTo} />}</div>}
         <div className="evening__money"><TonightMoney game={game} r={r} /></div>
         {/* Round 11 (U3/G2): the bank's countdown and the staffless way out, before anything else she might read. */}
         {!over && meta?.mode !== "career" && (bankDue(game) || loanDue(game) || loanGone(game)) && (

@@ -23,6 +23,8 @@ const DecorateTab = lazy(() => import("./planning/DecorateTab").then((m) => ({ d
 // Round 12 (E): the Restaurant tab (with the rival and the Regulars book) and the morning gossip load on demand.
 const RestaurantTab = lazy(() => import("./planning/RestaurantTab").then((m) => ({ default: m.RestaurantTab })));
 const GossipTicker = lazy(() => import("../components/GossipTicker").then((m) => ({ default: m.GossipTicker })));
+// Round 14 (F): the morning's "Today" card (a VIP order due today, the rival's week). Lazy: it needs the voices data.
+const TodayCard = lazy(() => import("../components/TodayCard").then((m) => ({ default: m.TodayCard })));
 // Round 12 (G): the Stock tab loads on first open too (main-chunk budget: room for the Friends entry points).
 const StockTab = lazy(() => import("./planning/StockTab").then((m) => ({ default: m.StockTab })));
 import { tiredSlots, tiredText } from "../lib/decor";
@@ -151,6 +153,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
       </div>
       {/* Round 12 (E): not on the wide Empire / Stars tabs, which need the height for their maps and tracks. */}
       {meta?.mode !== "career" && !wide && <Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense>}
+      {meta?.mode !== "career" && !wide && !opening && game.phase === "planning" && <Suspense fallback={null}><TodayCard game={game} meta={meta} send={send} onTab={setTab} /></Suspense>}
       {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
           {(lastDays || loanTip) && (

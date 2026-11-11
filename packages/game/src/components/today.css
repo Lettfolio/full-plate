@@ -1,0 +1,8 @@
+/* Round 14 (F): the morning's "Today" card (components/TodayCard.tsx). Loaded with its lazy chunk. */
+.today { display: grid; gap: 8px; padding: 10px 14px; }
+.today__k { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--ink-soft); }
+.today__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.today__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.today__row > div { flex: 1 1 260px; min-width: 0; }
+.today__row .btn { flex: none; min-height: 44px; }
+.today__done { font-size: var(--fs-sm); }
