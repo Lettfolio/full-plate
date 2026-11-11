@@ -199,9 +199,10 @@ describe("G5: a guest chef's plate is held to the dish's ceiling", () => {
     say({ k: "hi", role: "chef" });
     say({ k: "act", p: [[1, [{ type: "TICKET_CLAIMED", ticketId: t.id }, { type: "PLATE_COOKED", ticketId: t.id, quality: 100, execution: 1, station: "none", speedBonus: 1 }]]] });
     const after = box.app.game!;
-    const at = after.tickets.find((x) => x.id === t.id);
-    const q = at ? at.quality : after.customers.find((c) => c.id === t.customerId)!.plates!.at(-1)!.quality;
-    expect(q).toBeLessThanOrEqual(ceiling);
+    // the host serves, so the guest's plate waits on the pass with the quality the host's game gave it
+    const at = after.tickets.find((x) => x.id === t.id)!;
+    expect(at.atPass).toBe(true);
+    expect(at.quality).toBeLessThanOrEqual(ceiling);
   });
 });
 

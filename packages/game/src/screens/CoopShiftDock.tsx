@@ -9,9 +9,10 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Command, GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
 import { weekdayIndex } from "../lib/calendar";
+import { PHONE_ANY_QUERY } from "../lib/layout";
 import { getHostFlag, setHostFlag, useHostFlag, type HostFlag } from "../lib/coop/hostFlag";
 import { pendingWriter } from "../lib/coop/hand";
-import { boardOf, eveningOf, planCommands, type EmoteId, type GuestDoc, type HostDoc, type LiveDoc, type LiveRole, type Stage } from "../lib/coop/protocol";
+import { boardOf, eveningOf, planCommands, type EmoteId, type GuestDoc, type HostDoc, type LiveDoc, type LiveRole, type PlanChange, type Stage } from "../lib/coop/protocol";
 import { newNonce, type EndWhy } from "../lib/coop/protocol";
 import { getRoom } from "../lib/coop/room";
 import { hostResume, RttMeter, watchGuest, type DocWriter } from "../lib/coop/session";
@@ -26,6 +27,68 @@ const HostLive = lazy(() => import("./CoopLive").then((m) => ({ default: m.HostL
 
 const stageOf = (g: GameState): Stage => (g.phase === "planning" ? "plan" : g.phase === "service" ? "service" : "evening");
 const PINGS = 3;
+/**
+ * R14 (U6): the heartbeat. While a friend is in the session the host pings every PULSE_MS (one write to the host's
+ * document) and the friend's page answers; a ping unanswered for GONE_MS means the friend has probably gone.
+ */
+export const PULSE_MS = 15_000;
+export const GONE_MS = 45_000;
+/** R14 (S14-5): the plan list shows this many changes folded; a price moving more than FLAG_SHARE either way is flagged. */
+export const PLAN_FOLD = 8;
+export const FLAG_SHARE = 0.3;
+const phoneNow = (): boolean => { try { return typeof window.matchMedia === "function" && window.matchMedia(PHONE_ANY_QUERY).matches; } catch { return false; } };
+
+/**
+ * R14 (U6): on a phone the panel and its pill sit above whatever the page keeps at the bottom of the screen — the tab
+ * bar, the dock with Open for service, the service sheet (and its urgent line) — measured as the page lays out, so
+ * neither ever covers them, upright or sideways. Null off a phone (the stylesheet's place, bottom left).
+ */
+const BLOCKERS = ".planning__bar .tabs, .actiondock, .service__side--sheet, .servsheet__urgent, .eveningdock, .evening .actiondock";
+export interface PhoneSpot { bottom: number; maxHeight: number; hidden: boolean }
+export function phoneSpot(doc: Document = document, dockWidth = 352): PhoneSpot | null {
+  if (!phoneNow()) return null;
+  const h = doc.defaultView?.innerHeight ?? 800;
+  let top = h;
+  for (const el of doc.querySelectorAll(BLOCKERS)) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || r.bottom <= 0 || r.top >= h || r.left >= dockWidth) continue;
+    // only what sits in the lower part of the screen holds the dock up (a dock scrolled to the top doesn't)
+    if (r.top < h * 0.35) continue;
+    top = Math.min(top, r.top);
+  }
+  const bottom = Math.round(h - top + 8);
+  const room = top - 16;
+  return { bottom, maxHeight: Math.max(0, Math.round(room)), hidden: room < 120 };
+}
+function usePhoneSpot(): PhoneSpot | null {
+  const [spot, setSpot] = useState<PhoneSpot | null>(() => (typeof document === "undefined" ? null : phoneSpot()));
+  useEffect(() => {
+    let raf = 0;
+    const read = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => setSpot((old) => { const n = phoneSpot(); return JSON.stringify(n) === JSON.stringify(old) ? old : n; })); };
+    read();
+    const t = setInterval(read, 400);
+    addEventListener("resize", read);
+    addEventListener("scroll", read, { passive: true });
+    return () => { clearInterval(t); cancelAnimationFrame(raf); removeEventListener("resize", read); removeEventListener("scroll", read); };
+  }, []);
+  return spot;
+}
+
+/** A plan change as the host reads it: the price move as a share (price changes), and whether it is flagged. */
+export interface ShownChange extends PlanChange { key: string; move: number | null; big: boolean }
+/** R14 (S14-5): every change of a plan, big price moves first (largest first), each with a stable key. */
+export function shownChanges(game: Pick<GameState, "menu">, changes: readonly PlanChange[]): ShownChange[] {
+  const out = changes.map((c, i): ShownChange & { i: number } => {
+    let move: number | null = null;
+    if (c.kind === "price" && c.cmd.type === "SET_MENU_ITEM" && typeof c.cmd.price === "number") {
+      const was = game.menu.find((m) => m.dishId === (c.cmd as { dishId: string }).dishId)?.price ?? 0;
+      move = was > 0 ? c.cmd.price / was - 1 : null;
+    }
+    return { ...c, key: JSON.stringify(c.cmd), move, big: move !== null && Math.abs(move) > FLAG_SHARE, i };
+  });
+  out.sort((a, b) => Math.abs(b.move ?? 0) - Math.abs(a.move ?? 0) || a.i - b.i);
+  return out.map(({ i: _i, ...c }) => c);
+}
 
 declare global { interface Window { __fpCoopRtt?: number[] } }
 
@@ -46,7 +109,10 @@ export function CoopShiftDock(p: Props) {
 function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag }) {
   const [writer, setWriter] = useState<DocWriter<HostDoc> | null>(() => pendingWriter.get(flag.code) ?? null);
   const [guest, setGuest] = useState<GuestDoc | null>(null);
-  const [open, setOpen] = useState(true);
+  // R14 (U6): on a phone the panel starts folded (it would cover the page's own buttons), and sits above them
+  const [open, setOpen] = useState(() => !phoneNow());
+  const spot = usePhoneSpot();
+  const placed = spot ? { bottom: spot.bottom, maxHeight: spot.maxHeight } : undefined;
   const [rtt, setRtt] = useState<number | null>(null);
   const [lost, setLost] = useState(false);
   const meter = useRef(new RttMeter());
@@ -94,6 +160,34 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
     void writer.patch({ ping: { n: m.ping() } });
   }, [writer, joined, pongN]);
 
+  // R14 (U6): the heartbeat — keep one ping out while a friend is here; one unanswered for GONE_MS: they seem to have gone
+  const [gone, setGone] = useState(false);
+  const waitSince = useRef<number | null>(null);
+  const guestRef = useRef(guest);
+  guestRef.current = guest;
+  const present = !!joined && !guest?.ended;
+  useEffect(() => {
+    if (!writer || !present) { waitSince.current = null; setGone(false); return; }
+    const beat = () => {
+      const now = Date.now();
+      const out = writer.current.ping?.n ?? 0;
+      const answered = (guestRef.current?.pong?.n ?? 0) >= out;
+      if (answered) {
+        waitSince.current = null;
+        setGone(false);
+        void writer.patch({ ping: { n: meter.current.ping() } });
+      } else {
+        waitSince.current ??= now;
+        if (now - waitSince.current >= GONE_MS) setGone(true);
+      }
+    };
+    const t = setInterval(beat, PULSE_MS / 3);
+    return () => clearInterval(t);
+  }, [writer, present]);
+  // an answer clears it at once
+  useEffect(() => { if (pongN > 0) { waitSince.current = null; setGone(false); } }, [pongN]);
+  const keepWaiting = () => { waitSince.current = Date.now(); setGone(false); };
+
   // the host's side, from the game: board while planning, the stage, the evening
   const weekday = weekdayIndex(game.day);
   const board = useMemo(() => (game.phase === "planning" ? boardOf(game, weekday) : null), [game, weekday]);
@@ -118,7 +212,13 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
 
   const plan = guest?.plan ?? null;
   const answered = writer?.current.answer?.n ?? 0;
-  const changes = useMemo(() => (plan && plan.n > answered ? planCommands(game, plan, weekday, dishName) : []), [plan, answered, game, weekday]);
+  const changes = useMemo(() => (plan && plan.n > answered ? shownChanges(game, planCommands(game, plan, weekday, dishName)) : []), [plan, answered, game, weekday]);
+  // R14 (S14-5): every change can be seen (folded to PLAN_FOLD, big price moves first); "Use it" applies what is on screen
+  const [allShown, setAllShown] = useState(false);
+  useEffect(() => { setAllShown(false); }, [plan?.n]);
+  const visible = allShown ? changes : changes.slice(0, PLAN_FOLD);
+  const shownRef = useRef<ShownChange[]>([]);
+  shownRef.current = visible;
   const planWaiting = !!plan && plan.n > answered && plan.day === game.day && game.phase === "planning";
   const [, bump] = useState(0);
   // ── Round 13 (F): tonight, live ──
@@ -142,13 +242,14 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
   const [liveSt, setLiveSt] = useState({ room: false, guestHere: false });
   const liveEl = writer && liveActive && liveDoc && liveApi ? (
     <Suspense fallback={null}>
-      <HostLive key={liveDoc.nonce} game={game} send={send} api={liveApi} code={flag.code} live={liveDoc} writer={writer} guestNick={guest?.nick ?? "Your friend"} onEnded={liveEnded} onStatus={setLiveSt} />
+      <HostLive key={liveDoc.nonce} game={game} send={send} api={liveApi} code={flag.code} live={liveDoc} writer={writer} guestNick={guest?.nick ?? "Your friend"} guestId={null} guestGen={String(guest?.joinedAt ?? 0)} onEnded={liveEnded} onStatus={setLiveSt} />
     </Suspense>
   ) : null;
   const doing = (r: LiveRole) => (r === "chef" ? "cooking" : "serving");
   const answer = (used: boolean) => {
     if (!writer || !plan) return;
-    if (used) for (const c of changes) send(c.cmd);
+    // only what the host saw, and only if it is still part of the plan (a newer plan re-renders the list first)
+    if (used) { const now = new Set(changes.map((c) => c.key)); for (const c of shownRef.current) if (now.has(c.key)) send(c.cmd); }
     void writer.patch({ answer: { n: plan.n, used } });
     bump((x) => x + 1);
   };
@@ -160,8 +261,10 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
 
   const who = guest && !guest.ended ? guest.nick : null;
   // folds itself for the service (it would cover the room) and opens again for the evening or a new plan
-  useEffect(() => { setOpen(game.phase !== "service"); }, [game.phase]);
+  // (R14: on a phone it stays folded until there's something to answer)
+  useEffect(() => { setOpen(game.phase !== "service" && !phoneNow()); }, [game.phase]);
   useEffect(() => { if (planWaiting) setOpen(true); }, [planWaiting]);
+  useEffect(() => { if (gone && game.phase !== "service") setOpen(true); }, [gone]); // eslint-disable-line react-hooks/exhaustive-deps
   // another game is open: the session belongs to the one that made it
   if (!mine) return null;
   // a live shift owns the service: its layer is on the stage, so the panel steps aside. HostLive sits at one place in
@@ -169,16 +272,16 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
   if (liveEl && game.phase === "service") return <>{liveEl}</>;
   if (!open) {
     return (<>{liveEl}
-      <div className="coopdock coopdock--pill">
+      <div className="coopdock coopdock--pill" style={spot ? { bottom: spot.bottom } : undefined} hidden={spot?.hidden}>
         {who && <EmoteHeard from={who} emote={guest?.emote ?? null} />}
         <button className="btn btn--tap coopdock__pill" onClick={() => setOpen(true)} aria-expanded="false">
-          <Icon name="people" size={20} />Co-op{who ? ` · ${who}` : ""}{planWaiting ? " · plan in" : ""}
+          <Icon name="people" size={20} />Co-op{who ? ` · ${who}` : ""}{gone ? " seems to have gone" : planWaiting ? " · plan in" : ""}
         </button>
       </div>
     </>);
   }
   return (<>{liveEl}
-    <aside className="coopdock card" aria-label="Co-op day">
+    <aside className="coopdock card" aria-label="Co-op day" style={placed}>
       <div className="row">
         <Icon name="people" size={22} />
         <h3 className="spacer coopdock__title">Co-op day</h3>
@@ -197,16 +300,39 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
         <div className="stack stack--sm">
           <p className="small"><b>{flag.nick}</b> (you) with <b>{who}</b>{rtt !== null && <span className="muted"> · link {rtt} ms</span>}</p>
           <EmoteHeard from={who} emote={guest?.emote ?? null} />
+          {gone && (
+            <div className="coopgone callout stack stack--sm" role="status">
+              <p className="small"><b>{who}</b> seems to have gone: no answer for {Math.round(GONE_MS / 1000)} seconds.</p>
+              <div className="row">
+                <button className="btn btn--tap" onClick={keepWaiting}>Keep waiting</button>
+                <button className="btn btn--ghost btn--tap btn--danger-text" onClick={() => void end()}>End co-op</button>
+              </div>
+            </div>
+          )}
           {planWaiting ? (
             <div className="coopplan stack stack--sm">
               <p className="small"><b>{who}</b> sent a plan for tonight{changes.length ? ":" : ", the same as yours."}</p>
-              {changes.length > 0 && <ul className="coopplan__list small">{changes.slice(0, 8).map((c, i) => <li key={i}>{c.label}</li>)}{changes.length > 8 && <li>…and {changes.length - 8} more</li>}</ul>}
+              {changes.length > 0 && (
+                <ul className="coopplan__list small">
+                  {visible.map((c) => (
+                    <li key={c.key} className={c.big ? "coopplan__big" : undefined}>
+                      {c.label}
+                      {c.move !== null && <span className={c.big ? "coopplan__flag" : "muted"}> ({c.move > 0 ? "+" : "−"}{Math.round(Math.abs(c.move) * 100)}%{c.big ? ", a big change" : ""})</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {changes.length > PLAN_FOLD && (
+                <button type="button" className="btn btn--ghost btn--tap" aria-expanded={allShown} onClick={() => setAllShown((x) => !x)}>
+                  {allShown ? `Show the first ${PLAN_FOLD}` : `Show all ${changes.length} changes`}
+                </button>
+              )}
               <div className="row">
-                <button className="btn btn--green btn--tap" onClick={() => answer(true)}>Use it</button>
+                <button className="btn btn--green btn--tap" onClick={() => answer(true)}>{changes.length > visible.length ? `Use these ${visible.length}` : "Use it"}</button>
                 <button className="btn btn--ghost btn--tap" onClick={() => answer(false)}>Not this time</button>
               </div>
             </div>
-          ) : (
+          ) : gone ? null : (
             <p className="small muted">{game.phase === "planning" ? `${who} is planning tonight.` : game.phase === "service" ? `${who} is watching for the evening's numbers.` : `${who} sees tonight's numbers.`}</p>
           )}
           {liveActive && liveDoc && game.phase === "planning" && (

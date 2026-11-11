@@ -748,7 +748,7 @@ export class LiveHost extends End {
     if (!batches.length) return;
     // R14 (G3): a page session the host hasn't heard starts where its oldest batch says (a fresh page: at 1)
     if (!this.acks.has(sid)) {
-      if (this.acks.size >= SIDS) this.acks.delete(this.acks.keys().next().value!);
+      if (this.acks.size >= SIDS) { const old = [...this.acks.keys()].find((k) => k !== this.sid); if (old !== undefined) this.acks.delete(old); }
       this.acks.set(sid, Math.max(0, batches[0]!.q - 1));
     }
     this.sid = sid;

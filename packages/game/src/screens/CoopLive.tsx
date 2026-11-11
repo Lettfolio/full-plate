@@ -22,6 +22,11 @@ import {
 import { getRoom, joinLive, type NamedRoomLike } from "../lib/coop/room";
 import type { DocWriter } from "../lib/coop/session";
 import { getSettings } from "../lib/settings";
+import { markOnboardSeen, onboardingSteps } from "../lib/onboarding";
+import { prefsStorage } from "../lib/storage";
+import { formatPence } from "@full-plate/sim-core";
+import { handsOnLayout, markPhoneHowToSeen } from "./handsonPhone";
+import { phoneHowToCards } from "./HandsOnHowTo";
 import { prefersReducedMotion } from "../lib/perfMeter";
 import { appReducer, type AppState } from "../state/gameReducer";
 import type { HandsOnRemote, RemoteStage } from "./HandsOnShift";
@@ -197,13 +202,19 @@ interface HostProps {
   live: LiveDoc;
   writer: DocWriter<HostDoc>;
   guestNick: string;
+  /**
+   * R14 (S14-3): the guest's platform id as the lobby makes it trustworthy (the path of their document, builder B's
+   * `partnerId`), or null while nothing vouches for one; `guestGen` changes whenever the guest's document does (a new join).
+   */
+  guestId?: string | null;
+  guestGen?: string;
   /** The live shift is over (or couldn't start): the panel goes back to the turn-based day. */
   onEnded: (why: EndWhy, msg?: string) => void;
   /** What the panel shows before the doors open. */
   onStatus: (s: { room: boolean; guestHere: boolean }) => void;
 }
 
-export function HostLive({ game, send, api, code, live, writer, guestNick, onEnded, onStatus }: HostProps) {
+export function HostLive({ game, send, api, code, live, writer, guestNick, guestId = null, guestGen = "", onEnded, onStatus }: HostProps) {
   const hostRole: LiveRole = live.guestRole === "server" ? "chef" : "server";
   const [room, setRoom] = useState<NamedRoomLike | null>(null);
   const [, bump] = useState(0);
@@ -215,6 +226,9 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
   send$.current = send;
   const game$ = useRef(game);
   game$.current = game;
+  const partner = { by: guestId, gen: guestGen };
+  const partner$ = useRef(partner);
+  partner$.current = partner;
   const ended = useRef(false);
   const started = useRef(live.state === "on");
   const t0 = useRef(0);
@@ -258,6 +272,7 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
         now: () => performance.now(),
       }, { nonce: live.nonce, hostRole });
       host.setMe(j.me);
+      host.setPartner(partner$.current);
       host.setGame(game$.current);
       engine.current = host;
       t0.current = performance.now();
@@ -267,7 +282,7 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
       const t = setInterval(() => {
         host.pump();
         const st = host.status;
-        const k = `${st.guest}|${st.rtt}|${st.slow}`;
+        const k = `${st.guest}|${st.rtt}|${st.slow}|${st.benched}`;
         if (k !== lastStatus) { lastStatus = k; bump((x) => x + 1); }
         window.__fpCoopLive = { side: "host", rtt: st.rtt, snaps: st.snaps, sizes: host.sizes, applied: st.applied, refused: host.refused, seconds: (performance.now() - t0.current) / 1000, status: st };
       }, PUMP_MS);
@@ -280,6 +295,7 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
   }, [code, live.nonce]);
 
   useEffect(() => { engine.current?.setGame(game); }, [game]);
+  useEffect(() => { engine.current?.setPartner({ by: guestId, gen: guestGen }); }, [guestId, guestGen]);
 
   // doors open → on the line, the log starts; doors shut → the end, the replay check
   useEffect(() => {
@@ -311,6 +327,7 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, onEnd
     return {
       partner: guestNick, partnerRole: live.guestRole, rtt: s2?.rtt ?? null,
       note: !s2 ? null
+        : s2.benched ? `${guestNick}'s dropped plates have cost ${formatPence(s2.dropCost)} tonight, so the team has the ${live.guestRole === "server" ? "tables" : "tickets"} till close.`
         : s2.guest === "waiting" ? `Waiting for ${guestNick} to join the room…`
         : s2.guest === "away" ? `${guestNick} has gone quiet: the team is covering the ${live.guestRole === "server" ? "tables" : "tickets"} until they're back.`
         : s2.slow ? `The link is slow (${s2.rtt} ms), so ${guestNick}'s taps arrive late.`
@@ -344,9 +361,12 @@ interface GuestProps {
   onExit: (why: EndWhy | "cant", msg?: string) => void;
   /** The host's db document says this live night is off or over (the room's own "end" may have been lost). */
   dbOver?: EndWhy | null;
+  /** R14 (S14-3): the host's platform id as the lobby vouches for it (builder B's `hostId`), and their document's generation. */
+  hostId?: string | null;
+  hostGen?: string;
 }
 
-export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: GuestProps) {
+export function GuestLive({ code, live, hostNick, onExit, dbOver = null, hostId = null, hostGen = "" }: GuestProps) {
   const role = live.guestRole;
   const [room, setRoom] = useState<NamedRoomLike | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -355,6 +375,9 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
   const [left, setLeft] = useState(false);
   const engine = useRef<LiveGuest | null>(null);
   const spot = useRef<Spot | null>(null);
+  const partner$ = useRef({ by: hostId, gen: hostGen });
+  partner$.current = { by: hostId, gen: hostGen };
+  useEffect(() => { engine.current?.setPartner({ by: hostId, gen: hostGen }); }, [hostId, hostGen]);
 
   useEffect(() => {
     let alive = true;
@@ -372,6 +395,7 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
         now: () => performance.now(),
       }, { nonce: live.nonce, role });
       g.setMe(j.me);
+      g.setPartner(partner$.current);
       g.onChange = () => bump((x) => x + 1);
       engine.current = g;
       const t0 = performance.now();
@@ -400,6 +424,7 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
       partner: hostNick, partnerRole: e?.base?.hostRole ?? (role === "server" ? "chef" : "server"), rtt: e?.status.rtt ?? null,
       note: !e ? null
         : e.status.host === "quiet" ? `Lost touch with ${hostNick}… hang on.`
+        : e.status.benched ? `Too many dropped plates tonight: the team has your ${role === "server" ? "tables" : "tickets"} till close.`
         : !e.status.on ? `${hostNick} can't hear you yet: the team has your ${role === "server" ? "tables" : "tickets"} for now.`
         : e.status.rtt !== null && e.status.rtt > 400 ? `The link is slow (${e.status.rtt} ms): ${hostNick} may finish on their own.`
         : null,
@@ -414,6 +439,16 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
   const baseB = g?.base?.b;
   const pack = useMemo(() => (g?.base ? guestContent(g.base) : undefined), [baseB]); // eslint-disable-line react-hooks/exhaustive-deps
   const leaveShift = () => { g?.leave(); setLeft(true); };
+  // R13-N2: the how-to is read in the lobby, while the host's clock isn't running; at doors-open it is marked seen,
+  // so the shift itself opens straight onto the floor (the host's service doesn't wait for the guest to read cards).
+  const seed = g?.base?.seed;
+  const doorsOpen = !!view;
+  useEffect(() => {
+    if (!doorsOpen || seed === undefined) return;
+    const st = prefsStorage();
+    markOnboardSeen(st, seed, role);
+    markPhoneHowToSeen(st, role);
+  }, [doorsOpen, seed, role]);
 
   if (problem) {
     return (
@@ -454,6 +489,7 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
         <h3>Live tonight: you're {ROLE_DOING[role]}</h3>
         <p className="small">{hostNick} is {ROLE_DOING[role === "server" ? "chef" : "server"]}. The shift starts when they open the doors.</p>
         <p className="small muted">{!room ? "Opening the live room…" : g?.base ? "Connected. Waiting for the doors…" : `Waiting for ${hostNick}…`}</p>
+        <LobbyHowTo role={role} />
         <button className="btn btn--ghost btn--tap" onClick={() => onExit("cant")}>Play the turn-based day instead</button>
       </div>
     );
@@ -478,3 +514,23 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null }: Guest
   );
 }
 const noop = () => {};
+
+/**
+ * R13-N2: how the shift works, read while waiting for the doors (the phone's three cards, or the laptop's three
+ * steps). Shown every time in the lobby: it costs nobody anything here.
+ */
+export function LobbyHowTo({ role }: { role: LiveRole }) {
+  const layout = handsOnLayout();
+  const touch = typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  const items = layout === "desk"
+    ? onboardingSteps({ role, touch }).map((x) => ({ title: x.title, body: <>{x.text}</> }))
+    : phoneHowToCards(role, layout);
+  return (
+    <details className="cooplive__howto">
+      <summary className="btn btn--ghost btn--tap">How the shift works</summary>
+      <ol className="small cooplive__howtolist">
+        {items.map((x, i) => <li key={i}><b>{x.title}.</b> {x.body}</li>)}
+      </ol>
+    </details>
+  );
+}
