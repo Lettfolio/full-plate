@@ -70,10 +70,20 @@ describe("the built Pages dist", () => {
         expect(code, f).not.toMatch(/\bnew Function\s*\(|[^.\w]eval\s*\(/);
         expect(code, f).not.toMatch(/new (WebSocket|EventSource|XMLHttpRequest)\b/);
       }
-      // The stylesheets pull fonts from assets/ only.
+      // Every url() in the stylesheets is a file in assets/ or a data: URL of a kind the policy lets in (Round 13: the
+      // first playtest found Vite's inlined data: fonts blocked by a font-src of 'self' alone).
+      const allows = (dir: string, scheme: string) => (CSP_POLICY.split("; ").find((d) => d.startsWith(`${dir} `)) ?? "").split(" ").includes(scheme);
+      let dataFonts = 0;
       for (const f of readdirSync(join(out, "assets")).filter((x) => x.endsWith(".css"))) {
-        for (const [, url] of readFileSync(join(out, "assets", f), "utf8").matchAll(/url\(([^)]*)\)/g)) expect(url!.replace(/["']/g, ""), f).toMatch(/^(\.\/|[\w.-]+\.(woff2?|png|svg)$|data:)/);
+        for (const [, raw] of readFileSync(join(out, "assets", f), "utf8").matchAll(/url\(([^)]*)\)/g)) {
+          const url = raw!.replace(/["']/g, "");
+          if (url.startsWith("data:font/") || url.startsWith("data:application/font")) { dataFonts++; expect(allows("font-src", "data:"), url.slice(0, 30)).toBe(true); }
+          else if (url.startsWith("data:image/")) expect(allows("img-src", "data:")).toBe(true);
+          else if (url.startsWith("data:")) throw new Error(`${f}: a data: URL of an unexpected kind: ${url.slice(0, 40)}`);
+          else expect(url, f).toMatch(/^(\.\/)?[\w.-]+\.(woff2?|png|svg)$/);
+        }
       }
+      expect(dataFonts).toBeGreaterThan(0); // if Vite stops inlining fonts, font-src can go back to 'self' alone
     } finally {
       rmSync(out, { recursive: true, force: true });
     }

@@ -10,7 +10,9 @@
  *    a policy doesn't cover, so no 'unsafe-inline' is needed; there is no `style=""` attribute in the built HTML.
  *  - img-src 'self' data: blob: — the favicon and the brand logo are data: SVGs; the postcard preview is a data: PNG
  *    (canvas.toDataURL); the save file and the postcard download through a blob: URL.
- *  - font-src 'self' (the @fontsource files are in assets/), connect-src 'self' (no fetch leaves the page),
+ *  - font-src 'self' data: — the @fontsource files are in assets/, and Vite inlines the smallest subsets (under its
+ *    4 kB asset limit) into the stylesheet as data: fonts. A font can't run anything; the playtest caught these.
+ *  - connect-src 'self' (no fetch leaves the page),
  *    media-src 'self' (the music and sounds are synthesised), worker-src 'self' (none today).
  *  - object-src 'none', base-uri 'self', form-action 'none'. `frame-ancestors` is ignored in a meta policy, so it isn't
  *    listed.
@@ -25,7 +27,7 @@ export const CSP_DIRECTIVES: readonly (readonly [string, string])[] = [
   ["script-src", "'self'"],
   ["style-src", "'self'"],
   ["img-src", "'self' data: blob:"],
-  ["font-src", "'self'"],
+  ["font-src", "'self' data:"],
   ["connect-src", "'self'"],
   ["media-src", "'self'"],
   ["worker-src", "'self'"],
