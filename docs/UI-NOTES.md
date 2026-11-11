@@ -2337,6 +2337,34 @@ on, so a kept scroll position can't pass unnoticed.
 One new row: **New things to try** (on). Nothing new animates (scroll resets are instant; `scrollIntoView` for a
 landing uses the default instant behaviour) and nothing new makes a sound.
 
+### Checks (built dist)
+
+- **Main JS 181.53 → 189.09 kB** (budget 200): the scroll rules (`lib/scrollTop`), the per-dish pictures (`lib/dishIcon`,
+  MenuTab is first-paint), the peek chip, the tab landings and chips. New lazy chunks: `TryCard` 3.00 kB, `tryNext`
+  2.00 kB (shared with SettingsBody), `share` 8.01 kB (state/share.ts, now its own chunk: TryCard asks whether sharing
+  works; `VisitFriend` 49.69 → 41.98 kB accordingly). `NewGame` 6.72 → 7.26, `PostcardDialog` 2.65 → 3.37, `postcard`
+  9.45 → 10.64, `SettingsBody` 6.85 → 7.29, `StartPicker` 5.85 → 5.89, `HandsOnShift` 25.00 → 25.08 kB.
+- Tests 1,505 → **1,536** (+31, `round14.e.test.tsx`); `starsReview.test.tsx` finds the one-tap order by its new name.
+- Type audit Normal and Bigger: 129 screens each, 0 text < 13 px, 0 errors, within baseline.
+- **Probe** (all ten runs, 0 errors, every screen reached): new counts `clipped` **0** and `notAtTop` **0** on every run
+  (on master `823733b` the upright phone had clipped 21 — the menu's seven price steppers twice, the fork's "Be the
+  best →" — and notAtTop 18 of 44 screens). Baseline re-set; what rose: `term` 17 → 19 on the eight non-upright runs (the
+  "pass" tip in the Jump in card, on the two service screens: asked for by U17; the card is in the sheet's hidden body
+  at an upright peek), `underBar` +1 on 844×390 Normal, 1024×768 and 768×1024 Bigger and +4 on 844×390 Bigger (the
+  evening now opens at its top, so a term near its foot sits under the dock where before the page had been scrolled
+  past it; the dock's hints are a few words longer). Everything else equal or lower.
+- Headless (real pack, 200 seeds): typical **90.0 %**, cheap **68.0 %**, nohire **0 %** — no sim package touched.
+- **Playtest** (built dist, `vite preview` 127.0.0.1, Playwright; shots and contact sheets
+  `scratchpad/shots/r14/E/00-contact-phone.png`, `00-contact-ipad.png`): iPhone 390×844 touch and 1024×768 touch, a fresh
+  game: picker (no street question) → lease (name field at y 123; Enter → streets; High Street) → day 1 at the top →
+  Step 1 lands on the starter button → seven steppers whole → Staff / Restaurant at the top, back to Menu where she left
+  it → five days, restocking each evening; the peek's Cook it yourself (loud Days 1–3, quiet from Day 4); Day 2 cook it
+  → turn card alone, then the how-to → Office → evening; New thing to try Day 2 (×: gone, nothing else that day), Day 3
+  Brand kit → lands on the brand card, Days 4–6 Invent a dish (then it would retire); Day 3 postcard with guests at the
+  tables and the Best night yet badge. Every arrival scrollY 0, no sideways scroll, **0 page errors**. The reviewer's
+  `u-scroll-all`, `u-stepper` (390 and 320), `p13-sheet`, `p2-newgame`, `u-320` and `p15-sweep` (phone, sideways,
+  200 %, 320) all pass.
+
 ### Left out, and why
 
 - The postcard's busy frame lives in memory only: keeping a whole GameState in the save for a picture isn't worth the
