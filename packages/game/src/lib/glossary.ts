@@ -81,6 +81,9 @@ export const GLOSSARY = {
   driveThru: { term: "drive-thru", plain: "Order from your car", explain: "a lane where drivers order and collect without parking; more guests, bigger plot." },
   localise: { term: "localise", plain: "A menu for that city", explain: "changing the menu so it follows the local food rules, so guests there stop staying away." },
   campaign: { term: "brand campaign", plain: "Adverts", explain: "paying for adverts in one region so more people there know your name." },
+  // Round 13 (C): the hands-on how-to's words
+  pass: { term: "the pass", plain: "Where plates wait", explain: "the counter between kitchen and dining room: cooks put finished plates there and servers take them out." },
+  ticketRail: { term: "ticket rail", plain: "The order strip", explain: "the rail where order slips hang, one per table, oldest first, so the kitchen cooks them in turn." },
 } satisfies Record<string, GlossaryEntry>;
 
 export type TermId = keyof typeof GLOSSARY;

@@ -7,14 +7,21 @@
  *   finger is down, so a tap chops/grabs and a hold cooks or pours.
  * - Tap a slip on the rail: a chef walks to the fridge to fetch it.
  * - The big USE and Drop buttons do the same as E and Q.
+ * - Round 13 (C): drag to steer. A finger that moves on the canvas (or on the upright stick pad) is a stick: she
+ *   walks the way it points, at a speed set by how far it has gone (`stick`), until it lifts.
  *
  * Every press is latched for one read, so a tap shorter than a frame still registers.
  */
 import { railTarget, steerToward, type HandsOnInput, type HandsOnSession, type Hit } from "@full-plate/handson";
 
 export interface TouchControl {
-  /** A pointer went down on the canvas at `hit` (undefined: bare floor). */
-  press(session: HandsOnSession, hit: Hit | undefined): void;
+  /**
+   * A pointer went down on the canvas at `hit` (undefined: bare floor). Round 13: says what the press became — the
+   * USE button ("use"), a walk to a station ("walk") or nothing yet (bare floor: it may still become a drag).
+   */
+  press(session: HandsOnSession, hit: Hit | undefined): "use" | "walk" | undefined;
+  /** Round 13 (C): a drag stick, each axis -1..1 (null: lifted). Overrides tap-to-walk while it is down. */
+  stick(v: { x: number; y: number } | null): void;
   /** USE button / Drop button. */
   use(down: boolean): void;
   drop(down: boolean): void;
@@ -33,26 +40,30 @@ export function createTouchControl(): TouchControl {
   let target: string | undefined;
   let held = false, latched = false;
   let dropHeld = false, dropLatched = false;
+  let stick: { x: number; y: number } | null = null;
   return {
     get target() { return target; },
     press(session, hit) {
       const at = session.prompt?.stationId;
       // While a verb runs, the whole canvas is the USE button (tap on the chop marks, hold to cook).
       if (session.activeAction || (hit?.kind === "station" && hit.stationId === at && session.prompt?.enabled)) {
-        target = undefined; held = true; latched = true; return;
+        target = undefined; held = true; latched = true; return "use";
       }
-      if (!hit) return;
+      if (!hit) return undefined;
       target = hit.kind === "rail" ? railTarget(session) : hit.stationId;
+      return target ? "walk" : undefined;
     },
+    stick(v) { stick = v && (v.x || v.y) ? v : null; if (stick) target = undefined; },
     use(down) { held = down; if (down) { latched = true; target = undefined; } },
     drop(down) { dropHeld = down; if (down) dropLatched = true; },
-    release() { held = false; dropHeld = false; },
+    release() { held = false; dropHeld = false; stick = null; },
     read(session) {
       const interact = held || latched;
       const cancel = dropHeld || dropLatched;
       latched = false; dropLatched = false;
       let move: { moveX: number; moveY: number } | undefined;
-      if (target && !session.activeAction) {
+      if (stick && !session.activeAction) move = { moveX: stick.x, moveY: stick.y };
+      else if (target && !session.activeAction) {
         if (session.prompt?.stationId === target) target = undefined; // arrived and facing it
         else {
           const s = steerToward(session, target);
@@ -67,5 +78,16 @@ export function createTouchControl(): TouchControl {
   };
 }
 
+
+/**
+ * Round 13 (C): a drag (CSS px from where the finger went down) as a stick. Under `dead` px it is still a tap; at
+ * `full` px it is full speed (from a quarter, the session's 0.2 dead zone, at the threshold); the direction is kept.
+ */
+export function dragStick(dx: number, dy: number, dead = 14, full = 56): { x: number; y: number } | null {
+  const d = Math.hypot(dx, dy);
+  if (d < dead) return null;
+  const k = (0.25 + 0.75 * Math.min(1, (d - dead) / (full - dead))) / d;
+  return { x: dx * k, y: dy * k };
+}
 
 export { prefersTouch } from "./device";

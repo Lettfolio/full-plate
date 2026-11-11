@@ -33,6 +33,11 @@ export interface Settings {
   musicVolume: number;
   /** Round 12 (A): sound-effects volume 0..1 (lib/sfx.ts). */
   sfxVolume: number;
+  /**
+   * Round 13 (C): a short buzz (`navigator.vibrate`, where the phone has it) when you press USE or a plate goes out in
+   * the hands-on shift. Only while Sound (above) is on too.
+   */
+  haptics: boolean;
 }
 
 export type UnderlineTerms = "first" | "always";
@@ -40,7 +45,7 @@ export type UnderlineTerms = "first" | "always";
 export type TextSize = "normal" | "large";
 
 export const SETTINGS_KEY = "full-plate:settings:v1";
-export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: false, speedPicked: false, underlineTerms: "first", animations: true, musicVolume: 0.4, sfxVolume: 0.8 };
+export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, sound: true, textSize: "normal", noGrownUpDrinks: false, speedPicked: false, underlineTerms: "first", animations: true, musicVolume: 0.4, sfxVolume: 0.8, haptics: true };
 
 function read(): Settings {
   try {
@@ -64,6 +69,7 @@ function normalize(p: Partial<Settings>): Settings {
       animations: typeof p.animations === "boolean" ? p.animations : DEFAULT_SETTINGS.animations,
       musicVolume: volume(p.musicVolume, DEFAULT_SETTINGS.musicVolume),
       sfxVolume: volume(p.sfxVolume, DEFAULT_SETTINGS.sfxVolume),
+      haptics: typeof p.haptics === "boolean" ? p.haptics : DEFAULT_SETTINGS.haptics,
     };
 }
 

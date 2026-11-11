@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { startSpeed, useSettings, type TextSize, type UnderlineTerms } from "../lib/settings";
 import { playSfx } from "../lib/sfx";
+import { canBuzz } from "../lib/haptics";
 import { ConfirmDialog, Dialog } from "./Dialog";
 import { Icon, type IconName } from "./Icon";
 import { VolumeSlider } from "./VolumeSlider";
@@ -84,6 +85,14 @@ export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
           <VolumeSlider label="Music" value={s.musicVolume} onChange={(v) => set({ musicVolume: v })} {...(s.sound ? {} : { note: "Sound is off" })} />
           {/* R12-A */}
           <VolumeSlider label="Sound effects" value={s.sfxVolume} onChange={(v) => set({ sfxVolume: v })} onDone={() => playSfx("orderUp")} {...(s.sound ? {} : { note: "Sound is off" })} />
+          {/* R13-C */}
+          {canBuzz() && (
+            <label className="sheet__row sheet__check">
+              <input type="checkbox" className="switch" checked={s.haptics} onChange={(e) => set({ haptics: e.target.checked })} />
+              <span>Buzz when you cook or serve <span className="xs muted">(a short vibration in your own shift{s.sound ? "" : "; Sound is off, so it's quiet too"})</span></span>
+            </label>
+          )}
+          {/* R13-C */}
           <div className="sheet__game">
             <p className="small muted">Your game saves itself every morning and every evening.</p>
             {onQuit || onNewGame ? (
