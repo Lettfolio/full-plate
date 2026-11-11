@@ -83,10 +83,17 @@ export function passProfile(): PassProfile | null {
   return p as PassProfile;
 }
 
-/** devicePixelRatio, capped at 2 (a 3× phone backing store costs 2.25× the fill for no visible gain). */
+/**
+ * Round 13 (A): the one cap on a canvas's backing store, in device pixels per CSS pixel. A 3× phone at 3 would fill
+ * 2.25× the pixels of 2 for no visible gain on these drawings; the floor, the hands-on kitchen and their cached layers
+ * all use it (RestaurantView.resize clamps to it too, for callers that pass a raw devicePixelRatio).
+ */
+export const MAX_CANVAS_DPR = 2;
+
+/** devicePixelRatio, capped at MAX_CANVAS_DPR. */
 export function canvasDpr(): number {
   const d = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-  return Math.min(2, Math.max(1, d));
+  return Math.min(MAX_CANVAS_DPR, Math.max(1, d));
 }
 
 let motionQuery: MediaQueryList | null | undefined;

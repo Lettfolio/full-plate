@@ -129,11 +129,13 @@ export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y:
   ctx.font = `${o.weight ?? 700} ${Math.max(CANVAS_MIN_PX, o.size ?? 13)}px Nunito, system-ui, sans-serif`;
   ctx.textAlign = o.align ?? "left";
   ctx.textBaseline = "alphabetic";
-  if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${o.spacing ?? 0}px`;
+  // Round 13 (A): letter spacing is set (and put back) only for the labels that use it, not twice per label
+  const spaced = !!o.spacing && "letterSpacing" in ctx;
+  if (spaced) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${o.spacing}px`;
   if (o.stroke) { ctx.strokeStyle = o.stroke; ctx.lineWidth = 3.5; ctx.lineJoin = "round"; ctx.strokeText(text, x, y, o.maxW); }
   ctx.fillStyle = o.colour ?? C.ink;
   ctx.fillText(text, x, y, o.maxW);
-  if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
+  if (spaced) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
 }
 
 export function plant(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {

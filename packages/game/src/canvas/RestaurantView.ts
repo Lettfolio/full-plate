@@ -16,10 +16,10 @@
  * `floorPalette.ts` (theme tokens read from the canvas on resize + art colours).
  */
 import type { ContentPack, Customer, CustomerId, GameState, Staff, TableId } from "@full-plate/sim-core";
-import { facingFrom, guestLook, SpriteCache, type Look } from "@full-plate/handson/sprites";
+import { facingFrom, guestLook, type Look } from "@full-plate/handson/sprites";
 import { LayerCache, layerKey } from "@full-plate/handson/layers";
 import { formatPence } from "../lib/format";
-import { passProfile } from "../lib/perfMeter";
+import { MAX_CANVAS_DPR, passProfile } from "../lib/perfMeter";
 import { weekdayIndex } from "../lib/calendar";
 import { readFloorPalette } from "./floorPalette";
 import type { RoomLook } from "./decorArt";
@@ -29,8 +29,9 @@ import { L_PERSON_STAFF, SEATED, staffLook, type Floaty, type Sprite, type Staff
 import { pickTable } from "./interaction";
 import { brandLook, canvasBrand, type CanvasBrand } from "./brand";
 import { alpha, label, menu, moodFace, patienceColour, plate, radial, roundRect, setting, tableTop } from "./paint";
-import { paintFloor, paintFurniture, paintLight } from "./scene";
+import { paintFloor, paintFurniture, paintLight, paintSettings } from "./scene";
 import { breathe, drawBeats, idHash, lookAbout, sizzle, steam, stepUpDelay, type Beat } from "./juice";
+import { PersonCache, StampCache } from "./stamps";
 
 /*
  * Round 11 (pipeline): this file was 1,217 lines; it is now the coordinator (the class: frame order, people movement,
@@ -41,6 +42,9 @@ import { breathe, drawBeats, idHash, lookAbout, sizzle, steam, stepUpDelay, type
 export { loadDecorArt } from "./frame";
 export { aislePath, computeLayout, type Layout } from "./layout";
 export { CANVAS_MIN_PX, patienceColour } from "./paint";
+
+/** Round 13 (A): at most this many "+£" / "Hmph!" notes in the air at once (a 4× rush can settle a dozen tables a second). */
+export const MAX_FLOATIES = 16;
 
 /** Things to ring with a pulsing halo (live incidents). `strong` ids pulse harder (hovered incident card). */
 export interface Highlight {
@@ -69,6 +73,12 @@ export interface RenderOptions {
   brand?: CanvasBrand | null;
   /** Round 12 (E): named guests (regulars, the food blogger); the selected party's name shows as a tag over its table. */
   guestNames?: ReadonlyMap<CustomerId, string>;
+  /**
+   * Round 13 (A): "lite" thins the floor's small effects when the device can't keep up (Service's slow-frame watch,
+   * lib/floorLoad.ts): one steam wisp instead of three, no sizzle, no steam on the pass, no breathing. Movement, the
+   * paid coin and the five-star glow are unchanged. Omitted = "full".
+   */
+  juice?: "full" | "lite";
 }
 
 export class RestaurantView {
@@ -87,8 +97,16 @@ export class RestaurantView {
   private lastNow = 0;
   private firstFrame = true;
   private layers = new LayerCache();
-  /** Round 8: pre-drawn people (one small blit each). */
-  private people = new SpriteCache();
+  /** Round 8: pre-drawn people (one small blit each). Round 13 (A): ImageBitmaps, LRU, a per-frame build budget. */
+  private people = new PersonCache();
+  /** Round 13 (A): pre-drawn table tops, badges, ticket cards, name tags (stamps.ts). Cleared when the scene changes. */
+  private stamps = new StampCache();
+  /** Round 13 (A): the customers by id, built once a frame and shared by the passes. */
+  private byId = new Map<CustomerId, Customer>();
+  /** Round 13 (A): staff name-tag widths (measured once per name, not every frame). */
+  private tagW = new Map<string, number>();
+  /** Round 13 (A): 1 for full juice, 0 for lite (RenderOptions.juice), set per frame. */
+  private dense = 1;
   private paletteVersion = 0;
   private name = "";
   /** The static-layer key, recomputed only when the layout, name or palette changes. */
@@ -107,13 +125,14 @@ export class RestaurantView {
   resize(cssW: number, cssH: number, dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) {
     this.w = Math.max(320, Math.floor(cssW));
     this.h = Math.max(320, Math.floor(cssH));
-    this.dpr = Math.min(2, Math.max(1, dpr)); // round 8: capped at 2
+    this.dpr = Math.min(MAX_CANVAS_DPR, Math.max(1, dpr)); // round 8: capped at 2 (Round 13: one named cap, perfMeter.ts)
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.layout = null;
     // Round 8: theme tokens, once per resize
     setPalette(readFloorPalette(this.canvas));
     this.paletteVersion++;
+    this.stamps.clear(); this.tagW.clear();
   }
 
   /** Which seated party (if any) is under a point in CSS pixels. */
@@ -142,6 +161,10 @@ export class RestaurantView {
     setFrame(art && game.decor ? art.roomLook(opts.content, game) : (PLAIN as RoomLook), m);
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.dense = opts.juice === "lite" ? 0 : 1;
+    this.people.frame();
+    this.byId.clear();
+    for (const c of game.customers) this.byId.set(c.id, c);
 
     this.updateSprites(game, L, dt, opts);
 
@@ -149,6 +172,7 @@ export class RestaurantView {
       this.keyFor = L; this.keyName = this.name; this.keyPalette = this.paletteVersion; this.keyDecor = D.key;
       // Round 10: the decor (items and how worn they look) is part of the picture, so it is part of the key.
       this.key = layerKey(this.w, this.h, this.dpr, this.paletteVersion, `${L.tablesKey}|${this.name}|${D.key}`);
+      this.stamps.clear(); // table tops and badges follow the layout and the decor
     }
     const key = this.key;
     // Round 13 (A): the per-pass profile (perfMeter.ts passProfile; off unless a playtest asks for it)
@@ -157,7 +181,7 @@ export class RestaurantView {
     const pass = P ? (name: string) => { ctx.getImageData(0, 0, 1, 1); const t = performance.now(); P.ms[name] = (P.ms[name] ?? 0) + t - t0; t0 = t; } : undefined;
     pass?.("_flush"); // an empty pass: what one flush costs by itself (subtract it from each pass)
     // one cached, opaque scene layer: one full blit a frame and no clear (the blit is the costly part in software raster)
-    this.layers.draw(ctx, "scene", key, this.w, this.h, this.dpr, (c) => { paintFloor(c, L); paintFurniture(c, L, this.name); });
+    this.layers.draw(ctx, "scene", key, this.w, this.h, this.dpr, (c) => { paintFloor(c, L); paintFurniture(c, L, this.name); paintSettings(c, L); });
     pass?.("scene");
     this.drawTableGlows(game, L, opts);
     this.beats = drawBeats(ctx, this.beats, opts.now, motion, "glow");
@@ -314,8 +338,10 @@ export class RestaurantView {
       if (working.size <= i) return;
       for (const dx of [-10, 10]) {
         const flick = motion ? 0.75 + 0.25 * Math.sin(opts.now / 70 + i * 2 + dx) : 0.85;
-        ctx.fillStyle = radial(ctx, s.x + dx, s.y, 13, alpha(C.flame, 0.55 * flick), alpha(C.flame, 0));
-        ctx.fillRect(s.x + dx - 13, s.y - 13, 26, 26);
+        // Round 13 (A): the burner's glow is one pre-drawn gradient faded by the flicker (was a new gradient per burner a frame)
+        ctx.globalAlpha = flick;
+        this.stamps.draw(ctx, "flame", s.x + dx, s.y, 26, 26, 13, 13, this.dpr, (c) => { c.fillStyle = radial(c, 0, 0, 13, alpha(C.flame, 0.55), alpha(C.flame, 0)); c.fillRect(-13, -13, 26, 26); }, true);
+        ctx.globalAlpha = 1;
         ctx.strokeStyle = C.flame; ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.arc(s.x + dx, s.y, 7, 0, Math.PI * 2); ctx.stroke();
         ctx.strokeStyle = C.flameCore; ctx.lineWidth = 1;
@@ -327,11 +353,11 @@ export class RestaurantView {
       ctx.fillRect(s.x - 3, s.y - 1.5, 9, 3);
       ctx.fillStyle = [C.amber, C.tomato, "#7a4a2a", C.basil][i % 4]!; ctx.beginPath(); ctx.arc(s.x - 10, s.y, 5, 0, Math.PI * 2); ctx.fill();
       // Round 12 (A): a sizzle in the pan and steam off it
-      sizzle(ctx, s.x - 10, s.y, opts.now, motion, i);
-      steam(ctx, s.x - 10, s.y - 6, opts.now, motion, 0.9, i);
+      if (this.dense) sizzle(ctx, s.x - 10, s.y, opts.now, motion, i);
+      steam(ctx, s.x - 10, s.y - 6, opts.now, motion, 0.9, i, this.dense ? 3 : 1);
     });
     // Round 12 (A): no chef, but you're cooking — steam off the first hob while any ticket is on
-    if (!working.size && game.tickets.some((t) => t.ticksRemaining > 0)) steam(ctx, L.stoves[0]!.x - 10, L.stoves[0]!.y - 4, opts.now, motion, 0.7, 9);
+    if (!working.size && game.tickets.some((t) => t.ticksRemaining > 0)) steam(ctx, L.stoves[0]!.x - 10, L.stoves[0]!.y - 4, opts.now, motion, 0.7, 9, this.dense ? 3 : 1);
     this.drawTickets(game, L, opts);
   }
 
@@ -357,34 +383,42 @@ export class RestaurantView {
       const age = game.tick - (tks[0]?.createdTick ?? game.tick);
       const head = age < 6 ? C.basil : age < 12 ? C.amber : C.red;
       const sway = Math.sin(opts.now / 600 + i) * 1.2 * motion;
-      ctx.save();
-      ctx.translate(x + cw / 2, y);
-      ctx.rotate((sway * Math.PI) / 180);
-      ctx.fillStyle = C.shadow; ctx.fillRect(-cw / 2 + 2, 2, cw, ch);
-      ctx.fillStyle = C.paper; ctx.strokeStyle = alpha(C.inkSoft, 0.6); ctx.lineWidth = 1;
-      ctx.fillRect(-cw / 2, 0, cw, ch);
-      ctx.strokeRect(-cw / 2, 0, cw, ch);
-      ctx.fillStyle = head; ctx.fillRect(-cw / 2, 0, cw, 5);
-      const c = game.customers.find((x) => x.id === cid);
+      const c = this.byId.get(cid);
       const tn = c?.tableId ? tableNo.get(c.tableId) : undefined;
-      label(ctx, tn ? `T${tn}` : "—", 0, 19, { align: "center", size: 13, weight: 800, colour: C.ink });
-      // one dot per dish; filled when plated
       const n = tks.length;
-      const dotW = Math.min(6, (cw - 6) / n);
-      tks.forEach((t, j) => {
-        ctx.beginPath();
-        ctx.arc(-((n - 1) * dotW) / 2 + j * dotW, 27, Math.max(1.6, dotW / 2 - 0.6), 0, Math.PI * 2);
-        if (t.ticksRemaining <= 0) { ctx.fillStyle = C.basil; ctx.fill(); }
-        else { ctx.strokeStyle = C.inkFaint; ctx.lineWidth = 1; ctx.stroke(); }
-      });
-      ctx.restore();
-      // pin
-      ctx.fillStyle = C.tomato; ctx.beginPath(); ctx.arc(x + cw / 2, y, 2.5, 0, Math.PI * 2); ctx.fill();
-      // plated food waiting under the heat lamps
+      let dots = "";
+      for (const t of tks) dots += t.ticksRemaining <= 0 ? "1" : "0";
+      // Round 13 (A): the card (with its pin) is a stamp per (table, age colour, dishes plated, sway step). Its label was
+      // drawn under the sway's rotation every frame, which software raster does glyph by glyph as paths; now each tilt
+      // is drawn once, as before, and blitted upright. The sway is quantised to 0.2° steps (under 0.1 px at the card's corner).
+      const step = Math.round(sway / 0.2);
+      this.stamps.draw(ctx, `tk|${tn ?? ""}|${head}|${dots}|${step}`, x + cw / 2, y, cw + 8, ch + 10, cw / 2 + 3, 4, this.dpr, (g) => {
+        g.rotate((step * 0.2 * Math.PI) / 180);
+        g.fillStyle = C.shadow; g.fillRect(-cw / 2 + 2, 2, cw, ch);
+        g.fillStyle = C.paper; g.strokeStyle = alpha(C.inkSoft, 0.6); g.lineWidth = 1;
+        g.fillRect(-cw / 2, 0, cw, ch);
+        g.strokeRect(-cw / 2, 0, cw, ch);
+        g.fillStyle = head; g.fillRect(-cw / 2, 0, cw, 5);
+        label(g, tn ? `T${tn}` : "—", 0, 19, { align: "center", size: 13, weight: 800, colour: C.ink });
+        // one dot per dish; filled when plated
+        const dotW = Math.min(6, (cw - 6) / n);
+        for (let j = 0; j < n; j++) {
+          g.beginPath();
+          g.arc(-((n - 1) * dotW) / 2 + j * dotW, 27, Math.max(1.6, dotW / 2 - 0.6), 0, Math.PI * 2);
+          if (dots[j] === "1") { g.fillStyle = C.basil; g.fill(); }
+          else { g.strokeStyle = C.inkFaint; g.lineWidth = 1; g.stroke(); }
+        }
+        // the pin (round, and the card turns about it, so the tilt doesn't move it)
+        g.fillStyle = C.tomato; g.beginPath(); g.arc(0, 0, 2.5, 0, Math.PI * 2); g.fill();
+      }, true);
+      // plated food waiting under the heat lamps (a stamp per group of up to three plates)
       const ready = tks.filter((t) => t.ticksRemaining <= 0).length;
-      for (let j = 0; j < Math.min(ready, 3); j++) plate(ctx, x + 9 + j * 11, p.y + p.h * 0.42, 6, [C.tomato, C.amber, "#7a4a2a"][(j + i) % 3]!);
+      const shown = Math.min(ready, 3);
+      if (shown) this.stamps.draw(ctx, `pp|${shown}|${i % 3}`, x + 9, p.y + p.h * 0.42, 2 * 11 + 18, 18, 8, 8, this.dpr, (g) => {
+        for (let j = 0; j < shown; j++) plate(g, j * 11, 0, 6, [C.tomato, C.amber, "#7a4a2a"][(j + i) % 3]!);
+      }, true);
       // Round 12 (A): food on the pass steams under the lamps while the rest of the ticket cooks
-      if (ready > 0) steam(ctx, x + 9 + (Math.min(ready, 3) - 1) * 5.5, p.y + p.h * 0.42 - 4, opts.now, motion, ready < tks.length ? 0.8 : 0.5, i + 5);
+      if (ready > 0 && this.dense) steam(ctx, x + 9 + (Math.min(ready, 3) - 1) * 5.5, p.y + p.h * 0.42 - 4, opts.now, motion, ready < tks.length ? 0.8 : 0.5, i + 5);
     });
     if (groups.length > max) label(ctx, `+${groups.length - max}`, p.x + p.w - 6, p.y - 18, { align: "right", size: 14, weight: 800, colour: C.tomatoDeep });
     if (!groups.length) label(ctx, "no tickets", p.x + 10, p.y - 18, { size: 13, colour: C.inkFaint, weight: 700 });
@@ -393,7 +427,7 @@ export class RestaurantView {
   /** Under the furniture: each occupied table's mood halo, the selected table's floor glow and the hover ring. */
   private drawTableGlows(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
-    const byId = new Map(game.customers.map((c) => [c.id, c]));
+    const byId = this.byId;
     for (const t of game.tables) {
       const s = L.tables.get(t.id);
       if (!s) continue;
@@ -407,15 +441,21 @@ export class RestaurantView {
     }
   }
 
-  /** Live tables: occupied tops (so far-side guests sit behind them), seated guests, place settings, rings. */
+  /**
+   * Live tables: occupied tops (so far-side guests sit behind them), seated guests, what's on the table, rings.
+   * Round 13 (A): an empty table's place settings are in the cached scene (scene.ts paintSettings); a table with anything
+   * else on it is one pre-drawn stamp — top plus menus, plates or the dirty crockery — that covers them. Same drawing,
+   * same order (the patience ring and the contents don't overlap, so the ring is drawn after the stamp).
+   */
   private drawTables(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
-    const byId = new Map(game.customers.map((c) => [c.id, c]));
+    const byId = this.byId;
+    const box = (s: TableSlot) => 2 * s.r + 18;
     game.tables.forEach((t) => {
       const s = L.tables.get(t.id);
       if (!s) return;
       const c = t.occupiedBy ? byId.get(t.occupiedBy) : undefined;
-      // Round 10: on a fitting night the fitters' tables are under dust sheets.
+      // Round 10: on a fitting night the fitters' tables are under dust sheets (over the scene's top and settings).
       if (!c && D.closed.includes(t.id)) { art?.paintDustSheet(ctx, s, L.person); return; }
       const waiting = c && (c.stage === "seated" || c.stage === "ordered");
       if (opts.hoverTable === t.id && c) {
@@ -426,7 +466,32 @@ export class RestaurantView {
       // guests seated on the far side sit behind the table top
       const seated = c ? this.seatedSprites(c, s) : [];
       for (const sp of seated) if (sp.y < s.y - 1) this.drawGuest(sp, L, c!);
-      if (c) tableTop(ctx, s.x, s.y, s.r, s.id);
+      const B = box(s), half = B / 2;
+      if (c) {
+        const n = c.partySize, stage = c.stage;
+        this.stamps.draw(ctx, `tb|${t.id}|${stage}|${n}|${D.key}`, s.x, s.y, B, B, half, half, this.dpr, (g) => {
+          tableTop(g, 0, 0, s.r, s.id);
+          s.seats.slice(0, n).forEach((seat, k) => {
+            const px = lerp(0, seat.x - s.x, 0.52), py = lerp(0, seat.y - s.y, 0.52);
+            if (stage === "seated") menu(g, px, py, seat.a, s.r);
+            else if (stage === "eating" || stage === "ordered") plate(g, px, py, Math.max(3.5, s.r * 0.2), stage === "eating" ? [C.tomato, C.basil, C.amber, "#7a4a2a"][(n + k) % 4]! : undefined);
+          });
+        }, true);
+      } else if (t.dirtyTicks > 0) {
+        // clipped to the top, so the top's shadow (already in the scene under it) isn't laid down twice
+        const cloth = !!D.key && (D.items.tables === "table_gingham" || D.items.tables === "table_linen");
+        this.stamps.draw(ctx, `tb|${t.id}|dirty|${Math.min(3, t.seats)}|${D.key}`, s.x, s.y, B, B, half, half, this.dpr, (g) => {
+          g.beginPath(); g.arc(0, 0.75, s.r + (cloth ? 2 : 0) + 1, 0, Math.PI * 2); g.clip();
+          tableTop(g, 0, 0, s.r, s.id);
+          for (let k = 0; k < Math.min(3, t.seats); k++) {
+            const a = k * 2.1;
+            const px = Math.cos(a) * s.r * 0.45, py = Math.sin(a) * s.r * 0.45;
+            g.fillStyle = "rgba(0,0,0,0.12)"; g.beginPath(); g.arc(px + 1, py + 1.5, s.r * 0.22, 0, Math.PI * 2); g.fill();
+            g.fillStyle = "#ece6da"; g.beginPath(); g.arc(px, py, s.r * 0.22, 0, Math.PI * 2); g.fill();
+            g.fillStyle = "#a8875c"; g.beginPath(); g.arc(px + 1, py, 1.5, 0, Math.PI * 2); g.fill();
+          }
+        }, true);
+      }
       if (waiting) {
         ctx.strokeStyle = "rgba(43,38,34,0.14)"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r + L.person * 2.6 - 2, 0, Math.PI * 2); ctx.stroke();
@@ -435,35 +500,21 @@ export class RestaurantView {
         ctx.arc(s.x, s.y, s.r + L.person * 2.6 - 2, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * clamp(c.patience, 0, 100)) / 100);
         ctx.stroke(); ctx.lineCap = "butt";
       }
-      // contents
-      if (t.dirtyTicks > 0 && !c) {
-        for (let k = 0; k < Math.min(3, t.seats); k++) {
-          const a = k * 2.1;
-          const px = s.x + Math.cos(a) * s.r * 0.45, py = s.y + Math.sin(a) * s.r * 0.45;
-          ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.beginPath(); ctx.arc(px + 1, py + 1.5, s.r * 0.22, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#ece6da"; ctx.beginPath(); ctx.arc(px, py, s.r * 0.22, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#a8875c"; ctx.beginPath(); ctx.arc(px + 1, py, 1.5, 0, Math.PI * 2); ctx.fill();
-        }
-      } else if (!c) {
-        for (const seat of s.seats) setting(ctx, lerp(s.x, seat.x, 0.52), lerp(s.y, seat.y, 0.52), seat.a, Math.max(3, s.r * 0.16));
-      } else {
-        const n = c.partySize;
-        s.seats.slice(0, n).forEach((seat, k) => {
-          const px = lerp(s.x, seat.x, 0.52), py = lerp(s.y, seat.y, 0.52);
-          if (c.stage === "seated") menu(ctx, px, py, seat.a, s.r);
-          else if (c.stage === "eating" || c.stage === "ordered") plate(ctx, px, py, Math.max(3.5, s.r * 0.2), c.stage === "eating" ? [C.tomato, C.basil, C.amber, "#7a4a2a"][(n + k) % 4]! : undefined);
-        });
-        if (c.stage === "paying") {
-          const bob = Math.sin(opts.now / 250) * 1.2 * motion;
-          const R = Math.max(6, s.r * 0.32);
-          ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(s.x + 1.5, s.y + 2 + bob, R, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = C.gold; ctx.strokeStyle = C.goldEdge; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(s.x, s.y + bob, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-          label(ctx, "£", s.x, s.y + 4 + bob, { align: "center", size: Math.max(13, s.r * 0.4), weight: 900, colour: C.amberDeep });
-        }
+      if (c?.stage === "paying") {
+        const bob = Math.sin(opts.now / 250) * 1.2 * motion;
+        const R = Math.max(6, s.r * 0.32);
+        ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(s.x + 1.5, s.y + 2 + bob, R, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.gold; ctx.strokeStyle = C.goldEdge; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(s.x, s.y + bob, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        label(ctx, "£", s.x, s.y + 4 + bob, { align: "center", size: Math.max(13, s.r * 0.4), weight: 900, colour: C.amberDeep });
       }
       for (const sp of seated) if (sp.y >= s.y - 1) this.drawGuest(sp, L, c!);
-      if (waiting) moodFace(ctx, s.x, s.y + s.r * 0.7, Math.max(6, Math.min(9, s.r * 0.3)), c.patience);
+      if (waiting) {
+        // Round 13 (A): the mood face is one of three stamps per table size
+        const rr = Math.max(6, Math.min(9, s.r * 0.3));
+        const mood = c.patience > 60 ? 100 : c.patience > 30 ? 50 : 0;
+        this.stamps.draw(ctx, `mood|${mood}|${rr}`, s.x, s.y + s.r * 0.7, 2 * rr + 6, 2 * rr + 6, rr + 3, rr + 3, this.dpr, (g) => moodFace(g, 0, 0, rr, mood), true);
+      }
     });
   }
 
@@ -533,21 +584,26 @@ export class RestaurantView {
     game.tables.forEach((t, i) => {
       const s = L.tables.get(t.id);
       if (!s) return;
-      const tx = s.x, ty = s.y - s.r * 0.62;
-      ctx.fillStyle = C.shadow; ctx.beginPath(); ctx.arc(tx + 1, ty + 1.5, 12, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = C.paper;
-      ctx.beginPath(); ctx.arc(tx, ty, 12, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = t.occupiedBy ? C.ink : alpha(C.ink, 0.55);
-      ctx.beginPath(); ctx.arc(tx, ty, 10, 0, Math.PI * 2); ctx.fill();
-      label(ctx, String(i + 1), tx, ty + 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
+      // Round 13 (A): each badge (shadow, paper ring, ink disc, number) is a stamp, two per table (free / taken)
+      const on = !!t.occupiedBy;
+      this.stamps.draw(ctx, `no|${i + 1}|${on ? 1 : 0}`, s.x, s.y - s.r * 0.62, 30, 30, 14, 14, this.dpr, (g) => {
+        g.fillStyle = C.shadow; g.beginPath(); g.arc(1, 1.5, 12, 0, Math.PI * 2); g.fill();
+        g.fillStyle = C.paper;
+        g.beginPath(); g.arc(0, 0, 12, 0, Math.PI * 2); g.fill();
+        g.fillStyle = on ? C.ink : alpha(C.ink, 0.55);
+        g.beginPath(); g.arc(0, 0, 10, 0, Math.PI * 2); g.fill();
+        label(g, String(i + 1), 0, 4.5, { align: "center", size: 13, weight: 900, colour: C.paper });
+      }, true);
     });
   }
 
   private drawPeople(game: GameState, L: Layout, opts: RenderOptions) {
     const ctx = this.ctx;
-    const families = new Map(game.customers.map((c) => [c.id, c]));
+    const families = this.byId;
     const sprites = [...this.sprites.values()].sort((a, b) => a.y - b.y);
+    const edge = L.person * 3;
     for (const s of sprites) {
+      if (s.x < -edge || s.x > this.w + edge) continue; // Round 13 (A): off the canvas (arriving, or gone up the street)
       const c = families.get(s.customerId);
       const slot = c?.tableId ? L.tables.get(c.tableId) : undefined;
       if (c && slot && SEATED.has(c.stage) && !s.leaving && !s.path.length) {
@@ -658,7 +714,7 @@ export class RestaurantView {
       // Round 12 (A): a chef with nothing on looks round the kitchen (and everyone breathes)
       if (!sp.moving) sp.facing = sp.y > home.y + 4 ? "down" : busy ? "up" : lookAbout(opts.now, motion, h, "up");
       const stir = busy && motion ? Math.sin(opts.now / 140 + i) * 1.5 : 0;
-      this.drawStaffMarker(s, sp.x + stir, sp.y + (sp.moving ? 0 : breathe(opts.now, motion, h)), sp, opts, false, false, true);
+      this.drawStaffMarker(s, sp.x + stir, sp.y + (sp.moving ? 0 : breathe(opts.now, motion * this.dense, h)), sp, opts, false, false, true);
     });
 
     // front of house: serve tables that need someone (paying > needs order > food just ready)
@@ -687,7 +743,7 @@ export class RestaurantView {
       if (!m.moving && slot) m.facing = facingFrom(slot.x - m.x, slot.y - m.y, m.facing);
       else if (!m.moving) m.facing = lookAbout(opts.now, motion, idHash(s.id), "down"); // R12-A: idle at the pass, looking about
       const carrying = !!job?.viaPass && !!m.via && !m.path.includes(m.via);
-      this.drawStaffMarker(s, m.x, m.y + (m.moving ? 0 : breathe(opts.now, motion, idHash(s.id))), m, opts, carrying, job?.pri === 0, false, job?.plates ?? 1);
+      this.drawStaffMarker(s, m.x, m.y + (m.moving ? 0 : breathe(opts.now, motion * this.dense, idHash(s.id))), m, opts, carrying, job?.pri === 0, false, job?.plates ?? 1);
     });
     // nobody front-of-house: a little sign on the pass
     if (!front.length) label(ctx, "No server: you’re serving!", L.pass.x + L.pass.w + 12, L.kitchen.h + 20, { size: 14, weight: 800, colour: C.tomatoDeep, stroke: C.paper });
@@ -729,19 +785,24 @@ export class RestaurantView {
       else { ctx.fillStyle = C.paper; ctx.strokeStyle = C.outline; ctx.lineWidth = 1; ctx.fillRect(ix - 3.5, iy - 4.5, 7, 9); ctx.strokeRect(ix - 3.5, iy - 4.5, 7, 9); ctx.fillStyle = C.gold; ctx.fillRect(ix - 2, iy - 2, 4, 1.5); }
     }
     const first = s.name.split(" ")[0] ?? s.name;
-    ctx.font = "800 13px Nunito, system-ui, sans-serif";
-    const w = ctx.measureText(first).width + 10;
+    // Round 13 (A): the tag is measured once per name and drawn once as a stamp (it was measured and drawn every frame)
+    let w = this.tagW.get(first);
+    if (w === undefined) { ctx.font = "800 13px Nunito, system-ui, sans-serif"; w = ctx.measureText(first).width + 10; this.tagW.set(first, w); }
     // chefs in the narrow kitchen wear their tag beside them, clear of the ticket rail below
     const tx = tagBeside ? x + r * 1.3 + w / 2 : x, ty = tagBeside ? y - 8 : y + r * 1.25 + 2;
-    ctx.fillStyle = C.shadow; roundRect(ctx, tx - w / 2 + 1, ty + 1.5, w, 16, 8); ctx.fill();
-    ctx.fillStyle = alpha(C.paper, 0.95);
-    roundRect(ctx, tx - w / 2, ty, w, 16, 8); ctx.fill();
-    label(ctx, first, tx, ty + 12.5, { align: "center", size: 13, weight: 800, colour: C.ink });
+    const tw = w;
+    this.stamps.draw(ctx, `tag|${first}|${tw}`, tx, ty, tw + 4, 20, tw / 2 + 1, 1, this.dpr, (g) => {
+      g.fillStyle = C.shadow; roundRect(g, -tw / 2 + 1, 1.5, tw, 16, 8); g.fill();
+      g.fillStyle = alpha(C.paper, 0.95);
+      roundRect(g, -tw / 2, 0, tw, 16, 8); g.fill();
+      label(g, first, 0, 12.5, { align: "center", size: 13, weight: 800, colour: C.ink });
+    });
   }
 
   private drawFloaties(now: number) {
     const ctx = this.ctx;
     this.floaties = this.floaties.filter((f) => now - f.born < f.life);
+    if (this.floaties.length > MAX_FLOATIES) this.floaties.splice(0, this.floaties.length - MAX_FLOATIES); // Round 13 (A): a cap (oldest go first)
     for (const f of this.floaties) {
       if (now < f.born) continue; // R12-A: the "+£" waits for the coin
       const t = (now - f.born) / f.life;

@@ -19,10 +19,11 @@ export interface Beat { kind: "paid" | "glow"; x: number; y: number; r: number; 
  * Steam: three soft wisps rising and fading over (x, y), each a few overlapping discs (no gradients: cheap in software
  * raster). `heat` 0..1 scales how much. Nothing under reduced motion (a still wisp reads as smoke).
  */
-export function steam(ctx: CanvasRenderingContext2D, x: number, y: number, now: number, m: number, heat = 1, seed = 0) {
+export function steam(ctx: CanvasRenderingContext2D, x: number, y: number, now: number, m: number, heat = 1, seed = 0, wisps = 3) {
   if (!m || heat <= 0) return;
   ctx.fillStyle = C.paper;
-  for (let k = 0; k < 3; k++) {
+  // Round 13 (A): `wisps` < 3 under the floor's "lite" juice (a slow device); the first wisp is the same either way
+  for (let k = 0; k < Math.min(3, wisps); k++) {
     const t = ((now / 1100 + k / 3 + seed * 0.37) % 1 + 1) % 1; // 0..1 up the wisp
     const a = 0.32 * heat * Math.sin(Math.PI * t);
     if (a < 0.02) continue;
@@ -76,19 +77,24 @@ function glow(ctx: CanvasRenderingContext2D, b: Beat, t: number, m: number) {
   ctx.globalAlpha = 1;
 }
 
-/** Draws the live beats and drops the finished ones (returns the survivors). Glows are drawn under the people. */
+/**
+ * Draws the live beats and drops the finished ones (returns the survivors). Glows are drawn under the people.
+ * Round 13 (A): compacts `beats` in place and returns it (no new array twice a frame).
+ */
 export function drawBeats(ctx: CanvasRenderingContext2D, beats: Beat[], now: number, m: number, kind: Beat["kind"]): Beat[] {
-  const out: Beat[] = [];
-  for (const b of beats) {
+  let n = 0;
+  for (let i = 0; i < beats.length; i++) {
+    const b = beats[i]!;
     const life = b.kind === "paid" ? PAID_MS : GLOW_MS;
     const t = (now - b.born) / life;
     if (t >= 1) continue;
-    out.push(b);
+    beats[n++] = b;
     if (b.kind !== kind) continue;
     if (b.kind === "paid") { if (m) paid(ctx, b, Math.max(0, t)); }
     else glow(ctx, b, Math.max(0, t), m);
   }
-  return out;
+  beats.length = n;
+  return beats;
 }
 
 /** A small, stable number per id (staff idle timing differs person to person). */
