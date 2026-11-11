@@ -2,7 +2,7 @@
  * Round 13 (B): phone, beyond CSS — the header's "⋯" sheet, the service panel as a bottom sheet, the floor's phone
  * density, the menu matrix as a list, and pan/zoom on the maps. Phones are faked with matchMedia (jsdom has none).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { MenuItem, Table } from "@full-plate/sim-core";
 import { content } from "../sim";
@@ -27,6 +27,9 @@ function mockMedia(match: (q: string) => boolean) {
 }
 const upright = () => mockMedia((q) => q === PHONE_QUERY || q === PHONE_ANY_QUERY);
 afterEach(() => { cleanup(); delete (window as { matchMedia?: unknown }).matchMedia; });
+// Service fetches the floor view, the regulars and (on a phone) the camera lazily; load them up front so no import is
+// still in flight when the file's environment is torn down.
+beforeAll(async () => { await Promise.all([import("../canvas/RestaurantView"), import("../lib/regulars"), import("../lib/floorCamera")]); });
 beforeEach(() => { localStorage.clear(); resetSettingsCache(); });
 
 function owner(service = false): AppState {
