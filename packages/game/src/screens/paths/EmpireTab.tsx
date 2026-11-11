@@ -20,6 +20,8 @@ import type { PathMeta } from "../../state/paths";
 import { tillSweepable } from "../../state/pathEngine";
 import { CityMap, OWN_COLOUR, WorldMap } from "./WorldMap";
 import { TermText } from "../../components/TermText";
+import { FormulaPicker } from "./FormulaPicker";
+import { logoDataUrl, useBrand } from "../../lib/brand";
 
 interface Props {
   game: GameState;
@@ -39,6 +41,9 @@ const PANEL_LABEL: Record<Panel, string> = { shops: "üè™ My shops", brand: "üç
 export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
   const [picked, setPicked] = useState<string>(e.hq.homeCityId);
   const [panel, setPanel] = useState<Panel>("shops");
+  // Round 13 (D): the brand's logo flies on every map pin with shops.
+  const brand = useBrand();
+  const logo = useMemo(() => (brand ? logoDataUrl(brand) : undefined), [brand]);
   const [move, setMove] = useState(0);
   // Round 8: the map card shows the world, or the picked city's district map.
   const [mapView, setMapView] = useState<"world" | "city">("world");
@@ -97,7 +102,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
           <div className="card empire__map">
             {mapView === "city" && city
               ? <CityMap e={e} city={city} onBack={() => setMapView("world")} onOpenHere={openHere} />
-              : <WorldMap e={e} picked={picked} onPick={pickCity} />}
+              : <WorldMap e={e} picked={picked} onPick={pickCity} logo={logo} />}
           </div>
           <div className="card">
             <div className="card__title"><h3>News from the chain</h3></div>
@@ -123,7 +128,7 @@ export function EmpireTab({ game, meta, empire: e, send, onFocusSite }: Props) {
               <SitesPanel e={e} send={send} onFocusSite={onFocusSite} cityId={picked} />
             </>
           )}
-          {panel === "brand" && <><BrandHero e={e} /><BrandPanel e={e} send={send} /></>}
+          {panel === "brand" && <><BrandHero e={e} /><BrandPanel e={e} send={send} meta={meta} /></>}
           {panel === "money" && (
             <>
               <MoneyHero e={e} />
@@ -467,7 +472,7 @@ function SiteCovers({ e, s }: { e: EmpireState; s: SiteSummary }) {
   );
 }
 
-function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => void }) {
+function BrandPanel({ e, send, meta }: { e: EmpireState; send: (c: EmpireCommand) => void; meta?: PathMeta | undefined }) {
   const f = e.brand.formula;
   const next = (["academy", "driveThru", "appOrdering"] as Tech[]).find((t) => !f[t]);
   const [budget, setBudget] = useState(20_000_000);
@@ -498,6 +503,7 @@ function BrandPanel({ e, send }: { e: EmpireState; send: (c: EmpireCommand) => v
             </button>
           ))}
         </div>
+        <FormulaPicker e={e} meta={meta} send={send} />
       </div>
       <div className="card stack stack--sm">
         <div className="card__title"><h3><Term id="recognition" /></h3></div>

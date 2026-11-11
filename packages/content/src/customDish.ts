@@ -28,6 +28,9 @@ import customDishTextJson from "../data/customDishText.json";
 
 /** The Evening's line for an invented dish's first night ({dish}, {restaurant}). */
 export const NEW_DISH_REVIEWS: readonly string[] = (customDishTextJson as { newDish: string[] }).newDish;
+/** Round 13 (D): the Stars head chef's "refine" — a name suffix and a line of menu prose, each from a small pool. */
+export const REFINE_SUFFIXES: readonly string[] = (customDishTextJson as { refineSuffix: string[] }).refineSuffix;
+export const REFINE_PROSE: readonly string[] = (customDishTextJson as { refineProse: string[] }).refineProse;
 
 /** Courses a player can invent (no sides: they never lead an order). */
 export const CUSTOM_COURSES = ["starter", "main", "dessert", "drink"] as const;
@@ -41,8 +44,16 @@ export const CUSTOM_MAX_INGREDIENTS = 5;
 export const CUSTOM_QTY_MIN = 0.25;
 export const CUSTOM_QTY_MAX = 3;
 export const CUSTOM_QTY_STEP = 0.25;
-/** At most this many invented dishes per game. */
+/** At most this many invented dishes per game (live recipes: old versions and deleted ones don't count). */
 export const CUSTOM_MAX_PER_GAME = 12;
+/**
+ * Round 13 (D): at most this many records in all — live recipes, their old versions ("v1") and deleted ones, which stay
+ * in the pack (hidden) so every dish id in the history, a parked shop or an old review still resolves.
+ */
+export const CUSTOM_MAX_RECORDS = 40;
+/** Round 13 (D): a house price for a recipe (pence). */
+export const CUSTOM_PRICE_MIN = 50;
+export const CUSTOM_PRICE_MAX = 99_995;
 /** Ingredients that are never on the picker (not food, or a path-only freebie). */
 const NOT_FOOD = new Set(["toy_surprise"]);
 /** Ingredients that make a dish not vegetarian. */
@@ -62,6 +73,11 @@ export interface CustomDishSpec {
   ingredients: { id: string; qty: number }[];
   /** Sim day it was invented (shown in the Cookbook; not used by the maths). */
   createdDay: number;
+  /**
+   * Round 13 (D): the Stars head chef refined it (one dish per season): a suffix on the name, a line of menu prose,
+   * and +1 skill needed. Indices into REFINE_SUFFIXES / REFINE_PROSE; `season` is the calendar season it was done in.
+   */
+  refined?: { season: number; suffix: number; prose: number } | undefined;
 }
 
 // ───────── the reference model (from the real dishes) ─────────
@@ -218,7 +234,9 @@ export function customDishFacts(spec: CustomDishSpec, ref: ContentPack): CustomD
   // The shipped dishes have three to five ingredients; each one past three makes it harder and slower (and fewer, easier).
   const extra = n - 3;
   const skills = stats.map((x) => x.skill);
-  const skillRequired = Math.round(clamp(mean(skills) + 2 * extra, 5, 95));
+  // Round 13 (D): a refined dish needs one more point of skill (its only number that changes).
+  const refined = refineWords(spec);
+  const skillRequired = Math.round(clamp(mean(skills) + 2 * extra, 5, 95)) + (refined ? 1 : 0);
   const prepTicks = Math.round(clamp(mean(stats.map((x) => x.prep)) + 0.25 * extra, 1, 12));
   const qualityCeiling = Math.round(clamp(mean(stats.map((x) => x.ceiling)), course.ceilingLo, course.ceilingHi));
   // Cuisine: whose real dishes use these ingredients most (ties go to the earlier cuisine in the list).
@@ -248,10 +266,10 @@ export function customDishFacts(spec: CustomDishSpec, ref: ContentPack): CustomD
     baseAppeal[seg.id] = clamp(Math.min(round2(priced), Math.floor(cap * 100 + 1e-9) / 100), 0.01, 1);
   }
   const names = spec.ingredients.map((x) => (m.ingredients.get(x.id)?.name ?? x.id).replace(/\s*\(.*\)$/, "").toLowerCase());
-  const blurb = `Your own recipe: ${names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]}.`;
+  const blurb = refined ? refined.prose : `Your own recipe: ${names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]}.`;
   const dish: DishDef = {
     id: spec.id,
-    name: spec.name,
+    name: refined ? `${spec.name}, ${refined.suffix}` : spec.name,
     course: spec.course as DishCourse,
     cuisine,
     ingredients: spec.ingredients.map((x) => ({ id: x.id, qty: x.qty })),
@@ -266,6 +284,14 @@ export function customDishFacts(spec: CustomDishSpec, ref: ContentPack): CustomD
 }
 
 export const deriveCustomDish = (spec: CustomDishSpec, ref: ContentPack): DishDef => customDishFacts(spec, ref).dish;
+
+/** Round 13 (D): a refined recipe's suffix and prose (null when it isn't refined, or the indices are out of the pools). */
+export function refineWords(spec: Pick<CustomDishSpec, "refined">): { suffix: string; prose: string } | null {
+  const r = spec.refined;
+  const suffix = r ? REFINE_SUFFIXES[r.suffix] : undefined;
+  const prose = r ? REFINE_PROSE[r.prose] : undefined;
+  return suffix && prose ? { suffix, prose } : null;
+}
 
 /** How a dish would sell in a district: Σ segment share × appeal, and where that sits among the course's real dishes. */
 export interface PopularityGuess {
@@ -293,7 +319,7 @@ let appliedKey = "";
 
 /** Stable key of the recipes (ids and every input), so a re-sync with the same recipes is a no-op. */
 export const customDishesKey = (specs: readonly CustomDishSpec[]): string =>
-  specs.map((s) => `${s.id}|${s.name}|${s.course}|${s.icon}|${s.ingredients.map((x) => `${x.id}*${x.qty}`).join(",")}`).join(";");
+  specs.map((s) => `${s.id}|${s.name}|${s.course}|${s.icon}|${s.ingredients.map((x) => `${x.id}*${x.qty}`).join(",")}${s.refined ? `|r${s.refined.suffix}.${s.refined.prose}` : ""}`).join(";");
 
 /**
  * Puts these recipes into the packs (in place, like `applySoftDrinks`): each root's `dishes` array is REPLACED by its
@@ -301,7 +327,7 @@ export const customDishesKey = (specs: readonly CustomDishSpec[]): string =>
  * `checkCustomDish` are skipped. Idempotent; returns whether anything changed.
  */
 export function applyCustomDishes(roots: readonly ContentPack[], specs: readonly CustomDishSpec[], ref: ContentPack): boolean {
-  const ok = specs.filter((s) => checkCustomDish(s, ref).length === 0).slice(0, CUSTOM_MAX_PER_GAME);
+  const ok = specs.filter((s) => checkCustomDish(s, ref).length === 0).slice(0, CUSTOM_MAX_RECORDS);
   const key = customDishesKey(ok);
   if (key === appliedKey) return false;
   const derived = ok.map((s) => deriveCustomDish(s, ref));
@@ -335,19 +361,189 @@ export interface CustomDishRecord extends CustomDishSpec {
   sold: number;
   /** The first sim day it sold a plate. */
   firstSoldDay?: number;
+  /** Round 13 (D): her house price (pence) — what "Add to menu" uses; absent = the suggested price. */
+  price?: number | undefined;
+  /** Round 13 (D): rested — on the shelf, off today's menu, until she brings it back. */
+  resting?: boolean | undefined;
+  /** Round 13 (D): this recipe's version (absent = 1). A new set of ingredients makes version n + 1. */
+  v?: number | undefined;
+  /** Round 13 (D): an old version, kept for its sales under "<name> v<n>"; the id of the version that replaced it. */
+  oldOf?: string | undefined;
+  /** Round 13 (D): deleted from the cookbook. Kept (hidden) in the pack so old history and reviews still resolve. */
+  deleted?: boolean | undefined;
 }
 /** The part of the game's PathMeta this module reads and writes. */
-export interface CookbookMeta { customDishes?: CustomDishRecord[] | undefined; cookbookDay?: number | undefined }
+export interface CookbookMeta {
+  customDishes?: CustomDishRecord[] | undefined;
+  cookbookDay?: number | undefined;
+  /** Round 13 (D): the cookbook's display order (ids); ids missing from it follow in the order they were made. */
+  cookbookOrder?: string[] | undefined;
+  /** Round 13 (D): bumped by every cookbook edit, so the autosave key sees a rename or a rest. */
+  cookbookRev?: number | undefined;
+}
+
+// ───────── Round 13 (D): live recipes, versions, order ─────────
+/** A recipe she can see and use (not an old version, not deleted). */
+export const isLive = (d: CustomDishRecord): boolean => !d.deleted && !d.oldOf;
+/** Live recipes in her cookbook order. */
+export function liveDishes(meta: CookbookMeta | undefined): CustomDishRecord[] {
+  const live = (meta?.customDishes ?? []).filter(isLive);
+  const order = meta?.cookbookOrder ?? [];
+  const at = (id: string) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+  return live.map((d, i) => ({ d, i })).sort((a, b) => at(a.d.id) - at(b.d.id) || a.i - b.i).map((x) => x.d);
+}
+/** Old versions of a live recipe (newest first), followed back through `oldOf`. Deleted ones are left out. */
+export function olderVersions(meta: CookbookMeta | undefined, id: string): CustomDishRecord[] {
+  const all = meta?.customDishes ?? [];
+  const out: CustomDishRecord[] = [];
+  let cur = id;
+  for (let guard = 0; guard < CUSTOM_MAX_RECORDS; guard++) {
+    const prev = all.find((d) => d.oldOf === cur);
+    if (!prev) break;
+    if (!prev.deleted) out.push(prev);
+    cur = prev.id;
+  }
+  return out;
+}
+/** "<name> v<n>", the base cut so the whole stays within the 32-character name limit. */
+export function versionName(name: string, v: number): string {
+  const tag = ` v${v}`;
+  return `${[...name].slice(0, CUSTOM_NAME_MAX - tag.length).join("").trim()}${tag}`;
+}
+/** The house price: hers, else the derived suggested price. */
+export const housePrice = (d: CustomDishRecord, ref: ContentPack): number => d.price ?? deriveCustomDish(d, ref).suggestedPrice;
+
+/** Where a recipe is in use (the game works these out: today's menu, the set menu, the brand formula, a parked shop). */
+export interface CookbookUse { menu?: { price: number; active: boolean } | undefined; setMenu?: boolean; formula?: boolean; parked?: boolean }
+/** A planning-phase command for today's menu (a subset of sim-core's Command). */
+export type CookbookCommand =
+  | { type: "ADD_MENU_ITEM"; dishId: string; price: number }
+  | { type: "REMOVE_MENU_ITEM"; dishId: string }
+  | { type: "SET_MENU_ITEM"; dishId: string; price?: number; active?: boolean };
+/** The cookbook's edits (the reducer's `cookbook` action). */
+export type CookbookOp =
+  | { op: "edit"; id: string; name?: string; icon?: string; price?: number; ingredients?: { id: string; qty: number }[] }
+  | { op: "rest"; id: string; resting: boolean }
+  | { op: "delete"; id: string }
+  | { op: "move"; id: string; by: -1 | 1 }
+  | { op: "refine"; id: string; season: number; suffix: number; prose: number };
+export interface CookbookCtx {
+  seed: number;
+  day: number;
+  /** Where a recipe is in use right now. */
+  use: (id: string) => CookbookUse;
+}
+export type CookbookResult<M> = { meta: M; commands: CookbookCommand[]; done: string } | { error: string };
+
+const sameIngredients = (a: readonly { id: string; qty: number }[], b: readonly { id: string; qty: number }[]) =>
+  a.length === b.length && a.every((x, i) => x.id === b[i]!.id && Math.abs(x.qty - b[i]!.qty) < 1e-9);
+const bump = <M extends CookbookMeta>(meta: M, dishes: CustomDishRecord[], extra: Partial<CookbookMeta> = {}): M =>
+  ({ ...meta, customDishes: dishes, ...extra, cookbookRev: (meta.cookbookRev ?? 0) + 1 });
+
+/**
+ * One cookbook edit, or why not. Pure: the game applies the returned menu commands (and refuses the whole edit when the
+ * sim refuses one). Rules:
+ * - **edit** name / plate / price on any live recipe (a price on today's menu changes there too). New **ingredients**
+ *   make a new version: a new id with the same name and price, sales from zero; the old record stays as "<name> v<n>"
+ *   with its lifetime sales. On today's menu the new version takes the old one's place; in the set menu, the brand
+ *   formula or a parked shop the ingredients can't change (take it out there first).
+ * - **rest** takes it off today's menu and shelves it; **rest false** brings it back to the shelf of usable recipes.
+ * - **delete** is refused while it's on today's menu, the set menu, the brand formula or a parked shop's menu.
+ * - **move** changes the display order only (the pack's order, which the sim sees, never changes).
+ * - **refine** (Stars): one live recipe per season, once each; +1 skill needed, a suffix and a line of prose.
+ */
+export function cookbookOp<M extends CookbookMeta>(meta: M, op: CookbookOp, ctx: CookbookCtx, ref: ContentPack): CookbookResult<M> {
+  const all = meta.customDishes ?? [];
+  const d = all.find((x) => x.id === op.id);
+  if (!d || d.deleted) return { error: "That recipe isn't in your cookbook." };
+  const use = ctx.use(d.id);
+  const where = use.menu ? "today's menu" : use.setMenu ? "the set menu" : use.formula ? "the brand formula" : use.parked ? "another shop's menu" : null;
+  const swap = (x: CustomDishRecord) => all.map((y) => (y.id === x.id ? x : y));
+  switch (op.op) {
+    case "move": {
+      if (!isLive(d)) return { error: "Old versions stay with their recipe." };
+      const ids = liveDishes(meta).map((x) => x.id);
+      const i = ids.indexOf(d.id);
+      const j = i + op.by;
+      if (j < 0 || j >= ids.length) return { meta, commands: [], done: "" };
+      [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+      return { meta: bump(meta, all, { cookbookOrder: ids }), commands: [], done: "" };
+    }
+    case "rest": {
+      if (!isLive(d)) return { error: "Old versions can't go back on the menu." };
+      if (op.resting) {
+        if (use.setMenu) return { error: `The ${d.name} is on the set menu: take it off there first.` };
+        const commands: CookbookCommand[] = use.menu ? [{ type: "REMOVE_MENU_ITEM", dishId: d.id }] : [];
+        return { meta: bump(meta, swap({ ...d, resting: true })), commands, done: `${d.name} is resting. It's in the cookbook when you want it back.` };
+      }
+      const { resting: _r, ...rest } = d;
+      return { meta: bump(meta, swap(rest)), commands: [], done: `${d.name} is back in the cookbook.` };
+    }
+    case "delete": {
+      if (where) return { error: `The ${d.name} is on ${where}: take it off there first.` };
+      const order = meta.cookbookOrder?.filter((x) => x !== d.id);
+      return { meta: bump(meta, swap({ ...d, deleted: true }), order ? { cookbookOrder: order } : {}), commands: [], done: `${d.name} is out of the cookbook.` };
+    }
+    case "refine": {
+      if (!isLive(d)) return { error: "Only a recipe you're still cooking can be refined." };
+      if (d.refined) return { error: `The ${d.name} has already been refined.` };
+      if (all.some((x) => x.refined?.season === op.season)) return { error: "One dish a season: the head chef has refined one already." };
+      if (!Number.isInteger(op.suffix) || !REFINE_SUFFIXES[op.suffix] || !Number.isInteger(op.prose) || !REFINE_PROSE[op.prose]) return { error: "Pick a name and a line for the menu." };
+      const next = { ...d, refined: { season: op.season, suffix: op.suffix, prose: op.prose } };
+      return { meta: bump(meta, swap(next)), commands: [], done: `Refined: ${d.name}, ${REFINE_SUFFIXES[op.suffix]}.` };
+    }
+    case "edit": {
+      if (!isLive(d)) return { error: "Old versions keep the recipe they had." };
+      let next: CustomDishRecord = { ...d };
+      const commands: CookbookCommand[] = [];
+      if (op.name !== undefined) {
+        const name = cleanDishName(op.name);
+        if (!name) return { error: "Give the dish a name first." };
+        if (all.some((x) => x.id !== d.id && isLive(x) && x.name.toLowerCase() === name.toLowerCase())) return { error: `You already have a dish called ${name}.` };
+        next.name = name;
+      }
+      if (op.icon !== undefined) {
+        if (!(CUSTOM_ICONS as readonly string[]).includes(op.icon)) return { error: "Pick a plate from the list." };
+        next.icon = op.icon;
+      }
+      if (op.price !== undefined) {
+        if (!Number.isInteger(op.price) || op.price < CUSTOM_PRICE_MIN || op.price > CUSTOM_PRICE_MAX) return { error: "That price doesn't work." };
+        next.price = op.price;
+      }
+      const price = next.price ?? use.menu?.price;
+      if (op.ingredients && !sameIngredients(op.ingredients, d.ingredients)) {
+        if (use.setMenu || use.formula || use.parked) return { error: `The ${d.name} is on ${use.setMenu ? "the set menu" : use.formula ? "the brand formula" : "another shop's menu"}: take it off there before you change what's in it.` };
+        if (all.length >= CUSTOM_MAX_RECORDS) return { error: "The cookbook's archive is full: delete an old version first." };
+        const v = (d.v ?? 1) + 1;
+        const id = customDishId(ctx.seed, ctx.day, all.length, next.name, new Set(all.map((x) => x.id)));
+        const { refined: _f, firstSoldDay: _s, ...base } = next;
+        const fresh: CustomDishRecord = { ...base, id, v, createdDay: ctx.day, sold: 0, ingredients: op.ingredients.map((x) => ({ id: x.id, qty: x.qty })) };
+        if (checkCustomDish(fresh, ref).length) return { error: "That recipe doesn't add up: check the ingredients and try again." };
+        const old: CustomDishRecord = { ...d, name: versionName(d.name, d.v ?? 1), oldOf: id };
+        const order = (meta.cookbookOrder ?? liveDishes(meta).map((x) => x.id)).map((x) => (x === d.id ? id : x));
+        if (use.menu) {
+          commands.push({ type: "REMOVE_MENU_ITEM", dishId: d.id }, { type: "ADD_MENU_ITEM", dishId: id, price: price ?? deriveCustomDish(fresh, ref).suggestedPrice });
+          if (!use.menu.active) commands.push({ type: "SET_MENU_ITEM", dishId: id, active: false });
+        }
+        return { meta: bump(meta, [...swap(old), fresh], { cookbookOrder: order }), commands, done: `${fresh.name} v${v} is in the cookbook. The old recipe keeps its ${d.sold} sold as ${old.name}.` };
+      }
+      if (op.price !== undefined && use.menu && use.menu.price !== op.price) commands.push({ type: "SET_MENU_ITEM", dishId: d.id, price: op.price });
+      return { meta: bump(meta, swap(next)), commands, done: `${next.name} saved.` };
+    }
+  }
+}
 type SalesDay = { day: number; perDish?: Record<string, { sold: number }> | undefined };
 /** What the invent sheet makes. */
 export type CustomDishDraft = Pick<CustomDishSpec, "name" | "course" | "icon" | "ingredients">;
 
 /** A new recipe from a draft (id hashed from the seed, day, count and name; name cleaned), or why it can't be made. */
 export function makeCustomDish(have: readonly CustomDishRecord[], seed: number, day: number, draft: CustomDishDraft, ref: ContentPack): { dish: CustomDishRecord } | { error: string } {
-  if (have.length >= CUSTOM_MAX_PER_GAME) return { error: `Your cookbook is full (${CUSTOM_MAX_PER_GAME} recipes).` };
+  const live = have.filter(isLive);
+  if (live.length >= CUSTOM_MAX_PER_GAME) return { error: `Your cookbook is full (${CUSTOM_MAX_PER_GAME} recipes).` };
+  if (have.length >= CUSTOM_MAX_RECORDS) return { error: "The cookbook's archive is full: delete an old version first." };
   const name = cleanDishName(typeof draft.name === "string" ? draft.name : "");
   if (!name) return { error: "Give the dish a name first." };
-  if (have.some((d) => d.name.toLowerCase() === name.toLowerCase())) return { error: `You already have a dish called ${name}.` };
+  if (live.some((d) => d.name.toLowerCase() === name.toLowerCase())) return { error: `You already have a dish called ${name}.` };
   const id = customDishId(seed, day, have.length, name, new Set(have.map((d) => d.id)));
   const spec: CustomDishSpec = { id, name, course: draft.course, icon: draft.icon, createdDay: day, ingredients: (draft.ingredients ?? []).map((x) => ({ id: x.id, qty: x.qty })) };
   if (checkCustomDish(spec, ref).length) return { error: "That recipe doesn't add up: check the ingredients and try again." };
@@ -360,7 +556,7 @@ export function makeCustomDish(have: readonly CustomDishRecord[], seed: number, 
  */
 export function addCustomDish<M extends CookbookMeta>(meta: M, dish: CustomDishRecord, lastDay: number, ref: ContentPack): M {
   const have = meta.customDishes ?? [];
-  if (have.length >= CUSTOM_MAX_PER_GAME || checkCustomDish(dish, ref).length || have.some((d) => d.id === dish.id || d.name.toLowerCase() === dish.name.toLowerCase())) return meta;
+  if (have.filter(isLive).length >= CUSTOM_MAX_PER_GAME || have.length >= CUSTOM_MAX_RECORDS || checkCustomDish(dish, ref).length || have.some((d) => d.id === dish.id || (isLive(d) && d.name.toLowerCase() === dish.name.toLowerCase()))) return meta;
   return { ...meta, customDishes: [...have, { ...dish, sold: 0 }], cookbookDay: Math.max(meta.cookbookDay ?? -1, lastDay) };
 }
 
@@ -434,7 +630,7 @@ export function withNewDishReview<R extends { day: number; source: string; ratin
 // ───────── the game's side: when inventing is allowed, and the pack sync ─────────
 /** The player can invent here: an owner's game (or a career that became their own place), below the cap. */
 export const canInventIn = (meta: (CookbookMeta & { mode: string; career?: { handover?: unknown } | undefined }) | undefined): boolean =>
-  !!meta && (meta.mode === "owner" || !!meta.career?.handover) && (meta.customDishes?.length ?? 0) < CUSTOM_MAX_PER_GAME;
+  !!meta && (meta.mode === "owner" || !!meta.career?.handover) && (meta.customDishes ?? []).filter(isLive).length < CUSTOM_MAX_PER_GAME && (meta.customDishes?.length ?? 0) < CUSTOM_MAX_RECORDS;
 
 let syncedSpecs: readonly CustomDishSpec[] | undefined;
 let syncVersion = 0;

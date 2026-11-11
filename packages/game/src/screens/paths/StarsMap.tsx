@@ -37,7 +37,7 @@ export function starsPlaces(v: Pick<StarsView, "satellites" | "rival">, restaura
 
 const starRow = (n: number) => <span className="starpin__stars" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={i < n ? "on" : ""}>{i < n ? "★" : "☆"}</span>)}</span>;
 
-export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v: StarsView; restaurantName: string; districtId: string; shownStars: number; day: number }) {
+export function StarsMap({ v, restaurantName, districtId, shownStars, day, logo }: { v: StarsView; restaurantName: string; districtId: string; shownStars: number; day: number; /** R13-D: the group's logo on its own restaurants */ logo?: string | undefined }) {
   const city = homeCity();
   const districts = city.districts.includes(districtId) ? city.districts : [districtId, ...city.districts];
   const places = starsPlaces(v, restaurantName, districtId, districts, shownStars);
@@ -64,7 +64,7 @@ export function StarsMap({ v, restaurantName, districtId, shownStars, day }: { v
                   <ul className="starpins" aria-label={`Restaurants in ${districtLabel(d)}`}>
                     {here.map((p) => (
                       <li key={p.id} className={`starpin starpin--${p.kind === "flagship" || p.kind === "rival" ? p.kind : "satellite"}`} data-place={p.id}>
-                        <span className="starpin__icon" aria-hidden="true">{ICON[p.kind]}</span>
+                        <span className={`starpin__icon${logo && p.kind !== "rival" ? " starpin__icon--logo" : ""}`} aria-hidden="true">{logo && p.kind !== "rival" ? <img src={logo} width={30} height={30} alt="" /> : ICON[p.kind]}</span>
                         <span className="starpin__text">
                           <span className="starpin__name">{p.name}</span>
                           <span className="starpin__sub">

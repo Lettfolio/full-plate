@@ -16,6 +16,7 @@ import { recipeBook, sectionOf, type LibrarySection, type PathKind } from "../..
 import { Term } from "../../components/Term";
 import { useDrinksView } from "../../lib/settings";
 import type { CustomDish } from "../../lib/customDish";
+import type { CookbookOp } from "@full-plate/content";
 import type { PathMeta } from "../../state/paths";
 
 export type MenuView = "list" | "matrix";
@@ -53,6 +54,8 @@ interface Props {
   /** Round 12 (F): the game's invented dishes (meta.customDishes) and the invent action. */
   meta?: PathMeta | undefined;
   onInvent?: ((dish: CustomDish) => void) | undefined;
+  /** Round 13 (D): edit / rest / delete / move a recipe. */
+  onCookbook?: ((op: CookbookOp) => void) | undefined;
 }
 
 const SECTION_TITLE: Record<LibrarySection, string> = {
@@ -70,7 +73,7 @@ function marginTone(f: number): string {
   return f >= 0.68 ? "margin--good" : f >= 0.55 ? "margin--ok" : "margin--bad";
 }
 
-export function MenuTab({ game, send, path, meta, onInvent }: Props) {
+export function MenuTab({ game, send, path, meta, onInvent, onCookbook }: Props) {
   const custom = (meta && meta.customDishes) || [];
   const [hover, setHover] = useState<DishId | null>(null);
   const [view, setViewState] = useState<MenuView>(readMenuView);
@@ -163,7 +166,7 @@ export function MenuTab({ game, send, path, meta, onInvent }: Props) {
         </div>
       </div>
 
-      {onInvent && <Suspense fallback={null}><CookbookStrip meta={meta} game={game} send={send} onInvent={onInvent} /></Suspense>}
+      {onInvent && <Suspense fallback={null}><CookbookStrip meta={meta} game={game} send={send} onInvent={onInvent} onCookbook={onCookbook} /></Suspense>}
 
       {library.length === 0 ? (
         <section className="library"><h3>Recipe book</h3><div className="empty">Every recipe is already on your menu.</div></section>

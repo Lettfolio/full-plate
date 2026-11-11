@@ -1,5 +1,5 @@
 {
-  "_note": "Round 12 (F). Read by the game, not sim-core. newDish: one review line on the Evening the first night a dish the player invented sells. Placeholders: {dish}, {restaurant}. Picked by a hash of the seed, day and dish, so a reload shows the same line.",
+  "_note": "Round 12 (F). Read by the game, not sim-core. newDish: one review line on the Evening the first night a dish the player invented sells. Placeholders: {dish}, {restaurant}. Picked by a hash of the seed, day and dish, so a reload shows the same line. Round 13 (D): refineSuffix / refineProse are the Stars head chef's 'refine' pools (a name suffix and one line of menu prose, picked by the player).",
   "newDish": [
     "First time I've seen the {dish} anywhere. Ordered it out of curiosity, finished it out of respect.",
     "The {dish} is new and it shows: a bit of nerve on a plate. I'd have it again.",
@@ -9,5 +9,27 @@
     "Somebody at {restaurant} had an idea, and the idea was the {dish}. Bold. Mostly worked.",
     "Took a chance on the {dish}. The chance paid off, which is more than I can say for my bus fare.",
     "The {dish}: not on any other menu in town. Worth the trip just to say you've had it."
+  ],
+  "refineSuffix": [
+    "Director's Cut",
+    "Reserve",
+    "Signature",
+    "Revisited",
+    "Second Draft",
+    "Grand",
+    "Maison",
+    "Deluxe Edition"
+  ],
+  "refineProse": [
+    "Slow-cooked, quickly admired.",
+    "Plated with tweezers, eaten with enthusiasm.",
+    "Seasoned to within an inch of its life.",
+    "Arranged, not served.",
+    "A dish with a backstory. The backstory has a backstory.",
+    "Finished with a sauce that took three days and one argument.",
+    "The garnish was chosen by a committee of one.",
+    "Rested, which is more than can be said for the chef.",
+    "Ingredients from somewhere with a gate and a long drive.",
+    "Tasted forty times before anyone else was allowed to."
   ]
 }

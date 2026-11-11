@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import {
   CRITERION_LABEL, researchDays, satelliteCost, starsHints, starsView, supplierCatalogue, STARS_CONSTANTS as K,
@@ -14,6 +14,10 @@ import { Term } from "../../components/Term";
 import { guideYear, nightStrip } from "../../lib/starsStrip";
 import { StarsMap } from "./StarsMap";
 import { TermText } from "../../components/TermText";
+import type { CookbookOp } from "@full-plate/content";
+import { RefineCard } from "./RefineCard";
+import { logoDataUrl, useBrand } from "../../lib/brand";
+import "./refine.css";
 
 interface Props {
   game: GameState;
@@ -21,6 +25,8 @@ interface Props {
   stars: StarsState;
   send: (cmd: StarsCommand) => void;
   onTastingMenu: (menuId: string | null) => void;
+  /** Round 13 (D): the head chef refines an invented dish (the reducer's cookbook "refine"). */
+  onCookbook?: ((op: CookbookOp) => void) | undefined;
 }
 
 const dish = (id: string) => content.dishes.find((d) => d.id === id);
@@ -29,8 +35,10 @@ const dish = (id: string) => content.dishes.find((d) => d.id === id);
  * Path B screen (STARS-NOTES §1 "Screens the game needs"). Reads `starsView` only, so the inspectors' secrets (visit
  * days, this year's scores, the model) never reach the screen.
  */
-export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
+export function StarsTab({ game, meta, stars, send, onTastingMenu, onCookbook }: Props) {
   const v = starsView(stars, game.day);
+  const brand = useBrand();
+  const logo = useMemo(() => (brand ? logoDataUrl(brand) : undefined), [brand]);
   const names = extras.criticText.guideNames;
   const shownStars = meta.pendingGuide ? meta.pendingGuide.result.before : v.stars;
   const signatureDishes = content.dishes.filter((d) => tagsOf(d.id).includes("signature_candidate") || game.menu.some((m) => m.dishId === d.id && d.qualityCeiling >= 85));
@@ -141,7 +149,7 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
         <div className="card track"><div className="track__k">Local critic</div><div className="track__v">{v.critic.lastReview ? "★".repeat(v.critic.lastReview.rating) : "—"}</div><div className="xs muted">{v.critic.lastReview ? `${v.critic.lastReview.critic}, ${dateLabel(v.critic.lastReview.day)}` : "hasn't been yet"}</div></div>
       </div>
 
-      <StarsMap v={v} restaurantName={game.restaurantName} districtId={game.districtId} shownStars={shownStars} day={game.day} />
+      <StarsMap v={v} restaurantName={game.restaurantName} districtId={game.districtId} shownStars={shownStars} day={game.day} logo={logo} />
 
       <div className="starstab__grid">
         <div className="stack">
@@ -215,6 +223,8 @@ export function StarsTab({ game, meta, stars, send, onTastingMenu }: Props) {
             )}
             {v.testKitchen.researched.length > 0 && <p className="xs muted">Signatures: {v.testKitchen.researched.map((id) => dish(id)?.name ?? id).join(", ")}</p>}
           </div>
+
+          <RefineCard game={game} meta={meta} chefName={chefName} hasHeadChef={!!v.headChef.staffId && game.staff.some((s) => s.id === v.headChef.staffId)} onCookbook={onCookbook} />
 
           <div className="card stack stack--sm">
             <div className="card__title"><h3>Sourcing</h3></div>

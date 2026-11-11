@@ -2,8 +2,8 @@ import type { Command, ContentPack, DayResult, GameState, Goal, LogEntry, SimEve
 import type { CareerCommand, CareerTrack, OwnerStrategy } from "@full-plate/sim-career";
 import type { EmpireCommand } from "@full-plate/sim-empire";
 import type { StarsCommand } from "@full-plate/sim-stars";
-import { applyCommand, asCommand, content, cookbook, customRef, HOOKS, newGame, tick } from "../sim";
-import { inventInto } from "@full-plate/content";
+import { applyCommand, asCommand, content, cookbook, customRef, HOOKS, newGame, syncCustomDishes, tick } from "../sim";
+import { cookbookOp, inventInto, type CookbookOp, type CookbookUse } from "@full-plate/content";
 import type { CustomDish } from "../lib/customDish";
 import { formatPence } from "../lib/format";
 import { clockLabel } from "../lib/calendar";
@@ -94,6 +94,10 @@ export type AppAction =
   | { type: "command"; cmd: Command }
   /** Round 12 (F): a dish the player invented goes into the cookbook (the sheet then adds it to the menu). */
   | { type: "invent"; dish: CustomDish }
+  /** Round 13 (D): edit, rest, delete, reorder or refine a recipe in the cookbook (content's cookbookOp). */
+  | { type: "cookbook"; op: CookbookOp }
+  /** Round 13 (D): the regulars' / clipping memo, worked out from the history by the lazy voices chunk (lib/voicesMemo.ts). */
+  | { type: "voicesMemo"; memo: NonNullable<PathMeta["voices"]> }
   | { type: "ticks"; n: number }
   | { type: "toast"; text: string; tone?: ToastTone }
   | { type: "dismissToast" }
@@ -200,6 +204,18 @@ function settle(s: AppState): AppState {
   }
   if (game === g0 && meta === s.meta) return s;
   return { ...s, game, meta };
+}
+
+/** Round 13 (D): where a recipe is in use — today's menu, the set menu, the Empire formula, a parked shop's menu. */
+export function cookbookUse(game: GameState, meta: PathMeta, id: string): CookbookUse {
+  const m = game.menu.find((x) => x.dishId === id);
+  const parked = Object.values(meta.parked ?? {}).some((p) => typeof p !== "string" && (p.menu.some((x) => x.dishId === id) || !!p.setMenu?.dishIds.includes(id)));
+  return {
+    ...(m ? { menu: { price: m.price, active: m.active } } : {}),
+    setMenu: !!game.setMenu?.dishIds.includes(id),
+    formula: !!meta.empire?.brand.formula.menuDishIds.includes(id),
+    parked,
+  };
 }
 
 function rejectToast(s: AppState, why: string | undefined): AppState {
@@ -313,6 +329,27 @@ function reduce(s: AppState, a: AppAction): AppState {
     case "invent": {
       const meta = inventInto(s.meta, a.dish, s.game, customRef);
       return meta === s.meta ? s : { ...s, meta };
+    }
+    case "cookbook": {
+      const g = s.game;
+      if (!g || g.phase !== "planning") return s;
+      const r = cookbookOp(s.meta, a.op, { seed: g.seed, day: g.day, use: (id) => cookbookUse(g, s.meta, id) }, customRef);
+      if ("error" in r) return withToast(s, r.error, "bad");
+      // A new version must be in the pack before today's menu can take it.
+      syncCustomDishes(r.meta.customDishes);
+      let next: AppState = { ...s, meta: r.meta };
+      for (const cmd of r.commands) {
+        next = reduce(next, { type: "command", cmd: cmd as Command });
+        if (next.toast && next.toast !== s.toast && next.toast.tone === "bad") {
+          syncCustomDishes(s.meta.customDishes);
+          return { ...s, toast: next.toast };
+        }
+      }
+      return r.done ? withToast(next, r.done, "info") : next;
+    }
+    case "voicesMemo": {
+      const m = s.meta.voices;
+      return m && m.day >= a.memo.day && m.seed === a.memo.seed ? s : { ...s, meta: { ...s.meta, voices: a.memo } };
     }
     case "ticks": {
       if (!s.game || s.game.phase !== "service" || a.n <= 0) return s;

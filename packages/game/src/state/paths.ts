@@ -173,6 +173,35 @@ export interface PathMeta {
   customDishes?: CustomDish[];
   /** Round 12 (F): last history day folded into the custom dishes' lifetime sales. */
   cookbookDay?: number;
+  /** Round 13 (D): the cookbook's display order (ids); new recipes follow at the end. */
+  cookbookOrder?: string[] | undefined;
+  /** Round 13 (D): bumped by every cookbook edit (the autosave key reads it). */
+  cookbookRev?: number | undefined;
+  /** Round 13 (D): the regulars' stories and the clipping as of `day`, so a game past day 400 keeps them. */
+  voices?: VoicesMemo | undefined;
+}
+
+/**
+ * Round 13 (D, R12.11 item 5): sim-core keeps 400 days of results, and the Regulars book, the gossip and the framed
+ * clipping are worked out from them. This memo is the fold so far (lib/voicesMemo.ts writes it after each day ends):
+ * every regular's joined day, finished beats (with the dish that sold that night) and open VIP order, and the clipping's
+ * day once earned. A save without one is backfilled from its history on the first evening.
+ */
+export interface VoicesMemo {
+  v: 1;
+  seed: number;
+  /** The last history day folded in. */
+  day: number;
+  /** The morning the clipping was earned (kept once set). */
+  clip?: number | undefined;
+  regs: VoicesMemoRegular[];
+}
+export interface VoicesMemoRegular {
+  id: string;
+  joined?: number | undefined;
+  /** [beat, day, good (1/0), dish that sold that night]. */
+  done: [number, number, number, string?][];
+  open?: { beat: number; dishId: string; weekday: number; since: number; from: number; triedDay?: number | undefined } | undefined;
 }
 
 /** Round 12 (C): what the score screen needs to know about where a daily challenge started. */
