@@ -109,7 +109,12 @@ export function SlotPicker({ mode, store, onContinue, onNewIn, onClose, busy, on
         cancelLabel="Keep it"
         danger
         onCancel={() => setAsk(null)}
-        onConfirm={() => { const s = ask.slot; setAsk(null); void store.remove(s.slotId); setMsg({ tone: "info", text: `${s.name} was deleted.` }); }}
+        onConfirm={() => {
+          const s = ask.slot; setAsk(null);
+          // Round 14 (B): its share and co-op day go with it (lazy; the delete waits only for the slot's local read)
+          void import("../lib/socialLife").then((m) => m.forgetSlotSocial(store, s.slotId)).catch(() => {}).finally(() => store.remove(s.slotId));
+          setMsg({ tone: "info", text: `${s.name} was deleted.` });
+        }}
       />
     );
   }

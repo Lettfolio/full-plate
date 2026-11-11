@@ -10,7 +10,7 @@ import { Stars } from "../components/Stars";
 import { Stepper } from "../components/Stepper";
 import { Term } from "../components/Term";
 import { expired, type Board, type EmoteId, type GuestDoc, type HostDoc } from "../lib/coop/protocol";
-import { watchHost, type DocWriter } from "../lib/coop/session";
+import { leaveAsGuest, watchHost, type DocWriter } from "../lib/coop/session";
 import { getRoom } from "../lib/coop/room";
 import { dishName, known, ROLE_WORD } from "../lib/visit";
 import type { SDb } from "../state/share";
@@ -20,23 +20,24 @@ import "./visit.css";
 // Round 13 (F): the live shift's guest half, its own chunk
 const GuestLive = lazy(() => import("./CoopLive").then((m) => ({ default: m.GuestLive })));
 
-interface Props { db: SDb; code: string; first: HostDoc; writer: DocWriter<GuestDoc>; onExit: () => void }
+/** Round 14 (B): `hostId` (the host's platform id, from the path the code led to) and `uid` (mine) place the documents. */
+interface Props { db: SDb; uid: string; hostId: string; code: string; first: HostDoc; writer: DocWriter<GuestDoc>; onExit: () => void }
 
 interface Draft { day: number; menu: Board["menu"]; on: Set<string> }
 const draftOf = (b: Board): Draft => ({ day: b.day, menu: b.menu.map((m) => ({ ...m })), on: new Set(b.staff.filter((s) => s.on).map((s) => s.id)) });
 
-export function CoopShiftGuest({ db, code, first, writer, onExit }: Props) {
+export function CoopShiftGuest({ db, uid, hostId, code, first, writer, onExit }: Props) {
   const [host, setHost] = useState<HostDoc | null>(first);
   const [lost, setLost] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(first.board ? draftOf(first.board) : null);
   const [sentN, setSentN] = useState(0);
   const [, tick] = useState(0);
 
-  useEffect(() => watchHost(db, code, known.dish, (h) => {
+  useEffect(() => watchHost(db, hostId, code, known.dish, (h) => {
     setHost(h);
     // answer the host's pings at once (the round trip is measured on the host's side)
     if (h?.ping && h.ping.n !== writer.current.pong?.n) void writer.patch({ pong: { n: h.ping.n } });
-  }, () => setLost(true)), [db, code, writer]);
+  }, () => setLost(true), uid), [db, hostId, uid, code, writer]);
 
   // a new day's board: start the plan from it
   const boardDay = host?.board?.day;
@@ -55,7 +56,7 @@ export function CoopShiftGuest({ db, code, first, writer, onExit }: Props) {
   // the clock: expiry is checked once a minute
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 60_000); return () => clearInterval(t); }, []);
 
-  const leave = async () => { await writer.patch({ ended: true }); onExit(); };
+  const leave = async () => { await leaveAsGuest({ db, uid }, code, writer).catch(() => {}); onExit(); };
   const emote = (id: EmoteId) => void writer.patch({ emote: { id, n: Math.max(Date.now(), (writer.current.emote?.n ?? 0) + 1) } });
   const send = () => {
     if (!draft) return;

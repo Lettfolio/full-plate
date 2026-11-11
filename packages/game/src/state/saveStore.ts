@@ -238,6 +238,8 @@ export interface StoreDeps {
 export interface LoadOptions {
   /** Both copies changed since they last agreed: which one to play. Default: the newer one. */
   choose?: (local: SlotSummary, cloud: SlotSummary) => Promise<"local" | "cloud">;
+  /** Round 14 (B): this device's copy only, no settling with the account (so nothing is written): for a slot about to be deleted. */
+  peek?: boolean;
 }
 export interface LoadResult {
   loaded: Loaded;

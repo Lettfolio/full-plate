@@ -2,19 +2,22 @@
  * Round 12 (G): visit a friend's restaurant and the turn-based co-op day — codes, names, the snapshot and its checks,
  * reviews (one a day, last 50, no free text), the co-op documents, a guest's plan as sim commands, and the screens'
  * no-db line. The db is an in-memory double with db.d.ts's shape (path parity, ordered/limited queries, snapshots).
+ * Round 14 (B): the double is ruleDb.ts, which enforces the artifact's access rules; codes carry the owner's check
+ * letters; reviews live in each visitor's own document; the co-op documents under each side's own id.
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import type { GameState } from "@full-plate/sim-core";
 import { applyCommand, content, newGame, runDay } from "../sim";
 import {
-  buildSnapshot, checkReview, checkSnapshot, cleanNick, CODE_ALPHABET, CODE_LEN, leaveReview, MAX_REVIEWS, newCode, nickInput, openShare, parseCode,
-  pruneReviews, reviewsPath, setLinkForTests, share, sharedCode, showCode, snapPath, stopSharing, watchReviews,
-  type SDb, type SDocRef, type SDocSnap, type SCol, type SQuery, type VisitReview,
+  buildSnapshot, checkReview, checkSnapshot, cleanNick, CODE_ALPHABET, CODE_LEN, CODE_RAND, codeFits, leaveReview, listReviews, MAX_REVIEWS, newCode, nickInput, openShare, parseCode,
+  pubPath, setLinkForTests, share, sharedCode, showCode, slowKey, snapPath, stopSharing, visitsPath, watchReviews,
+  type VisitReview,
 } from "../state/share";
+import { RuleDb } from "./ruleDb";
 import { known, roomState, weekTotals } from "../lib/visit";
 import { boardOf, checkGuest, checkHost, eveningOf, guestDoc, hostDoc, planCommands, SESSION_MS } from "../lib/coop/protocol";
-import { DocWriter, guestJoin, hostStart, RttMeter, watchGuest, watchHost } from "../lib/coop/session";
+import { DocWriter, endHosting, guestJoin, hostStart, RttMeter, watchGuest, watchHost } from "../lib/coop/session";
 import { getHostFlag, setHostFlag } from "../lib/coop/hostFlag";
 import { weekdayIndex } from "../lib/calendar";
 import { VisitShareCard } from "../screens/VisitShareCard";
@@ -22,45 +25,6 @@ import { VisitFriend } from "../screens/VisitFriend";
 import { TitleScreen } from "../screens/TitleScreen";
 
 afterEach(() => { cleanup(); setLinkForTests(null); localStorage.clear(); setHostFlag(null); });
-
-// ── an in-memory db with db.d.ts's shape ──
-class MemDb implements SDb {
-  docs = new Map<string, Record<string, unknown>>();
-  writes = 0;
-  private subs = new Set<() => void>();
-  constructor(private viewer = "u_a") {}
-  as(uid: string): MemDb { const o = Object.create(this) as MemDb; o.viewer = uid; return o; }
-  private hidden(p: string) { const m = /^data\/users\/([^/]+)\//.exec(p); return !!m && m[1] !== this.viewer; }
-  private snap(p: string): SDocSnap { const d = this.hidden(p) ? undefined : this.docs.get(p); return { id: p.split("/").at(-1)!, exists: !!d, data: () => (d ? JSON.parse(JSON.stringify(d)) : undefined) }; }
-  private ping() { for (const s of [...this.subs]) s(); }
-  doc(path: string): SDocRef {
-    if (path.split("/").length % 2 !== 0) throw new TypeError(`document path parity: ${path}`);
-    return {
-      get: async () => this.snap(path),
-      set: async (data) => { if (this.hidden(path)) throw { code: "invalid_argument" }; this.writes++; this.docs.set(path, JSON.parse(JSON.stringify(data))); this.ping(); },
-      delete: async () => { this.docs.delete(path); this.ping(); },
-      onSnapshot: (next) => { let last = ""; const f = () => { const s = this.snap(path); const k = JSON.stringify([s.exists, s.data()]); if (k !== last) { last = k; next(s); } }; this.subs.add(f); queueMicrotask(f); return () => { this.subs.delete(f); }; },
-    };
-  }
-  private query(path: string, order?: string, dir?: "asc" | "desc", lim?: number): SQuery {
-    const list = () => {
-      const depth = path.split("/").length + 1;
-      let rows = [...this.docs.keys()].filter((p) => p.startsWith(path + "/") && p.split("/").length === depth && !this.hidden(p)).sort().map((p) => this.snap(p));
-      if (order) rows = rows.sort((a, b) => ((a.data()![order] as number) - (b.data()![order] as number)) * (dir === "desc" ? -1 : 1));
-      return lim ? rows.slice(0, lim) : rows;
-    };
-    return {
-      orderBy: (f, d = "asc") => this.query(path, f, d, lim),
-      limit: (n) => this.query(path, order, dir, n),
-      get: async () => ({ docs: list() }),
-      onSnapshot: (next) => { const f = () => next({ docs: list() }); this.subs.add(f); queueMicrotask(f); return () => { this.subs.delete(f); }; },
-    };
-  }
-  collection(path: string): SCol {
-    if (path.split("/").length % 2 !== 1) throw new TypeError(`collection path parity: ${path}`);
-    return { ...this.query(path), doc: (id: string) => this.doc(`${path}/${id}`) };
-  }
-}
 
 /** A game on day 3 in planning, with dishes, a hire and some history. */
 function planningGame(): GameState {
@@ -74,10 +38,12 @@ function planningGame(): GameState {
 }
 
 describe("codes and names", () => {
-  it("codes are 10 characters from a 31-letter alphabet (≥ 36^8 of them) and survive typing", () => {
-    expect(CODE_ALPHABET.length ** CODE_LEN).toBeGreaterThanOrEqual(36 ** 8);
+  it("codes are 10 characters from a 31-letter alphabet (8 random: ≥ 36^7.6 of them, + 2 check letters) and survive typing", () => {
+    expect(CODE_LEN).toBe(10);
+    expect(CODE_ALPHABET.length ** CODE_RAND).toBeGreaterThan(8e11);
     for (let i = 0; i < 50; i++) {
-      const c = newCode();
+      const c = newCode("u_owner");
+      expect(codeFits(c, "u_owner")).toBe(true);
       expect(c).toMatch(/^[A-HJKMNP-Z2-9]{10}$/);
       expect(parseCode(showCode(c).toLowerCase())).toBe(c);
       expect(parseCode(` ${c.slice(0, 5)} - ${c.slice(5)} `)).toBe(c);
@@ -132,7 +98,7 @@ describe("the snapshot", () => {
     expect(s.rep.popularity).toBe(100);
     expect(s.menu).toEqual([{ dishId: content.dishes[0]!.id, price: 100_000, active: true }]);
     expect(s.staff).toEqual([{ name: "Someone", role: "chef", skill: 100 }]);
-    expect(s.reviews).toEqual([{ day: 0, rating: 5, source: "walkin", text: "fine" }]);
+    expect(s.reviews).toEqual([]); // R14 (B): "fine" is not a line the game writes, so it isn't shown
     expect(s.week).toEqual([]);
     expect(s.brand).toEqual({ colour: "<i>red</i>" }); // plain data, rendered as text if ever shown
     expect(checkSnapshot({ ...bad, kind: "other" }, known)).toBeNull();
@@ -152,18 +118,22 @@ describe("the snapshot", () => {
 
 describe("sharing and visiting over the db", () => {
   it("share → visit → review → the owner sees it; one review a day; re-share keeps the code; stop removes it all", async () => {
-    const db = new MemDb("u_owner");
+    const db = RuleDb.create("u_owner");
     const owner = { db, uid: "u_owner" };
     const visitor = { db: db.as("u_friend"), uid: "u_friend" };
     const g = planningGame();
     const code = await share(owner, g, { now: Date.UTC(2026, 10, 10) });
     expect(parseCode(code)).toBe(code);
+    expect(codeFits(code, "u_owner")).toBe(true);
     expect(await sharedCode(owner, g)).toBe(code);
-    // no discovery: the share collection lists nothing; only the code opens it
-    expect((await db.collection("fp-share").get()).docs).toEqual([]);
+    // no discovery: the markers list ids only; the snapshot sits under a hash of the code
+    expect((await db.collection("fps").get()).docs.map((d) => [d.id, d.data()])).toEqual([["u_owner", { kind: "fp-pub", v: 2 }]]);
+    expect(db.paths("fps/")).toEqual([pubPath("u_owner"), snapPath("u_owner", code)]);
+    expect(snapPath("u_owner", code)).not.toContain(code);
     const opened = await openShare(visitor, code, known);
     expect("snap" in opened && opened.snap.name).toBe("Chez Test");
     expect("snap" in opened && opened.mine).toBe(false);
+    expect("snap" in opened && opened.ownerId).toBe("u_owner");
     expect(await openShare(visitor, "ABCDEFGHJK", known)).toEqual({ missing: true });
 
     const seen: VisitReview[][] = [];
@@ -176,9 +146,13 @@ describe("sharing and visiting over the db", () => {
     await act(async () => { await Promise.resolve(); });
     const last = seen.at(-1)!;
     expect(last).toHaveLength(1);
-    expect(last[0]).toMatchObject({ stars: 4, picks: ["food", "room", "staff"], nick: "Sam", date: "2026-11-10" });
-    // the next day, again
+    expect(last[0]).toMatchObject({ id: "u_friend", stars: 4, picks: ["food", "room", "staff"], nick: "Sam", date: "2026-11-10" });
+    // the review is in the visitor's own document, under a slow hash of the code (not the code)
+    expect(Object.keys((await db.doc(visitsPath("u_friend")).get()).data()!.r as object)).toEqual([slowKey("r", code)]);
+    // the next day, again: it replaces the visitor's one review of this share
     expect(await leaveReview(visitor, code, { stars: 5, picks: ["back"], nick: "Sam" }, day + 86_400_000)).toBe("sent");
+    await act(async () => { await Promise.resolve(); });
+    expect(seen.at(-1)!.map((r) => r.stars)).toEqual([5]);
     stop();
 
     // re-share overwrites under the same code
@@ -189,20 +163,24 @@ describe("sharing and visiting over the db", () => {
 
     await stopSharing(owner, g);
     expect(await sharedCode(owner, g)).toBeNull();
-    expect((await db.doc(snapPath(code)).get()).exists).toBe(false);
-    expect((await db.collection(reviewsPath(code)).get()).docs).toEqual([]);
+    expect((await db.doc(snapPath("u_owner", code)).get()).exists).toBe(false);
+    expect(db.paths("fps/")).toEqual([]); // the marker went with the last share
+    expect(await openShare(visitor, code, known)).toEqual({ missing: true });
     expect(await share(owner, g)).not.toBe(code); // a new share gets a new code
   });
-  it("only the newest 50 reviews are kept, and a forged review keeps only its stars and listed picks", async () => {
-    const db = new MemDb("u_owner");
-    const col = db.collection(reviewsPath("ABCDEFGHJK"));
-    for (let i = 0; i < 60; i++) await col.doc(`r${i}`).set({ kind: "fp-review", stars: 3, picks: ["food"], nick: "x", date: "2026-11-10", at: i });
-    expect(await pruneReviews({ db }, "ABCDEFGHJK")).toBe(10);
-    const left = (await col.get()).docs.map((d) => d.data()!.at as number);
-    expect(left).toHaveLength(MAX_REVIEWS);
-    expect(Math.min(...left)).toBe(10);
-    expect(checkReview("x", { kind: "fp-review", stars: 99, picks: ["<img onerror>", "food"], nick: "<b>Bad</b> words here and more", text: "free text is ignored" }))
-      .toEqual({ id: "x", stars: 5, picks: ["food"], nick: "bBadb words here", date: "", at: 0 });
+  it("the owner's list: one review per visitor, newest 50, pruned on read (no document deleted); a forged entry keeps only its stars and listed picks", async () => {
+    const code = newCode("u_owner");
+    const key = slowKey("r", code);
+    const docs = Array.from({ length: 60 }, (_, i) => ({ id: `u_v${String(i).padStart(2, "0")}`, exists: true, data: () => ({ kind: "fp-visits", k: [key], r: { [key]: { stars: 3, picks: ["food"], nick: "x", date: `2026-10-${String(1 + (i % 28)).padStart(2, "0")}` } } }) }));
+    const list = listReviews(docs, code, "u_owner");
+    expect(list).toHaveLength(MAX_REVIEWS);
+    expect(list[0]!.date >= list.at(-1)!.date).toBe(true);
+    // a future date reads as today; the owner's own document and hidden visitors are left out
+    const far = listReviews([{ id: "u_x", exists: true, data: () => ({ kind: "fp-visits", r: { [key]: { stars: 2, date: "2099-01-01" } } }) }, { ...docs[0]!, id: "u_owner" }], code, "u_owner", [], Date.UTC(2026, 10, 11));
+    expect(far.map((r) => [r.id, r.date])).toEqual([["u_x", "2026-11-11"]]);
+    expect(listReviews(docs.slice(0, 3), code, "u_owner", ["u_v01"]).map((r) => r.id)).toEqual(["u_v02", "u_v00"]);
+    expect(checkReview("x", { stars: 99, picks: ["<img onerror>", "food"], nick: "<b>Bad</b> words here and more", text: "free text is ignored", at: 1e14 }))
+      .toEqual({ id: "x", stars: 5, picks: ["food"], nick: "bBadb words here", date: "" });
   });
 });
 
@@ -253,26 +231,34 @@ describe("the co-op day", () => {
     expect(checkGuest({ kind: "nope" }, known.dish)).toBeNull();
   });
   it("invite → join → both see each other → plan → answer → end; expired and ended codes don't join", async () => {
-    const db = new MemDb("u_host");
-    const gdb = db.as("u_guest");
+    const db = RuleDb.create("u_host");
+    const host = { db, uid: "u_host" };
+    const guest = { db: db.as("u_guest"), uid: "u_guest" };
     const t0 = 1_000_000;
-    const { code, writer } = await hostStart(db, "Ali", t0);
+    const { code, writer } = await hostStart(host, "Ali", t0);
+    expect(codeFits(code, "u_host")).toBe(true);
     const g = planningGame();
     await writer.patch({ board: boardOf(g, weekdayIndex(g.day)) });
-    expect(await guestJoin(gdb, "nonsense", "Sam", known.dish, t0)).toEqual({ ok: false, why: "code" });
-    expect(await guestJoin(gdb, "ABCDEFGHJK", "Sam", known.dish, t0)).toEqual({ ok: false, why: "missing" });
-    expect(await guestJoin(gdb, code, "Sam", known.dish, t0 + SESSION_MS + 1)).toEqual({ ok: false, why: "expired" });
-    const j = await guestJoin(gdb, showCode(code).toLowerCase(), "Sam", known.dish, t0 + 1000);
+    expect(await guestJoin(guest, "nonsense", "Sam", known.dish, t0)).toEqual({ ok: false, why: "code" });
+    expect(await guestJoin(guest, "ABCDEFGHJK", "Sam", known.dish, t0)).toEqual({ ok: false, why: "missing" });
+    expect(await guestJoin(guest, code, "Sam", known.dish, t0 + SESSION_MS + 1)).toEqual({ ok: false, why: "expired" });
+    expect(await guestJoin(host, code, "Me", known.dish, t0)).toEqual({ ok: false, why: "own" });
+    const j = await guestJoin(guest, showCode(code).toLowerCase(), "Sam", known.dish, t0 + 1000);
     if (!j.ok) throw new Error("join failed");
     expect(j.host.nick).toBe("Ali");
     expect(j.host.board!.restaurant).toBe("Chez Test");
+    expect(j.hostId).toBe("u_host");
+    expect(j.partnerId).toBe("u_host");
 
     const hostSees: (ReturnType<typeof checkGuest>)[] = [];
+    const partner: (string | null)[] = [];
     const guestSees: (ReturnType<typeof checkHost>)[] = [];
-    const s1 = watchGuest(db, code, known.dish, (x) => hostSees.push(x));
-    const s2 = watchHost(gdb, code, known.dish, (x) => guestSees.push(x));
-    await act(async () => { await Promise.resolve(); });
+    const s1 = watchGuest(host, writer, code, known.dish, (x, id) => { hostSees.push(x); partner.push(id); });
+    const s2 = watchHost(guest.db, "u_host", code, known.dish, (x) => guestSees.push(x), undefined, "u_guest");
+    for (let i = 0; i < 5; i++) await act(async () => { await Promise.resolve(); });
     expect(hostSees.at(-1)!.nick).toBe("Sam");
+    expect(partner.at(-1)).toBe("u_guest");
+    expect(writer.current.guest).toBe("u_guest"); // pinned into the host's own document
     await j.writer.patch({ plan: { n: 1, day: g.day, menu: [], on: [] }, emote: { id: "wave", n: 1 } });
     expect(hostSees.at(-1)!.plan!.n).toBe(1);
     expect(hostSees.at(-1)!.emote!.id).toBe("wave");
@@ -280,16 +266,20 @@ describe("the co-op day", () => {
     expect(guestSees.at(-1)!.answer).toEqual({ n: 1, used: false });
     await writer.patch({ stage: "ended" });
     expect(guestSees.at(-1)!.stage).toBe("ended");
-    expect(await guestJoin(gdb, code, "Sam", known.dish, t0 + 2000)).toEqual({ ok: false, why: "ended" });
+    expect(await guestJoin(guest, code, "Sam", known.dish, t0 + 2000)).toEqual({ ok: false, why: "ended" });
+    // ending deletes the host's document (and its marker, nothing else being open)
+    await endHosting(host, code, writer);
+    expect(db.paths("fpc/u_host")).toEqual([]);
+    expect(guestSees.at(-1)).toBeNull();
     s1(); s2();
   });
   it("the writer sends one write at a time and coalesces a burst into the newest body", async () => {
-    const db = new MemDb();
-    const w = new DocWriter(db, "fp-coop/ABCDEFGHJK/side/host", { a: 0 });
+    const db = RuleDb.create("u_host");
+    const w = new DocWriter(db, "fpc/u_host/cABC/host", { a: 0 });
     const all = Promise.all([1, 2, 3, 4, 5].map((a) => w.patch({ a })));
     await all;
     expect(db.writes).toBeLessThanOrEqual(2);
-    expect((await db.doc("fp-coop/ABCDEFGHJK/side/host").get()).data()).toEqual({ a: 5 });
+    expect((await db.doc("fpc/u_host/cABC/host").get()).data()).toEqual({ a: 5 });
   });
   it("round trips are measured ping → pong; the median shows", () => {
     const m = new RttMeter();
@@ -320,7 +310,7 @@ describe("screens", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
   it("with a db, the card offers Share, and sharing shows the code", async () => {
-    const db = new MemDb("u_owner");
+    const db = RuleDb.create("u_owner");
     setLinkForTests(async () => ({ db, uid: "u_owner" }));
     render(<VisitShareCard game={planningGame()} />);
     const btn = await screen.findByRole("button", { name: "Share my restaurant" });

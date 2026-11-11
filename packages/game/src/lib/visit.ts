@@ -7,13 +7,34 @@
  */
 import type { GameState, Staff } from "@full-plate/sim-core";
 import { content, findDecorItem, newGame } from "../sim";
-import type { ShareSnapshot } from "../state/share";
+import { cleanLabel, LIMITS, type Known, type ShareSnapshot } from "../state/share";
 
-/** Content lookups `checkSnapshot` filters ids against. */
-export const known = {
+/**
+ * Round 14 (B): is `text` a review line the game itself writes — one of the review templates for this rating (or the
+ * "rough night" set) with {dish}, {restaurant} and {segment} filled exactly as the sim fills them? Snapshot review lines
+ * are shown only if so: a share's owner can no longer put words of their own on a visitor's screen.
+ */
+export function gameLine(text: string, rating: number, dishId: string | undefined, restaurant: string): boolean {
+  const pools = content.reviewTemplates ?? {};
+  const dish = (dishId && content.dishes.find((d) => d.id === dishId)?.name) || "food";
+  const segs = ["guest", ...content.segments.map((x) => x.name)];
+  for (const key of [String(rating), ...(rating >= 4 ? ["rough"] : [])]) {
+    for (const t of pools[key] ?? []) {
+      const base = t.replaceAll("{dish}", dish).replaceAll("{restaurant}", restaurant);
+      for (const seg of base.includes("{segment}") ? segs : [""]) {
+        if (cleanLabel(base.replaceAll("{segment}", seg), LIMITS.text) === text) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Content lookups `checkSnapshot` filters ids against (and, R14, the review-line check). */
+export const known: Known & { line: NonNullable<Known["line"]> } = {
   dish: (id: string) => content.dishes.some((d) => d.id === id),
   decor: (id: string) => !!findDecorItem(content, id),
   district: (id: string) => content.districts.some((d) => d.id === id),
+  line: gameLine,
 };
 
 export const dishName = (id: string): string => content.dishes.find((d) => d.id === id)?.name ?? "A dish";

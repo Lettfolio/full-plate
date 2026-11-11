@@ -138,6 +138,9 @@ export function App() {
   // R12-A: the soundtrack follows the day; the room's Music decor item picks the instruments.
   const musicItem = game?.decor?.slots.music?.itemId ?? "music_none";
   useEffect(() => { setSoundtrack(phase === "service" ? "service" : phase === "evening" || phase === "event" || phase === "gameover" ? "evening" : "planning", musicItem); }, [phase, musicItem]);
+  // Round 14 (B): a lost game's share and co-op day go with it (lazy chunk; a career's "gameover" is only its evening)
+  const shopOver = phase === "gameover" && meta.mode !== "career" && !!game;
+  useEffect(() => { if (shopOver && game) void import("./lib/socialLife").then((m) => m.forgetGameSocial(game)).catch(() => {}); }, [shopOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback((cmd: Command) => dispatch({ type: "command", cmd }), []);
   const sendCareer = useCallback((cmd: CareerCommand) => dispatch({ type: "career", cmd }), []);
