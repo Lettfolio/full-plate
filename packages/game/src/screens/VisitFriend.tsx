@@ -12,6 +12,7 @@ import { cleanNick, link, NICK_MAX, nickInput, offLine, openShare, parseCode, ty
 import { CoopShiftGuest } from "./CoopShiftGuest";
 import { VisitRoom } from "./VisitRoom";
 import "./visit.css";
+import { prefsStorage } from "../lib/storage";
 
 type View =
   | { at: "form" }
@@ -19,7 +20,7 @@ type View =
   | { at: "coop"; db: SDb; code: string; host: HostDoc; writer: DocWriter<GuestDoc> };
 
 const NICK_KEY = "full-plate:nick:v1";
-const savedNick = (): string => { try { return cleanNick(localStorage.getItem(NICK_KEY) ?? ""); } catch { return ""; } };
+const savedNick = (): string => { try { return cleanNick(prefsStorage().getItem(NICK_KEY) ?? ""); } catch { return ""; } };
 
 export function VisitFriend({ onBack }: { onBack: () => void }) {
   const [conn, setConn] = useState<Link | null>(null);
@@ -35,7 +36,7 @@ export function VisitFriend({ onBack }: { onBack: () => void }) {
     const c = parseCode(code);
     if (!c) { setNote("A code is 10 letters and numbers, like ABCDE-23456."); return; }
     const n = cleanNick(nick);
-    try { localStorage.setItem(NICK_KEY, n); } catch { /* fine */ }
+    try { prefsStorage().setItem(NICK_KEY, n); } catch { /* fine */ }
     setBusy(true); setNote(null);
     try {
       const [h, shared] = await Promise.all([

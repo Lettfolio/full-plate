@@ -5,6 +5,7 @@ import { serialize as serializeEmpire, deserialize as deserializeEmpire } from "
 import { serializeStars, deserializeStars } from "@full-plate/sim-stars";
 import { deserialize, serialize } from "../sim";
 import { initialMeta, type PathMeta } from "./paths";
+import { deviceStorage } from "../lib/storage";
 
 /** The owner game. Round 1–2 saves (a bare sim-core GameState) still load from here. */
 export const SAVE_KEY = "full-plate:save:v1";
@@ -17,7 +18,7 @@ type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 function defaultStorage(): StorageLike | null {
   try {
-    return typeof window !== "undefined" ? window.localStorage : null;
+    return typeof window !== "undefined" ? deviceStorage() : null;
   } catch {
     return null; // storage blocked (private mode, sandboxed iframe)
   }

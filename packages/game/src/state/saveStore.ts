@@ -16,6 +16,7 @@
 import type { GameState } from "@full-plate/sim-core";
 import { CAREER_SAVE_KEY, decodeSave, SAVE_KEY, type Loaded } from "./save";
 import type { PathMeta } from "./paths";
+import { deviceStorage } from "../lib/storage";
 
 export const MAX_SLOTS = 6;
 /** Cloud writes are trailing-debounced by this much; local writes are not. */
@@ -154,11 +155,7 @@ export const runtime = (): ClaudeRuntime | null => {
 };
 
 export function defaultStorage(): StorageLike | null {
-  try {
-    const s = window.localStorage, k = "full-plate:probe";
-    s.setItem(k, "1"); s.removeItem(k);
-    return s;
-  } catch { return null; }
+  return deviceStorage(); // R13-E: namespaced by path, null when blocked (lib/storage.ts)
 }
 
 // ── packing ──
