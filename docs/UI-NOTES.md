@@ -2245,3 +2245,42 @@ The partner's walk bob and the smoothing between presence updates follow Setting
   includes the mock's Playwright hops (page → Node → page); on a busier machine earlier the same nights read 118 / 450 /
   993 ms and 3.6–4.5 snapshots a second (timers starved at 10–30 fps), which is why the engines are also pumped from
   the animation frame. Emits per side stay near 20 a second (snapshots ≤ 10, presence ≤ 10, heartbeats 2).
+
+## Round 14 — B: shared documents have one writer each (S14-2, S14-11, documents outliving the game)
+
+**What's on screen.** Almost nothing new, on purpose: share, visit, review and the co-op day look as they did.
+- **Friends card › Visitors**: each row now has a **Hide** button (≥ 44 px, `btn--tap`; aria-label "Hide Sam's review
+  from your list"). It hides that visitor on this device only; a line under the list says "N hidden on this device.
+  Each visitor's review is theirs: nobody else can change it." One review per visitor per share (a new day's review
+  replaces their old one), newest first, at most 50.
+- **Visit a friend**: two new notes — "Someone else has already joined that co-op day. Ask your friend for a new
+  code." and, for the 1-in-961 case where a code's check letters fit two accounts, "That code is muddled up with
+  another one. Ask your friend to stop sharing and share again for a new code." Joining your own co-op code says
+  "That's your own co-op day: give the code to a friend."
+- **What guests said** on a visit shows only review lines the game itself writes (re-built from the templates); a
+  line of the owner's own words is dropped.
+- When the host ends the day or the guest leaves, the other side sees "… ended the co-op day" / "… left the session"
+  as before, even though the document is now deleted (a document that goes after being seen reads as ended).
+
+**Where the code lives.** `state/share.ts` (codes with check letters, paths, `openShare` by owner id, reviews in the
+visitor's own `fpr/<id>`, `listReviews`/`watchReviews`, hide list, private record per account), `lib/coop/protocol.ts`
+(paths `fpc/<id>/c<hash>/host|guest`, `HostDoc.guest`), `lib/coop/session.ts` (`findHost`, the host's pin in
+`watchGuest`, `partnerOf`, `endHosting`, `leaveAsGuest`, `sweepCoop`), `lib/visit.ts` (`gameLine`), `lib/socialLife.ts`
+(lazy: delete / lost game), `scripts/lib/dbRules.ts` (THE declaration + an enforcing store), `scripts/lib/mockClaude.mjs`
+(enforces it; `level`, `store.as`), `src/__tests__/ruleDb.ts` (vitest double), `round14.ownership.test.tsx`. Small
+hooks: `SlotPicker.tsx` (delete), `App.tsx` (one effect on `gameover`), `saveCore.ts`/`saveStore.ts` (`load({peek})`,
+which reads this device's copy and writes nothing), `CoopShiftDock.tsx`/`CoopShiftGuest.tsx`/`VisitFriend.tsx` (new
+signatures). The full design, the capability declaration and the per-level table are in COOP-NOTES.md "Round 14 — B".
+
+**Settings.** None. No motion or sound added.
+
+**Left out, and why.**
+- The artifact's owner can't moderate a share or review (`write: "self"`, as the brief asked: nobody but the author).
+  To moderate they would publish looser rules, which the platform allows any time; Hide covers the owner's own list.
+- Nicknames are still free text within the filter: Mallory can call herself "Carol". She can't touch Carol's review,
+  and the owner can hide her.
+- A game deleted on a device with no copy of it (account-only) can't be matched to its share; its snapshot stays until
+  the player stops it. The co-op docs of a player who never comes back stay (readers treat them as over after two
+  hours); nobody else can delete them. Worst case and budget: COOP-NOTES.
+- Who becomes the guest is first-come (the host pins the first). The live room's own pin is S14-3, Builder A's.
+- The 160-character limit on snapshot review lines stays; the lines are now checked, not just cut.

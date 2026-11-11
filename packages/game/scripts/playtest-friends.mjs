@@ -149,6 +149,18 @@ try {
   await shot(b, "visitor-already-reviewed");
   await b.getByRole("button", { name: /Leave/ }).click(); await b.waitForTimeout(300);
 
+  log("4b. lifecycle: stop sharing removes the snapshot and the marker (then share again for the co-op part)");
+  await a.getByRole("button", { name: "Stop sharing" }).click();
+  check(await until(async () => ![...store.docs.keys()].some((k) => k.startsWith("fps/u_alice"))), "Alice's fps documents are gone");
+  await a.getByText(/That code doesn't open anything now/).waitFor();
+  await shot(a, "owner-stopped-sharing");
+  await b.getByRole("button", { name: /Visit a friend/ }).click();
+  await b.getByLabel("Friend's code").fill(shareCode);
+  await b.getByRole("button", { name: "Go" }).click();
+  check(await until(async () => /Nothing is shared under that code/.test(await b.locator(".visitfriend").innerText())), "the old code opens nothing");
+  await shot(b, "visitor-stopped-code");
+  await b.getByRole("button", { name: /Back/ }).click(); await b.waitForTimeout(300);
+
   log("5. co-op: invite");
   await a.locator(".visitcard").getByLabel("Your nickname").fill("Alice");
   await a.getByRole("button", { name: "Invite a friend" }).click();
@@ -244,13 +256,9 @@ try {
   await C.page.getByText(/Sharing needs the Claude link/).waitFor();
   await shot(C.page, "no-db-restaurant-tab");
 
-  log("12. lifecycle: stop sharing removes the snapshot and the marker");
-  await a.getByRole("tab", { name: /^Restaurant/ }).click(); await a.waitForTimeout(300);
-  await a.getByRole("button", { name: "Stop sharing" }).click();
-  check(await until(async () => ![...store.docs.keys()].some((k) => k.startsWith("fps/u_alice"))), "Alice's fps documents are gone");
-  check(![...store.docs.keys()].some((k) => k.startsWith("fpc/u_alice")), "Alice's co-op documents went when she ended the day");
-  check(![...store.docs.keys()].some((k) => k.startsWith("fpc/u_bob/")), "Bob's guest document went when the day ended and he left");
-  await shot(a, "owner-stopped-sharing");
+  log("12. lifecycle: ending the day and leaving removed both sides' co-op documents");
+  check(await until(async () => ![...store.docs.keys()].some((k) => k.startsWith("fpc/u_alice"))), "Alice's co-op documents went when she ended the day");
+  check(await until(async () => ![...store.docs.keys()].some((k) => k.startsWith("fpc/u_bob"))), "Bob's guest document, join key and marker went when he left");
 
   log(`db calls: ${JSON.stringify(store.stats)}; documents: ${store.docs.size}`);
   log(`share paths: ${[...store.docs.keys()].filter((k) => !k.startsWith("data/users/")).join(", ")}`);

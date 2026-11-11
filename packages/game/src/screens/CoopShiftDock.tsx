@@ -155,10 +155,11 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
     bump((x) => x + 1);
   };
   const end = async () => {
-    // Round 14 (B): ending deletes my document (and sweeps my marker); the guest sees the session end either way
-    const l = await link();
-    if (!("off" in l)) await endHosting(l, flag.code, writer).catch(() => {});
+    // Round 14 (B): ending deletes my document (and sweeps my marker) in the background; the panel goes at once
+    const code = flag.code;
     setHostFlag(null);
+    const l = await link();
+    if (!("off" in l)) await endHosting(l, code, writer).catch(() => {});
   };
   const emote = (id: EmoteId) => { emoteN.current = Math.max(Date.now(), emoteN.current + 1); if (writer) void writer.patch({ emote: { id, n: emoteN.current } }); };
 
