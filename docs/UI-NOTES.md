@@ -1537,3 +1537,131 @@ controls ≥ 44 px; text ≥ 13 px; touch and keyboard (the stars are pressed-st
   guest's plan (dish off, price up, staff toggled) → "Use it" → the host's menu changed, guest told; emotes both ways;
   service → the guest sees "running tonight's service" → Skip to evening → the guest sees the numbers; End → the guest
   sees it, the panel goes; no-db context: both entry points show the one line. 0 page errors.
+
+## Round 13 — E: hardening and touch
+
+Nothing new to look at, by design: the same screens, harder to break and easier to hit with a finger.
+
+### What changed on screen
+
+- **Glossary words are finger-sized.** Every `.term` has an invisible hit area at least 44 × 44 px, centred on the word
+  and never smaller than it (theme.css `.term::before`: `left/right/top/bottom: min(0px, calc(50% - 22px))`, absolutely
+  positioned, so no layout moves and nothing is drawn). A tap 8 px under "margin" on the Menu now opens its tip. Inline
+  words sit on ~20 px lines, so two words' areas can overlap and one can lie over a neighbouring button:
+  `lib/termTap.ts` (one capture-phase click listener, installed from `main.tsx`) gives a tap that reached a word only
+  through its hit area to a real control whose own box is under the finger first, else to the **nearest** word whose
+  area contains the point (distance to each word's own box), so two close words split the gap. A tap on the word itself
+  is untouched. Words inside a control (a button's label, `inButton`, a `<label>`) have no hit area: the control is the
+  target there.
+- **Settings' choice rows have names again.** `aria-labelledby="set-Text size"` named nothing (an id list splits on
+  spaces): "Text size", "Service starts at" and "Underline words I can tap" are now named radiogroups (the playtest
+  found it; `SettingsBody.tsx`, the `Choice` row only).
+- With storage blocked the game plays for the visit (below); the save mark already said **Not saved**.
+
+### Content-Security-Policy (red-team S12)
+
+The GitHub Pages build carries a `<meta http-equiv="Content-Security-Policy">` straight after `<meta charset>`:
+
+`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:;
+connect-src 'self'; media-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'`
+
+- The build emits no inline script and no inline style; nothing calls eval or `new Function`; React's `style={…}` goes
+  through the CSSOM, which a policy doesn't govern. `img-src data: blob:` is the favicon, the brand logo (data: SVG),
+  the postcard preview (data: PNG) and the save/postcard downloads (blob:). `font-src data:` is Vite inlining the
+  smallest @fontsource subsets (< 4 kB) into the stylesheet: the first playtest under the policy showed four of them
+  blocked, so the test now checks every `url()` in the built CSS against the policy. `frame-ancestors` is ignored in a
+  meta policy, so it isn't listed.
+- **Where:** `src/csp.config.ts` (the policy and why each source is there), `vite.config.ts` (a build-only plugin
+  that injects it when `FP_TARGET=pages`), `.github/workflows/pages.yml` (sets `FP_TARGET: pages` on the build step).
+- **Not in the artifact build.** claude.ai serves the page inside its own document and gives it `window.claude`; the
+  capability modules arrive later, from the platform, and the frame already runs under the host's own policy. A meta
+  `script-src`/`connect-src 'self'` would govern those loads too, and the real host can't be exercised from here (the
+  Playwright mock installs itself with `addInitScript`/`exposeBinding`, which a page's CSP never sees, so a pass with
+  the mock proves nothing about the host). So the plain `pnpm build`, which the artifact is published from, carries no
+  CSP. A forgotten flag costs the Pages copy its policy; it can't break the artifact.
+- `round13.csp.test.ts` runs a real `vite build` with `FP_TARGET=pages` and checks: exactly one policy meta; every
+  `<script>` has a `./assets/` src and no body; no `<style>`, no `style=""`, no inline handler; every src/href is in
+  `./assets/` (or the data: favicon); no chunk has eval / `new Function` / WebSocket / EventSource / XHR; every CSS
+  `url()` is a local file or a data: URL of a kind the policy admits.
+
+### localStorage namespaced by path (S12)
+
+- `lib/storage.ts`: every read and write goes through `deviceStorage()` (null when localStorage throws: the save store
+  keeps its slots in memory) or `prefsStorage()` (falls back to one in-memory store for the visit). Keys are prefixed
+  with the page's first path segment — `full-plate/full-plate:settings:v1` on `<owner>.github.io/full-plate/` — so a
+  second copy of the game (or anything else using `full-plate:` keys) at another path of the same Pages origin can't
+  overwrite this one's saves. At the root of an origin (`vite preview`, the tests, a custom domain) the scope is empty
+  and the keys are exactly what they were, so the harness, probe and audit are unchanged.
+- **Migration:** the first time a scoped page opens, every un-scoped `full-plate:` key moves under the scope (copied,
+  then the old key removed only when the copy landed; a key the scope already has wins). A copy that runs out of room
+  leaves that key where it was and the migration tries again next visit; a marker (`full-plate:ns-migrated:v1`) makes
+  it once. Keys that aren't ours are never touched.
+- This stops collisions, not reading: any page on the same origin can still read any key (the browser's rule). The
+  saves hold no secrets; the account copy lives in claude.ai.
+- Callers moved to it: settings, onboarding flags (`onboardFlags.ts`, and the one line in `HandsOnShift.tsx` that hands
+  storage to the onboarding), the challenge's bests and run, the co-op host flag (`flag.ts`, `hostFlag.ts`), the menu
+  view, the visit nickname, the social record (`share.ts`), the dev flag (`perfMeter.ts`), and both save layers
+  (`save.ts`, `saveStore.ts`). The account mirror still sees plain flag names (`full-plate:onboard:v1:…`), so flags
+  follow the player across hosts.
+
+### Storage blocked (Safari private mode, blocked site data)
+
+Every screen works for the visit: the challenge starts and carries on after going back to the title, Settings change
+and stick, onboarding flags, the co-op host flag and challenge bests read back from memory, a new game plays, and
+**Save to a file** still downloads. `round13.hardening.test.tsx` runs the app shell with a `localStorage` getter that
+throws; the playtest does the same in Chromium.
+
+### G14: SET_OWNER_PROFILE
+
+sim-core takes it once, in planning, before the restaurant's first service (`history` empty, no profile yet): the
+moment the career handover (`pathEngine.applyOwnerProfile`, the only caller) opens the player's own place. Every later
+call is refused. No other command changes; corpus, saves and balance unchanged. Tests: `round3.hooks.test.ts` (once,
+then refused; refused after a night) and `round13.hardening.test.tsx` (the handover through the reducer still sets
+it; a second call and a screen's command don't).
+
+### Share/visit fuzzing
+
+`round13.shareFuzz.test.tsx`: the red-team save fuzzer's payloads (`scratchpad/redteam/sec/mkfiles.mjs`: an HTML /
+script / bidi name, an object for a name, an object for the staff list, a 300,000-character name, a day as a string)
+aimed at the snapshot, plus `__proto__` keys, unknown ids, 5,000-deep nesting, 200,000-entry lists and non-finite
+numbers, then 200 seeded random mutations and 200 hostile reviews. Nothing throws; every accepted snapshot is clean
+(no unsafe character, finite numbers, plain prototypes), capped, known-ids-only and idempotent; `openShare` hands the
+screen only a checked snapshot; `VisitRoom` draws 40 of them with no script/iframe/handler/unexpected image and no
+unsafe character in text or attributes. Two fixes in `checkSnapshot`: decor keeps only the room's real slots (an own
+`__proto__` key from `JSON.parse` set the object's prototype) and lists are hole-filled (`Array.from`).
+
+### Left out, and why
+
+- A CSP on the artifact build (above). If the host ever documents that a page's own meta policy is safe alongside its
+  runtime, the flag can default on.
+- Reading protection for the shared Pages origin: impossible client-side; a custom domain per project is the real fix.
+- Terms inside buttons stay small sub-targets (the button around them is the target; the probe still counts them).
+
+### Checks (built dist)
+
+- Main JS 165.64 → **168.34 kB** (+2.7: `lib/storage.ts` and `lib/termTap.ts`, both needed before first paint); main
+  CSS 145.56 → 145.89 kB (the hit-area rule). Every other chunk within ±60 bytes. `csp.config.ts` is build-time only.
+- Tests 1,368 → **1,389** (+1 sim-core `round3.hooks`; +11 `round13.hardening`, +3 `round13.csp`, +6
+  `round13.shareFuzz`). One untouched sim-empire test (`franchise-fast outgrows…`, 6 headless years) hit the 60 s
+  timeout in the recursive run at load average ~25 and passed alone (48 s) and in its package's own run. Headless at 200 seeds: typical **90.0** / cheap **68.0** / nohire **0**.
+- Probe: glossary targets under 44 px fell from 400–470 per run to **18** in every run (the words inside buttons:
+  "Footfall" on the lease cards, "86" on Service's 86 buttons, "HQ" in the Empire's money row). Baseline lowered for
+  `targets<44`, `targets<24` and `term` only. Not lowered, and not this branch's: `canvasText<13` on the phone runs
+  and `covered` on `768x1024-large` read above the baseline in this run (844×390 normal 64 vs 51; 390×844 Bigger 95
+  vs 82; 768×1024 Bigger covered 36 vs 31). All of it is live-frame canvas labels (`20-service`, `21-service-4x`,
+  `61-watch-shift`, `62a-onboarding`) and the speed buttons on the live 4× frame (the R12 review's note); `master`
+  (`7e5ad5a`) built and probed on the same machine at the same time read 93 / 57 / 100 / 65 on the phone runs (load
+  average 16–27: six builders). No `termsHidden`, `termsWiden` or `overflowScreens` from the hit areas.
+- Type audit, Normal and Bigger: 43 screens per run, 0 DOM and 0 canvas text < 13 px, 0 errors, within baseline.
+- `pnpm audit`: no known vulnerabilities. Dependabot config parses and still lists both ecosystems; the six action
+  pins after the merged bump resolve to their tags (`git ls-remote`).
+- Playtest (`scratchpad/r13e/play.mjs`; shots `scratchpad/shots/r13/E/`), the Pages build under `vite preview` at
+  1024×768 with touch, plain and with `mockClaude.mjs`: the policy meta is there and an injected inline script is
+  blocked (a positive control); new game → starter menu → a tap 8 px under "margin" opens its tip → service → evening
+  → postcard (PNG) → day 2 → Save to a file → Load a save file lists it; **0 CSP violations, 0 page/console errors**
+  in both. A lab paragraph (the real stylesheet and listener) with two words on 30 px lines 12 px apart: a tap 3 px
+  under the upper goes to the upper, 3 px over the lower to the lower, 14 px above the upper (hit area only) to the
+  upper; a tap on a button's edge 4 px from a word presses the button. Migration on one origin (a static server at `/`,
+  `/full-plate/`, `/other-game/`): a game made at the root (old key layout) is offered and continues at
+  `/full-plate/`, all keys now scoped; `/other-game/` sees nothing. Blocked storage (a throwing `localStorage`): a new
+  game plays, the mark says Not saved, Settings › Bigger applies, Save to a file downloads; 0 errors.
