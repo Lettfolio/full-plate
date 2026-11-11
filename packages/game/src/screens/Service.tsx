@@ -446,7 +446,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
       <span className="servsheet__alertgo">{liveIncidents.length > 1 ? `+${liveIncidents.length - 1} · ` : ""}Decide</span>
     </button>
   ) : covering.length > 0 ? (
-    <span className="servsheet__line servsheet__line--amber" role="status"><Icon name="warning" size={18} /><span>You're covering {coveringPhrase(covering)}</span></span>
+    <span className="servsheet__line servsheet__line--amber" role="status"><Icon name="warning" size={18} /><span>You're watching · covering {coveringPhrase(covering)}, slowly</span></span>
   ) : (
     <span className="servsheet__line"><b>{clockLabel(game.tick)}</b>{rush && <span className="rushchip">Rush on</span>}<span>{covers} served</span>{walkouts > 0 && <span className="servsheet__bad">{walkouts} walked out</span>}</span>
   );
@@ -488,6 +488,7 @@ export function Service({ game, app, send, runTicks, notify, watch, onJumpIn, on
                 {onSkip && <button className="btn service__skip servsheet__skip" data-main-action aria-label="Skip to evening" onClick={onSkip}><Icon name="fastest" size={20} />Skip</button>}
               </div>
             )}
+            {!watch && onJumpIn && <PeekJumpIn game={game} onJumpIn={onJumpIn} />}
             {speedDeck}
           </div>
         )}
@@ -662,6 +663,29 @@ function LiveTile({ icon, label, value, trend, good, bad = false, flashKey }: { 
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Round 14 (E, U4): the hands-on way in, at the sheet's peek on an upright phone (Jump in sat below the fold at half
+ * and was hidden at peek). One chip: "Cook it yourself" when there's no chef on (or by default), "Serve it yourself"
+ * when the kitchen is staffed but the floor isn't. It is the loud one on days 1–3 and whenever no chef is on; after
+ * that it is a quiet outline chip. The full Jump in card (all three roles) is still in the sheet's body.
+ */
+export function peekJumpRole(game: GameState): { role: "chef" | "server"; label: string; loud: boolean } {
+  const today = weekdayIndex(game.day);
+  const on = game.staff.filter((s) => s.rota[today]);
+  const chefOn = on.some((s) => s.role === "chef");
+  const serverOn = on.some((s) => s.role === "server");
+  const role = chefOn && !serverOn ? "server" : "chef";
+  return { role, label: role === "chef" ? "Cook it yourself" : "Serve it yourself", loud: game.day <= 2 || !chefOn }; // game.day is 0-based: Days 1–3
+}
+function PeekJumpIn({ game, onJumpIn }: { game: GameState; onJumpIn: (role: "chef" | "server" | "bar") => void }) {
+  const j = peekJumpRole(game);
+  return (
+    <button type="button" className={`servsheet__jump ${j.loud ? "servsheet__jump--loud" : ""}`} onClick={() => onJumpIn(j.role)}>
+      <Icon name="chefHat" size={20} />{j.label}<span className="servsheet__jumpnote">hands-on, for the rest of tonight</span>
+    </button>
   );
 }
 

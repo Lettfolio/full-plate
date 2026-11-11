@@ -1,4 +1,5 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { landOn, pageScroller, requestLanding, restoreScroll, tabScroll, takeLanding } from "../lib/scrollTop";
 import type { Command, GameState, StaffRole } from "@full-plate/sim-core";
 import { GoalsCard } from "../components/GoalsCard";
 import { HelpPopover } from "../components/HelpPopover";
@@ -73,7 +74,33 @@ function openHireGoalRole(game: GameState): StaffRole | undefined {
   return (game.goals ?? []).find((g) => !g.done && g.kind === "hire_role")?.role;
 }
 
-export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu, onBrand, onInvent, onCookbook }: Props) {
+/** Round 14 (E, U1): where a shortcut to a tab should land (the thing it is about), by tab. */
+function landingFor(tab: TabId, game: GameState): string | null {
+  if (tab === "menu" && game.menu.length === 0) return ".starter";
+  if (tab === "staff") return ".candidate--wanted, .hiresheet";
+  return null;
+}
+
+export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], path, meta, sendEmpire, sendStars, onFocusSite, onTastingMenu, onBrand, onInvent, onCookbook }: Props) {
+  // Round 14 (E, U1): each tab opens at its own last position this day (top the first time); a shortcut lands on what
+  // it is about. The tab bar itself just switches (`pickTab`); hints, goals and "Hire someone first" use `setTab`.
+  useLayoutEffect(() => {
+    const landing = takeLanding();
+    const y = tabScroll.enter(game.day, tab);
+    return landing ? landOn(landing) : restoreScroll(y);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, game.day]);
+  useEffect(() => {
+    const on = (e: Event) => { const t = e.target; if (t === document || (t instanceof HTMLElement && t.classList.contains("screen"))) tabScroll.note(pageScroller.read()); };
+    document.addEventListener("scroll", on, { passive: true, capture: true });
+    return () => document.removeEventListener("scroll", on, { capture: true });
+  }, []);
+  const setTab = (t: TabId) => {
+    const landing = landingFor(t, game);
+    if (t === tab) { if (landing) landOn(landing); return; }
+    if (landing) requestLanding(landing);
+    pickTab(t);
+  };
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
@@ -104,9 +131,9 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
   if (!active.length) hints.push({ text: "Step 1: add dishes to your menu", tone: "bad", tab: "menu" });
   // With nobody on, the owner covers the role (slowly) — a warning, not a blocker.
   // Round 11 (U2): when no chef is affordable the dock says how far off it is, not "Hire a chef".
-  if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: hire.can ? "Hire a chef (or you'll cook yourself)" : `${hire.text} (you'll cook yourself)`, tone: "bad", tab: "staff" });
-  else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll be cooking`, tone: "bad", tab: "staff" });
-  if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll be serving`, tone: "warn", tab: "staff" });
+  if (!game.staff.some((s) => s.role === "chef")) hints.push({ text: hire.can ? "Hire a chef (or you'll cover the kitchen, slowly)" : `${hire.text} (you'll cover the kitchen)`, tone: "bad", tab: "staff" });
+  else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll cover the kitchen`, tone: "bad", tab: "staff" });
+  if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll cover the floor`, tone: "warn", tab: "staff" });
   const noStock = opening ? 0 : unplateable(content, game).length;
   if (noStock) hints.push({ text: `${noStock} dish${noStock > 1 ? "es" : ""} out of stock today — order in the evening`, tone: "bad", tab: "stock" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
@@ -144,7 +171,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
           <DayRhythm beat="morning" weekday={WEEKDAY_NAMES[today]!} />
           <h1>Get ready for {WEEKDAY_NAMES[today]}</h1>
         </div>
-        <Tabs label="Planning" tabs={tabs} active={tab} onChange={setTab} />
+        <Tabs label="Planning" tabs={tabs} active={tab} onChange={pickTab} />
         <div className="planning__help"><HelpPopover /></div>
       </div>
       {/* Round 12 (E): not on the wide Empire / Stars tabs, which need the height for their maps and tracks. */}

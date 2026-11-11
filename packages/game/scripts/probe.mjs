@@ -18,6 +18,10 @@
  *                something is a sticky/fixed bar (the action dock) — reachable by scrolling, so counted apart.
  *   (Round 13 — A, R12-F8: with a modal open — aria-modal, on its backdrop — only the top modal is measured: the page
  *   behind it, and anything inert or aria-hidden, counts for none of the above.)
+ *   clipped      (Round 14 — E) a control cut off: its content spills out of it, or it runs past an overflow-hidden/clip
+ *                ancestor (the menu's price stepper lost its price and + that way on a phone).
+ *   notAtTop     (Round 14 — E) upright phone only: a screen or tab that didn't arrive at the top of the page (the walk
+ *                scrolls each screen to its foot before moving on, so a kept scroll position shows).
  *   terms        each glossary term focused: its tip must show and must not widen the page.
  *   errors       page errors and console errors.
  *
@@ -167,9 +171,29 @@ function metrics(min) {
       (bar ? underBar : covered).push(what);
     }
   }
+  // Round 14 (E, U3): a control cut off — a button or field whose own content spills out of it (scrollWidth >
+  // clientWidth), or whose box runs past an overflow-hidden/clip ancestor (the price stepper's + was clipped by the
+  // stepper itself). A scroller (overflow auto/scroll) isn't clipping: what's past its edge is reachable.
+  const clipped = [];
+  for (const el of document.querySelectorAll("button, input:not([type=checkbox]):not([type=radio]), select, [role=button], [role=tab]")) {
+    if (!visible(el) || behind(el)) continue;
+    const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
+    const label = (el.getAttribute("aria-label") || el.textContent || el.tagName).replace(/\s+/g, " ").trim().slice(0, 36);
+    if (el.tagName !== "INPUT" && el.tagName !== "SELECT" && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible") { clipped.push(`spills ${label}`); continue; }
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      const hx = cs.overflowX === "hidden" || cs.overflowX === "clip", hy = cs.overflowY === "hidden" || cs.overflowY === "clip";
+      if (!hx && !hy) continue;
+      if (a.matches(".worldmap__frame, .zoomframe, .service__floor, [data-pan]")) break; // a map you pan: off its edge is reachable
+      const ar = a.getBoundingClientRect();
+      if ((hx && (r.left < ar.left - 1 || r.right > ar.right + 1)) || (hy && (r.top < ar.top - 1 || r.bottom > ar.bottom + 1))) {
+        clipped.push(`${label} ← ${(typeof a.className === "string" && a.className ? a.className : a.tagName).slice(0, 40)}`); break;
+      }
+    }
+  }
   const sw = document.documentElement.scrollWidth, vw = innerWidth;
   const sc = document.querySelector(".screen"); const inner = sc ? sc.scrollWidth - sc.clientWidth : 0;
-  return { small, lowContrast, overCanvas, smallTargets, tiny, kinds, covered, underBar, hOverflow: Math.max(sw > vw + 1 ? sw - vw : 0, inner > 1 ? inner : 0) };
+  return { small, lowContrast, overCanvas, smallTargets, tiny, kinds, covered, underBar, clipped, hOverflow: Math.max(sw > vw + 1 ? sw - vw : 0, inner > 1 ? inner : 0) };
 }
 
 /** Runs in the page: focus every Term in turn; its tip must show, and showing it must not widen the page. */
@@ -214,22 +238,28 @@ try {
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-    const sum = { screens: 0, "targets<44": 0, "targets<24": 0, term: 0, disabled: 0, switch: 0, handler: 0, "text<13": 0, "canvasText<13": 0, contrast: 0, contrastLive: 0, overCanvas: 0, overflowScreens: 0, covered: 0, underBar: 0, termsHidden: 0, termsWiden: 0, errors: 0 };
-    async function shot(name, { terms = true, live = false } = {}) {
+    const sum = { screens: 0, "targets<44": 0, "targets<24": 0, term: 0, disabled: 0, switch: 0, handler: 0, "text<13": 0, "canvasText<13": 0, contrast: 0, contrastLive: 0, overCanvas: 0, overflowScreens: 0, covered: 0, underBar: 0, clipped: 0, notAtTop: 0, termsHidden: 0, termsWiden: 0, errors: 0 };
+    async function shot(name, opts = {}) {
+      const { terms = true, live = false } = opts;
       await page.waitForTimeout(250);
       await settle(page);
       await page.screenshot({ path: join(OUT, `${tag}-${name}.png`) });
       const m = await page.evaluate(metrics, MIN);
       const cv = await canvasSmall(page, MIN);
       m.canvasSmall = cv?.small ?? [];
+      // Round 14 (E, U1): on an upright phone every screen and tab arrives at the top (the walk scrolls each screen to
+      // its foot before moving on: lib/harness.mjs). A screen with a sheet or dialog open, or one the walk itself
+      // scrolled (`scrolled: true`), isn't an arrival.
+      m.scrollY = await page.evaluate(() => Math.round(Math.max(scrollY, document.querySelector(".screen")?.scrollTop ?? 0)));
+      m.notAtTop = vp.phone && vw < vh && !opts.scrolled && !(await page.evaluate(() => !!document.querySelector('[aria-modal="true"], .modal-back'))) && m.scrollY > 0;
       if (terms) { const y = await page.evaluate(() => document.querySelector(".screen")?.scrollTop ?? 0); m.terms = await page.evaluate(termCheck); await page.evaluate((v) => { const s = document.querySelector(".screen"); if (s) s.scrollTop = v; }, y); }
       report[`${tag}|${name}`] = m;
       sum.screens++; sum["targets<44"] += m.smallTargets.length; sum["targets<24"] += m.tiny;
       for (const k of ["term", "disabled", "switch", "handler"]) sum[k] += m.kinds[k];
       sum["text<13"] += m.small.length; sum["canvasText<13"] += m.canvasSmall.length; if (live) sum.contrastLive += m.lowContrast.length; else sum.contrast += m.lowContrast.length; sum.overCanvas += m.overCanvas.length;
-      sum.overflowScreens += m.hOverflow > 0 ? 1 : 0; sum.covered += m.covered.length; sum.underBar += m.underBar.length;
+      sum.overflowScreens += m.hOverflow > 0 ? 1 : 0; sum.covered += m.covered.length; sum.underBar += m.underBar.length; sum.clipped += m.clipped.length; sum.notAtTop += m.notAtTop ? 1 : 0;
       sum.termsHidden += m.terms?.hidden.length ?? 0; sum.termsWiden += m.terms?.widen.length ?? 0;
-      console.log(`${tag} ${name}: tgt<44 ${m.smallTargets.length} (term ${m.kinds.term}, disabled ${m.kinds.disabled}, switch ${m.kinds.switch}, handler ${m.kinds.handler}) <24 ${m.tiny} | txt<13 ${m.small.length} canvas<13 ${cv ? m.canvasSmall.length : "-"} | contrast ${m.lowContrast.length} over-canvas ${m.overCanvas.length} | overflow ${m.hOverflow} covered ${m.covered.length} under-bar ${m.underBar.length}${m.terms ? ` | terms ${m.terms.terms}/${m.terms.hidden.length}h/${m.terms.widen.length}w` : ""}`);
+      console.log(`${tag} ${name}: tgt<44 ${m.smallTargets.length} (term ${m.kinds.term}, disabled ${m.kinds.disabled}, switch ${m.kinds.switch}, handler ${m.kinds.handler}) <24 ${m.tiny} | txt<13 ${m.small.length} canvas<13 ${cv ? m.canvasSmall.length : "-"} | contrast ${m.lowContrast.length} over-canvas ${m.overCanvas.length} | overflow ${m.hOverflow} covered ${m.covered.length} under-bar ${m.underBar.length} clipped ${m.clipped.length}${m.notAtTop ? ` NOT-AT-TOP ${m.scrollY}` : ""}${m.terms ? ` | terms ${m.terms.terms}/${m.terms.hidden.length}h/${m.terms.widen.length}w` : ""}`);
     }
     await walkScreens(page, { url: preview.url, text, shot, log: (s) => console.log(`${tag}${s}`) });
     sum.errors = errors.length;

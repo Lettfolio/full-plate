@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import type { Command, Difficulty, GameState } from "@full-plate/sim-core";
 import { playerAvatar } from "@full-plate/sim-core";
 import type { CareerCommand } from "@full-plate/sim-career";
@@ -75,6 +75,7 @@ import { chapterDue, CHAPTER_DAYS, forkDayOf, handsOnRoleFor, type PathMeta } fr
 import { weekdayIndex } from "./lib/calendar";
 import { PLAYER_ID } from "@full-plate/sim-career";
 import { setSoundtrack } from "./lib/sfx";
+import { focusScreenHeading, holdTopAfterScreenChange, scrollToTop } from "./lib/scrollTop";
 
 /**
  * Shell views. "pick" = the round-3 start picker ("Start as…"); "newgame" = the owner's lease screen.
@@ -215,6 +216,16 @@ export function App() {
     if (m.handsOnResume) dispatch({ type: "resumeHandsOn" });
     setShell({ view: "game" });
   };
+  // Round 14 (E, U1): every new screen starts at the top (the phone page scrolls as one), and focus goes to its
+  // heading when the button that was pressed has gone. Planning's tabs keep their own positions (Planning.tsx).
+  const screenKey = `${shell.view}|${game?.phase ?? ""}|${eventOpen ? 1 : 0}|${meta.win && !meta.win.dismissed ? 1 : 0}|${chOver ? 1 : 0}|${meta.handsOn ? 1 : 0}`;
+  useLayoutEffect(() => {
+    scrollToTop();
+    const hold = holdTopAfterScreenChange();
+    const raf = requestAnimationFrame(() => { focusScreenHeading(); });
+    return () => { cancelAnimationFrame(raf); hold(); };
+  }, [screenKey]);
+
   const saveFile = async () => {
     if (!slotId) return "Nothing to save yet.";
     const r = await store.saveToFile(slotId);

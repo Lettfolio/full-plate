@@ -4,6 +4,7 @@ import { playSfx } from "../lib/sfx";
 import { Icon, type IconName } from "./Icon";
 import { TermText } from "./TermText";
 import { openSettingsAt } from "./Settings";
+import { PHONE_ANY_QUERY } from "../lib/layout";
 
 interface Props {
   toast: ToastMsg | null;
@@ -31,7 +32,12 @@ export function Toast({ toast, onDismiss }: Props) {
   useLayoutEffect(() => {
     const el = region.current;
     if (!el) return;
-    const at = toast ? toastPlacement(document.querySelector(".service__stage")?.getBoundingClientRect() ?? null) : null;
+    // Round 14 (E, U11): on a phone (either way up) a service toast sits along the top edge (phone.css), clear of the
+    // floor in the middle, the sheet's peek and the primary button.
+    const stage = document.querySelector(".service__stage");
+    const phone = typeof window.matchMedia === "function" && window.matchMedia(PHONE_ANY_QUERY).matches;
+    el.classList.toggle("toast-region--top", !!toast && phone && !!stage);
+    const at = toast && !phone ? toastPlacement(stage?.getBoundingClientRect() ?? null) : null;
     el.style.top = at ? `${at.top}px` : "";
     el.style.left = at ? `${at.left}px` : "";
     el.style.bottom = at ? "auto" : "";
@@ -49,7 +55,7 @@ export function Toast({ toast, onDismiss }: Props) {
         <div key={toast.id} className={`toast toast--${toast.tone}`}>
           <span className="toast__icon" aria-hidden="true">{toast.tone === "good" && toast.text.startsWith("🎉") ? <Icon name="trophy" size={22} /> : <Icon name={ICON[toast.tone]} size={22} />}</span>
           {/* Goal toasts carry their own 🎉 in the text: it moves into the round badge. */}
-          <span className="spacer"><TermText text={toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text} /></span>
+          <span className="spacer toast__text"><TermText text={toast.tone === "good" && toast.text.startsWith("🎉") ? toast.text.replace(/^🎉\s*/, "") : toast.text} /></span>
           {/* Round 13 (A): a toast can carry one link — "animations" opens Settings at the Animations switch */}
           {toast.link === "animations" && <button className="btn btn--ghost btn--tap toast__link" onClick={() => { openSettingsAt("animations"); onDismiss(); }}>Settings</button>}
           <button className="iconbtn iconbtn--tap" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" size={20} /></button>
