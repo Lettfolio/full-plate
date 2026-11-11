@@ -319,7 +319,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const over = game.phase === "gameover";
   // Round 14 (F): when the sim has no tip tonight, one thing to change tomorrow from tonight's own numbers.
   const tip = over || meta?.mode === "career" ? null : eveningAdvice(game, content);
-  const oneThing = tip || over ? undefined : oneThingTomorrow(game, r, (id) => dishName(content, id), (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice);
+  const oneThing = tip || over ? undefined : oneThingTomorrow(game, r, (id) => dishName(content, id), (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice, (id) => content.dishes.find((d) => d.id === id)?.course);
   // Round 14 (F, U5): a night nobody ate says why in the headline (closed, empty larder, nobody on).
   const zero = zeroNightCause(r, game, r.day === game.day ? unplateable(content, game).length : 0, weekdayIndex(r.day));
 

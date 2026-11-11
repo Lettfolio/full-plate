@@ -18,6 +18,7 @@ import type { VoicesMemo } from "../state/paths";
 
 afterEach(cleanup);
 const name = (id: string) => content.dishes.find((d) => d.id === id)?.name ?? id;
+const course = (id: string) => content.dishes.find((d) => d.id === id)?.course;
 
 /** A typical game played to the morning of `day`, its memo carried as App does. */
 function playTo(day: number, seed = 21): { g: GameState; memo: VoicesMemo | undefined } {
@@ -73,13 +74,14 @@ describe("Round 14 F — the morning's Today card", () => {
       if (counted) { days++; if (todayRows(content, g, memo).length) mornings++; }
       g = runStrategyDay(content, g, STRATEGIES.typical);
       memo = memoFrom(g, memo);
-      if (counted && oneThingTomorrow(g, g.history.at(-1)!, name, (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice)) evenings++;
+      if (counted && oneThingTomorrow(g, g.history.at(-1)!, name, (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice, course)) evenings++;
     }
     expect(days).toBe(25);
     // The Today card shows on about one morning in three (VIP orders and the rival's Monday/Sunday) …
     expect(mornings).toBeGreaterThanOrEqual(6);
-    // … and "one thing for tomorrow" has something from her numbers on most evenings (the sim's own tip comes first).
-    expect(evenings).toBeGreaterThanOrEqual(12);
+    // … and "one thing for tomorrow" finds something in her numbers on about one evening in four (the bot runs a tidy
+    // kitchen; the sim's own tip, which comes first, isn't counted here).
+    expect(evenings).toBeGreaterThanOrEqual(5);
     console.info(`R14F days 6-30: Today card ${mornings}/${days} mornings, one-thing ${evenings}/${days} evenings`);
   }, 120_000);
 });
@@ -99,14 +101,18 @@ describe("Round 14 F — one thing for tomorrow", () => {
     const t = oneThingTomorrow(game(), night({ perDish: {
       margherita: { sold: 10, plated: 10, qualityMean: 70, revenue: 10_000, foodCost: 6_000 },
       beef_burger: { sold: 10, plated: 10, qualityMean: 70, revenue: 12_000, foodCost: 3_000 },
-    } }), name)!;
+    } }), name, undefined, course)!;
     expect(t.kind).toBe("margin");
+    expect(t.title).toBe("The Margherita pizza keeps the least of each £1: 40p.");
     expect(t.title).toContain("Margherita pizza");
     expect(t.act!.commands).toEqual([{ type: "SET_MENU_ITEM", dishId: "margherita", price: 1100 }]);
     expect(oneThingTomorrow(game(), night({ covers: 0 }), name)).toBeUndefined();
     // Already well above its usual price: no more nudging it up.
     const dear = game(undefined, [{ dishId: "margherita", price: 5000, active: true }, { dishId: "beef_burger", price: 1200, active: true }] as never);
     const lines = { margherita: { sold: 10, plated: 10, qualityMean: 70, revenue: 10_000, foodCost: 6_000 }, beef_burger: { sold: 10, plated: 10, qualityMean: 70, revenue: 12_000, foodCost: 3_000 } };
-    expect(oneThingTomorrow(dear, night({ perDish: lines }), name, (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice)).toBeUndefined();
+    expect(oneThingTomorrow(dear, night({ perDish: lines }), name, (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice, course)).toBeUndefined();
+    // A drink is never the yardstick for a main.
+    const drink = content.dishes.find((d) => d.course === "drink")!.id;
+    expect(oneThingTomorrow(game(undefined, [{ dishId: "margherita", price: 1000, active: true }, { dishId: drink, price: 300, active: true }] as never), night({ perDish: { margherita: lines.margherita, [drink]: { sold: 10, plated: 10, qualityMean: 70, revenue: 3000, foodCost: 300 } } }), name, undefined, course)).toBeUndefined();
   });
 });
