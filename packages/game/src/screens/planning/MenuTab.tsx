@@ -17,15 +17,16 @@ import { Term } from "../../components/Term";
 import { useDrinksView } from "../../lib/settings";
 import type { CustomDish } from "../../lib/customDish";
 import type { PathMeta } from "../../state/paths";
+import { prefsStorage } from "../../lib/storage";
 
 export type MenuView = "list" | "matrix";
 const VIEW_KEY = "full-plate:menuView:v1";
 /** The last view she picked (a per-browser convenience; the list when storage is missing or blocked). */
 export function readMenuView(): MenuView {
-  try { return localStorage.getItem(VIEW_KEY) === "matrix" ? "matrix" : "list"; } catch { return "list"; }
+  try { return prefsStorage().getItem(VIEW_KEY) === "matrix" ? "matrix" : "list"; } catch { return "list"; }
 }
 function writeMenuView(v: MenuView): void {
-  try { localStorage.setItem(VIEW_KEY, v); } catch { /* private window: keep it for this visit only */ }
+  try { prefsStorage().setItem(VIEW_KEY, v); } catch { /* private window: keep it for this visit only */ }
 }
 
 /** ✕ asks once before a dish leaves the menu (there is no undo). */

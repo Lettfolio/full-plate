@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { prefsStorage } from "./storage";
 
 /** Player preferences (not part of the save). Stored in localStorage; every read/write survives blocked storage. */
 export interface Settings {
@@ -44,7 +45,7 @@ export const DEFAULT_SETTINGS: Settings = { autoPause: true, defaultSpeed: 1, so
 
 function read(): Settings {
   try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    const raw = prefsStorage().getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     return normalize(JSON.parse(raw) as Partial<Settings>);
   } catch {
@@ -89,7 +90,7 @@ export function getSettings(): Settings {
 
 export function setSettings(patch: Partial<Settings>): void {
   current = normalize({ ...getSettings(), ...patch });
-  try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* storage blocked: keep in memory */ }
+  try { prefsStorage().setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* storage blocked: keep in memory */ }
   applyTextSize(current.textSize);
   applyMotion(current.animations);
   for (const l of listeners) l();
@@ -101,7 +102,7 @@ export function adoptSettings(p: Partial<Settings>): void {
   const next = normalize({ ...getSettings(), ...p });
   if (JSON.stringify(next) === JSON.stringify(getSettings())) return;
   current = next;
-  try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* keep in memory */ }
+  try { prefsStorage().setItem(SETTINGS_KEY, JSON.stringify(current)); } catch { /* keep in memory */ }
   applyTextSize(current.textSize);
   applyMotion(current.animations);
   for (const l of listeners) l();

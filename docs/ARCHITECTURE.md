@@ -110,7 +110,7 @@ Behind one store (`state/saveStore.ts` facade → lazy `saveCore.ts`), up to six
 
 1. **Account** (`saveCloud.ts`): inside claude.ai, the viewer's private `data/users/<uid>/` collection — gzip+base64,
    chunked, two banks, header written last; a conflict rule keeps the other copy as a backup.
-2. **Device** (`saveCore.ts`): the same packed blob in `localStorage` (`full-plate:slot:v1:<id>` + an index); a
+2. **Device** (`saveCore.ts`): the same packed blob in `localStorage` (`full-plate:slot:v1:<id>` + an index; Round 13: every key goes through `lib/storage.ts`, prefixed `<path>/` on a project path such as GitHub Pages' `/full-plate/`, with a one-time move of the old keys); a
    reload offline still continues. Round 1–8 single saves are imported once.
 3. **Save file** (`saveFiles.ts`): `fullplate-<name>-day<N>.fpsave.json`, via the `downloads` capability or
    `<a download>`; Load a save file reads it back (and old raw envelopes).

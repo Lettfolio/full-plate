@@ -7,11 +7,14 @@ import { CrashGuard } from "./components/CrashGuard";
 import { getSettings } from "./lib/settings";
 import { attachPrefs } from "./lib/prefsSync";
 import { getSaveStore } from "./state/saveStore";
+import { installTermTap } from "./lib/termTap";
 
 // Round 7: apply the saved text size (data-text on <html>) before the first paint.
 getSettings();
 // Round 9: settings and onboarding flags ride along with the saves (the account mirror starts after the first paint).
 attachPrefs(getSaveStore());
+// Round 13 (E): a tap in the gap between two glossary words goes to the nearer one (lib/termTap.ts).
+installTermTap();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

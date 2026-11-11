@@ -556,9 +556,16 @@ const setSetMenu: Handler<"SET_SET_MENU"> = (content, state, cmd) => {
   return ok({ ...state, setMenu }, setMenu.active ? `Set menu on: ${setMenu.dishIds.length} courses for ${formatPence(setMenu.price)}.` : "Set menu saved (off).");
 };
 
+/**
+ * Round 13 (E, red-team G14): the owner's skills are set once, by the career handover, on a restaurant that has just
+ * opened: planning, before its first service, and only if nobody has set them yet. Any later call is refused, so a
+ * screen (or a hand-edited command) can't make the owner a better cook mid-game.
+ */
 const setOwnerProfile: Handler<"SET_OWNER_PROFILE"> = (_c, state, cmd) => {
-  const bad = requirePhase(state, ["planning", "evening", "event"], "change the owner's skills");
+  const bad = requirePhase(state, ["planning"], "change the owner's skills");
   if (bad) return bad;
+  if (state.ownerProfile) return reject(state, "The owner's skills are already set.");
+  if (state.history.length > 0) return reject(state, "The owner's skills are set when the restaurant opens.");
   if (!isNum(cmd.skill) || !isNum(cmd.speed) || !isNum(cmd.charm)) return reject(state, "Skills must be numbers 0-100.");
   const ownerProfile = { skill: round2(clamp(cmd.skill, 0, 100)), speed: round2(clamp(cmd.speed, 0, 100)), charm: round2(clamp(cmd.charm, 0, 100)) };
   return ok({ ...state, ownerProfile });

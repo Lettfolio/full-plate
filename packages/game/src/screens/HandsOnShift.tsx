@@ -11,6 +11,7 @@ import { modalOpen } from "../lib/modal";
 import { cardPlacement, markOnboardSeen, onboardingSteps, onboardSeen, type OnboardStep } from "../lib/onboarding";
 import { createTouchControl, prefersTouch } from "../lib/touchControl";
 import { canvasDpr, createPerfMeter, devSwitches, perfEnabled, prefersReducedMotion } from "../lib/perfMeter";
+import { prefsStorage } from "../lib/storage";
 
 /**
  * Real seconds per sim tick while a hands-on session is live with no station (HANDSON-NOTES: a 120-tick service is 3
@@ -96,7 +97,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
   const [touch, setTouch] = useState(prefersTouch);
   const touchCtl = useRef(createTouchControl());
   const inputRef = useRef<InputSource | null>(null);
-  const storage = (() => { try { return window.localStorage; } catch { return undefined; } })();
+  const storage = prefsStorage(); // R13-E: namespaced, memory when blocked
   const [onboard, setOnboard] = useState<number | null>(() => (onboardSeen(storage, game.seed, role) ? null : 0));
   const onboardRef = useRef(onboard);
   onboardRef.current = onboard;

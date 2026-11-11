@@ -1,11 +1,17 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { injectCsp, wantsCsp } from "./src/csp.config";
 
 // The game always bundles the real @full-plate/sim-core and @full-plate/content workspace packages.
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Round 13 (E, S12): the GitHub Pages build (FP_TARGET=pages) carries a meta Content-Security-Policy
+    // (src/csp.config.ts says why each source is there, and why the artifact build has none).
+    { name: "fp-csp", apply: "build", transformIndexHtml: { order: "post", handler: (html) => (wantsCsp(process.env) ? injectCsp(html) : html) } },
+  ],
   // Round 11: vite 6 defaults to json.stringify "auto" (big JSON imports become JSON.parse("…") strings: +11 kB on the
   // content chunk). Keep vite 5's object literals so the chunk sizes stay where they were.
   json: { stringify: false },

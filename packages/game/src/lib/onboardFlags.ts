@@ -3,6 +3,7 @@
  * Kept apart from onboarding.ts (the step texts, in the hands-on chunk) so the main chunk only carries this.
  */
 import type { HandsOnRole } from "@full-plate/handson";
+import { prefsStorage } from "./storage";
 
 const PREFIX = "full-plate:onboard:v1:";
 export const onboardKey = (seed: number, role: HandsOnRole): string => `${PREFIX}${role}:${seed}`;
@@ -21,7 +22,7 @@ export function noteMarked(k: string): void { if (markHook) { seenHere.add(k); m
 export function knownOnboardKeys(): string[] {
   const out = new Set<string>(accountSeen);
   try {
-    const ls = window.localStorage;
+    const ls = prefsStorage();
     for (let i = 0; i < ls.length; i++) { const k = ls.key(i); if (k?.startsWith(PREFIX) && ls.getItem(k) === "1") out.add(k); }
   } catch { /* blocked */ }
   for (const k of seenHere) { out.delete(k); out.add(k); }
@@ -32,7 +33,7 @@ export function knownOnboardKeys(): string[] {
 export function forgetOnboardKeys(): void {
   accountSeen.clear(); seenHere.clear();
   try {
-    const ls = window.localStorage, mine: string[] = [];
+    const ls = prefsStorage(), mine: string[] = [];
     for (let i = 0; i < ls.length; i++) { const k = ls.key(i); if (k?.startsWith(PREFIX)) mine.push(k); }
     for (const k of mine) ls.removeItem(k);
   } catch { /* blocked */ }
@@ -43,6 +44,6 @@ export function adoptOnboardKeys(keys: readonly string[]): void {
   for (const k of keys) {
     if (typeof k !== "string" || !k.startsWith(PREFIX)) continue;
     accountSeen.add(k);
-    try { window.localStorage.setItem(k, "1"); } catch { /* blocked */ }
+    try { prefsStorage().setItem(k, "1"); } catch { /* blocked */ }
   }
 }

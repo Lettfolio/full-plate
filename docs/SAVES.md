@@ -123,7 +123,9 @@ unchanged here and has gone from the account was deleted on another device, so i
 
 Up to 6 slots, named by default after the restaurant (a career: "<player>'s career"); renamed in Your games. The local
 index (`full-plate:slots:v1`) holds each slot's summary, hash and `syncedHash`; each slot's packed blob is
-`full-plate:slot:v1:<slotId>` = `<encoding>:<data>`.
+`full-plate:slot:v1:<slotId>` = `<encoding>:<data>`. Round 13: on a project path (GitHub Pages' `/full-plate/`) every key carries the path's first segment as a
+prefix (`full-plate/full-plate:slot:v1:<slotId>`), moved there once from the old un-scoped keys (`lib/storage.ts`;
+UI-NOTES "Round 13 — E"). At the root of an origin the keys are unchanged.
 
 First load with no index: the round 1–8 saves (`full-plate:save:v1` owner, `full-plate:career:v1` career) are imported
 as slots 1 and 2 (owner most recent, so Continue plays it), unless the owner run had ended. The old keys are left

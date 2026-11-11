@@ -137,7 +137,16 @@ function metrics(min) {
     let t = el;
     if (el.matches("input[type=checkbox], input[type=radio]") && el.closest("label")) t = el.closest("label");
     if (measured.has(t)) continue; measured.add(t);
-    const r = t.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    let r = t.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    // Round 13 (E): a glossary word's target is its invisible hit area (theme.css `.term::before`, lib/termTap.ts).
+    if (t.matches(".term")) {
+      const b = getComputedStyle(t, "::before");
+      if (b.content !== "none" && b.position === "absolute") {
+        const n = (v) => Math.min(0, parseFloat(v) || 0);
+        r = { left: r.left + n(b.left), right: r.right - n(b.right), top: r.top + n(b.top), bottom: r.bottom - n(b.bottom) };
+        r.width = r.right - r.left; r.height = r.bottom - r.top;
+      }
+    }
     // a visually hidden native input (the save-file picker) is driven by a visible button, which is measured instead
     if (t.tagName === "INPUT" && r.width <= 2 && r.height <= 2) continue;
     if (r.width * r.height > innerWidth * innerHeight * 0.5) continue;

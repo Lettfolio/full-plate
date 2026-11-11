@@ -460,6 +460,20 @@ describe("owner profile and recruitment fee", () => {
     rejected(withOrder(), { type: "SET_OWNER_PROFILE", skill: 1, speed: 1, charm: 1 });
   });
 
+  it("R13 (G14): SET_OWNER_PROFILE is accepted once, in planning, before the first service", () => {
+    const s0 = fresh();
+    const s1 = step(s0, { type: "SET_OWNER_PROFILE", skill: 60, speed: 60, charm: 60 });
+    expect(s1.ownerProfile).toEqual({ skill: 60, speed: 60, charm: 60 });
+    // A second call (any screen, any time) is refused and changes nothing.
+    rejected(s1, { type: "SET_OWNER_PROFILE", skill: 100, speed: 100, charm: 100 });
+    // After a night has been served, even an unset profile can't be set.
+    let played = step(ready(3), { type: "START_SERVICE" });
+    while (played.phase === "service") played = tickOnce(played);
+    expect(played.history.length).toBeGreaterThan(0);
+    rejected(played, { type: "SET_OWNER_PROFILE", skill: 90, speed: 90, charm: 90 });
+    expect(played.ownerProfile).toBeUndefined();
+  });
+
   it("a skilled owner cooks better plates than the default owner", () => {
     const solo = (s: GameState) => {
       let cur = step(s, { type: "START_SERVICE" });

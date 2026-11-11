@@ -4,6 +4,7 @@
  * in fixed arrays (no allocation per frame), and draws a small readout in the canvas corner. The latest averages are
  * also on `window.__fpPerf[name]` for Playwright.
  */
+import { deviceStorage } from "./storage";
 
 export const PERF_WINDOW = 120;
 
@@ -25,7 +26,7 @@ export const DEV_FLAG_KEY = "full-plate:dev";
  */
 export function devSwitches(): boolean {
   if (import.meta.env.DEV) return true;
-  try { return typeof window !== "undefined" && window.localStorage.getItem(DEV_FLAG_KEY) === "1"; } catch { return false; }
+  try { return typeof window !== "undefined" && deviceStorage()?.getItem(DEV_FLAG_KEY) === "1"; } catch { return false; }
 }
 
 export function perfEnabled(search = typeof window !== "undefined" ? window.location.search : ""): boolean {

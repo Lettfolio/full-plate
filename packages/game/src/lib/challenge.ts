@@ -17,6 +17,7 @@ import { encodeSave } from "../state/save";
 import { WEEKDAY_NAMES, weekdayIndex } from "./calendar";
 import { formatPence } from "./format";
 import { noteMarked } from "./onboardFlags";
+import { prefsStorage } from "./storage";
 
 // ── dates ──
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -323,7 +324,7 @@ const KEEP_DAYS = 120;
 
 function readBests(): Record<string, Best> {
   try {
-    const raw = JSON.parse(localStorage.getItem(BEST_KEY) ?? "{}") as Record<string, Best>;
+    const raw = JSON.parse(prefsStorage().getItem(BEST_KEY) ?? "{}") as Record<string, Best>;
     return raw && typeof raw === "object" ? raw : {};
   } catch { return {}; }
 }
@@ -335,8 +336,9 @@ function readBests(): Record<string, Best> {
 export function allBests(): Best[] {
   const out = readBests();
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
+    const ls = prefsStorage();
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
       const m = k?.startsWith(MIRROR) ? /^(\d{4}-\d{2}-\d{2}):(\d+)$/.exec(k.slice(MIRROR.length)) : null;
       if (!m) continue;
       const date = m[1]!, score = Math.min(MAX_SCORE, +m[2]!);
@@ -356,10 +358,10 @@ export function recordBest(b: Best): boolean {
   const all = readBests();
   all[b.date] = b;
   const keep = Object.values(all).sort((x, y) => y.date.localeCompare(x.date)).slice(0, KEEP_DAYS);
-  try { localStorage.setItem(BEST_KEY, JSON.stringify(Object.fromEntries(keep.map((x) => [x.date, x])))); } catch { /* blocked */ }
+  try { prefsStorage().setItem(BEST_KEY, JSON.stringify(Object.fromEntries(keep.map((x) => [x.date, x])))); } catch { /* blocked */ }
   if (topBests(5).some((x) => x.date === b.date && x.score === b.score)) {
     const k = `${MIRROR}${b.date}:${b.score}`;
-    try { localStorage.setItem(k, "1"); } catch { /* blocked */ }
+    try { prefsStorage().setItem(k, "1"); } catch { /* blocked */ }
     noteMarked(k);
   }
   return true;
@@ -374,17 +376,17 @@ export async function saveRun(game: GameState, meta: PathMeta): Promise<boolean>
   const { pack } = await import("../state/saveCodec");
   const packed = await pack(encodeSave(game, meta));
   const run: StoredRun = { date: meta.challenge.date, day: game.day - meta.challenge.startDay, ...packed };
-  try { localStorage.setItem(RUN_KEY, JSON.stringify(run)); return true; } catch { return false; }
+  try { prefsStorage().setItem(RUN_KEY, JSON.stringify(run)); return true; } catch { return false; }
 }
 
 export function peekRun(): StoredRun | null {
   try {
-    const r = JSON.parse(localStorage.getItem(RUN_KEY) ?? "null") as StoredRun | null;
+    const r = JSON.parse(prefsStorage().getItem(RUN_KEY) ?? "null") as StoredRun | null;
     return r && typeof r.date === "string" && typeof r.data === "string" && (r.encoding === "gzip-b64" || r.encoding === "b64") ? r : null;
   } catch { return null; }
 }
 
-export function clearRun(): void { try { localStorage.removeItem(RUN_KEY); } catch { /* blocked */ } }
+export function clearRun(): void { try { prefsStorage().removeItem(RUN_KEY); } catch { /* blocked */ } }
 
 /** The stored run, unpacked and checked by the save schemas (state/saveCheck.ts). Null when it isn't usable. */
 export async function loadRun(run: StoredRun): Promise<{ game: GameState; meta: PathMeta } | null> {
