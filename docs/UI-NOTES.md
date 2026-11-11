@@ -2322,3 +2322,15 @@ with `document.elementFromPoint` at 390×844 and 844×390.
 honest guests are trusted for timing (a guest chef can still plate a claimed ticket as fast as they like — bounded by
 the results budget, and it only helps the host); the guest side has no "host seems to have gone" for the turn-based day
 (the guest's screen already says when the session has ended or expired).
+
+**Numbers.** Tests 1,505 → 1,530 (game 777; +19 `round14.coop`, +6 `round14.coopday`), all passing. Main chunk
+181.53 → 181.54 kB (unchanged: everything here is in lazy chunks); CoopLive 32.98 → 38.88 kB, VisitFriend (holds the
+dock) 49.69 → 53.18 kB. Audit and audit:large: 0 text under 13 px, 0 errors. Probe: no change from master's dist on
+this machine (768×1024 compared side by side: identical); the `covered` excess over the stored baseline is master's
+too, so no re-baseline. Balance at 200 seeds: 90.0 / 68.0 / 0.
+**Playtest** (built dist, `vite preview` on 127.0.0.1; shots `scratchpad/shots/r14/A/`): `playtest-coop-r14.mjs` all
+checks, 0 page errors — the fabricated drops cost £0 (49 messages refused), a drop naming all 28 ticket ids heard on the
+room honoured one plate on the pass (£0.40, cap £30.22), Mallory's 600-message flood left Bob "here" and his taps
+landing, Bob's screen stayed Alice's restaurant; Bob's closed tab noticed after 53 s; the phone pill/panel cover
+nothing at 390×844 or 844×390. `playtest-coop-live.mjs` (R13 F's) 0 ms and 150 ms + 20 % loss: replays byte-identical,
+39 and 54 guest results applied, 0 refused from the honest guest.
