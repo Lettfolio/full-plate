@@ -73,7 +73,7 @@ function mixWords(m: Mix | undefined): string {
 
 // ───────────────────────── world map ─────────────────────────
 
-export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: string; onPick: (id: string) => void }) {
+export function WorldMap({ e, picked, onPick, logo }: { e: EmpireState; picked?: string; onPick: (id: string) => void; /** R13-D: the brand's logo on every pin with shops */ logo?: string | undefined }) {
   const uid = useId().replace(/:/g, "");
   const [view, setViewRaw] = useState<View>(HOME_VIEW);
   const setView = useCallback((v: View | ((p: View) => View)) => setViewRaw((p) => clampView(typeof v === "function" ? v(p) : v)), []);
@@ -220,6 +220,7 @@ export function WorldMap({ e, picked, onPick }: { e: EmpireState; picked?: strin
                   {c.id === hq && <span className="mappin__hq" title="HQ"><Crown /></span>}
                   {hubs.has(c.id) && c.id !== hq && <span className="mappin__hq mappin__hq--kitchen" title="Commissary">🍳</span>}
                   {m?.building ? <span className="mappin__building" /> : null}
+                  {logo && total > 0 && <img className="mappin__logo" src={logo} width={20} height={20} alt="" aria-hidden="true" />}
                 </span>
                 <span className="mappin__label" aria-hidden="true">{c.name}</span>
               </button>

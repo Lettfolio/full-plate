@@ -31,3 +31,14 @@ export function clockLabel(tick: number): string {
 export function isOpeningDay(game: { day: number; history: readonly unknown[]; stats: { daysOpen: number } }): boolean {
   return game.day === 0 && game.history.length === 0 && game.stats.daysOpen === 0;
 }
+
+/**
+ * Round 13 (D): the calendar season a day falls in, counted from the start of the game (Dec–Feb winter, Mar–May spring,
+ * Jun–Aug summer, Sep–Nov autumn): one number per season, so "once a season" is "once per number". Game side only.
+ */
+export function seasonOf(day: number): number {
+  const month = Math.floor(day / DAYS_PER_MONTH) + monthOf(0) - 1;
+  return Math.floor((month + 1) / 3);
+}
+export const SEASON_NAMES = ["winter", "spring", "summer", "autumn"] as const;
+export const seasonName = (season: number): string => SEASON_NAMES[((season % 4) + 4) % 4]!;

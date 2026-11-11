@@ -6,10 +6,12 @@
  * (no photo); one without waits for the next matching weekday.
  *
  * All of it is a fold over the day results in the save (GameState.history), so the same save always gives the same
- * book. Limit: the sim keeps the last 400 days of results (sim-core HISTORY_MAX), so a beat earned more than 400 days
- * ago is re-derived from what is left (UI-NOTES "Round 12 — E").
+ * book. Limit: the sim keeps the last 400 days of results (sim-core HISTORY_MAX); Round 13 (D) keeps the fold in a
+ * PathMeta memo (`meta.voices`, lib/voicesMemo.ts writes it after each day), so the fold resumes from the memo and a
+ * beat earned on day 30 is still in the book on day 900.
  */
 import type { Customer, CustomerId, DayResult, GameState } from "@full-plate/sim-core";
+import type { VoicesMemo } from "../state/paths";
 import type { RegularBeat, RegularDef } from "@full-plate/content/voices";
 import { weekdayIndex } from "./calendar";
 import { visitsOn, blogger } from "./blogger";
@@ -30,6 +32,8 @@ export interface BeatDone {
   beat: number;
   day: number;
   good: boolean;
+  /** Round 13 (D): the beat's dish that sold that night (the story's {dish}), kept so the words survive the history cap. */
+  dishId?: string | undefined;
 }
 export interface VipOrder {
   /** The beat it unlocks (1..4). */
@@ -73,11 +77,28 @@ function orderAfter(seed: number, def: RegularDef, beat: number, d: DayResult): 
   return { beat, dishId, weekday: weekdayIndex(from), since: d.day, from };
 }
 
-/** Every regular's story so far, from the results in `history` (oldest first). */
-export function regularsFrom(seed: number, history: readonly DayResult[]): RegularState[] {
+/** A memo this game can resume from: same seed, and not ahead of the history (else the fold starts from scratch). */
+export const usableMemo = (seed: number, history: readonly DayResult[], memo: VoicesMemo | undefined): VoicesMemo | undefined =>
+  memo && memo.v === 1 && memo.seed === seed && memo.day <= (history.at(-1)?.day ?? -1) ? memo : undefined;
+
+/**
+ * Every regular's story so far, from the results in `history` (oldest first). Round 13 (D): with a memo, the fold
+ * starts from the memo's states and reads only the days after `memo.day` (the same answer while the history still
+ * holds every day; the memo's answer once it doesn't).
+ */
+export function regularsFrom(seed: number, history: readonly DayResult[], memo?: VoicesMemo): RegularState[] {
   const states: RegularState[] = cast(seed).map(({ def, plannedDay }) => ({ def, plannedDay, done: [] }));
+  const m = usableMemo(seed, history, memo);
+  for (const r of m?.regs ?? []) {
+    const s = states.find((x) => x.def.id === r.id);
+    if (!s) continue;
+    if (r.joined !== undefined) s.joined = r.joined;
+    s.done = r.done.map(([beat, day, good, dishId]) => ({ beat, day, good: good === 1, ...(dishId ? { dishId } : {}) }));
+    if (r.open) s.open = { ...r.open };
+  }
+  const from = m ? m.day : -Infinity;
   for (const d of history) {
-    if (!wasOpen(d)) continue;
+    if (d.day <= from || !wasOpen(d)) continue;
     for (const s of states) {
       if (s.joined === undefined) {
         if (d.day < s.plannedDay) continue;
@@ -93,7 +114,7 @@ export function regularsFrom(seed: number, history: readonly DayResult[]): Regul
       const good = d.averageRating >= GOOD_NIGHT;
       const beat = s.def.beats[o.beat - 1]!;
       if (!good && beat.bad === undefined) { s.open = { ...o, triedDay: d.day }; continue; }
-      s.done.push({ beat: o.beat, day: d.day, good });
+      s.done.push({ beat: o.beat, day: d.day, good, dishId: beat.dishes.find((x) => sold(d, x)) ?? beat.dishes[0] });
       if (o.beat < s.def.beats.length) s.open = orderAfter(seed, s.def, o.beat + 1, d);
       else delete s.open;
     }
@@ -101,7 +122,7 @@ export function regularsFrom(seed: number, history: readonly DayResult[]): Regul
   return states;
 }
 
-export const regularsOf = (game: GameState): RegularState[] => regularsFrom(game.seed, game.history);
+export const regularsOf = (game: GameState, memo?: VoicesMemo): RegularState[] => regularsFrom(game.seed, game.history, memo);
 
 // ───────── words ─────────
 const first = (def: RegularDef) => def.name.split(" ")[0]!;
@@ -126,7 +147,7 @@ export function storyOf(game: GameState, s: RegularState): BeatText[] {
   return s.done.map((b) => {
     if (b.beat === 0) return { beat: 0, day: b.day, good: true, text: s.def.intro };
     const beat: RegularBeat = s.def.beats[b.beat - 1]!;
-    const dishId = beat.dishes.find((x) => { const d = days.get(b.day); return d ? sold(d, x) : false; }) ?? beat.dishes[0];
+    const dishId = b.dishId ?? beat.dishes.find((x) => { const d = days.get(b.day); return d ? sold(d, x) : false; }) ?? beat.dishes[0];
     const v = vars(game, s.def, dishId, weekdayIndex(b.day));
     return {
       beat: b.beat, day: b.day, good: b.good, dishId,
@@ -149,7 +170,7 @@ export function beatGossip(game: GameState, regulars: readonly RegularState[], d
     if (!b) continue;
     const beat = s.def.beats[b.beat - 1]!;
     const d = game.history.find((x) => x.day === day);
-    const dishId = beat.dishes.find((x) => (d ? sold(d, x) : false)) ?? beat.dishes[0];
+    const dishId = b.dishId ?? beat.dishes.find((x) => (d ? sold(d, x) : false)) ?? beat.dishes[0];
     return fill(beat.gossip, vars(game, s.def, dishId, weekdayIndex(day)));
   }
   return undefined;
@@ -199,4 +220,32 @@ export function floorNames(game: GameState): ReadonlyMap<CustomerId, string> {
     memo.given.add(w.who);
   }
   return memo.names;
+}
+
+// ───────── Round 13 (D): thank-you notes and the regular of the month ─────────
+/** The story is over: the last VIP beat is done (good or bad). */
+export const storyDone = (s: RegularState): boolean => s.done.some((b) => b.beat === s.def.beats.length);
+
+/** The note a regular leaves when their story finishes (a seeded pick from `thanks`), or undefined while it runs. */
+export function thanksNote(game: Pick<GameState, "seed" | "restaurantName" | "districtId">, s: RegularState): { day: number; text: string } | undefined {
+  const last = s.done.find((b) => b.beat === s.def.beats.length);
+  const pool = voices.regulars.thanks ?? [];
+  if (!last || !pool.length) return undefined;
+  return { day: last.day, text: fill(pool[h32(game.seed, "reg:thanks", s.def.id) % pool.length]!, vars(game, s.def, s.def.favourite)) };
+}
+
+/**
+ * The chapter card's "Regular of the month": whoever's story moved on most in days `from`–`to` (good beats count
+ * double, a newcomer's intro once); ties go to the one whose last beat was later. Undefined when nobody's did.
+ */
+export function regularOfMonth(regs: readonly RegularState[], from: number, to: number): { s: RegularState; beats: number } | undefined {
+  let best: { s: RegularState; score: number; beats: number; last: number } | undefined;
+  for (const s of regs) {
+    const inside = s.done.filter((b) => b.day >= from && b.day <= to);
+    if (!inside.length) continue;
+    const score = inside.reduce((a, b) => a + (b.beat === 0 ? 1 : b.good ? 2 : 1), 0);
+    const last = Math.max(...inside.map((b) => b.day));
+    if (!best || score > best.score || (score === best.score && last > best.last)) best = { s, score, beats: inside.length, last };
+  }
+  return best && { s: best.s, beats: best.beats };
 }

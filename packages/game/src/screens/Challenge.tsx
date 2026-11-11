@@ -14,6 +14,7 @@ import {
   TEMPLATES, todayKey, topBests, type StoredRun, type TemplateId,
 } from "../lib/challenge";
 import "./challenge.css";
+import { defaultBrand, lettering, logoDataUrl } from "../lib/brand";
 
 /** What each template asks, before the restaurant is built (the exact number comes with it). */
 export const GOAL_HINT: Record<TemplateId, string> = {
@@ -28,6 +29,18 @@ export const GOAL_HINT: Record<TemplateId, string> = {
 interface Props {
   onBack: () => void;
   onPlay: (game: GameState, meta: PathMeta) => void;
+}
+
+/** Round 13 (D): today's restaurant in its own brand (the default its name gives: a challenge has no brand kit). */
+function ChallengeBrand({ name }: { name: string }) {
+  const b = defaultBrand(name);
+  const f = lettering(b.letter);
+  return (
+    <div className="challenge__brand" data-testid="challenge-brand" style={{ borderColor: b.primary }}>
+      <img className="brandlogo" src={logoDataUrl(b)} width={48} height={48} alt={`${name} logo`} />
+      <span className="wordmark" style={{ fontFamily: f.family, fontWeight: f.weight, fontStyle: f.style, textTransform: f.transform, letterSpacing: f.spacing }}>{name}</span>
+    </div>
+  );
 }
 
 export function Challenge({ onBack, onPlay }: Props) {
@@ -79,6 +92,7 @@ export function Challenge({ onBack, onPlay }: Props) {
           <div className="challenge__kicker">{prettyDate(today)} · same for everyone today</div>
           <h2 id="ch-title" className="challenge__title"><Icon name="target" size={28} />{sc.title}</h2>
           <p className="challenge__sub">{sc.kicker}. {sc.restaurantName}, {district}.</p>
+          <ChallengeBrand name={sc.restaurantName} />
           <p className="challenge__goal"><b>Goal:</b> {GOAL_HINT[sc.template]}</p>
           <ul className="challenge__rules small">
             <li>Five days on Normal. Watch, skip or work any service hands-on.</li>

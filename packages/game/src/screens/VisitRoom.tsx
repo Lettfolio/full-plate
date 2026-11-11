@@ -15,21 +15,36 @@ import { dateLabel } from "../lib/calendar";
 import { dishName, districtName, roomState, ROLE_WORD, weekTotals } from "../lib/visit";
 import { COMPLIMENTS, leaveReview, MAX_PICKS, reviewedToday, showCode, type ReviewResult, type SDb, type ShareSnapshot } from "../state/share";
 import type { GameState } from "@full-plate/sim-core";
-import { defaultBrand, logoDataUrl, parseBrand } from "../lib/brand";
+import { brandVars, defaultBrand, logoDataUrl, parseBrand, type Brand } from "../lib/brand";
+import type { CanvasBrand } from "../canvas/brand";
 import "./visit.css";
 
 /** R12 review: the owner's brand kit, if the share carries one (each field re-checked; anything odd → the name's default). */
 export function visitBrandLogo(snap: Pick<ShareSnapshot, "name" | "brand">): string | null {
+  return snap.brand ? logoDataUrl(visitBrand(snap)) : null;
+}
+
+/**
+ * Round 13 (D, R12-F7): the OWNER's brand for their room — the share's brand fields (each re-checked by parseBrand),
+ * or the default their restaurant's name gives when the share has none. Never the visitor's own.
+ */
+export function visitBrand(snap: Pick<ShareSnapshot, "name" | "brand">): Brand {
   const b = snap.brand;
-  if (!b) return null;
+  const fallback = defaultBrand(snap.name);
+  if (!b) return fallback;
   const f = (k: string) => (typeof b[k] === "string" ? String(b[k]) : "");
-  const code = ["1", f("shape"), f("motif"), f("letter"), f("primary"), f("accent"), f("uniform"), f("uniformColour"), f("menu")].join(".");
-  return logoDataUrl(parseBrand(code, defaultBrand(snap.name)));
+  return parseBrand(["1", f("shape"), f("motif"), f("letter"), f("primary"), f("accent"), f("uniform"), f("uniformColour"), f("menu")].join("."), fallback);
+}
+
+/** The owner's awning (a CSS variable on the room, read by the floor palette) and uniforms (RenderOptions.brand). */
+export function visitLook(b: Brand): { awning: string; canvas: CanvasBrand } {
+  return { awning: brandVars(b)["--awning"]!, canvas: { uniform: b.uniform, colour: b.uniformColour, accent: b.accent } };
 }
 
 interface Props { db: SDb; uid: string; code: string; snap: ShareSnapshot; mine: boolean; nick: string; onExit: () => void }
 
-function Room({ game, name }: { game: GameState; name: string }) {
+function Room({ game, name, brand }: { game: GameState; name: string; brand: Brand }) {
+  const look = useMemo(() => visitLook(brand), [brand]);
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -41,12 +56,12 @@ function Room({ game, name }: { game: GameState; name: string }) {
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : undefined;
     ro?.observe(el);
     let raf = 0;
-    const frame = (t: number) => { view.render(game, { content, speed: 0, now: t, reducedMotion: prefersReducedMotion(), preview: true }); raf = requestAnimationFrame(frame); };
+    const frame = (t: number) => { view.render(game, { content, speed: 0, now: t, reducedMotion: prefersReducedMotion(), preview: true, brand: look.canvas }); raf = requestAnimationFrame(frame); };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); ro?.disconnect(); };
-  }, [game]);
+  }, [game, look]);
   return (
-    <div className="visitroom" ref={wrap}>
+    <div className="visitroom" ref={wrap} style={{ ["--awning" as string]: look.awning }} data-testid="visit-room" data-awning={look.awning}>
       <canvas ref={canvas} className="visitroom__canvas" role="img" aria-label={`The dining room at ${name}: ${game.tables.length} tables`} />
     </div>
   );
@@ -67,6 +82,7 @@ export function VisitRoom({ db, uid, code, snap, mine, nick, onExit }: Props) {
   };
   const seats = snap.tables.reduce((a, s) => a + s, 0);
   const logo = useMemo(() => visitBrandLogo(snap), [snap]);
+  const brand = useMemo(() => visitBrand(snap), [snap]);
   const on = snap.menu.filter((m) => m.active);
 
   return (
@@ -83,7 +99,7 @@ export function VisitRoom({ db, uid, code, snap, mine, nick, onExit }: Props) {
       <div className="visit__grid">
         <section className="card stack stack--sm visit__roomcard">
           <h3>The dining room</h3>
-          <Room game={room} name={snap.name} />
+          <Room game={room} name={snap.name} brand={brand} />
           <p className="small muted">{snap.tables.length} tables · {seats} seats</p>
         </section>
 

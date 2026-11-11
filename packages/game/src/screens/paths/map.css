@@ -270,3 +270,8 @@
 /* Round 13 (B): a city whose label would sit on another pin's label keeps its pin and drops its name until zoomed */
 .mappin--quiet .mappin__label { visibility: hidden; }
 .mappin--quiet:hover .mappin__label, .mappin--quiet:focus-visible .mappin__label, .mappin--quiet.mappin--picked .mappin__label { visibility: visible; }
+
+/* Round 13 (D): the brand's logo on the Empire pins with shops and on the Stars map's own restaurants */
+.mappin__logo { position: absolute; left: -6px; bottom: -4px; width: 20px; height: 20px; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 1.5px var(--paper); pointer-events: none; }
+.starpin__icon--logo { background: var(--paper); padding: 0; overflow: hidden; }
+.starpin__icon--logo img { width: 30px; height: 30px; display: block; }

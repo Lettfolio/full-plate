@@ -6,6 +6,9 @@
  *
  * All the numbers come from the content transform (`customDishFacts`, packages/content/src/customDish.ts) — the same
  * function that makes the DishDef the sim cooks, so the sheet can't promise something the kitchen won't do.
+ *
+ * Round 13 (D): the same sheet edits a recipe (`editing`): name, plate, price and ingredients, the course fixed. New
+ * ingredients make a new version (the cookbook keeps the old one's sales as "v1"); the reducer's `cookbook` edit does it.
  */
 import { useMemo, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
@@ -43,20 +46,27 @@ interface Props {
   /** The new recipe, and its menu price (null when the menu is full: it only goes in the cookbook). */
   onInvent: (dish: CustomDish, price: number | null) => void;
   onClose: () => void;
+  /** Round 13 (D): edit this recipe instead of inventing one. */
+  editing?: CustomDish | undefined;
+  /** Its price now (today's menu, else the house price). */
+  editPrice?: number | undefined;
+  onEdit?: (change: { name: string; icon: string; price: number; ingredients: { id: string; qty: number }[] }) => void;
 }
 
 /** "rice, mushrooms and parmesan" etc. are the ingredient names without their pack-size notes. */
 const shortName = (n: string) => n.replace(/\s*\(.*\)$/, "");
 
-export default function InventDishSheet({ game, have, onInvent, onClose }: Props) {
+export default function InventDishSheet({ game, have, onInvent, onClose, editing, editPrice, onEdit }: Props) {
+  const ed = editing;
   const [error, setError] = useState("");
-  const [name, setName] = useState("");
-  const [course, setCourse] = useState<CustomCourse>("main");
-  const [icon, setIcon] = useState<string>(DEFAULT_ICON.main);
-  const [iconPicked, setIconPicked] = useState(false);
-  const [ings, setIngs] = useState<{ id: string; qty: number }[]>([]);
+  const [name, setName] = useState(ed?.name ?? "");
+  const [course, setCourse] = useState<CustomCourse>(ed?.course ?? "main");
+  const [icon, setIcon] = useState<string>(ed?.icon ?? DEFAULT_ICON.main);
+  const [iconPicked, setIconPicked] = useState(!!ed);
+  const [ings, setIngs] = useState<{ id: string; qty: number }[]>(ed ? ed.ingredients.map((x) => ({ ...x })) : []);
   const [pick, setPick] = useState("");
-  const [price, setPrice] = useState<number | null>(null);
+  const [price, setPrice] = useState<number | null>(ed ? editPrice ?? ed.price ?? null : null);
+  const newVersion = !!ed && (ings.length !== ed.ingredients.length || ings.some((x, i) => x.id !== ed.ingredients[i]!.id || x.qty !== ed.ingredients[i]!.qty));
   const list = pickableIngredients(customRef);
   const byId = useMemo(() => new Map(list.map((i) => [i.id, i])), [list]);
   const clean = cleanDishName(name);
@@ -83,13 +93,18 @@ export default function InventDishSheet({ game, have, onInvent, onClose }: Props
   const why = !clean ? "Give it a name." : !ready ? `Pick at least ${CUSTOM_MIN_INGREDIENTS} ingredients.` : "";
   const submit = () => {
     if (why) return;
+    if (ed) {
+      if (have.some((d) => d.id !== ed.id && !d.deleted && !d.oldOf && d.name.toLowerCase() === clean.toLowerCase())) { setError(`You already have a dish called ${clean}.`); return; }
+      onEdit?.({ name: clean, icon, price: Math.max(50, myPrice), ingredients: ings });
+      return;
+    }
     const made = makeCustomDish(have, game.seed, game.day, { name: clean, course, icon, ingredients: ings }, customRef);
     if ("error" in made) { setError(made.error); return; }
     onInvent(made.dish, menuFull ? null : myPrice);
   };
 
   return (
-    <Dialog title="Invent a dish" kicker="Your recipe, your price" stamp={<Icon name="chefHat" size={28} />} onClose={onClose} wide className="invent">
+    <Dialog title={ed ? "Edit recipe" : "Invent a dish"} kicker={ed ? `${ed.name}${ed.v ? ` · version ${ed.v}` : ""}` : "Your recipe, your price"} stamp={<Icon name="chefHat" size={28} />} onClose={onClose} wide className="invent">
       <div className="invent__grid">
         <div className="stack stack--sm">
           <label className="invent__field">
@@ -101,7 +116,7 @@ export default function InventDishSheet({ game, have, onInvent, onClose }: Props
           <div className="invent__field" role="group" aria-label="Course">
             <span className="invent__label" aria-hidden="true">Course</span>
             <div className="seg invent__seg">
-              {CUSTOM_COURSES.map((c) => <button key={c} type="button" className="seg__opt" aria-pressed={course === c} onClick={() => setCourseAndIcon(c)}>{COURSE_LABEL[c]}</button>)}
+              {CUSTOM_COURSES.map((c) => <button key={c} type="button" className="seg__opt" aria-pressed={course === c} disabled={!!ed && c !== course} onClick={() => setCourseAndIcon(c)}>{COURSE_LABEL[c]}</button>)}
             </div>
           </div>
 
@@ -174,9 +189,11 @@ export default function InventDishSheet({ game, have, onInvent, onClose }: Props
         </div>
       </div>
       <div className="invent__foot">
-        <span className={`small spacer ${error ? "invent__error" : "muted"}`} role={error ? "alert" : undefined}>{error || why || (menuFull ? `The menu is full (${MAX_MENU_ITEMS}): it goes in your cookbook for later.` : "It goes on today's menu and into your cookbook.")}</span>
+        <span className={`small spacer ${error ? "invent__error" : "muted"}`} role={error ? "alert" : undefined} data-testid="invent-foot">{error || why || (ed
+          ? (newVersion ? `New ingredients make version ${(ed.v ?? 1) + 1}. The old recipe keeps its ${ed.sold} sold as v${ed.v ?? 1}.` : "Name, plate and price change straight away. Change an ingredient and it becomes a new version.")
+          : menuFull ? `The menu is full (${MAX_MENU_ITEMS}): it goes in your cookbook for later.` : "It goes on today's menu and into your cookbook.")}</span>
         <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
-        <button type="button" className="btn btn--green" disabled={!!why} onClick={submit}>{menuFull ? "Save to cookbook" : "Put it on the menu"}</button>
+        <button type="button" className="btn btn--green" disabled={!!why} onClick={submit}>{ed ? (newVersion ? `Save as v${(ed.v ?? 1) + 1}` : "Save recipe") : menuFull ? "Save to cookbook" : "Put it on the menu"}</button>
       </div>
     </Dialog>
   );

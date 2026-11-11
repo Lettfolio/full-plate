@@ -418,6 +418,30 @@
     "onMenu": "The {dish} is on your menu.",
     "tryAgain": "They came on {weekday} but it wasn't a good night. They'll try again next {weekday}.",
     "finished": "Story complete. They're one of the family now.",
-    "newRegular": "{name} is a regular now."
-  }
+    "newRegular": "{name} is a regular now.",
+    "ofTheMonth": "Regular of the month: {name}."
+  },
+  "thanks": [
+    "Thanks for putting up with me. I'll be back next week, probably. Definitely. Probably.",
+    "You fed me through a strange year. I've told everyone. Well, two people. They're both coming.",
+    "Best table in {district}. Don't let anyone else sit at it. I'm only half joking.",
+    "I came in for the {dish} and stayed for the chaos in the kitchen. Ten out of ten. Would wait for a table again.",
+    "Thank you for remembering my order. Nobody else remembers anything about me. Not even my bank.",
+    "I've eaten at {restaurant} more times than I've eaten at home. My oven has started to take it personally.",
+    "You were there for every big moment. Mostly with gravy. That's what friends are for.",
+    "This is a thank-you note. I've never written one before. It's harder than it looks. Thank you.",
+    "If you ever take the {dish} off the menu, I will write a letter. A long one. In capitals.",
+    "Cheers for everything. I've left a tip and a slightly embarrassing amount of gratitude.",
+    "My mum says I talk about {restaurant} too much. My mum is wrong.",
+    "You made a regular out of someone who used to eat cereal for dinner. That's a public service.",
+    "Thanks for the food, the patience, and for pretending not to notice when I cried at the pudding.",
+    "Five stars. I'd give six, but apparently that's 'not how stars work'.",
+    "I'm not saying {restaurant} changed my life. I'm saying my life has a lot more {dish} in it now.",
+    "Thanks for every Friday. And the Tuesdays. And that one Sunday we don't talk about.",
+    "Keep the lights on. Somebody in {district} needs a place like this, and it's me.",
+    "Nobody asked for my review, so here it is anyway: you lot are brilliant. Don't let it go to your heads.",
+    "You never once rushed me out, even when I sat there for three hours with one coffee. Legends.",
+    "I'll still be here next week. You're stuck with me. Sorry. Not sorry.",
+    "Thank you. That's it. That's the note. I'm better at eating than writing."
+  ]
 }

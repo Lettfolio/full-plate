@@ -9,8 +9,8 @@ import type { DayResult, GameState } from "@full-plate/sim-core";
 import type { PathMeta } from "../state/paths";
 import { gossipFor } from "../lib/gossip";
 import { reviewOn, blogger } from "../lib/blogger";
-import { regularsOf, storyOf } from "../lib/regulars";
-import { clippingDay, rivalFor, weekScores } from "../lib/rival";
+import { regularsOf, storyOf, thanksNote } from "../lib/regulars";
+import { clipFrom, rivalFor, weekScores } from "../lib/rival";
 import { station, withResult } from "../lib/voiceKit";
 import { Avatar } from "./Avatar";
 import { Panel } from "./Panel";
@@ -24,9 +24,9 @@ export function EveningExtras({ game, result, meta }: { game: GameState; result:
   const v = useMemo(() => {
     const g = withResult(game, result);
     const day = result.day;
-    const regs = regularsOf(g);
-    const tonight = regs.flatMap((s) => storyOf(g, s).filter((b) => b.day === day).map((b) => ({ s, b })));
-    const clip = clippingDay(weekScores(g)) === day + 1;
+    const regs = regularsOf(g, meta?.voices);
+    const tonight = regs.flatMap((s) => storyOf(g, s).filter((b) => b.day === day).map((b) => ({ s, b, thanks: thanksNote(g, s)?.day === day ? thanksNote(g, s)!.text : undefined })));
+    const clip = clipFrom(meta?.voices, g.seed, weekScores(g)) === day + 1;
     return { g, review: reviewOn(g, day), tonight, clip, tomorrow: gossipFor(g, day + 1, meta), rival: clip ? rivalFor(g.seed, g.districtId) : undefined };
   }, [game.seed, result.day, game.history.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const b = blogger();
@@ -49,12 +49,13 @@ export function EveningExtras({ game, result, meta }: { game: GameState; result:
       {v.tonight.length > 0 && (
         <Panel title="Your regulars tonight" sub={`${v.tonight.length} stor${v.tonight.length === 1 ? "y" : "ies"}`} icon="people">
           <ul className="beatlist" data-testid="regulars-tonight">
-            {v.tonight.map(({ s, b: beat }) => (
+            {v.tonight.map(({ s, b: beat, thanks }) => (
               <li key={s.def.id} className="beatlist__row">
                 <Avatar spec={regularFace(s.def)} size={48} />
                 <div>
                   <b>{s.def.name}</b> <span className="xs muted">{beat.beat === 0 ? "a new regular" : beat.good ? <>a <Term id="vip" inline>VIP</Term> order met{beat.photo ? ` · photo for the book: ${beat.photo.emoji}` : ""}</> : "it didn't quite go to plan"}</span>
                   <div className="small">{beat.text}</div>
+                  {thanks && <p className="thanksnote" data-testid="thanks-note"><span className="xs muted">A note left on the table:</span> “{thanks}” <span className="small">— {s.def.name.split(" ")[0]}</span></p>}
                 </div>
               </li>
             ))}

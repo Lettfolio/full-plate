@@ -70,7 +70,9 @@ export interface RegularDef {
 }
 export interface RegularsData {
   regulars: RegularDef[];
-  lines: Record<"open" | "waiting" | "notOnMenu" | "onMenu" | "tryAgain" | "finished" | "newRegular", string>;
+  lines: Record<"open" | "waiting" | "notOnMenu" | "onMenu" | "tryAgain" | "finished" | "newRegular" | "ofTheMonth", string>;
+  /** Round 13 (D): the note a regular leaves when their story finishes (a seeded pick; ≥ 20 lines). */
+  thanks: string[];
 }
 
 export interface Voices { gossip: GossipData; rival: RivalData; regulars: RegularsData }
@@ -81,6 +83,8 @@ export const VOICE_PLACEHOLDERS = {
   regulars: ["name", "dish", "weekday", "restaurant", "district", "blogger"],
 } as const;
 
+/** Round 13 (D): at least this many thank-you notes. */
+export const THANKS_MIN = 20;
 /** Every regular has an intro and this many VIP beats (five beats in all). */
 export const REGULAR_BEATS = 4;
 
@@ -156,7 +160,9 @@ export function validateVoices(v: Voices, dishIds: ReadonlySet<string>, district
       for (const d of b.dishes ?? []) if (!dishIds.has(d)) p.push(`${bt}.dishes: "${d}" is not a starter-library dish`);
     }
   }
-  for (const k of ["open", "waiting", "notOnMenu", "onMenu", "tryAgain", "finished", "newRegular"] as const) if (!isStr(rg.lines?.[k])) p.push(`regulars.lines.${k}: expected a string`);
+  for (const k of ["open", "waiting", "notOnMenu", "onMenu", "tryAgain", "finished", "newRegular", "ofTheMonth"] as const) if (!isStr(rg.lines?.[k])) p.push(`regulars.lines.${k}: expected a string`);
+  strings(p, "regulars.thanks", rg.thanks, THANKS_MIN);
+  if (new Set(rg.thanks ?? []).size !== (rg.thanks ?? []).length) p.push("regulars.thanks: a line is repeated");
   words(p, "regulars", rg, VOICE_PLACEHOLDERS.regulars);
   return p;
 }

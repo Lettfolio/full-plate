@@ -52,3 +52,8 @@
 .myshift__why { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); }
 .myshift__why b { color: var(--ink); }
 .myshift .btn:disabled { opacity: 0.62; border-style: dashed; }
+
+/* Round 13 (D): the employer's brand, read-only */
+.housebrand { border-top: 6px solid var(--brand-primary, var(--tomato)); }
+.housebrand__mark { display: flex; align-items: center; gap: 12px; }
+.housebrand__name { font-size: var(--fs-heading); display: block; }

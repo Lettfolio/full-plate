@@ -3,17 +3,34 @@ import type { GameState } from "@full-plate/sim-core";
 import type { GuideResult, InspectorVisit } from "@full-plate/sim-stars";
 import { fill } from "@full-plate/content";
 import { extras } from "../../sim";
-import { dateLabel } from "../../lib/calendar";
+import { dateLabel, seasonOf } from "../../lib/calendar";
 import { playSfx } from "../../lib/sfx";
+import { refineWords } from "@full-plate/content";
+import type { CustomDish } from "../../lib/customDish";
+import "./refine.css";
 
 interface Props {
   game: GameState;
   pending: { result: GuideResult; visits: InspectorVisit[] };
   onClose: () => void;
+  /** Round 13 (D): the cookbook, for the refined dishes that were served on an inspection night. */
+  cookbook?: readonly CustomDish[] | undefined;
+}
+
+/** Round 13 (D): refined invented dishes that sold on a night an inspector came, from the season they were refined (night order). */
+export function refinedOnInspection(game: Pick<GameState, "history">, visits: readonly Pick<InspectorVisit, "day">[], cookbook: readonly CustomDish[] | undefined): { day: number; name: string; prose: string }[] {
+  const refined = (cookbook ?? []).flatMap((d) => { const w = refineWords(d); return w ? [{ d, w }] : []; });
+  if (!refined.length) return [];
+  const out: { day: number; name: string; prose: string }[] = [];
+  for (const v of [...visits].sort((a, b) => a.day - b.day)) {
+    const h = game.history.find((x) => x.day === v.day);
+    for (const { d, w } of refined) if (seasonOf(v.day) >= d.refined!.season && (h?.perDish?.[d.id]?.sold ?? 0) > 0) out.push({ day: v.day, name: `${d.name}, ${w.suffix}`, prose: w.prose });
+  }
+  return out;
 }
 
 /** Guide day (STARS-NOTES §1.2): the badge keeps last year's stars until the envelope is opened. */
-export function GuideEnvelope({ game, pending, onClose }: Props) {
+export function GuideEnvelope({ game, pending, onClose, cookbook }: Props) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   useEffect(() => { btn.current?.focus(); }, [open]);
@@ -51,6 +68,11 @@ export function GuideEnvelope({ game, pending, onClose }: Props) {
               </div>
               <p>{fill(line, vars)}</p>
               <p className="xs muted">{r.reason}</p>
+              {refinedOnInspection(game, pending.visits, cookbook).map((x) => (
+                <p key={`${x.day}-${x.name}`} className="small envelope__refined" data-testid="envelope-refined">
+                  On {dateLabel(x.day)} the inspector had the <b>{x.name}</b>. <i>“{x.prose}”</i> Somebody wrote that down.
+                </p>
+              ))}
               {pending.visits.length > 0 && (
                 <div>
                   <h4>The inspectors who came this year</h4>

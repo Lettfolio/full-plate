@@ -5,7 +5,8 @@
  */
 import { lazy, Suspense, useMemo, useState } from "react";
 import { avatarFor, type AvatarSpec, type GameState } from "@full-plate/sim-core";
-import { clippingDay, feed, rivalFor, weekScores, winningLine, winStreak, CLIPPING_WEEKS } from "../lib/rival";
+import { clipFrom, feed, rivalFor, weekScores, winningLine, winStreak, CLIPPING_WEEKS } from "../lib/rival";
+import type { VoicesMemo } from "../state/paths";
 import { regularsOf } from "../lib/regulars";
 import { fill, voices } from "../lib/voiceKit";
 import { Avatar } from "./Avatar";
@@ -19,12 +20,12 @@ export function rivalFace(id: string, name: string): AvatarSpec {
   return avatarFor({ id, name, role: "chef" });
 }
 
-export function RivalCard({ game }: { game: GameState }) {
+export function RivalCard({ game, memo }: { game: GameState; memo?: VoicesMemo | undefined }) {
   const v = useMemo(() => {
     const rival = rivalFor(game.seed, game.districtId);
     const weeks = weekScores(game);
-    return { rival, weeks, posts: feed(game, rival, game.day, 3), clip: clippingDay(weeks), streak: winStreak(weeks) };
-  }, [game.seed, game.districtId, game.day, game.history.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { rival, weeks, posts: feed(game, rival, game.day, 3), clip: clipFrom(memo, game.seed, weeks), streak: winStreak(weeks) };
+  }, [game.seed, game.districtId, game.day, game.history.length, memo?.clip]); // eslint-disable-line react-hooks/exhaustive-deps
   const { rival, weeks, posts, clip, streak } = v;
   const earned = clip !== undefined && clip <= game.day;
   const item = voices.rival.clippingItem;
@@ -60,16 +61,16 @@ export function RivalCard({ game }: { game: GameState }) {
 }
 
 /** The Regulars book's card: who's a regular so far and the button that opens the book (its own lazy chunk). */
-export function RegularsCard({ game }: { game: GameState }) {
+export function RegularsCard({ game, memo }: { game: GameState; memo?: VoicesMemo | undefined }) {
   const [open, setOpen] = useState(false);
-  const regs = useMemo(() => regularsOf(game), [game.seed, game.history.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const regs = useMemo(() => regularsOf(game, memo), [game.seed, game.history.length, memo?.day]); // eslint-disable-line react-hooks/exhaustive-deps
   const joined = regs.filter((r) => r.joined !== undefined);
   const orders = joined.filter((r) => r.open).length;
   return (
     <Panel title="Regulars" sub={`${joined.length} of ${regs.length}`} icon="people">
       <p className="small">{joined.length === 0 ? "Nobody yet. Open for a night or two and faces start coming back." : <>{joined.map((r) => r.def.name.split(" ")[0]).join(", ")}. {orders > 0 && <>{orders} open <Term id="vip" inline>VIP</Term> order{orders === 1 ? "" : "s"}.</>}</>}</p>
       <button className="btn btn--tap" onClick={() => setOpen(true)} disabled={joined.length === 0}>Open the Regulars book</button>
-      {open && <Suspense fallback={null}><RegularsBook game={game} onClose={() => setOpen(false)} /></Suspense>}
+      {open && <Suspense fallback={null}><RegularsBook game={game} memo={memo} onClose={() => setOpen(false)} /></Suspense>}
     </Panel>
   );
 }

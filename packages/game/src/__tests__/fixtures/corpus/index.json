@@ -217,6 +217,9 @@
    "key": "save",
    "origin": "generated once (round 12 F, the invent-a-dish tests' recipe)",
    "what": "round 12: owner on day 7 with two invented dishes (a risotto on the menu since day 1, a pudding since day 4) and their cookbook sales"
-  }
- ]
+  },
+    {"file": "r13-owner-cookbook-d8.json.gz", "kind": "envelope", "key": "save", "origin": "generated once (round 13 D, scratchpad r13d.gen.ts)", "what": "round 13: owner on day 8 with a cookbook that has every edit: a renamed, re-priced pie now at v2 (v1 keeps its sales), a resting stew, a refined pudding moved up one, a deleted soup"},
+    {"file": "r13-owner-memo-d450.json.gz", "kind": "envelope", "key": "save", "origin": "generated once (round 13 D, sim-core's typical owner, seed 31)", "what": "round 13: owner on day 450 (history from day 51) with the regulars' memo written every evening: Marcus's beats from days 2, 10 and 17 are still in the book"},
+    {"file": "r13-empire-formula-d30.json.gz", "kind": "envelope", "key": "save", "origin": "generated once (round 13 D)", "what": "round 13: Empire 30 days after an invented dish went into the brand formula"}
+  ]
 }

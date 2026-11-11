@@ -1,5 +1,5 @@
 import { formatPounds } from "../../lib/format";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
 import type { GameState } from "@full-plate/sim-core";
 import {
@@ -30,6 +30,9 @@ interface Props {
   /** START_SERVICE on the employer's state. */
   send: (cmd: Command) => void;
 }
+
+// Round 13 (D): the employer's brand, read-only (lib/brand is a lazy chunk).
+const HouseBrandCard = lazy(() => import("../../components/HouseBrandCard").then((m) => ({ default: m.HouseBrandCard })));
 
 const OWNER_BLURB = { balanced: "A fair boss: steady hours, decent tips", premium: "A fussy boss: high standards, faster growth", cheap: "A cheap boss: long rotas, no training" } as const;
 
@@ -203,6 +206,8 @@ export function MyShift({ game, meta, career, sendCareer, send }: Props) {
           </ul>
         )}
       </section>
+
+      <Suspense fallback={null}><HouseBrandCard name={game.restaurantName} code={meta.brand} /></Suspense>
 
       <section className="card" aria-labelledby="money-h">
         <div className="card__title"><h3 id="money-h">Savings</h3><span className="small muted"><MoneyText pence={career.savings} whole /></span></div>

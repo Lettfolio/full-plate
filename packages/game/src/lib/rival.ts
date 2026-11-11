@@ -5,6 +5,7 @@
  * week) react to what really happened: last week's result, or last night's.
  */
 import type { GameState } from "@full-plate/sim-core";
+import type { VoicesMemo } from "../state/paths";
 import type { RivalPersonality, RivalPostKind } from "@full-plate/content/voices";
 import { byDay, dishLabel, fill, h32, pickBy, voices, wasOpen, weekStart, weekdayName } from "./voiceKit";
 
@@ -95,6 +96,10 @@ export function clippingDay(weeks: readonly WeekScore[]): number | undefined {
   }
   return undefined;
 }
+
+/** Round 13 (D): the clipping's morning — the memo's once it's set (it outlives the history), else from the weeks. */
+export const clipFrom = (memo: VoicesMemo | undefined, seed: number, weeks: readonly WeekScore[]): number | undefined =>
+  (memo && memo.seed === seed ? memo.clip : undefined) ?? clippingDay(weeks);
 
 export interface RivalPost { day: number; weekday: string; kind: RivalPostKind; text: string }
 

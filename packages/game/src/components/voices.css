@@ -59,3 +59,8 @@
 .polaroid__cap { font-size: var(--fs-xs); line-height: 1.25; color: var(--ink); }
 .regbook__soon { font-size: var(--fs-sm); color: var(--ink-soft); }
 .voices-row .btn { max-width: 100%; white-space: normal; }
+
+/* Round 13 (D): a regular's thank-you note (Evening, the book) and the chapter card's regular of the month */
+.thanksnote { margin: 6px 0 0; padding: 8px 12px; background: var(--surface-raised); border: 1.5px dashed var(--border-strong); border-radius: var(--radius-sm); font-style: italic; }
+.thanksnote .xs, .thanksnote .small { font-style: normal; }
+.chapter__regular { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-inset); border-left: 5px solid var(--plum, #8a5a9e); margin: 8px 0; }

@@ -1385,3 +1385,24 @@ gets appeal ≈ 0.01–0.04, and on 8 seeds × 180 days the typical owner who pu
 
 **Text:** `data/customDishText.json` › `newDish`, eight first-night review lines ({dish}, {restaurant}); a new file so
 `reviewTemplates.json` keeps its keys and sizes. The Evening picks one by a hash of seed/day/dish.
+
+## Round 13 — D: the cookbook's edits, the Stars refine, the regulars' notes
+
+All game-side; no balance knob, and the sim reads none of the text.
+
+- **`customDish.ts`** (the cookbook, still in the content chunk): `cookbookOp` — edit name / plate / price; new
+  ingredients make a new version (a new id, sales from zero; the old record stays as "<name> v<n>" with its lifetime
+  sales); rest; delete (refused while the dish is on today's menu, the set menu, the brand formula or a parked shop's
+  menu; otherwise the record is kept with `deleted` so the history, parked shops and old reviews still resolve the id);
+  display order (`cookbookOrder`, never the pack's order); the Stars refine. Caps: 12 **live** recipes
+  (`CUSTOM_MAX_PER_GAME`, as before), 40 records in all (`CUSTOM_MAX_RECORDS`). `applyCustomDishes` keeps up to 40 —
+  every save from Round 12 has at most 12, so nothing it builds changes.
+- **The refine** changes the DishDef in exactly three places: the name gets `, <suffix>`, the blurb is the chosen
+  line, and `skillRequired` + 1. Cost, price, prep, ceiling, cuisine and appeal are identical (tested field by field).
+- **`customDishText.json`**: `refineSuffix` (8: Director's Cut, Reserve, Signature, Revisited, Second Draft, Grand,
+  Maison, Deluxe Edition) and `refineProse` (10 lines of menu prose, dry: "Finished with a sauce that took three days
+  and one argument.").
+- **`regulars.json`**: `thanks` (21 thank-you notes; placeholders {name}, {restaurant}, {district}, {dish} = the
+  regular's usual; validator: ≥ 20 (`THANKS_MIN`), no repeats, the usual placeholder and trade-word checks) and
+  `lines.ofTheMonth` ("Regular of the month: {name}."). A note is a seeded pick per regular (`h32(seed, id)`), so the
+  same story always ends with the same note.

@@ -81,3 +81,6 @@
 @media (max-width: 560px) { .chapter__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .versus { grid-template-columns: 1fr; } .versus__vs { display: none; } }
 .chapter__next { margin: 0; font-size: var(--fs-body); }
 .chapter__ok { align-self: center; }
+
+/* Round 13 (D): today's restaurant in its brand */
+.challenge__brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-left: 6px solid; border-radius: var(--radius-sm); background: var(--surface-inset); margin: 4px 0 8px; font-size: var(--fs-heading); }

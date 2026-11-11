@@ -16,7 +16,10 @@ import { handoverSchema, ownerPerksSchema, validateCareerState } from "@full-pla
 import { validateEmpireState, validateParkedSite } from "@full-plate/sim-empire/validate";
 import { starsGuideResult, starsVisit, validateStarsState } from "@full-plate/sim-stars/validate";
 import { customRef, deserialize, serialize } from "../sim";
-import { checkCustomDish, cleanDishName, CUSTOM_COURSES, CUSTOM_ICONS, CUSTOM_MAX_INGREDIENTS, CUSTOM_MAX_PER_GAME, CUSTOM_MIN_INGREDIENTS, CUSTOM_QTY_MAX, CUSTOM_QTY_MIN, isCustomDishId } from "@full-plate/content";
+import {
+  checkCustomDish, cleanDishName, CUSTOM_COURSES, CUSTOM_ICONS, CUSTOM_MAX_INGREDIENTS, CUSTOM_MAX_PER_GAME, CUSTOM_MAX_RECORDS, CUSTOM_MIN_INGREDIENTS,
+  CUSTOM_PRICE_MAX, CUSTOM_PRICE_MIN, CUSTOM_QTY_MAX, CUSTOM_QTY_MIN, isCustomDishId, isLive, REFINE_PROSE, REFINE_SUFFIXES,
+} from "@full-plate/content";
 import type { CustomDish } from "../lib/customDish";
 import { decodeSave, type Loaded } from "./save";
 import { BRAND_RE } from "../lib/brandCode";
@@ -36,6 +39,9 @@ const customDishShape = obj<CustomDish>({
   id, name: name(64), course: oneOf(...CUSTOM_COURSES), icon: oneOf(...CUSTOM_ICONS),
   ingredients: arr(obj({ id, qty: num(CUSTOM_QTY_MIN, CUSTOM_QTY_MAX) }, false), CUSTOM_MAX_INGREDIENTS, CUSTOM_MIN_INGREDIENTS),
   createdDay: day, sold: int(0, 1e9), firstSoldDay: opt(day),
+  // Round 13 (D): house price, rested, version, old version of, deleted, refined (Stars).
+  price: opt(int(CUSTOM_PRICE_MIN, CUSTOM_PRICE_MAX)), resting: opt(bool), v: opt(int(2, 99)), oldOf: opt(id), deleted: opt(bool),
+  refined: opt(obj({ season: int(0, 1e5), suffix: int(0, REFINE_SUFFIXES.length - 1), prose: int(0, REFINE_PROSE.length - 1) }, false)),
 }, false);
 const customDish: Check<CustomDish> = (v, at) => {
   const d = customDishShape(v, at);
@@ -82,8 +88,23 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   chapterSeen: opt(int(0, 12)),
   challenge: opt(obj({ date: (v, at) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fail(at, "not a date")), startDay: day, startCash: money, startPopularity: n, target: n })),
   // Round 12 (F): invented dishes and the cookbook's last folded day.
-  customDishes: opt(arr(customDish, CUSTOM_MAX_PER_GAME)),
+  customDishes: opt(arr(customDish, CUSTOM_MAX_RECORDS)),
   cookbookDay: opt(day),
+  // Round 13 (D): the cookbook's order and edit count; the regulars' memo (VoicesMemo, paths.ts).
+  cookbookOrder: opt(arr(id, CUSTOM_MAX_RECORDS)),
+  cookbookRev: opt(int(0, 1e9)),
+  voices: opt(obj({
+    v: oneOf(1), seed: int(0, 0xffffffff), day, clip: opt(day),
+    regs: arr(obj({
+      id, joined: opt(day),
+      done: arr((v, at) => {
+        if (!Array.isArray(v) || v.length < 3 || v.length > 4) return fail(at, "not a beat");
+        const [b, d, g, dish] = v as unknown[];
+        return [int(0, 9)(b, `${at}[0]`), day(d, `${at}[1]`), oneOf(0, 1)(g, `${at}[2]`), ...(dish === undefined || dish === null ? [] : [id(dish, `${at}[3]`)])];
+      }, 10),
+      open: opt(obj({ beat: int(1, 9), dishId: id, weekday: int(0, 6), since: day, from: day, triedDay: opt(day) }, false)),
+    }, false), 20),
+  }, false)),
 }, false);
 
 /** A decoded save, checked and cleaned. Throws a SchemaError naming the first bad field. */
@@ -98,6 +119,13 @@ export function validateLoaded(l: Loaded): Loaded {
   // Round 12 (F): every invented dish the game names is in the save's cookbook, and no recipe id is used twice.
   const mine = new Set((meta.customDishes ?? []).map((d) => d.id));
   if (mine.size !== (meta.customDishes ?? []).length) fail("meta.customDishes", "duplicate id");
+  // Round 13 (D): at most 12 live recipes; an old version points at a recipe in the book; the order names only live ones.
+  if ((meta.customDishes ?? []).filter(isLive).length > CUSTOM_MAX_PER_GAME) fail("meta.customDishes", "too many recipes");
+  for (const d of meta.customDishes ?? []) if (d.oldOf !== undefined && (!mine.has(d.oldOf) || d.oldOf === d.id)) fail("meta.customDishes", `old version of unknown ${d.oldOf}`);
+  if (meta.cookbookOrder) {
+    const live = new Set((meta.customDishes ?? []).filter(isLive).map((d) => d.id));
+    meta.cookbookOrder = [...new Set(meta.cookbookOrder)].filter((x) => live.has(x));
+  }
   for (const dishId of [...game.menu.map((m) => m.dishId), ...(game.setMenu?.dishIds ?? [])])
     if (isCustomDishId(dishId) && !mine.has(dishId)) fail("game.menu", `unknown invented dish ${dishId}`);
   if (meta.parked) {
