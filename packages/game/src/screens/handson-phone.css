@@ -4,7 +4,9 @@
    the R7 layout exactly. Thumb targets are 48 px or more, 8 px or more apart; nothing sits under a notch or the home
    indicator (env(safe-area-inset-*), 0 where the page isn't edge to edge). */
 
-.handson__body { flex: 1; min-height: 0; display: flex; gap: inherit; }
+.handson__body { flex: 1; min-height: 0; min-width: 0; display: flex; gap: inherit; }
+/* the canvas never sizes its stage (its px size is set from the stage: in flow, a wider canvas would widen the stage) */
+.handson--phone .handson__stage canvas { position: absolute; left: 0; top: 0; }
 .handson__main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: inherit; }
 
 /* no page scroll, rubber-band, pinch or double-tap zoom, text selection or long-press menu during a shift */
@@ -44,7 +46,7 @@ html.fp-handson, html.fp-handson body { overscroll-behavior: none; }
 
 @media (max-height: 500px) and (orientation: landscape) {
   /* sideways: the canvas fills the height between two thumb columns */
-  html .handson--sideways { flex-direction: row; padding: 0; gap: 0; }
+  html .handson--sideways { padding: 0; gap: 0; }
   html .handson--sideways .handson__body { gap: 0; }
   html .handson--sideways .handson__main { padding: 4px 0 calc(4px + env(safe-area-inset-bottom, 0px)); gap: 4px; }
   html .handson--sideways .handson__stage { border-radius: 10px; border-width: 1.5px; }

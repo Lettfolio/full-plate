@@ -1039,15 +1039,17 @@ function drawStrip(ctx: CanvasRenderingContext2D, s: HandsOnSession, state: Game
     const tx0 = -slipW / 2 + (own ? 9 : 6);
     const tn = tableNo(s, state, cid);
     label(ctx, tn ? `TABLE ${tn}` : "—", tx0, 18, { size: 13, weight: 900, colour: C.ink, spacing: 0.3, maxW: 66 });
-    if (es && own === "helper") pill(ctx, es[0]!.cook?.endsWith(HELPER_SUFFIX) ? "HELPER" : cookName(state, es[0]!.cook).toUpperCase(), slipW / 2 - 3, 12, OWNER_COLOUR.helper);
-    else if (es && own === "sous") pill(ctx, crew!.sousName.toUpperCase(), slipW / 2 - 3, 12, C.amberDeep);
-    else if (tks.length > 1) label(ctx, `+${tks.length - 1}`, slipW / 2 - 5, 18, { align: "right", size: 13, weight: 900, colour: C.tomatoDeep });
+    if (tks.length > 1) label(ctx, `+${tks.length - 1}`, slipW / 2 - 5, 18, { align: "right", size: 13, weight: 900, colour: C.tomatoDeep });
+    // who has it (the sous chef, a helper): a pill on the dish line, which then gives up the room it takes
+    const who = es && own === "helper" ? (es[0]!.cook?.endsWith(HELPER_SUFFIX) ? "HELPER" : cookName(state, es[0]!.cook).toUpperCase()) : es && own === "sous" ? crew!.sousName.toUpperCase() : undefined;
+    let pillW = 0;
+    if (who) { ctx.font = `900 13px ${FONT}`; pillW = Math.min(64, ctx.measureText(who).width + 10) + 4; pill(ctx, who, slipW / 2 - 3, 29, own === "helper" ? OWNER_COLOUR.helper : C.amberDeep); }
     const t = tks[0]!;
     const st = ticketStatus(s, t);
     const col = st === "ready" ? C.basil : st === "mine" ? C.amber : st === "ai" ? C.steelDark : C.inkFaint;
     if (st === "open") { ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(tx0 + 4, 28.5, 4, 0, Math.PI * 2); ctx.stroke(); }
     else dot(ctx, tx0 + 4, 28.5, 4.4, col);
-    label(ctx, profile(s, t.dishId).short, tx0 + 13, 33, { size: 13, weight: 800, colour: st === "ready" ? C.basilDeep : C.ink, maxW: slipW / 2 - tx0 - 17 });
+    label(ctx, profile(s, t.dishId).short, tx0 + 13, 33, { size: 13, weight: 800, colour: st === "ready" ? C.basilDeep : C.ink, maxW: Math.max(20, slipW / 2 - tx0 - 17 - pillW) });
     ctx.fillStyle = "rgba(43,38,34,0.1)"; ctx.fillRect(-slipW / 2 + 1, h - 5, slipW - 2, 4);
     ctx.fillStyle = head; ctx.fillRect(-slipW / 2 + 1, h - 5, (slipW - 2) * slipTimeLeft(age), 4);
     ctx.restore();
