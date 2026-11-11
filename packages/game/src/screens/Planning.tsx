@@ -249,7 +249,7 @@ export function Planning({ game, send, tab, onTab: setTab, goalsJustDone = [], p
                 risk.lines.forEach(([ingredientId, qty]) => send({ type: "ORDER_STOCK", ingredientId, qty }));
                 send(asCommand({ type: "CLOSE_TODAY" }));
               }}>
-                {risk.lines.length ? <>Order stock (≈<MoneyText pence={risk.cost} whole />) and close today</> : "Close today"}
+                {risk.lines.length ? <>Order stock and close today · ≈<MoneyText pence={risk.cost} whole /></> : "Close today"}
               </button>
             )}
             <button className="btn btn--ghost" autoFocus={!HOOKS.closeToday} onClick={() => { setConfirm(null); setTab("menu"); }}>Change the menu</button>

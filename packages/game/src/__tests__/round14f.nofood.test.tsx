@@ -41,7 +41,7 @@ describe("Round 14 F — U5 nothing to cook", () => {
     const sent: Command[] = [];
     render(<Planning game={g} send={(c) => sent.push(c)} tab="menu" onTab={noop} />);
     fireEvent.click(screen.getByRole("button", { name: /Open for service/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Order stock .* and close today/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Order stock and close today/ }));
     expect(sent.filter((c) => c.type === "ORDER_STOCK").length).toBeGreaterThan(0);
     expect(sent.at(-1)!.type).toBe("CLOSE_TODAY");
     expect(sent.some((c) => c.type === "START_SERVICE")).toBe(false);
