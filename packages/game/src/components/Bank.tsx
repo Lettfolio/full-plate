@@ -5,7 +5,7 @@
  */
 import { lazy } from "react";
 import type { GameState } from "@full-plate/sim-core";
-import { bankStatus, BANK_LAST_DAYS, BANK_RED_DAYS, content, hireShortfall, starterLoanOffer } from "../sim";
+import { bankStatus, BANK_LAST_DAYS, BANK_RED_DAYS, content, hireShortfall, STARTER_LOAN, starterLoanOffer } from "../sim";
 import { Icon } from "./Icon";
 import { formatPounds } from "../lib/format";
 
@@ -22,6 +22,14 @@ export const bankLastDays = (game: GameState): boolean => {
 };
 /** Staffless, can't afford a chef, and the bank would lend (the starter-loan tip is due). */
 export const loanDue = (game: GameState): boolean => { const s = hireShortfall(game); return !!s && s.short > 0 && starterLoanOffer(content, game) !== null; };
+/**
+ * Round 14 (F, U13): the first-wage loan was on offer but has gone, only because she is now more than the bank's
+ * most (STARTER_LOAN_MAX) short of a chef's first wage. It comes back if her cash recovers.
+ */
+export const loanGone = (game: GameState): boolean => {
+  const s = hireShortfall(game);
+  return !!s && s.short > 0 && starterLoanOffer(content, game) === null && starterLoanOffer(content, { ...game, cash: s.needed - STARTER_LOAN }) !== null;
+};
 
 export const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 

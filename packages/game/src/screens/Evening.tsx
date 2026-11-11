@@ -1,8 +1,8 @@
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import type { Command } from "@full-plate/sim-core";
 import { content, OWNER_FATIGUE_WARNING, spendCheck, TABLE_COST } from "../sim";
-import { BankCard, bankDue, hirePromptText, loanDue, StarterLoanTip } from "../components/Bank";
-import { lazy, Suspense } from "react";
+import { BankCard, bankDue, hirePromptText, loanDue, loanGone, StarterLoanTip } from "../components/Bank";
+import { lazy, Suspense, useState } from "react";
 // Round 12 (B): the postcard button and its sheet are their own chunk.
 const PostcardButton = lazy(() => import("../components/PostcardDialog").then((m) => ({ default: m.PostcardButton })));
 // Round 12 (E): the blogger's review, the regulars tonight and tomorrow's gossip (lazy; components/EveningExtras.tsx).
@@ -51,7 +51,17 @@ export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boo
  * Round 7 (B): tonight's money as one big friendly figure (count-up, ▲/▼, green/red), what that is against last
  * night, and the last seven nights as bars, so "a tough night" has a size. The sums stay one tap away.
  */
+/**
+ * Round 14 (F, U9): profit vs cash, in her numbers. Profit counts the stock cooked (and binned) tonight, whenever it
+ * was paid for; cash moves when stock is paid for, which is when it is ordered (it arrives the next morning).
+ */
+export function profitVsCash(game: Pick<GameState, "orders" | "day">, r: DayResult): { used: number; bought: number } {
+  return { used: r.foodCost + r.waste.prep + r.waste.spoil, bought: r.day === game.day ? game.orders.reduce((a, o) => a + o.cost, 0) : 0 };
+}
+
 export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
+  const [why, setWhy] = useState(false);
+  const pc = profitVsCash(game, r);
   const up = r.profit >= 0;
   const vs = versusYesterday(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
   const nights = lastNights(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
@@ -61,10 +71,21 @@ export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
     <section className={`tonight tonight--${up ? "up" : "down"}`} aria-label="Tonight's money">
       <div className="tonight__main">
         <div className="tonight__k">{up ? "Tonight you made" : "Tonight you lost"}</div>
-        <div className="tonight__v">
+        <button
+          type="button" className="tonight__v" data-testid="profit-why-btn" aria-expanded={why} aria-controls="profit-why"
+          title="Why isn't this the same as my cash?"
+          style={{ background: "none", border: 0, padding: 0, cursor: "pointer", minHeight: 44, textAlign: "inherit" }}
+          onClick={() => setWhy((x) => !x)}
+        >
           <span className="tonight__arrow" aria-hidden="true"><Icon name={up ? "trendUp" : "trendDown"} size={44} /></span>
           <MoneyText pence={Math.abs(r.profit)} whole countUp="mount" />
-        </div>
+        </button>
+        {why && (
+          <p className="small" id="profit-why" role="note" data-testid="profit-why" style={{ margin: "2px 0 6px" }}>
+            <b>Profit</b> counts the <MoneyText pence={pc.used} whole /> of stock you cooked or binned tonight, whenever you paid for it.
+            <br /><b>Cash</b> moves when you pay: stock is paid for when you order it, and you've ordered <MoneyText pence={pc.bought} whole /> today (it arrives tomorrow).
+          </p>
+        )}
         {best && <div className="tonight__best" data-testid="best-night"><Icon name="trophy" size={18} />Best night so far</div>}
         {vs !== undefined && (
           <div className={`tonight__vs tonight__vs--${vs >= 0 ? "up" : "down"}`}>
@@ -293,7 +314,7 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
         {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
         <div className="evening__money"><TonightMoney game={game} r={r} /></div>
         {/* Round 11 (U3/G2): the bank's countdown and the staffless way out, before anything else she might read. */}
-        {!over && meta?.mode !== "career" && (bankDue(game) || loanDue(game)) && (
+        {!over && meta?.mode !== "career" && (bankDue(game) || loanDue(game) || loanGone(game)) && (
           <div className="evening__bank">
             <Suspense fallback={null}>
               {bankDue(game) ? <BankCard game={game} send={send} onGoTo={onGoTo} onAct={onAct} /> : <StarterLoanTip game={game} send={send} />}

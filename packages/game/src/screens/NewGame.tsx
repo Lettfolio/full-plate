@@ -3,6 +3,7 @@ import { Icon } from "../components/Icon";
 import type { ContentPack, Difficulty, DistrictDef } from "@full-plate/sim-core";
 import { Bar } from "../components/Bar";
 import { MoneyText } from "../components/MoneyText";
+import { LeaseMoney } from "../components/LeaseMoney";
 import { segmentName } from "../lib/content";
 import { Term } from "../components/Term";
 import { DIFFICULTY_CHOICES, DifficultyPicker } from "../components/DifficultyPicker";
@@ -138,10 +139,8 @@ export function NewGame({ content, initialSeed, onStart, onBack, initialDistrict
             <span className="xs faint">Same seed + same choices = the same game. Share it with a friend.</span>
           </label>
 
-          <div className="small muted">
-            You start with <b><MoneyText pence={content.balance.startingCash} whole /></b> savings and a{" "}
-            <b><MoneyText pence={content.balance.loanPrincipal} whole /></b> bank loan over {Math.round(content.balance.loanTermDays / 365 * 10) / 10} years.
-          </div>
+          {/* Round 14 (F, U16): savings + loan − fit-out − deposit = day 1's cash. */}
+          <LeaseMoney districtId={districtId} difficulty={difficulty} />
 
           {/* Round 12 (C): Quick year, off by default. */}
           <label className="sheet__row sheet__check newgame__quick">

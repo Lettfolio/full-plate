@@ -146,7 +146,7 @@ export function hireCheck(state: GameState, person: { wage: number }): { fee: nu
 }
 
 // ── round 11: stop silent losing ──
-export const { bankStatus, spendCheck, runningCostPerDay, starterLoanOffer, STARTER_LOAN, BANK_LAST_DAYS, BANK_RED_DAYS, INSOLVENCY_DAYS } = sim;
+export const { bankStatus, spendCheck, runningCostPerDay, starterLoanOffer, STARTER_LOAN, STARTER_LOAN_MAX, BANK_LAST_DAYS, BANK_RED_DAYS, INSOLVENCY_DAYS } = sim;
 export const MAX_PRICE_PENCE = sim.MAX_PRICE;
 
 /**
