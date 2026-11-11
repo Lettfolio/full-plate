@@ -11,8 +11,8 @@
  * paint pass is flushed to pixels (perfMeter.ts passProfile) and timed, giving ms per frame per pass (JS + raster).
  * The flush slows every frame, so a --passes run's gap numbers are not comparable: take gaps from a plain run.
  *
- *   node scripts/perf-floor.mjs                         # dist/, 1024x768 and 390x844m, 1× and 4×, 2 runs each
- *   FP_DIST=/path/to/other/dist node scripts/perf-floor.mjs --label base
+ *   node scripts/perf-floor.mjs                         # dist-playtest/ (R14: built for you), 1024x768 and 390x844m, 1× and 4×, 2 runs each
+ *   FP_DIST=/path/to/other/dist node scripts/perf-floor.mjs --label base   # a playtest build (FP_PLAYTEST=1 vite build)
  * Env: FP_PERF_VIEWPORTS ("1024x768,390x844m"), FP_PERF_SPEEDS ("1,4"), FP_PERF_RUNS (2), FP_PERF_SECONDS (5),
  *      FP_PERF_THROTTLE (4), FP_PERF_JSON (write the results there), plus harness.mjs's FP_URL / FP_DIST / FP_PORT.
  * --bench: the renderer alone on a fixed, deterministic state (see below): ms per frame, no app around it.
@@ -23,7 +23,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { contextFor, genSaves, loadPlaywright, parseViewports, PKG, SAVES, startPreview } from "./lib/harness.mjs";
+import { contextFor, genSaves, loadPlaywright, parseViewports, PKG, SAVES, playtestDist, startPreview } from "./lib/harness.mjs";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
@@ -33,7 +33,7 @@ const SPEEDS = (process.env.FP_PERF_SPEEDS ?? "1,4").split(",").map(Number);
 const RUNS = Number(process.env.FP_PERF_RUNS ?? 2);
 const SECONDS = Number(process.env.FP_PERF_SECONDS ?? 5);
 const THROTTLE = Number(process.env.FP_PERF_THROTTLE ?? 4);
-const LABEL = opt("--label") ?? (process.env.FP_DIST ? process.env.FP_DIST : "dist");
+const LABEL = opt("--label") ?? (process.env.FP_DIST ? process.env.FP_DIST : "dist-playtest");
 const SHOTS = opt("--shots");
 
 /** Runs in the page: every rAF interval for `ms`, then the stats. */
@@ -64,7 +64,6 @@ async function openService(page, url, vp) {
   await page.evaluate((o) => {
     localStorage.clear();
     localStorage.setItem("full-plate:settings:v1", JSON.stringify({ autoPause: false, defaultSpeed: 1, speedPicked: true, textSize: "normal" }));
-    localStorage.setItem("full-plate:dev", "1");
     localStorage.setItem("full-plate:save:v1", o);
   }, save);
   await page.goto(url + "?perf=1");
@@ -139,6 +138,7 @@ if (flag("--bench")) {
 }
 
 genSaves();
+playtestDist(); // R14 (C, S14-9): ?perf= and the pass profile need a playtest build (FP_DIST: bring your own)
 const preview = await startPreview();
 const browser = await chromium.launch({ args: ["--disable-gpu", "--disable-gpu-compositing", "--disable-gpu-rasterization"] });
 const results = [];

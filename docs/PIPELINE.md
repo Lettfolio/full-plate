@@ -125,6 +125,17 @@ the probe's report and screenshots are uploaded when it fails. It runs on pull r
 deploy itself, move the job into `pages.yml` and give `build` a `needs: ui-checks`. Since Round 13 the probe skips
 whatever is behind an open modal (R12-F8).
 
+### Playtest switches are a build flag (Round 14 — C, red-team S14-9)
+
+`?autopilot=`, `?perf=`, the floor's pass profile and `window.__fpHandsOn` / `__fpMusic` work only in a dev build
+(`import.meta.env.DEV`) or a **playtest build**: `FP_PLAYTEST=1 vite build` sets `__FP_PLAYTEST__` (vite.config.ts
+`define`; `lib/perfMeter.ts` `devSwitches()`), and minification drops the hooks from every other build. The shipped
+artifact and the Pages build ignore them whatever localStorage holds (the old `full-plate:dev` key could be set by any
+page on the same origin, and is no longer read). `scripts/lib/harness.mjs` `playtestDist()` builds
+`packages/game/dist-playtest/` (git-ignored) when it is missing or older than any source file and points `FP_DIST` at
+it; `perf-floor.mjs` and `playtest-coop-live.mjs` call it. The probe and the type audit need no switch and keep running
+against `dist/`, the build that ships. To compare another build with `perf-floor.mjs`, make it with `FP_PLAYTEST=1`.
+
 ## Test honesty (T2)
 
 - **`round7.careerUx` lead-in** no longer hand-picks seeds. Seeds 1–16, each asserted ≥ 0.4 led/trips and 0 jumps (lead

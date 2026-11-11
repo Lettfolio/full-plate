@@ -15,6 +15,10 @@ export default defineConfig({
   // Round 11: vite 6 defaults to json.stringify "auto" (big JSON imports become JSON.parse("…") strings: +11 kB on the
   // content chunk). Keep vite 5's object literals so the chunk sizes stay where they were.
   json: { stringify: false },
+  // Round 14 (C, red-team S14-9): the playtest switches (?autopilot=, ?perf=, lib/perfMeter devSwitches) are on in a
+  // dev build and in a playtest build only (FP_PLAYTEST=1; scripts/lib/harness.mjs playtestDist()). Never in the
+  // artifact or the Pages build. Tests (vitest) see false here and DEV true.
+  define: { __FP_PLAYTEST__: JSON.stringify(process.env.FP_PLAYTEST === "1") },
   build: {
     // Round 11: vite 6's @rollup/plugin-commonjs (v28) wraps every CJS module in a lazy init by default
     // (strictRequires: true): +1.1 kB on the react chunk. vite 5's commonjs (v25) did not; keep that output.
