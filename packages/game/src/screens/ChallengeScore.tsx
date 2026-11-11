@@ -1,5 +1,5 @@
 /**
- * Round 12 (C): the daily challenge's score screen — the breakdown, the six-character code, and a Compare box where
+ * Round 12 (C): the daily challenge's score screen — the breakdown, the score code (eight characters since Round 14), and a Compare box where
  * someone else's code goes beside yours (no network: the code carries the day and the score). Lazy chunk.
  */
 import { useEffect, useRef, useState } from "react";
@@ -55,7 +55,7 @@ export function ChallengeScore({ game, meta, onAgain, onTitle, titleLabel = "Tit
         <h1 className="challenge__title challenge__title--center"><Icon name="target" size={30} />{sc.title}</h1>
         <p className={`challenge-score__goal ${score.goal.met ? "is-met" : ""}`} data-testid="challenge-goal">
           {score.bust ? `${game.restaurantName} closed its doors. ` : ""}
-          {score.goal.met ? "Goal done: " : "Goal missed: "}{score.goal.label.toLowerCase()} ({score.goal.now.replace(/ so far$/, "")})
+          {score.goal.met ? "Goal done: " : "Goal missed: "}{score.goal.label.charAt(0).toLowerCase() + score.goal.label.slice(1)} ({score.goal.now.replace(/ so far$/, "")})
           {sc.template === "inspector" && <span className="challenge-score__aside"> The inspector came on night {sc.inspectorNight + 1}.</span>}
         </p>
         {why && <p className="challenge-score__why" data-testid="challenge-why"><b>What went wrong:</b> {why}</p>}

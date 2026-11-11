@@ -98,8 +98,8 @@ export function Challenge({ onBack, onPlay, backLabel = "Back" }: Props) {
           <p className="challenge__goal"><b>Goal:</b> {GOAL_HINT[sc.template]}</p>
           <ul className="challenge__rules small">
             <li>Five days on Normal. Watch, skip or work any service hands-on.</li>
-            <li>Score = goal + <Term id="takings" inline>takings</Term> + reviews − losses (food binned, guests who walked out).</li>
-            <li>At the end you get a six-character code. Read it out, or type someone else's in to compare.</li>
+            <li>Score = goal + guests served + <Term id="takings" inline>takings</Term> + reviews − losses (food binned, guests who walked out, money borrowed).</li>
+            <li>At the end you get an eight-character code. Read it out, or type someone else's in to compare.</li>
           </ul>
           {stale && <p className="callout" role="status">Yesterday's run ended at midnight (UTC). This is today's.</p>}
           {problem && <p className="callout callout--warn" role="alert">{problem}</p>}
