@@ -15,6 +15,8 @@ export interface SettingsProps {
   onSaveFile?: (() => Promise<string>) | undefined;
   /** Round 11 (D): the game's difficulty, for the speed a service starts at (Cosy: 4× until one is picked). */
   difficulty?: string | undefined;
+  /** Round 14 (D): save this game and open today's challenge; the app brings her back to this game after. */
+  onChallenge?: (() => void) | undefined;
 }
 
 export type SavedWhere = "account" | "device" | "memory" | "none";

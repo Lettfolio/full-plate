@@ -62,9 +62,13 @@
 .challenge-score__compare .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .challenge-score__input { flex: 1 1 160px; min-height: var(--control-h); text-transform: uppercase; letter-spacing: 0.1em; font-size: var(--fs-body); }
 .challenge-score__buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+/* Round 14 (U8): a missed goal says why. */
+.challenge-score__why { margin: 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--paper); border: 2px solid var(--line); text-align: left; }
 .versus { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; text-align: center; }
 .versus__side { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: var(--r-sm); border: 2px solid var(--line); background: var(--paper); }
-.versus__side.is-win { border-color: var(--basil); background: var(--basil-wash); }
+.versus__side.is-higher { border-color: var(--basil); background: var(--basil-wash); }
+/* Round 14 (S14-6): codes from another day or another version of today sit apart (dashed), never side by side as a result. */
+.versus--apart .versus__side:last-of-type { border-style: dashed; }
 .versus__who { font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
 .versus__score { font-family: var(--font-display); font-weight: 600; font-size: 32px; font-variant-numeric: tabular-nums; }
 .versus__vs { font-family: var(--font-display); font-size: var(--fs-h3); color: var(--ink-soft); }

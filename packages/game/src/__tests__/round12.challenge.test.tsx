@@ -72,25 +72,27 @@ describe("the score", () => {
     const g = play(b.game, 5);
     const s = scoreOf(g, b.meta.challenge!);
     expect(s.days).toBe(5);
-    expect(s.lines.map((l) => l.label)).toEqual(["Goal", "Takings", "Reviews", "Losses"]);
+    // Round 14 (G6): guests served count too.
+    expect(s.lines.map((l) => l.label)).toEqual(["Goal", "Guests", "Takings", "Reviews", "Losses"]);
     expect(s.total).toBe(Math.max(0, s.lines.reduce((a, l) => a + l.points, 0)));
     expect(s.total).toBeGreaterThan(500);
     expect(goalOf(g, b.meta.challenge!).label.length).toBeGreaterThan(5);
   });
 
-  it("the six-character code carries the day and the score, and a wrong letter is caught", () => {
+  // Round 14 (S14-6): eight characters now (a version and the scenario's fingerprint too; round14.challenge.test.tsx).
+  it("the score code carries the day and the score, and a wrong letter is caught", () => {
     for (const score of [0, 1, 2117, 99_999, 131_071]) {
       const code = encodeScore(DATE, score);
-      expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{6}$/);
-      expect(decodeScore(code, DATE)).toEqual({ ok: true, score, date: DATE });
+      expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{8}$/);
+      expect(decodeScore(code, DATE)).toEqual({ ok: true, score, date: DATE, fp: 0 });
       // read aloud: lower case, a space, a later day within nine weeks
-      expect(decodeScore(`${code.slice(0, 3).toLowerCase()} ${code.slice(3)}`, "2026-12-20")).toEqual({ ok: true, score, date: DATE });
+      expect(decodeScore(`${code.slice(0, 4).toLowerCase()} ${code.slice(4)}`, "2026-12-20")).toEqual({ ok: true, score, date: DATE, fp: 0 });
     }
     const code = encodeScore(DATE, 2117);
-    const typo = code.slice(0, 5) + (code[5] === "0" ? "1" : "0");
+    const typo = code.slice(0, 7) + (code[7] === "0" ? "1" : "0");
     expect(decodeScore(typo, DATE).ok).toBe(false);
     expect(decodeScore("ABC", DATE).ok).toBe(false);
-    expect(decodeScore("UUUUUU", DATE).ok).toBe(false);
+    expect(decodeScore("UUUUUUUU", DATE).ok).toBe(false);
   });
 
   it("a best per day, the all-time list, and a top-five score mirrored as an account flag", () => {
@@ -98,7 +100,8 @@ describe("the score", () => {
     expect(recordBest({ date: DATE, score: 1200, template: "rush", met: false })).toBe(false);
     expect(recordBest({ date: "2026-11-09", score: 2500, template: "rescue", met: true })).toBe(true);
     expect(topBests().map((b) => b.score)).toEqual([2500, 1500]);
-    expect(localStorage.getItem("full-plate:onboard:v1:challenge:2026-11-09:2500")).toBe("1");
+    // Round 14: the mirrored key carries the scenario version.
+    expect(localStorage.getItem("full-plate:onboard:v1:challenge:2026-11-09:2500:2")).toBe("1");
     // A best that arrives only through the account (another device) is read back.
     localStorage.setItem("full-plate:onboard:v1:challenge:2026-11-08:3000", "1");
     expect(allBests().find((b) => b.date === "2026-11-08")?.score).toBe(3000);
@@ -213,13 +216,14 @@ describe("screens", () => {
     const total = scoreOf(g, b.meta.challenge!).total;
     render(<ChallengeScore game={g} meta={b.meta} onAgain={() => {}} onTitle={() => {}} />);
     expect(screen.getByTestId("challenge-total").textContent).toBe(total.toLocaleString("en-GB"));
-    expect(screen.getByTestId("challenge-code").textContent!.replace(" ", "")).toBe(encodeScore(DATE, total));
+    expect(screen.getByTestId("challenge-code").textContent!.replace(" ", "")).toBe(encodeScore(DATE, total, b.meta.challenge!.fp));
     expect(topBests()[0]?.score).toBe(total);
-    const theirs = encodeScore(DATE, total + 100);
+    const theirs = encodeScore(DATE, total + 100, b.meta.challenge!.fp);
     fireEvent.change(screen.getByRole("textbox", { name: /Compare/ }), { target: { value: theirs.toLowerCase() } });
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
-    expect(screen.getByTestId("challenge-versus").textContent).toContain("They win by 100.");
-    fireEvent.change(screen.getByRole("textbox", { name: /Compare/ }), { target: { value: "ZZZZZZ" } });
+    // Round 14 (S14-6): what their code says, not who won.
+    expect(screen.getByTestId("challenge-versus").textContent).toContain(`Their code says ${(total + 100).toLocaleString("en-GB")}: 100 more than yours.`);
+    fireEvent.change(screen.getByRole("textbox", { name: /Compare/ }), { target: { value: "ZZZZZZZZ" } });
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
     expect(screen.getByRole("alert").textContent).toMatch(/add up/);
   });

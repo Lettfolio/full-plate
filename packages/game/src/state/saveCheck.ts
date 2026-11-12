@@ -86,7 +86,8 @@ const metaSchema = obj<Omit<PathMeta, "career" | "empire" | "stars">>({
   // Round 12 (C): Quick year, the chapter cards, a daily challenge's start.
   forkDay: opt(int(QUICK_FORK_DAY, FORK_DAY)),
   chapterSeen: opt(int(0, 12)),
-  challenge: opt(obj({ date: (v, at) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fail(at, "not a date")), startDay: day, startCash: money, startPopularity: n, target: n })),
+  challenge: opt(obj({ date: (v, at) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fail(at, "not a date")), startDay: day, startCash: money, startPopularity: n, target: n,
+    v: opt(int(1, 99)), template: opt(oneOf("rescue", "rush", "inspector", "walkout", "rival", "festival")), fair: opt(money), fp: opt(int(0, 255)), guests: opt(int(0, 100_000)), loan0: opt(money), prev: opt(num(-1e9, 1e9)) })),
   // Round 12 (F): invented dishes and the cookbook's last folded day.
   customDishes: opt(arr(customDish, CUSTOM_MAX_RECORDS)),
   cookbookDay: opt(day),

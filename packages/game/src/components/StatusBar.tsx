@@ -40,6 +40,8 @@ interface Props {
   onSave?: (() => Promise<SavedWhere>) | undefined;
   onSaveFile?: (() => Promise<string>) | undefined;
   saveMark?: ReactNode;
+  /** Round 14 (D): save and open today's challenge (the Settings sheet's game menu). */
+  onChallenge?: (() => void) | undefined;
 }
 
 /** Round 7: yesterday's profit as a small arrow under the cash (the trend a child can read at a glance). */
@@ -58,7 +60,7 @@ function CashTrend({ game }: { game: GameState }) {
 export const compactMeals = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}m` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(Math.round(n)));
 
 /** Always-visible header: who/when, cash, reputation, loan; round 3 adds path badges and the Empire/Stars/career strip. */
-export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, saveMark }: Props) {
+export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, saveMark, onChallenge }: Props) {
   const district = content.districts.find((d) => d.id === game.districtId);
   const badges = meta ? pathBadges(meta) : [];
   const style = styleBadge(game); // round 10: "Cosy café", "Smart bistro"…
@@ -124,7 +126,7 @@ export function StatusBar({ game, meta, onQuit, onNewGame, onSave, onSaveFile, s
     </>
   );
   const pill = <span className={`pill pill--${game.difficulty}`}><Icon name={game.difficulty === "cosy" ? "heart" : game.difficulty === "hard" ? "chilli" : "speed"} size={16} />{game.difficulty[0]!.toUpperCase() + game.difficulty.slice(1)}</span>;
-  const gear = <SettingsMenu difficulty={game.difficulty} onQuit={onQuit} onNewGame={onNewGame} onSave={onSave} onSaveFile={onSaveFile} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />;
+  const gear = <SettingsMenu difficulty={game.difficulty} onQuit={onQuit} onNewGame={onNewGame} onSave={onSave} onSaveFile={onSaveFile} onChallenge={onChallenge} saveName={`${game.restaurantName} · Day ${game.day + 1}`} />;
   return (
     <header className={`status-wrap ${phone ? "status-wrap--phone" : ""}`} ref={more.wrap}>
       {phone ? (

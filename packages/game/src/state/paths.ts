@@ -214,6 +214,20 @@ export interface ChallengeMeta {
   startPopularity: number;
   /** The goal's number, fixed from the restaurant's last week when the scenario was built (lib/challenge.ts). */
   target: number;
+  /** Round 14: the scenario version it was built with (absent: Round 12–13). */
+  v?: number | undefined;
+  /** Round 14: the template played (absent: the date's own). */
+  template?: "rescue" | "rush" | "inspector" | "walkout" | "rival" | "festival" | undefined;
+  /** Round 14: the guests a two-part goal also asks for (inspector's night, rival's five days). */
+  guests?: number | undefined;
+  /** Round 14: the last five days' profit before the run (Rescue's goal is set from it), pence. */
+  prev?: number | undefined;
+  /** Round 14 (G6): the most one guest's bill counts for in the score, pence. */
+  fair?: number | undefined;
+  /** Round 14 (G6): the loan's principal when the run started (borrowing during it counts as a loss). */
+  loan0?: number | undefined;
+  /** Round 14 (S14-6): the built starting state's fingerprint (0–255), carried in the score code. */
+  fp?: number | undefined;
 }
 
 /** Round 12 (C): days in a daily challenge. */

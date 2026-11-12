@@ -10,6 +10,7 @@ import { ConfirmDialog } from "../components/Dialog";
 import { dateLabel } from "../lib/calendar";
 import type { SlotView } from "../state/saveStore";
 import { Icon } from "../components/Icon";
+import { todayLine } from "../lib/challengeToday";
 
 interface Props {
   /** A single save (rounds 1–8's shape, kept for its tests). Round 9: the app passes `slots` instead. */
@@ -46,6 +47,20 @@ function ContinueButton({ label, card, primary, onClick, autoFocus, busy }: { la
         {card.sub && <span className="continue__sub">{card.sub}</span>}
         <span className="title__savemeta">Day {card.day + 1} · <MoneyText pence={card.cash} whole /></span>
         <span className="continue__date">{dateLabel(card.day)}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Round 14 (D): today's challenge with its name, and her best today when she has one (no sim, no lazy chunk). */
+function ChallengeButton({ onClick }: { onClick: () => void }) {
+  const line = todayLine();
+  return (
+    <button className="btn btn--tap title__challenge" onClick={onClick} aria-label="Today's challenge" aria-describedby="title-challenge-line">
+      <Icon name="target" size={20} />
+      <span className="title__challenge-text" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.2, textAlign: "left" }}>
+        <span>Today's challenge</span>
+        <span id="title-challenge-line" className="title__challenge-line" style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--ink-soft)" }}>{line.title}{line.best !== undefined ? ` · your best ${line.best.toLocaleString("en-GB")}` : ""}</span>
       </span>
     </button>
   );
@@ -88,7 +103,7 @@ export function TitleScreen({ saved, onNew, onContinue, slots, onYourGames, save
             {slots && slots.length === 0 && onYourGames && (
               <button className="btn btn--ghost btn--tap" onClick={onYourGames}><Icon name="folder" size={20} />Load a save file</button>
             )}
-            {onChallenge && <button className="btn btn--tap" onClick={onChallenge}><Icon name="target" size={20} />Today's challenge</button>}
+            {onChallenge && <ChallengeButton onClick={onChallenge} />}
             {onVisit && <button className="btn btn--ghost btn--tap" onClick={onVisit}><Icon name="people" size={20} />Visit a friend</button>}
             <button className="btn btn--ghost btn--tap title__goal" onClick={() => setGoals(true)}>
               <Icon name="trophy" size={20} />How do I win?

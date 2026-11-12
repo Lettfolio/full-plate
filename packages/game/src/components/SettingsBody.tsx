@@ -48,7 +48,7 @@ interface BodyProps extends SettingsProps {
  *
  * Later rounds: add Settings rows HERE (at the end of the row list, before `.sheet__game`), not in Settings.tsx.
  */
-export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, difficulty, onClose, fileNote, setFileNote, focusRow }: BodyProps) {
+export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, difficulty, onClose, fileNote, setFileNote, focusRow, onChallenge }: BodyProps) {
   const [saving, setSaving] = useState<"saving" | SavedWhere | null>(null);
   const saveAndQuit = async () => {
     if (!onQuit) return;
@@ -108,6 +108,13 @@ export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
                 {onNewGame && <button className="btn btn--ghost btn--tap" onClick={() => setConfirm("new")}>Start a new game…</button>}
               </div>
             ) : null}
+            {/* Round 14 (D): today's challenge without leaving by Save & quit; the game is saved and she comes back to it. */}
+            {onChallenge && (
+              <div className="row row--wrap">
+                <button className="btn btn--tap" onClick={() => { onClose(); onChallenge(); }} aria-describedby="sheet-challenge-note"><Icon name="target" size={20} />Today's challenge</button>
+                <span id="sheet-challenge-note" className="small muted">Saves this game first. You come back to it after.</span>
+              </div>
+            )}
             {saving && saving !== "saving" && (
               <p id="saveq-state" role="status" className={`small savequit savequit--${saving}`}>
                 <Icon name={saving === "account" ? "cloud" : saving === "device" ? "cloudOff" : "warning"} size={20} />{SAVED_SAY[saving]}
