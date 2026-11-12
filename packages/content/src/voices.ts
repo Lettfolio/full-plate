@@ -12,7 +12,7 @@ import { GROWN_UP_WORDS } from "./softDrinks";
 
 // ───────── types ─────────
 export const GOSSIP_REACTIONS = [
-  "oneStar", "fiveStar", "rush", "quiet", "walkouts", "ranOut", "hire", "decor", "loan", "bigProfit", "loss", "closed", "bestDish", "incident", "critic",
+  "oneStar", "fiveStar", "rush", "quiet", "walkouts", "ranOut", "emptyLarder", "hire", "decor", "loan", "bigProfit", "loss", "closed", "bestDish", "incident", "critic",
 ] as const;
 export type GossipReaction = (typeof GOSSIP_REACTIONS)[number];
 
@@ -73,6 +73,11 @@ export interface RegularsData {
   lines: Record<"open" | "waiting" | "notOnMenu" | "onMenu" | "tryAgain" | "finished" | "newRegular" | "ofTheMonth", string>;
   /** Round 13 (D): the note a regular leaves when their story finishes (a seeded pick; ≥ 20 lines). */
   thanks: string[];
+  /**
+   * Round 14 (F, G4): a VIP order that passed three of its weekdays unmet lapses into one of these (a seeded pick,
+   * ≥ 6 lines; {name} only — the save keeps no dish for a missed night). No photo; the story carries on.
+   */
+  lapsed?: string[];
 }
 
 export interface Voices { gossip: GossipData; rival: RivalData; regulars: RegularsData }
@@ -163,6 +168,10 @@ export function validateVoices(v: Voices, dishIds: ReadonlySet<string>, district
   for (const k of ["open", "waiting", "notOnMenu", "onMenu", "tryAgain", "finished", "newRegular", "ofTheMonth"] as const) if (!isStr(rg.lines?.[k])) p.push(`regulars.lines.${k}: expected a string`);
   strings(p, "regulars.thanks", rg.thanks, THANKS_MIN);
   if (new Set(rg.thanks ?? []).size !== (rg.thanks ?? []).length) p.push("regulars.thanks: a line is repeated");
+  if (rg.lapsed !== undefined) {
+    strings(p, "regulars.lapsed", rg.lapsed, 6);
+    for (const [i, t] of rg.lapsed.entries()) if (/\{(?!name\})\w+\}/.test(t)) p.push(`regulars.lapsed[${i}]: only {name} is filled in`);
+  }
   words(p, "regulars", rg, VOICE_PLACEHOLDERS.regulars);
   return p;
 }

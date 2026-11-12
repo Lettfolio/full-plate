@@ -75,3 +75,32 @@ export function lastStaffedDay(history: readonly DayResult[], today: number): Da
 
 /** Walk-outs above this on a day suggest more tables. */
 export const WALKOUTS_FOR_TABLE_TIP = 5;
+
+/**
+ * Round 14 (F, U5): why nobody ate tonight, for the Evening's headline. In the evening the state still holds today's
+ * larder (deliveries land tomorrow morning) and today's rota, so "nothing could be cooked" and "nobody on" are what
+ * the day really was. Undefined on a night somebody ate.
+ */
+export type ZeroCause = "closed" | "noMenu" | "noStock" | "noStaff" | "nobody";
+export function zeroNightCause(
+  r: Pick<DayResult, "covers" | "closed" | "day">,
+  game: Pick<GameState, "menu" | "staff">,
+  unplateableNow: number,
+  weekday: number,
+): ZeroCause | undefined {
+  if (r.covers > 0) return undefined;
+  if (r.closed) return "closed";
+  const active = game.menu.filter((m) => m.active).length;
+  if (active === 0) return "noMenu";
+  if (unplateableNow >= active) return "noStock";
+  if (!game.staff.some((s) => s.rota[weekday])) return "noStaff";
+  return "nobody";
+}
+
+export const ZERO_HEADLINE: Record<ZeroCause, { title: string; line: string }> = {
+  closed: { title: "Closed today.", line: "No service, so no takings. Rent and the bills still ran." },
+  noMenu: { title: "Nothing on the menu.", line: "Nobody can order from an empty menu. Add dishes in the morning." },
+  noStock: { title: "Nobody ate: the larder was empty.", line: "Every dish on the menu was out of stock, so the kitchen couldn't cook anything. Wages and rent were paid anyway. Order in the evening and it arrives tomorrow morning." },
+  noStaff: { title: "Nobody ate: nobody was on.", line: "With no one on the rota the doors opened on an empty kitchen. Put someone on today's rota." },
+  nobody: { title: "Nobody came in tonight.", line: "Not a single guest. Check your prices and the gossip in the morning." },
+};

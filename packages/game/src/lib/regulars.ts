@@ -9,6 +9,12 @@
  * book. Limit: the sim keeps the last 400 days of results (sim-core HISTORY_MAX); Round 13 (D) keeps the fold in a
  * PathMeta memo (`meta.voices`, lib/voicesMemo.ts writes it after each day), so the fold resumes from the memo and a
  * beat earned on day 30 is still in the book on day 900.
+ *
+ * Round 14 (F, G4): an order names a dish she is cooking — one of the beat's dishes that was ordered that day, else
+ * one of hers from the same course, and only when none of hers fits the seed's pick. An order that passes three of
+ * its weekdays unmet (dish off, a poor night, or shut) lapses: "they went elsewhere that night" — no photo, the story
+ * moves on to the next beat. In the memo a lapsed beat is `[beat, day, 0]` with no dish (nothing was served), which
+ * the R13 memo format already allows; R13 memos always stored the dish for a bad beat, so old saves read the same.
  */
 import type { Customer, CustomerId, DayResult, GameState } from "@full-plate/sim-core";
 import type { VoicesMemo } from "../state/paths";
@@ -16,6 +22,7 @@ import type { RegularBeat, RegularDef } from "@full-plate/content/voices";
 import { weekdayIndex } from "./calendar";
 import { visitsOn, blogger } from "./blogger";
 import { dishLabel, districtName, fill, h32, sold, voices, wasOpen, weekdayName } from "./voiceKit";
+import { content } from "../sim";
 
 /** A night at or above this average counts as "a good review" for a VIP order. */
 export const GOOD_NIGHT = 3.5;
@@ -26,6 +33,8 @@ export const JOIN_GAP = [4, 7] as const;
 export const ACTIVE_MAX = 3;
 /** A VIP order is for a weekday 5–8 days after it is set, so a story moves on about once a week at most. */
 export const ORDER_LEAD = [5, 8] as const;
+/** Round 14 (F, G4): an order lapses on its third weekday unmet (or the first open day after it). */
+export const LAPSE_AFTER = 3;
 
 export interface BeatDone {
   /** 0 = the intro; 1..4 the VIP beats. */
@@ -34,6 +43,8 @@ export interface BeatDone {
   good: boolean;
   /** Round 13 (D): the beat's dish that sold that night (the story's {dish}), kept so the words survive the history cap. */
   dishId?: string | undefined;
+  /** Round 14 (F): the order lapsed — they went elsewhere that night (good is false; no dish). */
+  lapsed?: true;
 }
 export interface VipOrder {
   /** The beat it unlocks (1..4). */
@@ -67,15 +78,33 @@ export function cast(seed: number): { def: RegularDef; plannedDay: number }[] {
   });
 }
 
-function orderAfter(seed: number, def: RegularDef, beat: number, d: DayResult): VipOrder {
+const courseOf = (id: string): string | undefined => content.dishes.find((x) => x.id === id)?.course;
+/** Ordered on that day (on her menu); old results without per-dish lines fall back to "sold". */
+const onMenuThen = (d: DayResult, id: string): boolean => (d.perDish ? id in d.perDish : sold(d, id));
+
+/** Round 14 (F, G4): the dish for a new order — the beat's own if she cooks one, else one of hers from that course. */
+export function orderDish(seed: number, def: RegularDef, beat: number, d: DayResult): string {
   const b = def.beats[beat - 1]!;
   const rot = h32(seed, "reg:dish", def.id, beat) % b.dishes.length;
   const dishes = [...b.dishes.slice(rot), ...b.dishes.slice(0, rot)];
-  // Prefer a dish that sold today (so it's likely on the menu); otherwise the seed's pick.
-  const dishId = dishes.find((x) => sold(d, x)) ?? dishes[0]!;
+  const own = dishes.find((x) => sold(d, x)) ?? dishes.find((x) => onMenuThen(d, x));
+  if (own) return own;
+  const course = courseOf(dishes[0]!);
+  const lines = d.perDish ?? {};
+  const mine = Object.keys(lines)
+    .filter((id) => courseOf(id) === course && dishLabel(id) !== undefined)
+    .sort((x, y) => (lines[y]!.sold - lines[x]!.sold) || (h32(seed, "reg:mine", def.id, beat, x) - h32(seed, "reg:mine", def.id, beat, y)));
+  return mine[0] ?? dishes[0]!;
+}
+
+function orderAfter(seed: number, def: RegularDef, beat: number, d: DayResult): VipOrder {
+  const dishId = orderDish(seed, def, beat, d);
   const from = d.day + ORDER_LEAD[0] + (h32(seed, "reg:day", def.id, beat) % (ORDER_LEAD[1] - ORDER_LEAD[0] + 1));
   return { beat, dishId, weekday: weekdayIndex(from), since: d.day, from };
 }
+
+/** Round 14 (F): the order's last chance — its LAPSE_AFTER-th weekday. */
+export const lapseDay = (o: VipOrder): number => o.from + 7 * (LAPSE_AFTER - 1);
 
 /** A memo this game can resume from: same seed, and not ahead of the history (else the fold starts from scratch). */
 export const usableMemo = (seed: number, history: readonly DayResult[], memo: VoicesMemo | undefined): VoicesMemo | undefined =>
@@ -86,6 +115,13 @@ export const usableMemo = (seed: number, history: readonly DayResult[], memo: Vo
  * starts from the memo's states and reads only the days after `memo.day` (the same answer while the history still
  * holds every day; the memo's answer once it doesn't).
  */
+/** The beat is done (met, a bad night, or lapsed): the next order, or the end of the story. */
+function next(seed: number, s: RegularState, d: DayResult): void {
+  const o = s.open!;
+  if (o.beat < s.def.beats.length) s.open = orderAfter(seed, s.def, o.beat + 1, d);
+  else delete s.open;
+}
+
 export function regularsFrom(seed: number, history: readonly DayResult[], memo?: VoicesMemo): RegularState[] {
   const states: RegularState[] = cast(seed).map(({ def, plannedDay }) => ({ def, plannedDay, done: [] }));
   const m = usableMemo(seed, history, memo);
@@ -93,7 +129,7 @@ export function regularsFrom(seed: number, history: readonly DayResult[], memo?:
     const s = states.find((x) => x.def.id === r.id);
     if (!s) continue;
     if (r.joined !== undefined) s.joined = r.joined;
-    s.done = r.done.map(([beat, day, good, dishId]) => ({ beat, day, good: good === 1, ...(dishId ? { dishId } : {}) }));
+    s.done = r.done.map(([beat, day, good, dishId]) => ({ beat, day, good: good === 1, ...(dishId ? { dishId } : beat > 0 && good !== 1 ? { lapsed: true as const } : {}) }));
     if (r.open) s.open = { ...r.open };
   }
   const from = m ? m.day : -Infinity;
@@ -110,13 +146,23 @@ export function regularsFrom(seed: number, history: readonly DayResult[], memo?:
         continue;
       }
       const o = s.open;
-      if (!o || d.day < o.from || weekdayIndex(d.day) !== o.weekday || !sold(d, o.dishId)) continue;
-      const good = d.averageRating >= GOOD_NIGHT;
-      const beat = s.def.beats[o.beat - 1]!;
-      if (!good && beat.bad === undefined) { s.open = { ...o, triedDay: d.day }; continue; }
-      s.done.push({ beat: o.beat, day: d.day, good, dishId: beat.dishes.find((x) => sold(d, x)) ?? beat.dishes[0] });
-      if (o.beat < s.def.beats.length) s.open = orderAfter(seed, s.def, o.beat + 1, d);
-      else delete s.open;
+      if (!o || d.day < o.from) continue;
+      const match = weekdayIndex(d.day) === o.weekday;
+      if (match && sold(d, o.dishId)) {
+        const good = d.averageRating >= GOOD_NIGHT;
+        const beat = s.def.beats[o.beat - 1]!;
+        if (good || beat.bad !== undefined) {
+          s.done.push({ beat: o.beat, day: d.day, good, dishId: o.dishId });
+          next(seed, s, d);
+          continue;
+        }
+        s.open = { ...o, triedDay: d.day };
+      }
+      // Round 14 (F, G4): the third weekday has come and gone — they went elsewhere that night; the story moves on.
+      if (match ? d.day >= lapseDay(o) : d.day > lapseDay(o)) {
+        s.done.push({ beat: o.beat, day: d.day, good: false, lapsed: true });
+        next(seed, s, d);
+      }
     }
   }
   return states;
@@ -139,13 +185,21 @@ export function vars(game: Pick<GameState, "restaurantName" | "districtId">, def
 }
 const WEEKDAY = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export interface BeatText { beat: number; day: number; good: boolean; text: string; photo?: { emoji: string; caption: string }; dishId?: string }
+export interface BeatText { beat: number; day: number; good: boolean; text: string; photo?: { emoji: string; caption: string }; dishId?: string; lapsed?: true }
+
+/** Round 14 (F, G4): the words for a lapsed order (a seeded pick; {name} only). */
+export function lapsedLine(game: Pick<GameState, "seed" | "restaurantName" | "districtId">, def: RegularDef, beat: number): string {
+  const pool = voices.regulars.lapsed ?? [];
+  if (!pool.length) return `${first(def)} went elsewhere that night.`;
+  return fill(pool[h32(game.seed, "reg:lapsed", def.id, beat) % pool.length]!, vars(game, def));
+}
 
 /** The story so far, in words: the intro, then each beat's good or bad line. */
 export function storyOf(game: GameState, s: RegularState): BeatText[] {
   const days = new Map(game.history.map((d) => [d.day, d]));
   return s.done.map((b) => {
     if (b.beat === 0) return { beat: 0, day: b.day, good: true, text: s.def.intro };
+    if (b.lapsed) return { beat: b.beat, day: b.day, good: false, lapsed: true, text: lapsedLine(game, s.def, b.beat) };
     const beat: RegularBeat = s.def.beats[b.beat - 1]!;
     const dishId = b.dishId ?? beat.dishes.find((x) => { const d = days.get(b.day); return d ? sold(d, x) : false; }) ?? beat.dishes[0];
     const v = vars(game, s.def, dishId, weekdayIndex(b.day));
@@ -241,7 +295,7 @@ export function thanksNote(game: Pick<GameState, "seed" | "restaurantName" | "di
 export function regularOfMonth(regs: readonly RegularState[], from: number, to: number): { s: RegularState; beats: number } | undefined {
   let best: { s: RegularState; score: number; beats: number; last: number } | undefined;
   for (const s of regs) {
-    const inside = s.done.filter((b) => b.day >= from && b.day <= to);
+    const inside = s.done.filter((b) => b.day >= from && b.day <= to && !b.lapsed);
     if (!inside.length) continue;
     const score = inside.reduce((a, b) => a + (b.beat === 0 ? 1 : b.good ? 2 : 1), 0);
     const last = Math.max(...inside.map((b) => b.day));

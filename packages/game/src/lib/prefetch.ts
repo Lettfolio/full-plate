@@ -21,6 +21,7 @@ const DAY: Record<string, () => Promise<unknown>> = {
   "components/RegularsBook": () => import("../components/RegularsBook"),
   "components/BankCards": () => import("../components/BankCards"),
   "components/TryCard": () => import("../components/TryCard"), // R14 (E), merged in the review
+  "components/TodayCard": () => import("../components/TodayCard"), // R14 (F), merged in the review
   // service
   "canvas/RestaurantView": () => import("../canvas/RestaurantView"),
   "canvas/decorArt": () => import("../canvas/decorArt"),

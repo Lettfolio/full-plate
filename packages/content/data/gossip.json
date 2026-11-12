@@ -128,6 +128,11 @@
       "{restaurant} took the {dish} off part-way through yesterday. The menu looked a bit gappy. Like a smile missing a tooth.",
       "Yesterday the {dish} ran out at {restaurant}. Somewhere, a delivery van is wondering what it did wrong."
     ],
+    "emptyLarder": [
+      "{restaurant} opened yesterday with an empty larder. The doors were open, the ovens were on, and there was nothing to put in them.",
+      "Nobody ate at {restaurant} last night: there was no food in. A restaurant without food is just a room with chairs.",
+      "Overheard on {district}: 'I went to {restaurant} and they had nothing in.' Somebody forgot the shopping. Order before the evening."
+    ],
     "hire": [
       "{staff} has joined the team at {restaurant}. First day nerves, new shoes, someone else's apron. A classic.",
       "New face at {restaurant}: {staff}. Early reports say they can carry three plates. The bar is high.",

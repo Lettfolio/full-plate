@@ -3,11 +3,11 @@
  * last days, and the once-only "the bank will lend you a first wage" tip. `Bank.tsx` decides when each is due.
  */
 import type { Command, GameState } from "@full-plate/sim-core";
-import { bankStatus, BANK_LAST_DAYS, content, hireShortfall, MAX_PRICE_PENCE, starterLoanOffer } from "../sim";
+import { bankStatus, BANK_LAST_DAYS, content, hireShortfall, MAX_PRICE_PENCE, STARTER_LOAN_MAX, starterLoanOffer } from "../sim";
 import type { PlanningTab } from "../screens/Planning";
 import { MoneyText } from "./MoneyText";
 import { Icon } from "./Icon";
-import { days } from "./Bank";
+import { days, loanGone } from "./Bank";
 
 /** Tonight's prices × 1.1 (to 5p), the evening card's one-tap "raise prices". */
 export function raisePrices(game: GameState): Command[] {
@@ -45,7 +45,7 @@ export function BankCard({ game, send, onGoTo, onAct }: CardProps) {
           <li><span className="spacer">Fewer shifts: give someone a quiet day off.</span>
             {onGoTo && <button className="btn btn--sm" onClick={() => onGoTo("staff")}>Rota →</button>}</li>
         )}
-        <li><span className="spacer">{loan ? <>The bank will lend you <MoneyText pence={loan} whole /> once, for a first wage.</> : "Don't buy anything new until you're back above the limit."}</span>
+        <li><span className="spacer">{loan ? <>The bank will lend you <MoneyText pence={loan} whole /> once, for a first wage.</> : <>Don't buy anything new until you're back above the limit.{loanGone(game) && <> <LoanGoneWords game={game} /></>}</>}</span>
           {loan && <button className="btn btn--sm btn--green" onClick={() => send({ type: "STARTER_LOAN" })}>Borrow <MoneyText pence={loan} whole /></button>}</li>
       </ul>
     </section>
@@ -69,9 +69,29 @@ export function BankBanner({ game }: { game: GameState }) {
  * The staffless trap (G2): nobody hired and no chef she can afford. Normal/Hard offer the starter loan once; the card is
  * the "goal" too (it names what to do next). Hidden once she has staff or has borrowed.
  */
+/** Round 14 (F, U13): the cash below which the first-wage loan goes (the bank lends at most STARTER_LOAN_MAX). */
+export const loanFloor = (needed: number): number => needed - STARTER_LOAN_MAX;
+
+function LoanGoneWords({ game }: { game: GameState }) {
+  const short = hireShortfall(game);
+  if (!short) return null;
+  return (
+    <>The bank's first-wage loan has gone: it lends at most <MoneyText pence={STARTER_LOAN_MAX} whole />, and you're now <MoneyText pence={short.short} whole /> short of a {short.role}'s first wage.
+      {" "}Get your cash back above <MoneyText pence={loanFloor(short.needed)} whole tone /> and the bank offers it again.</>
+  );
+}
+
 export function StarterLoanTip({ game, send }: { game: GameState; send: (cmd: Command) => void }) {
   const short = hireShortfall(game);
   const loan = starterLoanOffer(content, game);
+  if (!loan && short && loanGone(game)) {
+    return (
+      <section className="card tip tip--amber starterloan" aria-label="The first-wage loan has gone" data-testid="starter-loan-gone">
+        <span className="tip__icon" aria-hidden="true">🏦</span>
+        <div className="spacer"><b>No more first-wage loan, for now</b><div className="small"><LoanGoneWords game={game} /></div></div>
+      </section>
+    );
+  }
   if (!loan || !short || short.short <= 0) return null;
   return (
     <section className="card tip tip--amber starterloan" aria-label="A loan for a first wage" data-testid="starter-loan">
@@ -80,6 +100,7 @@ export function StarterLoanTip({ game, send }: { game: GameState; send: (cmd: Co
         <div className="advice__k">Goal</div>
         <b>The bank will lend you a first wage</b>
         <div className="small">You need <MoneyText pence={short.short} whole /> more to hire a {short.role}. The bank will lend you <MoneyText pence={loan} whole /> once, paid back a little each day with your loan.</div>
+        <div className="xs" data-testid="starter-loan-when">The offer goes if your cash drops below <MoneyText pence={loanFloor(short.needed)} whole tone />: the bank lends at most <MoneyText pence={STARTER_LOAN_MAX} whole /> for a first wage.</div>
       </div>
       <button className="btn btn--sm btn--green" onClick={() => send({ type: "STARTER_LOAN" })}>Borrow <MoneyText pence={loan} whole /></button>
     </section>

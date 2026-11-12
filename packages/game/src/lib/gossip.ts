@@ -69,7 +69,9 @@ function facts(c: Ctx, day: number): { hard: [GossipReaction, Record<string, str
   if (hired) hard.push(["hire", { staff: hired.name }]);
   const log = game.log.filter((l) => l.day === day - 1);
   const ranOut = log.find((l) => /86'd/.test(l.text));
-  if (ranOut) {
+  // Round 14 review (F's note): a night that served nobody because the larder was empty didn't "run out part-way"
+  if (y.covers === 0 && (ranOut || game.menu.length === 0)) hard.push(["emptyLarder", {}]);
+  else if (ranOut) {
     const dish = [...new Set(game.menu.map((m) => m.dishId))].map(dishLabel).find((n) => n && ranOut.text.includes(n));
     if (dish) hard.push(["ranOut", { dish }]);
   }

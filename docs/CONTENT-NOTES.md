@@ -1406,3 +1406,24 @@ All game-side; no balance knob, and the sim reads none of the text.
   regular's usual; validator: ≥ 20 (`THANKS_MIN`), no repeats, the usual placeholder and trade-word checks) and
   `lines.ofTheMonth` ("Regular of the month: {name}."). A note is a seeded pick per regular (`h32(seed, id)`), so the
   same story always ends with the same note.
+
+## Round 14 — F: review lines and lapsed orders
+
+- **`reviewTemplates.json`**: 22 of 48 lines re-worded; keys and pool sizes unchanged, so the sim draws the same
+  index from the same stream (balance and RNG untouched; only the stored words differ). Audited programmatically
+  against every dish name (`round14f.reviews.test.ts`): no "a {dish}" (a Apple crumble), no verb after `{dish}` that
+  has to agree with it (The Chunky chips was), nothing food-only said of the dish (licked the plate, piping hot,
+  beige, arrived cold — wrong for a drink), and no `{segment}` (a capitalised name mid-sentence: "As Foodies, we").
+  The changes: 1★ "arrived cold" → "arrived late"; "My {dish} was more 'oops'…" → "My {dish}: more 'oops'…"; "As
+  {segment}, we expected more" → "We expected more, honestly". 2★ "The {dish} was okay" → "Okay {dish}"; "very...
+  beige" → "tasted very... medium"; "The {dish} hasn't heard" → "Someone should tell the {dish}". 3★ "Nice spot for
+  {segment} like us" → "Nice spot… mostly for the {dish}"; "The {dish} was tasty but" → "Enjoyed the {dish}, but";
+  "a {dish} that hit the spot" → "the {dish} hit the spot". 4★ "licked the plate" → "vanished so fast Mum asked if
+  I'd actually had any"; "the {dish} was spot on" → "the {dish}? Spot on."; "piping hot" → "came out quickly"; "As
+  {segment}, we're picky" → "We're picky"; "The {dish} is a must" → "Don't leave without trying the {dish}". 5★ "is
+  the best thing I've eaten" → ": best thing I've had"; "We're {segment} and we've eaten everywhere" → "We've eaten
+  everywhere"; "The {dish} was so good we ordered another" → "We ordered the {dish}, then another". Rough: five lines
+  lose "{dish} was/came" ("We loved our {dish}", "great {dish}", "Good {dish} in the end", "The {dish}: a nice
+  surprise", "Good {dish}, but…"). A "Cola or lemonade" guest is given one of the two at display time (game side).
+- **`regulars.json`**: new `lapsed` pool (6 lines, `{name}` only; validator: ≥ 6, no other placeholder): the words
+  for a VIP order that passed three weekdays unmet ("{name} went elsewhere that night…"). No photo; the story moves on.

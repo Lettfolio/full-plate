@@ -26,6 +26,8 @@ const DecorateTab = lazyRetry(() => import("./planning/DecorateTab").then((m) =>
 // Round 12 (E): the Restaurant tab (with the rival and the Regulars book) and the morning gossip load on demand.
 const RestaurantTab = lazyRetry(() => import("./planning/RestaurantTab").then((m) => ({ default: m.RestaurantTab })));
 const GossipTicker = lazyRetry(() => import("../components/GossipTicker").then((m) => ({ default: m.GossipTicker })));
+// Round 14 (F): the morning's "Today" card (a VIP order due today, the rival's week). Lazy: it needs the voices data.
+const TodayCard = lazyRetry(() => import("../components/TodayCard").then((m) => ({ default: m.TodayCard })));
 // Round 12 (G): the Stock tab loads on first open too (main-chunk budget: room for the Friends entry points).
 const StockTab = lazyRetry(() => import("./planning/StockTab").then((m) => ({ default: m.StockTab })));
 // Round 14 (E): "New thing to try" (one item a day from Day 2; components/TryCard.tsx, lib/tryNext.ts).
@@ -137,7 +139,8 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
   // "Show me" on a hire goal: the Staff tab lists that role's candidates first.
   const [wantRole, setWantRole] = useState<StaffRole | undefined>(undefined);
   // First day with no staff at all: one "are you sure?" (a 12-year-old presses the big button first).
-  const [confirmAlone, setConfirmAlone] = useState(false);
+  // Round 14 (F, U5): and any day nothing on the menu can be cooked (every dish out of stock).
+  const [confirm, setConfirm] = useState<"alone" | "food" | null>(null);
   // R14 (C, U2): the rest of the day's chunks come in idle time, so the day can be finished offline.
   useEffect(() => prefetchSoon(path === "empire" || path === "stars" ? path : undefined), [path]);
   const today = weekdayIndex(game.day);
@@ -170,6 +173,7 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
   else if (!chefs) hints.push({ text: `No chef on for ${WEEKDAYS[today]} — you'll cover the kitchen`, tone: "bad", tab: "staff" });
   if (!servers) hints.push({ text: `No server on for ${WEEKDAYS[today]} — you'll cover the floor`, tone: "warn", tab: "staff" });
   const noStock = opening ? 0 : unplateable(content, game).length;
+  const cantCook = !opening && active.length > 0 && noStock >= active.length;
   if (noStock) hints.push({ text: `${noStock} dish${noStock > 1 ? "es" : ""} out of stock today — order in the evening`, tone: "bad", tab: "stock" });
   if (short) hints.push({ text: `${short} ingredient${short > 1 ? "s" : ""} running low`, tone: "warn", tab: "stock" });
   const tired = tiredSlots(game);
@@ -211,6 +215,8 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
       </div>
       {/* Round 12 (E): not on the wide Empire / Stars tabs, which need the height for their maps and tracks. */}
       {meta?.mode !== "career" && !wide && <ChunkBack to={null}><Suspense fallback={null}><GossipTicker game={game} meta={meta} /></Suspense></ChunkBack>}
+      {/* Round 14 review: the Today card (F) first, then the Try card (E) — at most these two above the tabs */}
+      {meta?.mode !== "career" && !wide && !opening && game.phase === "planning" && <ChunkBack to={null}><Suspense fallback={null}><TodayCard game={game} meta={meta} send={send} onTab={setTab} /></Suspense></ChunkBack>}
       {meta?.mode !== "career" && !meta?.challenge && !wide && game.day >= 1 && <ChunkBack to={null}><Suspense fallback={null}><TryCard game={game} meta={meta} onGo={tryGo} /></Suspense></ChunkBack>}
       {(opening || shortDelivery || showRisk || (game.ownerFatigue ?? 0) >= OWNER_FATIGUE_WARNING || lastDays || loanTip) && (
         <div className="planning__notices">
@@ -297,11 +303,29 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
           }}>
             Closed for the refit — next day →
           </button>
-        ) : confirmAlone ? (
+        ) : confirm === "alone" ? (
           <div className="openbar__confirm" role="alertdialog" aria-labelledby="alone-q">
             <span id="alone-q"><b>Open with nobody to help?</b> You'll cook and serve on your own: slow food, long queues.</span>
-            <button className="btn btn--green" autoFocus onClick={() => { setConfirmAlone(false); setTab("staff"); }}>Hire someone first</button>
-            <button className="btn btn--ghost" onClick={() => { setConfirmAlone(false); send({ type: "START_SERVICE" }); }}>Open anyway</button>
+            <button className="btn btn--green" autoFocus onClick={() => { setConfirm(null); setTab("staff"); }}>Hire someone first</button>
+            <button className="btn btn--ghost" onClick={() => { setConfirm(null); send({ type: "START_SERVICE" }); }}>Open anyway</button>
+          </div>
+        ) : confirm === "food" ? (
+          <div className="openbar__confirm" role="alertdialog" aria-labelledby="food-q" data-testid="confirm-nofood">
+            <span id="food-q">
+              <b>Nothing on your menu can be cooked today.</b> Every dish is out of stock, so nobody will eat, and wages and rent are paid anyway.
+              {" "}Stock you order now arrives tomorrow morning{HOOKS.closeToday ? "; closing today pays the rent and half the wages of anyone on the rota" : ""}.
+            </span>
+            {HOOKS.closeToday && (
+              <button className="btn btn--green" autoFocus onClick={() => {
+                setConfirm(null);
+                risk.lines.forEach(([ingredientId, qty]) => send({ type: "ORDER_STOCK", ingredientId, qty }));
+                send(asCommand({ type: "CLOSE_TODAY" }));
+              }}>
+                {risk.lines.length ? <>Restock for tomorrow and close today · ≈<MoneyText pence={risk.cost} whole /></> : "Close today"}
+              </button>
+            )}
+            <button className="btn btn--ghost" autoFocus={!HOOKS.closeToday} onClick={() => { setConfirm(null); setTab("menu"); }}>Change the menu</button>
+            <button className="btn btn--ghost" onClick={() => { setConfirm(null); send({ type: "START_SERVICE" }); }}>Open anyway</button>
           </div>
         ) : (
           <>
@@ -319,7 +343,7 @@ export function Planning({ game, send, tab, onTab: pickTab, goalsJustDone = [], 
             className="btn btn--primary btn--xl"
             disabled={game.phase !== "planning" || !active.length}
             title={active.length ? undefined : "Add at least one dish to your menu first"}
-            onClick={() => (opening && game.staff.length === 0 ? setConfirmAlone(true) : send({ type: "START_SERVICE" }))}
+            onClick={() => (opening && game.staff.length === 0 ? setConfirm("alone") : cantCook ? setConfirm("food") : send({ type: "START_SERVICE" }))}
           >
             <ArrowLabel text="Open for service →" />
           </button>

@@ -53,7 +53,7 @@ export function EveningExtras({ game, result, meta }: { game: GameState; result:
               <li key={s.def.id} className="beatlist__row">
                 <Avatar spec={regularFace(s.def)} size={48} />
                 <div>
-                  <b>{s.def.name}</b> <span className="xs muted">{beat.beat === 0 ? "a new regular" : beat.good ? <>a <Term id="vip" inline>VIP</Term> order met{beat.photo ? ` · photo for the book: ${beat.photo.emoji}` : ""}</> : "it didn't quite go to plan"}</span>
+                  <b>{s.def.name}</b> <span className="xs muted">{beat.beat === 0 ? "a new regular" : beat.good ? <>a <Term id="vip" inline>VIP</Term> order met{beat.photo ? ` · photo for the book: ${beat.photo.emoji}` : ""}</> : beat.lapsed ? "went elsewhere tonight" : "it didn't quite go to plan"}</span>
                   <div className="small">{beat.text}</div>
                   {thanks && <p className="thanksnote" data-testid="thanks-note"><span className="xs muted">A note left on the table:</span> “{thanks}” <span className="small">— {s.def.name.split(" ")[0]}</span></p>}
                 </div>

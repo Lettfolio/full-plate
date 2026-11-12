@@ -117,8 +117,32 @@ export function applySoftDrinks(roots: readonly unknown[], on: boolean): boolean
   const swaps = softDrinkSwaps();
   const map = on ? swaps : new Map([...swaps].map(([a, b]) => [b, a] as const));
   for (const r of roots) swapStrings(r, map);
+  // Round 14 (F, G9): an invented dish's description is built from its ingredients' names ("Your own recipe: burger
+  // buns and draught lager."), so no whole-string swap matches it. Swap the drink words inside it too, both ways.
+  const words = [...softIngredientWords()].map(([a, b]): [string, string] => (on ? [a, b] : [b, a])).sort((x, y) => y[0].length - x[0].length);
+  const seen = new Set<object>();
+  for (const r of roots) {
+    for (const d of (r as { dishes?: { id?: unknown; blurb?: unknown }[] }).dishes ?? []) {
+      if (seen.has(d) || typeof d.id !== "string" || !d.id.startsWith("custom:") || typeof d.blurb !== "string") continue;
+      seen.add(d);
+      d.blurb = swapWords(d.blurb, words);
+    }
+  }
   applied = on;
   return true;
+}
+
+/** Round 14 (F, G9): each poured ingredient's name as an invented dish's description says it (lower case, no "(pint)"). */
+export function softIngredientWords(): Map<string, string> {
+  const plain = (x: string) => x.replace(/\s*\(.*\)$/, "").toLowerCase();
+  return new Map(Object.values(SOFT_INGREDIENTS).map(([a, b]) => [plain(a), plain(b)] as const));
+}
+/** Replaces each word in one pass (longest first), so a swapped word is never swapped again. */
+function swapWords(text: string, words: readonly (readonly [string, string])[]): string {
+  if (!words.length) return text;
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const to = new Map(words.map(([a, b]) => [a, b]));
+  return text.replace(new RegExp(words.map(([a]) => esc(a)).join("|"), "g"), (m) => to.get(m) ?? m);
 }
 /** Whether the soft-drinks view is on now. */
 export const softDrinksOn = (): boolean => applied;

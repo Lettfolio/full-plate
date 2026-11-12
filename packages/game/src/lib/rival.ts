@@ -1,6 +1,6 @@
 /**
  * Round 12 (E): the chef across the road. Their name, restaurant and personality come from the seed and the district;
- * their weekly review score is a mirror — a function of the district, the week and the player's popularity — not a
+ * their weekly review score is a mirror — a function of the district, the week and the player's recent nights — not a
  * sim (BRIEF: the sim is untouched). The player's score is the real average of their nights that week. Posts (2–3 a
  * week) react to what really happened: last week's result, or last night's.
  */
@@ -19,12 +19,30 @@ export interface Rival {
 }
 
 /** Each district's lean (their regulars are a bit kinder by the sea, a bit tougher in the student quarter). */
-const DISTRICT_LEAN: Record<string, number> = { student_quarter: -0.1, high_street: 0.05, business_park: 0, seaside: 0.1 };
+const DISTRICT_LEAN: Record<string, number> = { student_quarter: -0.05, high_street: 0.025, business_park: 0, seaside: 0.05 };
+/** Their score before she has a night to measure against. */
 const BASE = 3.3;
-/** How far the rival rises with the player's standing: a 4★ month (80) lifts them +0.18, a 3★ month (60) +0.06. */
-const MIRROR = 0.006;
+/**
+ * Round 14 (F, G10): the rival keeps pace. Their week is her average night over the four weeks before it, less an
+ * edge, plus the district's lean and the week's wobble (±WOBBLE). The edge grows with her standing (EDGE_LOW at 2.5★
+ * or below, EDGE_HIGH at 4★ and up), so a good owner wins about 55–70 % of weeks and has to keep it up; one having a
+ * rough time still takes about a third. An owner who is improving beats them; one sliding loses. Still a mirror of
+ * her own results (the sim never sees it).
+ */
+const EDGE_LOW = 0.08;
+const EDGE_HIGH = 0.12;
+const WOBBLE = 25;
+const FLOOR = 1.5;
+const CAP = 4.8;
 /** Scores closer than this are "level". */
 export const LEVEL = 0.05;
+/**
+ * Round 14 (F, G10): a win counts toward the framed clipping only when it was a real race: she opened at least
+ * CONTESTED_NIGHTS nights that week and won by no more than CONTESTED_MARGIN stars. Other wins neither count nor break
+ * the run; a loss or a level week does.
+ */
+export const CONTESTED_NIGHTS = 3;
+export const CONTESTED_MARGIN = 1;
 
 export function rivalFor(seed: number, districtId: string): Rival {
   const r = voices.rival;
@@ -42,7 +60,13 @@ export interface WeekScore {
   you?: number;
   them: number;
   result: "you" | "them" | "level";
+  /** Round 14 (F): nights she opened that week (absent in hand-made weeks: treated as a full week). */
+  nights?: number;
 }
+
+/** Round 14 (F, G10): a win that was a real race (see CONTESTED_*). */
+export const contested = (w: WeekScore): boolean =>
+  w.result === "you" && w.you !== undefined && (w.nights ?? 7) >= CONTESTED_NIGHTS && w.you - w.them <= CONTESTED_MARGIN + 1e-9;
 
 const r1 = (x: number) => Math.round(x * 10) / 10;
 
@@ -56,10 +80,14 @@ export function standingBefore(game: GameState, start: number): number {
   return xs.length ? (20 * xs.reduce((a, d) => a + d.averageRating, 0)) / xs.length : 50;
 }
 
-/** Their score for a week (rounded to 0.1): district + week wobble (±0.3) + a mirror of the player's standing. */
+/** Their score for a week (rounded to 0.1): her recent average less an edge, + district lean + week wobble. */
 export function rivalScore(game: GameState, start: number): number {
-  const wobble = ((h32(game.seed, game.districtId, "rival:week", start) % 61) - 30) / 100;
-  return r1(Math.max(2.2, Math.min(4.8, BASE + (DISTRICT_LEAN[game.districtId] ?? 0) + wobble + MIRROR * (standingBefore(game, start) - 50))));
+  const wobble = ((h32(game.seed, game.districtId, "rival:week", start) % (2 * WOBBLE + 1)) - WOBBLE) / 100;
+  const xs = game.history.filter((d) => d.day < start && d.day >= start - 28 && wasOpen(d));
+  const ref = xs.length ? xs.reduce((a, d) => a + d.averageRating, 0) / xs.length : BASE;
+  const t = Math.max(0, Math.min(1, (ref - 2.5) / 1.5));
+  const edge = EDGE_LOW + (EDGE_HIGH - EDGE_LOW) * t;
+  return r1(Math.max(FLOOR, Math.min(CAP, ref - edge + (DISTRICT_LEAN[game.districtId] ?? 0) + wobble)));
 }
 
 /** Every complete week in the history (its Sunday has been played), oldest first. */
@@ -73,15 +101,15 @@ export function weekScores(game: GameState): WeekScore[] {
     const them = rivalScore(game, s);
     const you = open.length ? r1(open.reduce((a, d) => a + d.averageRating, 0) / open.length) : undefined;
     const result = you === undefined ? "them" : Math.abs(you - them) < LEVEL ? "level" : you > them ? "you" : "them";
-    out.push({ start: s, ...(you !== undefined ? { you } : {}), them, result });
+    out.push({ start: s, ...(you !== undefined ? { you } : {}), them, result, nights: open.length });
   }
   return out;
 }
 
-/** Consecutive weeks the player has won, counting back from the latest complete week. */
+/** Consecutive weeks the player has won, counting back from the latest complete week (Round 14: contested wins; others are skipped). */
 export function winStreak(weeks: readonly WeekScore[]): number {
   let n = 0;
-  for (let i = weeks.length - 1; i >= 0 && weeks[i]!.result === "you"; i--) n++;
+  for (let i = weeks.length - 1; i >= 0 && weeks[i]!.result === "you"; i--) if (contested(weeks[i]!)) n++;
   return n;
 }
 
@@ -91,6 +119,7 @@ export const CLIPPING_WEEKS = 3;
 export function clippingDay(weeks: readonly WeekScore[]): number | undefined {
   let n = 0;
   for (const w of weeks) {
+    if (w.result === "you" && !contested(w)) continue;
     n = w.result === "you" ? n + 1 : 0;
     if (n === CLIPPING_WEEKS) return w.start + 7;
   }

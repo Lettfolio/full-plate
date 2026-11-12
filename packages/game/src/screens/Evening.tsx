@@ -2,15 +2,16 @@ import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import { lazyRetry } from "../lib/lazyRetry";
 import type { Command } from "@full-plate/sim-core";
 import { content, OWNER_FATIGUE_WARNING, spendCheck, TABLE_COST } from "../sim";
-import { BankCard, bankDue, hirePromptText, loanDue, StarterLoanTip } from "../components/Bank";
-import { Suspense } from "react";
+import { BankCard, bankDue, hirePromptText, loanDue, loanGone, StarterLoanTip } from "../components/Bank";
+import { Suspense, useState } from "react";
 // Round 12 (B): the postcard button and its sheet are their own chunk.
 const PostcardButton = lazyRetry(() => import("../components/PostcardDialog").then((m) => ({ default: m.PostcardButton })));
 // Round 12 (E): the blogger's review, the regulars tonight and tomorrow's gossip (lazy; components/EveningExtras.tsx).
 const EveningExtras = lazyRetry(() => import("../components/EveningExtras").then((m) => ({ default: m.EveningExtras })));
 import { FatigueNote } from "../components/FatigueNote";
 import { restockLines } from "./planning/stockNeeds";
-import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish } from "../lib/evening";
+import { dishDays, lastStaffedDay, WALKOUTS_FOR_TABLE_TIP, worstDish, zeroNightCause, ZERO_HEADLINE } from "../lib/evening";
+import { unplateable } from "../lib/plateable";
 import { incidentLines, INCIDENT_ICON } from "../lib/incidents";
 import { decorLines } from "../lib/decor";
 import { coveringPhrase } from "../lib/staff";
@@ -39,6 +40,9 @@ import { ArrowLabel, Icon } from "../components/Icon";
 import { Panel } from "../components/Panel";
 import { CountUp } from "../lib/motion";
 import { withNewDishReview } from "@full-plate/content";
+import { eveningReviewText } from "../lib/reviewLines";
+import { oneThingTomorrow } from "../lib/tomorrow";
+import { eveningAdvice } from "../sim";
 
 /** Round 12 (A): tonight beat every earlier night (at least two of them, and tonight made money). */
 export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boolean {
@@ -50,7 +54,17 @@ export function bestNightSoFar(history: readonly DayResult[], r: DayResult): boo
  * Round 7 (B): tonight's money as one big friendly figure (count-up, ▲/▼, green/red), what that is against last
  * night, and the last seven nights as bars, so "a tough night" has a size. The sums stay one tap away.
  */
+/**
+ * Round 14 (F, U9): profit vs cash, in her numbers. Profit counts the stock cooked (and binned) tonight, whenever it
+ * was paid for; cash moves when stock is paid for, which is when it is ordered (it arrives the next morning).
+ */
+export function profitVsCash(game: Pick<GameState, "orders" | "day">, r: DayResult): { used: number; bought: number } {
+  return { used: r.foodCost + r.waste.prep + r.waste.spoil, bought: r.day === game.day ? game.orders.reduce((a, o) => a + o.cost, 0) : 0 };
+}
+
 export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
+  const [why, setWhy] = useState(false);
+  const pc = profitVsCash(game, r);
   const up = r.profit >= 0;
   const vs = versusYesterday(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
   const nights = lastNights(game.history.at(-1)?.day === r.day ? game.history : [...game.history, r]);
@@ -60,10 +74,21 @@ export function TonightMoney({ game, r }: { game: GameState; r: DayResult }) {
     <section className={`tonight tonight--${up ? "up" : "down"}`} aria-label="Tonight's money">
       <div className="tonight__main">
         <div className="tonight__k">{up ? "Tonight you made" : "Tonight you lost"}</div>
-        <div className="tonight__v">
+        <button
+          type="button" className="tonight__v" data-testid="profit-why-btn" aria-expanded={why} aria-controls="profit-why"
+          title="Why isn't this the same as my cash?"
+          style={{ background: "none", border: 0, padding: 0, cursor: "pointer", minHeight: 44, textAlign: "inherit" }}
+          onClick={() => setWhy((x) => !x)}
+        >
           <span className="tonight__arrow" aria-hidden="true"><Icon name={up ? "trendUp" : "trendDown"} size={44} /></span>
           <MoneyText pence={Math.abs(r.profit)} whole countUp="mount" />
-        </div>
+        </button>
+        {why && (
+          <p className="small" id="profit-why" role="note" data-testid="profit-why" style={{ margin: "2px 0 6px" }}>
+            <b>Profit</b> counts the <MoneyText pence={pc.used} whole /> of stock you cooked or binned tonight, whenever you paid for it.
+            <br /><b>Cash</b> moves when you pay: stock is paid for when you order it, and you've ordered <MoneyText pence={pc.bought} whole /> today (it arrives tomorrow).
+          </p>
+        )}
         {best && <div className="tonight__best" data-testid="best-night"><Icon name="trophy" size={18} />Best night so far</div>}
         {vs !== undefined && (
           <div className={`tonight__vs tonight__vs--${vs >= 0 ? "up" : "down"}`}>
@@ -238,6 +263,23 @@ function Worst({ game, r }: { game: GameState; r: DayResult }) {
   );
 }
 
+/** Round 14 (F): "one thing to change tomorrow" (lib/tomorrow.ts), in the tip's place when the sim has no tip. */
+function OneThingCard({ t, onAct, onGoTo }: { t: NonNullable<ReturnType<typeof oneThingTomorrow>>; onAct?: Props["onAct"]; onGoTo?: Props["onGoTo"] }) {
+  return (
+    <section className="card tip advice" aria-label="One thing for tomorrow" data-testid="one-thing" data-kind={t.kind}>
+      <span className="tip__icon" aria-hidden="true">{t.kind === "ranOut" ? "📦" : t.kind === "waits" ? "⏳" : "💷"}</span>
+      <div className="spacer advice__text">
+        <div className="advice__k">One thing for tomorrow</div>
+        <b className="advice__title"><TermText text={t.title} /></b>
+        <div className="advice__body small">{t.text}</div>
+      </div>
+      {t.act && (t.act.commands && onAct
+        ? <button className="btn btn--sm btn--green" onClick={() => onAct(t.act!.commands!, t.act!.tab, t.act!.done ?? "Done.")}>{t.act.label}</button>
+        : onGoTo && <button className="btn btn--sm" onClick={() => onGoTo(t.act!.tab)}>{t.act.label}</button>)}
+    </section>
+  );
+}
+
 /** "Friday, Saturday and Sunday" */
 export function dayList(days: readonly number[]): string {
   const n = days.map((d) => WEEKDAY_NAMES[d]!);
@@ -254,6 +296,9 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   }
   const r = result;
   const reviews = withNewDishReview(r.reviews, meta, game.seed, game.restaurantName, r); // R12-F: an invented dish's first night
+  // Round 14 (F, U10): no line twice in one evening, and the dish named as it is now (display only; the save keeps the sim's words).
+  const reviewWords = eveningReviewText(reviews, { pools: content.reviewTemplates ?? {}, restaurant: game.restaurantName, dishName: (id) => content.dishes.find((d) => d.id === id)?.name });
+  const sameAgain = reviewWords.filter((x) => x === null).length;
   // profit = revenue − vat − food − prep waste − spoilage − labour − rent − overheads − incident costs − loan (sim-core stats.ts).
   // Plate waste is already inside food cost, so it is shown as a note, not a line.
   const vat = r.vat ?? 0;
@@ -273,20 +318,26 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
   const tableOk = !spendCheck(content, game, TABLE_COST).risky;
   const hire = hirePromptText(game);
   const over = game.phase === "gameover";
+  // Round 14 (F): when the sim has no tip tonight, one thing to change tomorrow from tonight's own numbers.
+  const tip = over || meta?.mode === "career" ? null : eveningAdvice(game, content);
+  const oneThing = tip || over ? undefined : oneThingTomorrow(game, r, (id) => dishName(content, id), (id) => content.dishes.find((d) => d.id === id)?.suggestedPrice, (id) => content.dishes.find((d) => d.id === id)?.course);
+  // Round 14 (F, U5): a night nobody ate says why in the headline (closed, empty larder, nobody on).
+  const zero = zeroNightCause(r, game, r.day === game.day ? unplateable(content, game).length : 0, weekdayIndex(r.day));
 
   return (
     <div className="page">
       <div className="evening">
         <div className="evening__head beathead">
           <DayRhythm beat="evening" weekday={WEEKDAY_NAMES[weekdayIndex(r.day)]!} />
-          <h1 title={`Day ${r.day + 1} · ${dateLabel(r.day)}`}>{good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
+          <h1 title={`Day ${r.day + 1} · ${dateLabel(r.day)}`}>{zero ? ZERO_HEADLINE[zero].title : good ? (r.averageRating >= 4 ? "What a night!" : "Doors closed, money in the till.") : "A tough night."}</h1>
           {/* R12-B */}<Suspense fallback={null}><PostcardButton game={game} result={r} /></Suspense>
         </div>
+        {zero && <p className="callout callout--warn" style={{ gridColumn: "1 / -1", margin: 0 }} role="note" data-testid="zero-night">{ZERO_HEADLINE[zero].line}</p>}
         {/* Round 6: tonight's one tip comes first, across both columns (round 5's rota tip is one of them). */}
-        {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip"><AdviceCard game={game} onAct={onAct} /></div>}
+        {game.phase !== "gameover" && meta?.mode !== "career" && <div className="evening__tip">{tip ? <AdviceCard game={game} advice={tip} onAct={onAct} /> : oneThing && <OneThingCard t={oneThing} onAct={onAct} onGoTo={onGoTo} />}</div>}
         <div className="evening__money"><TonightMoney game={game} r={r} /></div>
         {/* Round 11 (U3/G2): the bank's countdown and the staffless way out, before anything else she might read. */}
-        {!over && meta?.mode !== "career" && (bankDue(game) || loanDue(game)) && (
+        {!over && meta?.mode !== "career" && (bankDue(game) || loanDue(game) || loanGone(game)) && (
           <div className="evening__bank">
             <Suspense fallback={null}>
               {bankDue(game) ? <BankCard game={game} send={send} onGoTo={onGoTo} onAct={onAct} /> : <StarterLoanTip game={game} send={send} />}
@@ -394,15 +445,16 @@ export function Evening({ game, result, onNext, onGoTo, onAct, nextLabel, send, 
           <Panel title="What people said" sub={`${reviews.length} review${reviews.length === 1 ? "" : "s"}`}>
             {reviews.length === 0 ? <div className="empty small">Nobody wrote anything today.</div> : (
               <div className="reviews">
-                {reviews.map((rv, i) => (
+                {reviews.map((rv, i) => reviewWords[i] === null ? null : (
                   <div key={i} className="review">
                     <span className="review__icon" title={SOURCE[rv.source].label} aria-hidden="true">{SOURCE[rv.source].icon}</span>
                     <div>
                       <div className="row"><Stars rating={rv.rating} size={14} /><span className="review__src">{SOURCE[rv.source].label}{rv.dishId ? ` · ${dishName(content, rv.dishId)}` : ""}</span></div>
-                      <div className="review__text">“<TermText text={rv.text} />”</div>
+                      <div className="review__text">“<TermText text={reviewWords[i] ?? rv.text} />”</div>
                     </div>
                   </div>
                 ))}
+                {sameAgain > 0 && <p className="small muted" data-testid="reviews-same">{sameAgain} more {sameAgain === 1 ? "guest" : "guests"} said much the same.</p>}
               </div>
             )}
           </Panel>

@@ -2670,3 +2670,77 @@ landing uses the default instant behaviour) and nothing new makes a sound.
 - The peek chip covers chef and server; the bar stays in the sheet's Jump in card (a bar shift is a third role she
   meets later).
 - Discoverability for live co-op: the Friends card is the door; co-op itself is A's and B's this round.
+
+## Round 14 — F: make the days worth playing
+
+Fix round for RED-TEAM-2 G4, U5, U9, U10, U13, U14, U16, G9, G10 and "repetitive from day 6 on a phone". The sims are
+untouched (no file under sim-core / sim-empire / sim-stars / sim-career / handson changed); everything below is
+game-side presentation or content words.
+
+### On screen
+- **Regulars (G4, `lib/regulars.ts`)**: a VIP order names a dish she cooks — one of the beat's dishes ordered that day,
+  else one of hers from the same course, else the seed's pick. An order unmet by its third weekday (or the first open
+  day after it, so a shut weekday can't stall it) **lapses**: "{name} went elsewhere that night" (content
+  `regulars.lapsed`), no photo, the next order is set. The Regulars book says the last-chance day; the Evening's
+  "Your regulars tonight" labels it "went elsewhere tonight"; a lapse never makes "Regular of the month". Memo format
+  unchanged: a lapsed beat is `[beat, day, 0]` with no dish (R13 stored a dish for every bad beat, so old memos read
+  the same); an R13 memo with a stuck order lapses on its next open day.
+- **Rival (G10, `lib/rival.ts`)**: their week = her average night over the four weeks before it − an edge (0.08 at
+  ≤ 2.5★ rising to 0.12 at ≥ 4★) + half the old district lean + ±0.25 wobble, floor 1.5, cap 4.8. Measured (8 seeds ×
+  a year): typical 61 %, balanced 64 %, premium 64 %, cheap 61 %, learner 66 %, decorator 59 % of weeks won; nohire
+  30 % (was 80–95 % / 1 %). Only **contested** wins count toward the framed clipping (she opened ≥ 3 nights and won by
+  ≤ 1★); other wins neither count nor break the run. The streak line counts the same way. Clippings already earned stay.
+- **Nothing to cook (U5)**: Planning's Open, on a day every active dish is out of stock, asks first
+  (`confirm-nofood`): "Order stock and close today · ≈£X" (ORDER_STOCK of `tonightRisk` lines + CLOSE_TODAY), "Change
+  the menu", "Open anyway". The sim has **no same-day order**, so there is no "Order for today"; the confirm says stock
+  arrives tomorrow. Empty menu: Open is already disabled. Evening headline for a night nobody ate
+  (`lib/evening.ts zeroNightCause`): closed / empty menu / "Nobody ate: the larder was empty." / nobody on / nobody
+  came, with a line under it.
+- **Profit vs cash (U9)**: tonight's big figure is a button; one tap shows two lines — stock cooked or binned tonight
+  (food cost + prep + spoilage) vs stock ordered today (`game.orders`, paid when ordered).
+- **Reviews (U10, `lib/reviewLines.ts`)**: each stored line is matched to its template; one already shown tonight is
+  re-worded with the next unused template of the same pool (deterministic by review order); a used-up pool is counted
+  ("3 more guests said much the same."); the dish is named as it is now and a "Cola or lemonade" guest had one of them.
+  Display only — the save keeps the sim's words. 22 templates re-worded (CONTENT-NOTES "Round 14 — F").
+- **Bank and game over (U13)**: the first-wage loan card says the cash below which it goes; once gone, a card (Evening)
+  and the bank card say so and how to get it back (`loanGone`). Game over leads with "You had no staff…" and/or
+  "nothing on the menu could be cooked" when the last fortnight shows it (`bustLead`).
+- **Chapters (U14)**: a losing month scores 1 star, 2 if better than the month before (month 1: second half beat the
+  first). "Make it pay" advice: no staff → hire a chef; cooked alone most days → a chef on every day's rota; ≥ 2 empty
+  larder nights → restock; else whichever of wages or food took more ("trim the rota" only with a rota).
+- **Lease (U16, `components/LeaseMoney.tsx`)**: savings + loan − fit-out − deposit = cash on day 1, read from a real
+  `newGame` so it always adds up.
+- **Invented dishes (G9)**: `applySoftDrinks` swaps the poured ingredients' words inside invented dishes' descriptions,
+  both ways, when the setting flips (content `softDrinks.ts`).
+- **A decision a day**: the morning **Today** card (`components/TodayCard.tsx` + `lib/today.ts`, lazy, voices chunk;
+  mounted in Planning under the gossip, not on day 1, the wide tabs or in a career): a VIP order due today with the tap
+  that helps (put it back on / add it at its usual price when the larder can make it / see the larder / last-try
+  warning) and the rival's week (Monday: their target; Sunday: where the week stands; "See the rival"). The Evening
+  shows **One thing for tomorrow** (`lib/tomorrow.ts`) when the sim's tip has nothing: a dish that ran out, long waits
+  (≥ 4 walk-outs and ≥ a tenth of covers → Rota), or the dish keeping the least of each £1 against the best of its own
+  course (one-tap 10 % rise tomorrow, never past 1.2× its usual price).
+
+### How much of the repetition this addresses (honest)
+Measured on the typical bot, days 6–30: the Today card has a row on 13 of 25 mornings; "one thing" fills 7 of 25
+evenings the sim's tip leaves empty (in the 1024 playtest it showed on all 12 evenings, mostly waits and run-outs). Most
+mornings still need four taps when nothing is live. Every row is an existing lever; none changes what the sim does.
+Not possible without a sim change: a **day's special to push** (no featured-dish or promotion mechanic exists; the
+event deck and incidents are already shown as cards), a same-day emergency order, weather/footfall choices, a
+"slow night, send someone home" call during service. Those are the next lever if days should feel different.
+
+### Left out
+- The stock warning is not repeated on the Today card (StockWarning already has a one-tap morning order).
+- Gossip still says "ran out / took it off part-way through" the morning after an empty-larder night (the sim logs the
+  auto-86 at opening as a run-out; `lib/gossip.ts` reads that). Not mine to change this round.
+- The margin line repeats while she ignores it (same dish, same numbers); it stops once the price is 1.2× usual.
+
+### Numbers
+- Main chunk 181.5 → **183.24 kB** (Evening: review display, one thing for tomorrow, profit tip, zero-night line;
+  Bank's `loanGone`). New lazy `TodayCard` 4.24 kB (+0.43 kB css); `NewGame` 7.94 kB (LeaseMoney).
+- Tests 1,505 → 1,539 (+34: `round14f.regulars` 7, `.rival` 3, `.reviews` 3, `.nofood` 6, `.money` 8, `.days` 5,
+  content `round14f.softBlurb` 2).
+- Type audit normal and large: 129 screens each, 0 text < 13 px, 0 errors, within baseline.
+- Probe: `underBar` 844×390-normal 21 → 22 and 1024×768-large 7 → 8, both on `30-evening` (the one-thing card in the
+  tip slot moves which line sits under the dock at capture); 1024×768-normal and 1280×800-large went 1 lower. Baseline
+  raised for the two, the rest left as they were.
+- Balance (200 seeds): typical 90.0 / cheap 68.0 / nohire 0; no sim file changed.
