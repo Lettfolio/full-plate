@@ -15,7 +15,8 @@
 .visitors__picks { flex-basis: 100%; color: var(--ink-soft); }
 .visitors__hide { margin-left: auto; flex: none; white-space: nowrap; }
 /* Round 14 review: on the narrow Friends card the name gives way, so Hide stays on the stars row */
-.visitors__who { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.visitors__who { flex: 1 1 0; min-width: 0; overflow-wrap: break-word; }
+.visitors__who .muted { white-space: nowrap; }
 
 /* ── Visit a friend (title) ── */
 .visitfriend { display: grid; place-items: start center; }

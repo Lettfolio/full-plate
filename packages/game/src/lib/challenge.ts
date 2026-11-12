@@ -333,7 +333,7 @@ export function whyMissed(g: GameState, c: ChallengeMeta): string | null {
   const usual = pre.length ? sum(pre.map((d) => d.covers)) / pre.length : 0;
   const empty = days.find((d) => !d.closed && d.covers < usual * 0.4);
   if (empty) {
-    return `From day ${empty.day - c.startDay + 1} the room was nearly empty: the kitchen had run out of food. Order stock each evening (on the Stock tab) so the morning delivery covers the next day.`;
+    return `From day ${empty.day - c.startDay + 1} the room was nearly empty: the kitchen had run out of food. Tap Restock for tomorrow each evening so the morning delivery covers the next day.`;
   }
   const template = templateOf(c);
   const need = c.guests ?? 0;
