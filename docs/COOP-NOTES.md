@@ -363,7 +363,7 @@ new code on its next share (`share` replaces any code whose check letters don't 
     ]
   },
   "user": {},
-  "downloads": {},
+  "downloads": true,
   "room": {
     "topics": {
       "fp-in": "interact",

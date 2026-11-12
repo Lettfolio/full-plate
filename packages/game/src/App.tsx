@@ -16,7 +16,6 @@ import { content, HOOKS } from "./sim";
 import { TitleScreen } from "./screens/TitleScreen";
 import type { CareerStartOptions } from "./screens/StartPicker";
 import { Planning, type PlanningTab } from "./screens/Planning";
-import { Service } from "./screens/Service";
 import { StatusBar } from "./components/StatusBar";
 import { openWords, WordsSheet } from "./components/WordsSheet";
 import { RotateCard } from "./components/RotateCard";
@@ -52,6 +51,8 @@ const StartPicker = lazyRetry(() => loadStart().then((m) => ({ default: m.StartP
 const NewGame = lazyRetry(() => loadNewGame().then((m) => ({ default: m.NewGame })));
 const GameOver = lazyRetry(() => import("./screens/GameOver").then((m) => ({ default: m.GameOver })));
 // Round 12 (D, bundle relief): the owner's Evening is its own chunk, fetched while service runs (see the effect below).
+// Round 14 review: the service floor is a chunk of its own (main-chunk budget); planning prefetches it (lib/prefetch.ts)
+const Service = lazyRetry(() => import("./screens/Service").then((m) => ({ default: m.Service })));
 const loadEvening = () => import("./screens/Evening");
 const Evening = lazyRetry(() => loadEvening().then((m) => ({ default: m.Evening })));
 // Round 12 (C): today's challenge (intro, the bar above the game, the score screen) and the chapter card.
@@ -147,7 +148,7 @@ export function App() {
   const phase = game?.phase;
   useEffect(() => { if (phase !== "event") setEventOpen(false); else void loadEvent().catch(() => {}); }, [phase]);
   // Round 12 (D): warm the Evening's chunk once a day is under way, so the evening never waits on the network.
-  useEffect(() => { if (phase === "planning" || phase === "service") void loadEvening().catch(() => {}); }, [phase]);
+  useEffect(() => { if (phase === "planning" || phase === "service") void loadEvening().catch(() => {}); if (phase === "planning") void import("./screens/Service").catch(() => {}); }, [phase]);
   // R12-A: the soundtrack follows the day; the room's Music decor item picks the instruments.
   const musicItem = game?.decor?.slots.music?.itemId ?? "music_none";
   useEffect(() => { setSoundtrack(phase === "service" ? "service" : phase === "evening" || phase === "event" || phase === "gameover" ? "evening" : "planning", musicItem); }, [phase, musicItem]);
@@ -449,7 +450,7 @@ export function App() {
             onInvent={(dish) => dispatch({ type: "invent", dish })}
             onCookbook={(op) => dispatch({ type: "cookbook", op })}
             onCookTonight={() => { send({ type: "START_SERVICE" }); dispatch({ type: "handsOnStart", meta: { role: "chef", jumpIn: true } }); }}
-            onChallenge={() => { quitToTitle(); setShell({ view: "challenge" }); }}
+            onChallenge={() => void openChallengeFromGame()} // Round 14 review: E's Try card returns to the game, as D's menu row does
           />
         )}
         {inService && meta.handsOn && (
@@ -474,6 +475,7 @@ export function App() {
           </ChunkBack>
         )}
         {inService && !meta.handsOn && (
+          <ChunkBack to={null}><Suspense fallback={<Loading />}>
           <Service
             game={game}
             app={app}
@@ -496,6 +498,7 @@ export function App() {
                 }
               : { onJumpIn: (role: HandsOnRole) => dispatch({ type: "handsOnStart", meta: { role, jumpIn: true } }), onSkip: () => dispatch({ type: "skipShift" }) })}
           />
+          </Suspense></ChunkBack>
         )}
         {isEvening && career && !employerOut && (
           <CareerEvening game={game} meta={{ ...meta, shiftSummary: lastShift ?? undefined }} career={career} result={game.history.at(-1) ?? app.lastResult} onNext={nextDay} />

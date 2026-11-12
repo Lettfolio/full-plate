@@ -23,6 +23,7 @@ const DAY: Record<string, () => Promise<unknown>> = {
   "components/TryCard": () => import("../components/TryCard"), // R14 (E), merged in the review
   "components/TodayCard": () => import("../components/TodayCard"), // R14 (F), merged in the review
   // service
+  "screens/Service": () => import("../screens/Service"), // Round 14 review: lazy for the main-chunk budget
   "canvas/RestaurantView": () => import("../canvas/RestaurantView"),
   "canvas/decorArt": () => import("../canvas/decorArt"),
   "lib/regulars": () => import("../lib/regulars"),

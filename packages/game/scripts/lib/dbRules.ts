@@ -38,7 +38,8 @@ export const DB_RULES: Rule[] = [
 export const CAPABILITIES = {
   db: { rules: DB_RULES },
   user: {},
-  downloads: {},
+  // Round 14 review: the platform's own wording for this capability is `downloads: true` (what v14 passed), not `{}`
+  downloads: true,
   room: { topics: { "fp-in": "interact", "fp-st": "interact", "fp-emo": "interact" } },
 };
 
