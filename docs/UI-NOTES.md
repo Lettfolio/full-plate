@@ -2391,3 +2391,92 @@ signatures). The full design, the capability declaration and the per-level table
   hours); nobody else can delete them. Worst case and budget: COOP-NOTES.
 - Who becomes the guest is first-come (the host pins the first). The live room's own pin is S14-3, Builder A's.
 - The 160-character limit on snapshot review lines stays; the lines are now checked, not just cut.
+
+## Round 14 — A: live co-op integrity
+
+A fix round for the live co-op shift and the turn-based co-op day (`docs/RED-TEAM-2.md` S14-1/G1, S14-3, G3, G5, S14-5,
+U6; `docs/REVIEW.md` R13-N1/N2). The host's game stays the only authority; what changed is how little it now takes on
+trust.
+
+**What the guest can no longer do** (`lib/coop/realtime.ts`)
+- *Spend the host's money* (S14-1/G1). Every guest result still passes `checkResult` (shape, role), then `vetResults`
+  against the HOST's game: a server's drop names plates that are on the host's pass, not already served, each plating
+  dropped once (`id@platedAtTick`); a chef's drop is charged for a ticket the host's game shows them holding (claimed by
+  the human cook, or claimed in an earlier batch the host hasn't rendered yet), once, the cheapest if several. The cost
+  is the host's own: the dish's food cost from `dishProfiles` (×0.6 for raw), whatever the guest wrote. Drops at least
+  1.2 s apart. No named plate, no drop.
+- *Run up a bill*: the guest's drops are capped per shift at half the food cost of every plate fired tonight, never
+  under £15. The drop that would cross it is refused and the guest is **benched**: the sim's fallback takes their role
+  till close, nothing more of theirs is applied, and both HUDs say why ("Bob's dropped plates have cost £18.40 tonight,
+  so the team has the tables till close." / "Too many dropped plates tonight: the team has your tables till close.").
+- *Flood with batches*: the budget counts **results** (12 a second, burst 48), not messages; a batch it can't cover is
+  left unacknowledged, so an honest guest's re-send lands a moment later.
+- *Send every ticket back*: only plates on the pass are ever re-fired, at most three a drop, once each.
+- *Plate above the dish* (G5): a guest's `PLATE_COOKED` quality is held to the dish's ceiling on the host.
+- **Sim-side guard** (`sim-core/src/commands.ts` `playerDropped` only): a drop re-fires only tickets that are on the
+  pass, and a drop naming plates costs at most those dishes' food cost (a name that isn't a ticket any more keeps the old
+  £50 cap). Solo play never names anything else, so solo, the corpus and balance (90.0 / 68.0 / 0 at 200 seeds) are
+  unchanged. A quality clamp in `playerCooked` was tried and left out: three Round 3 sim tests feed it qualities above
+  the dish's ceiling on purpose, so the clamp lives on the co-op host instead.
+
+**Who is who** (S14-3)
+- The pin is checked before any budget is spent, and each peer has its own message bucket: a stranger's flood costs the
+  guest nothing.
+- `setPartner({ by, gen })` on both engines: `by` is the partner's platform id as the lobby vouches for it (builder B's
+  `partnerId` / `hostId`, from the path of their document); `gen` is the partner's lobby document generation (the
+  guest's `joinedAt`, the host's `createdAt`). With `by` known only that account is pinned and a wrong pin made before
+  it was known is dropped. Without it the first tagged sender is pinned, and another account may take the pin only after
+  the old one has gone quiet AND the lobby document has changed. The same account on a new page (a reload) takes it at
+  once. **Merge note:** this branch passes `guestId={null}` (CoopShiftDock) and `hostId={null}` (CoopShiftGuest); with
+  B's branch those two props take B's `partnerId` / `hostId`.
+- A fake host can't feed the guest's screen once the host is named; before that, it can only if it speaks first.
+
+**Reloads** (G3): each guest page has a session id (`sid`) on its hellos and batches; the host keeps the last batch
+applied per page session (eight remembered; the current one never evicted) and the floor says which session its `ack`
+counts for (`as`). A reloaded page's first batch lands; an old page's ack never clears a new page's batches.
+
+**Emotes** (R13-N1): each emote is acknowledged (`{a: n}` on `fp-emo`) and re-sent every 700 ms until it is, two
+re-sends at most; a re-send of one already shown is acknowledged again and not shown twice.
+
+**The live lobby** (R13-N2): while the doors are shut the guest's waiting card has **How the shift works** (the
+phone's three cards, or the laptop's three steps, in a `<details>`); at doors-open both how-to flags are marked seen, so
+the guest's shift opens straight onto the floor and never sits on cards while the host's clock runs.
+
+**The turn-based co-op day** (`screens/CoopShiftDock.tsx`)
+- *A friend who closed the tab* (U6): while a friend is in, the host keeps one ping out (a write to the host's document
+  every 15 s once the last is answered). One unanswered for 45 s: "**Bob** seems to have gone: no answer for 45 seconds."
+  with **Keep waiting** (another 45 s) and **End co-op**; the pill reads "Co-op · Bob seems to have gone". Any answer
+  clears it.
+- *On a phone* the panel starts folded, and the pill and the open panel sit above whatever the page keeps at the bottom
+  — the tab bar, the dock with Open for service, the service sheet and its urgent line — measured as the page lays out
+  (`phoneSpot`, every 400 ms and on scroll, phone only), so neither covers them upright or sideways. With almost no room
+  (the sheet pulled to full) the pill hides. No `phone.css` rules: the placement is inline, in this lazy chunk.
+- *"Use it"* (S14-5) lists every change: eight folded with **Show all N changes**, biggest price moves first, any move
+  over ±30 % in bold with "(+200%, a big change)". The button says **Use these 8** while folded and applies exactly the
+  rows on screen that are still in the plan (a newer plan re-renders the list first).
+
+**Tests**: `round14.coop.test.ts` (the reviewers' attacks as permanent tests: cash unchanged under 31 messages of 20×16
+drops, a drop naming every ticket, host pricing, the results budget, benching, a chef's drop, the cap, the sim guard,
+G5, S14-3 ×5, G3 ×2, emote re-send and give-up, and a live shift's save with a solo save's shape);
+`round14.coopday.test.tsx` (phone fold, the heartbeat with fake timers, the plan list both ways, the lobby how-to).
+**Playtest**: `scripts/playtest-coop-r14.mjs` against the built dist — a hostile guest (Bob's own pinned page sends
+full 4 KiB messages of fabricated drops for 2 s, a drop naming every ticket id heard on the room, a quality-100 plate;
+Mallory floods the room and sends Bob a fake host's room), the heartbeat with Bob's tab closed, and the phone checks
+with `document.elementFromPoint` at 390×844 and 844×390.
+
+**Left out**: a dirty-tub drop from a live guest still costs the host nothing (it never did: `checkResult` drops it);
+honest guests are trusted for timing (a guest chef can still plate a claimed ticket as fast as they like — bounded by
+the results budget, and it only helps the host); the guest side has no "host seems to have gone" for the turn-based day
+(the guest's screen already says when the session has ended or expired).
+
+**Numbers.** Tests 1,505 → 1,530 (game 777; +19 `round14.coop`, +6 `round14.coopday`), all passing. Main chunk
+181.53 → 181.54 kB (unchanged: everything here is in lazy chunks); CoopLive 32.98 → 38.88 kB, VisitFriend (holds the
+dock) 49.69 → 53.18 kB. Audit and audit:large: 0 text under 13 px, 0 errors. Probe: no change from master's dist on
+this machine (768×1024 compared side by side: identical); the `covered` excess over the stored baseline is master's
+too, so no re-baseline. Balance at 200 seeds: 90.0 / 68.0 / 0.
+**Playtest** (built dist, `vite preview` on 127.0.0.1; shots `scratchpad/shots/r14/A/`): `playtest-coop-r14.mjs` all
+checks, 0 page errors — the fabricated drops cost £0 (49 messages refused), a drop naming all 28 ticket ids heard on the
+room honoured one plate on the pass (£0.40, cap £30.22), Mallory's 600-message flood left Bob "here" and his taps
+landing, Bob's screen stayed Alice's restaurant; Bob's closed tab noticed after 53 s; the phone pill/panel cover
+nothing at 390×844 or 844×390. `playtest-coop-live.mjs` (R13 F's) 0 ms and 150 ms + 20 % loss: replays byte-identical,
+39 and 54 guest results applied, 0 refused from the honest guest.

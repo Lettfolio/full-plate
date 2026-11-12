@@ -55,12 +55,22 @@
 /* ── co-op: the host's dock ── */
 /* above the planning/evening action dock (pinned bottom, ~80 px) so its hints and primary stay clear */
 .coopdock { position: fixed; left: 12px; bottom: 96px; z-index: 40; width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 210px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.coopdock[hidden] { display: none; }
 .coopdock--pill { width: auto; padding: 0; background: none; border: 0; box-shadow: none; gap: 4px; }
 .coopdock--pill .emoteheard:not(:empty) { background: var(--paper); border: 1.5px solid var(--line); border-radius: 999px; padding: 4px 12px; box-shadow: var(--shadow); align-self: flex-start; }
 .coopdock__pill { box-shadow: var(--shadow); }
 .coopdock__title { font-size: var(--fs-h3); }
 .coopplan { background: var(--amber-wash); border: 1px solid var(--amber); border-radius: var(--r-sm); padding: 10px; }
 .coopplan__list { margin: 0; padding-left: 18px; }
+/* R14 (S14-5): a price that moves more than 30 % either way is flagged in the plan list */
+.coopplan__big { font-weight: 700; }
+.coopplan__flag { color: var(--tomato-deep); font-weight: 800; }
+/* R14 (U6): "Bob seems to have gone" */
+.coopgone .row { flex-wrap: wrap; gap: 8px; }
+/* R13-N2: the how-to, read in the live lobby while the doors are shut */
+.cooplive__howto > summary { list-style: none; cursor: pointer; align-self: flex-start; }
+.cooplive__howto > summary::-webkit-details-marker { display: none; }
+.cooplive__howtolist { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 
 /* ── co-op: the guest ── */
 .coopguest__head h2 .muted { font-size: var(--fs-h3); }

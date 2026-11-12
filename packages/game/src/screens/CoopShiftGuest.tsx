@@ -102,7 +102,7 @@ export function CoopShiftGuest({ db, uid, hostId, code, first, writer, onExit }:
           {liveMsg && <p className="callout small" role="status">{liveMsg}</p>}
           {inLive && live && live.nonce === inLive && (
             <Suspense fallback={<p className="card small muted">Opening the live shift…</p>}>
-              <GuestLive code={code} live={live} hostNick={who} dbOver={live.state === "ended" ? live.why ?? "done" : live.state === "ready" && host.board && host.board.day !== live.day ? "host" : null}
+              <GuestLive code={code} live={live} hostNick={who} hostId={hostId} hostGen={String(host.createdAt)} dbOver={live.state === "ended" ? live.why ?? "done" : live.state === "ready" && host.board && host.board.day !== live.day ? "host" : null}
                 onExit={(_why, msg) => { doneLive.current.add(inLive); setInLive(null); setLiveMsg(msg ?? null); }} />
             </Suspense>
           )}

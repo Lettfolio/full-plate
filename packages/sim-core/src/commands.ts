@@ -42,7 +42,7 @@ import { findDecorItem, installed, isDecorSlot, wearOf } from "./decor";
 import { hireNeed, recruitmentFeeOf, starterLoanOffer } from "./bank";
 import { dailyInstalment } from "./systems/finance";
 import type { Command, ContentPack, GameState, KitchenTicket, Phase, SimEvent, Staff, StaffRole, StepResult } from "./types";
-import { clamp, findDish, findIngredient, foldLog, logEvent, monthOf, onFloor, round2, tallyOf, worksToday } from "./util";
+import { clamp, findDish, findIngredient, plateCost, foldLog, logEvent, monthOf, onFloor, round2, tallyOf, worksToday } from "./util";
 
 type Cmd<T extends Command["type"]> = Extract<Command, { type: T }>;
 type Handler<T extends Command["type"]> = (content: ContentPack, state: GameState, cmd: Cmd<T>) => StepResult;
@@ -463,13 +463,24 @@ const playerTookPayment: Handler<"PLAYER_TOOK_PAYMENT"> = (content, state, cmd) 
   });
 };
 
+/** The least a named plate may cost when dropped (the hands-on session's own floor for a dish with no ingredients). */
+const DROP_FLOOR = 150;
 const playerDropped: Handler<"PLAYER_DROPPED"> = (content, state, cmd) => {
   const bad = requirePhase(state, SERVICE, "drop that");
   if (bad) return bad;
   if (!isInt(cmd.cost) || cmd.cost < 0) return reject(state, "A drop costs whole pence.");
   if (!Array.isArray(cmd.ticketIds)) return reject(state, "Which plates were dropped?");
-  const cost = Math.min(cmd.cost, HANDS_ON.maxDropCost);
-  const ids = new Set(cmd.ticketIds);
+  // R14 (S14-1): only plates on the pass can be dropped (they're what a server carries), and a drop of named plates
+  // costs at most what those dishes cost to make: a plate on the pass its dish's cost, a ticket still cooking nothing,
+  // and a name that isn't a ticket any more (already served) the old cap.
+  const ids = new Set(cmd.ticketIds.filter((id) => state.tickets.some((t) => t.id === id && t.atPass)));
+  let cap = 0;
+  for (const id of new Set(cmd.ticketIds)) {
+    const t = state.tickets.find((x) => x.id === id);
+    const dish = t ? findDish(content, t.dishId) : undefined;
+    cap += !t ? HANDS_ON.maxDropCost : t.atPass ? Math.max(dish ? plateCost(content, dish) : 0, DROP_FLOOR) : 0;
+  }
+  const cost = Math.min(cmd.cost, HANDS_ON.maxDropCost, cmd.ticketIds.length ? cap : HANDS_ON.maxDropCost);
   let tally = tallyOf(state);
   // Each dropped ticket goes back on the rail to be cooked again (stock was used when it fired; no new stock).
   const tickets = state.tickets.map((t): KitchenTicket => {

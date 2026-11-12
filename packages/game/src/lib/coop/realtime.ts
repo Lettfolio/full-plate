@@ -24,12 +24,14 @@
 import type { Customer, CustomerStage, GameState, KitchenTicket, Staff, StaffRole } from "@full-plate/sim-core";
 import type { CookMethod, HandsOnResult, HandsOnSession } from "@full-plate/handson";
 import type { ContentPack } from "@full-plate/sim-core";
+import { dishProfiles, type DishProfile } from "@full-plate/handson";
 import { checkCustomDish, CUSTOM_MAX_PER_GAME, isCustomDishId, syncedCustomDishes, withCustomDishes, type CustomDishSpec } from "@full-plate/content";
 import { content, customRef, newGame } from "../../sim";
 import { cleanLabel } from "../../state/share";
 import { emoteOf, END_WHYS, type Emote, type EmoteId, type EndWhy, type LiveRole } from "./protocol";
 export type { EndWhy, LiveDoc, LiveRole } from "./protocol";
 export { checkLive, newNonce } from "./protocol";
+import { newNonce } from "./protocol";
 import { sha256Hex } from "./sha256";
 
 // ───────────────────────── vocabulary ─────────────────────────
@@ -63,12 +65,32 @@ export const IN_RATE = 15; // fp-in messages a second (burst 2×)
 export const MAX_BATCH = 16; // results in one acknowledged batch
 export const MAX_PENDING = 20; // batches the guest keeps for re-sending
 export const EMOTE_MIN_MS = 1000; // receiver-side: faster emotes from a peer are ignored
-
+/** R14 (R13-N1): an emote not acknowledged in this long is sent again, at most EMOTE_RETRIES more times. */
+export const EMOTE_RESEND_MS = 700;
+export const EMOTE_RETRIES = 2;
+/**
+ * R14 (S14-1/G1): the host's budget counts RESULTS, not messages (one message can carry 20 batches of 16): this many a
+ * second, with a burst. A batch the budget can't cover now is left unacknowledged, so an honest guest re-sends it.
+ */
+export const RESULT_RATE = 12;
+export const RESULT_BURST = 48;
+/** R14: two drops from the guest at least this far apart (a server has to walk back to the pass to carry more). */
+export const DROP_GAP_MS = 1200;
+/**
+ * R14: the most the guest's drops may cost the host in one shift: half the food cost of every plate fired so far
+ * tonight, and never less than £15. Past it the guest is benched (the team takes their role) and the host is told.
+ */
+export const DROP_CAP_MIN = 1500;
+export const DROP_CAP_SHARE = 0.5;
+/** R14 (G3): per-page sessions whose acknowledgement the host remembers. */
+const SIDS = 8;
 const ID = /^[A-Za-z0-9_:.-]{1,40}$/;
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const int = (v: unknown, lo: number, hi: number, d = lo): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
 const num = (v: unknown, lo: number, hi: number, d = lo): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
 const isId = (v: unknown): v is string => typeof v === "string" && ID.test(v);
+const SID = /^[a-z0-9]{1,24}$/;
+const isSid = (v: unknown): v is string => typeof v === "string" && SID.test(v);
 /** An index into a list of `n`, or -1 (out of range is refused, not clamped). */
 const idx = (v: unknown, n: number): number => (typeof v === "number" && Number.isInteger(v) && v >= 0 && v < n ? v : -1);
 
@@ -116,6 +138,10 @@ export interface Floor {
   tick: number;
   /** The guest's last input batch the host has applied. */
   ack: number;
+  /** R14 (G3): which page session of the guest `ack` counts for ("" = none yet). */
+  ackSid: string;
+  /** R14: the host benched the guest (their drops cost too much tonight): the team has their role till close. */
+  benched: boolean;
   /** The host's measured round trip (median), ms. */
   rtt: number | null;
   /** The role the sim is backing off (GameState.handsOn.role). */
@@ -197,7 +223,7 @@ export function decodeBase(raw: unknown): Base | null {
 }
 
 /** Host: the floor message. Trims queues, then leavers, then the oldest tickets, to stay under SNAP_BUDGET bytes. */
-export function encodeFloor(game: GameState, base: Base, f: { seq: number; t: number; ack: number; rtt: number | null; guestOn: boolean }): Record<string, unknown> {
+export function encodeFloor(game: GameState, base: Base, f: { seq: number; t: number; ack: number; ackSid?: string; benched?: boolean; rtt: number | null; guestOn: boolean }): Record<string, unknown> {
   const dIdx = new Map(base.dishes.map((d, i) => [d, i]));
   const sIdx = new Map(base.staff.map((s, i) => [s.id, i]));
   const tIdx = new Map(base.tables.map((t, i) => [t.id, i]));
@@ -222,7 +248,7 @@ export function encodeFloor(game: GameState, base: Base, f: { seq: number; t: nu
       return [[t.id, ci, dish(t.dishId), t.createdTick, t.ticksRemaining, chef, t.atPass ? 1 : 0, t.platedAtTick ?? -1, t.claimedAtTick ?? -1, Math.round(t.quality)]];
     });
     return {
-      k: "st", q: f.seq, t: Math.round(f.t), b: base.b, tk: game.tick, a: f.ack, rt: f.rtt, g: f.guestOn ? 1 : 0,
+      k: "st", q: f.seq, t: Math.round(f.t), b: base.b, tk: game.tick, a: f.ack, as: f.ackSid ?? "", rt: f.rtt, g: f.guestOn ? 1 : 0, ...(f.benched ? { bn: 1 } : {}),
       ho: game.handsOn ? STAFF_ROLES.indexOf(game.handsOn.role) : -1,
       tb, c, x: k,
     };
@@ -288,7 +314,7 @@ export function decodeFloor(raw: unknown, base: Base): Floor | null {
   });
   const ho = idx(o.ho, STAFF_ROLES.length);
   const rt = o.rt === null || o.rt === undefined ? null : int(o.rt, 0, 60_000);
-  return { seq: int(o.q, 0, 1e12), t: int(o.t, 0, 1e15), b: base.b, tick: int(o.tk, 0, 1e6), ack: int(o.a, 0, 1e12), rtt: rt, simRole: ho >= 0 ? STAFF_ROLES[ho]! : null, guestOn: o.g === 1, tables, customers, tickets };
+  return { seq: int(o.q, 0, 1e12), t: int(o.t, 0, 1e15), b: base.b, tick: int(o.tk, 0, 1e6), ack: int(o.a, 0, 1e12), ackSid: isSid(o.as) ? o.as : "", benched: o.bn === 1, rtt: rt, simRole: ho >= 0 ? STAFF_ROLES[ho]! : null, guestOn: o.g === 1, tables, customers, tickets };
 }
 
 /** Guest: the throwaway GameState the hands-on view draws (a fresh `newGame` with the host's room laid over it). */
@@ -354,6 +380,109 @@ export function checkResult(raw: unknown, role: LiveRole): HandsOnResult | null 
 export const roleResults = (results: readonly HandsOnResult[], role: LiveRole): HandsOnResult[] =>
   results.map((r) => checkResult(r, role)).filter((r): r is HandsOnResult => r !== null);
 
+// ───────────────────────── R14: what the host's own game says a guest's result is worth ─────────────────────────
+
+/**
+ * R14 (S14-1/G1, G5): the host's memory of the guest's shift. A guest's result is shaped by checkResult, but whether it
+ * may cost or score anything is decided here, from the HOST's game: a drop names only plates the host's game shows the
+ * guest could be holding, each at most once, at a cost the host works out from the dish; a cooked plate's quality is
+ * held to the dish's ceiling; and everything the guest's drops cost in one shift is capped.
+ */
+export interface GuestLedger {
+  /** Plates (`id@platedAtTick`) and tickets (`c:id`) whose drop has been charged once already. */
+  charged: Set<string>;
+  /** Tickets the guest picked up (TICKET_CLAIMED) that the host's game may not show yet. */
+  claimed: Set<string>;
+  /** Plates the guest has said were served (a served plate can't be dropped after). */
+  served: Set<string>;
+  /** Pence the guest's drops have cost tonight. */
+  cost: number;
+  /** Food cost of every ticket the host has seen fired tonight, by id. */
+  fired: Map<string, number>;
+  /** Host clock of the last drop honoured. */
+  lastDrop: number;
+}
+export const newLedger = (): GuestLedger => ({ charged: new Set(), claimed: new Set(), served: new Set(), cost: 0, fired: new Map(), lastDrop: -1e12 });
+
+/** The ledger's cap now: a share of tonight's plates, with a floor. */
+export function dropCap(l: GuestLedger): number {
+  let fired = 0;
+  for (const c of l.fired.values()) fired += c;
+  return Math.max(DROP_CAP_MIN, Math.round(fired * DROP_CAP_SHARE));
+}
+
+/** Note every ticket the host's game has fired tonight (their food cost is what the cap is a share of). */
+export function noteFired(l: GuestLedger, game: GameState, prof: (dishId: string) => DishProfile): void {
+  for (const t of game.tickets) if (!l.fired.has(t.id)) { l.fired.set(t.id, prof(t.dishId).cost); if (l.fired.size > 2000) break; }
+}
+
+export interface Vetted { ok: HandsOnResult[]; refused: number; capped: boolean }
+
+/**
+ * One batch of the guest's (already checkResult-shaped) results against the host's game. Results that carry no money
+ * pass through for the sim to check as it checks the host's own; PLATE_COOKED has its quality held to the dish's
+ * ceiling; DROPPED is rebuilt by the host or refused. `capped` = this batch would take the guest past tonight's cap
+ * (the drop is refused and the caller benches the guest).
+ */
+export function vetResults(game: GameState, results: readonly HandsOnResult[], role: LiveRole, l: GuestLedger, prof: (dishId: string) => DishProfile, now: number): Vetted {
+  const ok: HandsOnResult[] = [];
+  let refused = 0;
+  const human = game.handsOn?.staffId ?? "player";
+  const ticket = new Map(game.tickets.map((t) => [t.id, t]));
+  const mine = (t: KitchenTicket) => !t.atPass && (t.chefId === human || l.claimed.has(t.id));
+  for (const r of results) {
+    switch (r.type) {
+      case "TICKET_CLAIMED": {
+        const t = ticket.get(r.ticketId);
+        if (t && !t.atPass && t.ticksRemaining > 0 && (t.chefId === undefined || t.chefId === human)) l.claimed.add(t.id);
+        ok.push(r);
+        break;
+      }
+      case "PLATE_COOKED": {
+        const t = ticket.get(r.ticketId);
+        const ceiling = t ? prof(t.dishId).ceiling : 0;
+        ok.push({ ...r, quality: Math.max(0, Math.min(r.quality, ceiling)) });
+        l.claimed.delete(r.ticketId);
+        break;
+      }
+      case "TABLE_SERVED": l.served.add(r.ticketId); ok.push(r); break;
+      case "DROPPED": {
+        if (now - l.lastDrop < DROP_GAP_MS) { refused++; break; }
+        let cost = 0;
+        let ids: string[] | undefined;
+        const keys: string[] = [];
+        if (role === "server") {
+          // plates: only ones on the host's pass, not served, each plating dropped at most once
+          ids = [];
+          for (const id of new Set(r.ticketIds ?? [])) {
+            const t = ticket.get(id);
+            const key = t ? `${id}@${t.platedAtTick ?? -1}` : "";
+            if (!t || !t.atPass || l.served.has(id) || l.charged.has(key)) continue;
+            ids.push(id); keys.push(key); cost += prof(t.dishId).cost;
+          }
+          if (!ids.length) { refused++; break; }
+        } else {
+          // what a chef carries: a ticket the guest has, not yet on the pass, charged once; the cheapest if several
+          const t = [...ticket.values()].filter((x) => mine(x) && !l.charged.has(`c:${x.id}`)).sort((a, b) => prof(a.dishId).cost - prof(b.dishId).cost)[0];
+          if (!t) { refused++; break; }
+          const full = prof(t.dishId).cost;
+          cost = r.item === "raw" ? Math.round(full * 0.6) : full;
+          keys.push(`c:${t.id}`);
+          l.claimed.delete(t.id);
+        }
+        if (l.cost + cost > dropCap(l)) { refused++; return { ok, refused, capped: true }; }
+        for (const k of keys) l.charged.add(k);
+        l.cost += cost;
+        l.lastDrop = now;
+        ok.push({ type: "DROPPED", item: r.item, cost, ...(ids ? { ticketIds: ids } : {}) });
+        break;
+      }
+      default: ok.push(r);
+    }
+  }
+  return { ok, refused, capped: false };
+}
+
 // ───────────────────────── shared bits ─────────────────────────
 
 /** Median of the newest samples. */
@@ -368,16 +497,16 @@ export class RttWindow {
   }
 }
 
-/** Token bucket. */
+/** Token bucket. `take(now, n)` spends n tokens or none. */
 export class Rate {
   private tokens: number;
   private at = 0;
   constructor(private perSec: number, private burst = perSec * 2) { this.tokens = burst; }
-  take(now: number): boolean {
+  take(now: number, n = 1): boolean {
     if (this.at) this.tokens = Math.min(this.burst, this.tokens + ((now - this.at) / 1000) * this.perSec);
     this.at = now;
-    if (this.tokens < 1) return false;
-    this.tokens -= 1;
+    if (this.tokens < n) return false;
+    this.tokens -= n;
     return true;
   }
 }
@@ -395,17 +524,29 @@ export function checkSpot(v: unknown): Spot | null {
 }
 export const presenceOf = (s: Spot): Record<string, unknown> => ({ fp: { x: s.x, y: s.y, f: s.f, c: s.c, r: s.role } });
 
-/** A sender we have pinned: the platform's peer label, and its durable id when the platform vouched for one. */
-interface Pin { peer: string; by: string | null; heard: number }
+/** A sender we have pinned: the platform's peer label, its durable id when the platform vouched for one, and the lobby
+ *  generation it was pinned under. */
+interface Pin { peer: string; by: string | null; heard: number; gen: string }
+
+/**
+ * R14 (S14-3): who the lobby says the partner is. `by` is their platform id (room.d.ts Sender.by = the `user` id) as
+ * the partner's own lobby document names it — null while it doesn't; `gen` changes whenever the partner's lobby
+ * document does (a new join). With `by` known only that account is pinned; without it the first tagged sender is, and
+ * a different sender may take the pin only once the old one has gone quiet AND the lobby document has changed.
+ */
+export interface Partner { by: string | null; gen: string }
 
 /** Common to both ends: tags, pinning, emotes. */
 abstract class End {
   protected tags = new Map<string, string>();
   protected pin: Pin | null = null;
+  protected partner: Partner = { by: null, gen: "" };
   me: string | null = null;
   emote: Emote | null = null;
   private emoteAt = 0;
   private emoteN = 0;
+  /** R14 (R13-N1): my last emote until the partner acknowledges it (re-sent EMOTE_RETRIES times at most). */
+  private emoOut: { id: EmoteId; n: number; tries: number; at: number } | null = null;
   /** Messages refused (bad tag, unpinned peer, malformed): the tests read it. */
   refused = 0;
   constructor(protected nonce: string, protected emit: (topic: string, data: unknown) => void, protected clock: () => number) {}
@@ -416,6 +557,16 @@ abstract class End {
   }
   /** Our own peer label (from the room's peers(), sameTab). Nothing is sent before it is known. */
   setMe(peer: string) { this.me = peer; }
+  /**
+   * R14 (S14-3): what the partner's lobby document says (screens call it whenever that document changes). A pin on
+   * any other account is dropped at once.
+   */
+  setPartner(p: Partner) {
+    this.partner = { by: p.by, gen: p.gen };
+    if (this.pin && p.by !== null && this.pin.by !== p.by) this.unpin();
+  }
+  /** The pin has gone (a new partner may take it). */
+  protected unpin() { this.pin = null; }
   /** Sends `body` with our tag; the bytes sent, or 0 (no peer label yet, or over room.d.ts's 4 KiB). */
   protected post(topic: string, body: Record<string, unknown>): number {
     if (!this.me) return 0;
@@ -432,28 +583,60 @@ abstract class End {
     if (typeof d.s !== "string" || d.s !== this.tag(m.peer)) { this.refused++; return null; }
     return d;
   }
-  /** The pinned sender, or (re)pin this one when allowed: the same durable id, or the old one long quiet. */
+  /**
+   * The pinned sender, or (re)pin this one when allowed. R14 (S14-3): only the account the lobby names, when it names
+   * one; the same account on a new page (a reload) at once; anyone else only after the old pin has gone quiet and the
+   * lobby document has changed since it was pinned.
+   */
   protected pinned(m: RoomMsg, quietMs: number, mayPin: boolean): boolean {
     const now = this.clock();
     if (this.pin && this.pin.peer === m.peer) { this.pin.heard = now; return true; }
-    if (!mayPin) { this.refused++; return false; }
-    const free = !this.pin || (this.pin.by !== null && this.pin.by === m.by) || (now - this.pin.heard > quietMs && (this.pin.by === null || this.pin.by === m.by));
+    // the same account on a new page may take its pin back with any message (its hello may have been lost)
+    if (!mayPin && !(this.pin && this.pin.by !== null && this.pin.by === m.by)) { this.refused++; return false; }
+    const want = this.partner.by;
+    if (want !== null && m.by !== want) { this.refused++; return false; }
+    const p = this.pin;
+    const free = !p
+      || (p.by !== null && p.by === m.by)
+      || (want !== null && p.by !== want)
+      || (now - p.heard > quietMs && p.gen !== this.partner.gen);
     if (!free) { this.refused++; return false; }
-    this.pin = { peer: m.peer, by: m.by, heard: now };
+    this.pin = { peer: m.peer, by: m.by, heard: now, gen: this.partner.gen };
+    this.repinned();
     return true;
   }
+  /** A new sender was pinned. */
+  protected repinned() {}
   get partnerPeer(): string | null { return this.pin?.peer ?? null; }
   sendEmote(id: EmoteId): void {
     this.emoteN = Math.max(this.clock(), this.emoteN + 1);
+    this.emoOut = { id, n: this.emoteN, tries: 0, at: this.clock() };
     this.post(TOPIC.emo, { id, n: this.emoteN });
   }
+  /** Re-send an unacknowledged emote (both ends' pumps call it). */
+  protected emotePump(now: number) {
+    const o = this.emoOut;
+    if (!o || now - o.at < EMOTE_RESEND_MS) return;
+    if (o.tries >= EMOTE_RETRIES) { this.emoOut = null; return; }
+    o.tries++;
+    o.at = now;
+    this.post(TOPIC.emo, { id: o.id, n: o.n });
+  }
+  /** Is an emote of mine still waiting for its acknowledgement (tests). */
+  get emotePending(): boolean { return this.emoOut !== null; }
   hearEmote(m: RoomMsg): boolean {
     const d = this.genuine(m);
-    if (!d || m.peer !== this.pin?.peer || !emoteOf(d.id)) return false;
+    if (!d || m.peer !== this.pin?.peer) return false;
+    if (d.a !== undefined) { if (this.emoOut && int(d.a, 0, 1e15, -1) === this.emoOut.n) this.emoOut = null; return false; }
+    if (!emoteOf(d.id)) return false;
+    const n = int(d.n, 0, 1e15);
+    // a re-send of one already shown: acknowledge it again, don't show it twice
+    if (this.emote && n <= this.emote.n) { this.post(TOPIC.emo, { a: n }); return false; }
     const now = this.clock();
-    if (now - this.emoteAt < EMOTE_MIN_MS) return false;
+    if (now - this.emoteAt < EMOTE_MIN_MS) return false; // too soon: no ack, so the sender tries once more later
     this.emoteAt = now;
-    this.emote = { id: d.id as EmoteId, n: int(d.n, 0, 1e15) };
+    this.emote = { id: d.id as EmoteId, n };
+    this.post(TOPIC.emo, { a: n });
     return true;
   }
 }
@@ -468,42 +651,69 @@ export interface HostIO {
   setSimRole(role: LiveRole): void;
   now(): number;
 }
-export interface HostStatus { guest: "waiting" | "here" | "away"; rtt: number | null; slow: boolean; applied: number; snaps: number; snapBytes: number; ended: EndWhy | null }
+export interface HostStatus {
+  guest: "waiting" | "here" | "away"; rtt: number | null; slow: boolean; applied: number; snaps: number; snapBytes: number; ended: EndWhy | null;
+  /** R14: the guest's drops reached tonight's cap; the team has their role till close. */
+  benched: boolean;
+  /** R14: what the guest's drops have cost tonight (pence) and the cap. */
+  dropCost: number;
+  dropCap: number;
+}
 
 export class LiveHost extends End {
   private game: GameState | null = null;
   private base: Base | null = null;
   private baseMsg: Record<string, unknown> | null = null;
+  private profiles: Record<string, DishProfile> = {};
   private dirty = true;
   private lastSnap = -1e9;
   private lastBase = -1e9;
   private seq = 0;
-  private ack = 0;
+  /** R14 (G3): the last batch applied, per page session of the guest; `sid` is the pinned page's. */
+  private acks = new Map<string, number>();
+  private sid: string | null = null;
   private rtt = new RttWindow();
-  private rate = new Rate(IN_RATE);
+  /** R14 (S14-3): one message bucket per peer, spent only after the pin check. */
+  private rates = new Map<string, Rate>();
+  /** R14 (S14-1): the results budget. */
+  private results = new Rate(RESULT_RATE, RESULT_BURST);
+  private ledger = newLedger();
+  private ledgerDay = -1;
   private slowSince: number | null = null;
   private here = false;
   private endN = 0;
-  status: HostStatus = { guest: "waiting", rtt: null, slow: false, applied: 0, snaps: 0, snapBytes: 0, ended: null };
+  status: HostStatus = { guest: "waiting", rtt: null, slow: false, applied: 0, snaps: 0, snapBytes: 0, ended: null, benched: false, dropCost: 0, dropCap: DROP_CAP_MIN };
   /** Bytes of every floor message sent (the report reads min/median/max). */
   sizes: number[] = [];
   constructor(private io: HostIO, private cfg: { nonce: string; hostRole: LiveRole }) {
     super(cfg.nonce, (t, d) => io.emit(t, d), () => io.now());
   }
   get guestRole(): LiveRole { return otherRole(this.cfg.hostRole); }
+  /** The applied batch count the floor reports for the pinned page. */
+  get ack(): number { return this.sid === null ? 0 : this.acks.get(this.sid) ?? 0; }
 
   setGame(game: GameState) {
     if (game === this.game) return;
     this.game = game;
     this.dirty = true;
     if (!this.base || this.base.day !== game.day || game.tables.length !== this.base.tables.length) this.rebase();
+    if (this.ledgerDay !== game.day) { this.ledger = newLedger(); this.ledgerDay = game.day; this.status = { ...this.status, benched: false, dropCost: 0 }; }
+    if (game.phase === "service") noteFired(this.ledger, game, this.prof);
   }
   private rebase() {
     if (!this.game) return;
     this.baseMsg = encodeBase(this.game, this.cfg.hostRole);
     this.base = decodeBase(this.baseMsg);
+    // the host's own dish costs and ceilings: shipped dishes plus tonight's invented ones (the guest's pack is the same)
+    const pack = this.base ? guestContent(this.base) : content;
+    const all = dishProfiles(this.game, pack);
+    // only dishes the pack knows: anything else (a path's own dish) gets the loose default below, never a tighter one
+    this.profiles = Object.fromEntries(pack.dishes.map((d) => [d.id, all[d.id]!]).filter(([, p]) => p));
     this.lastBase = -1e9;
   }
+  private prof = (dishId: string): DishProfile => this.profiles[dishId] ?? { name: dishId, short: dishId, method: "none", cost: 150, ceiling: 100 };
+
+  protected override repinned() { this.sid = null; }
 
   hear(m: RoomMsg) {
     if (this.status.ended) return;
@@ -512,8 +722,11 @@ export class LiveHost extends End {
     const d = this.genuine(m);
     if (!d) return;
     const now = this.clock();
-    if (!this.rate.take(now)) { this.refused++; return; }
+    // R14 (S14-3): the pin first, then that peer's own bucket: a stranger's flood spends nothing of the guest's
     if (!this.pinned(m, QUIET_MS, d.k === "hi" || !this.pin)) return;
+    let rate = this.rates.get(m.peer);
+    if (!rate) { if (this.rates.size >= 8) this.rates.clear(); rate = new Rate(IN_RATE); this.rates.set(m.peer, rate); }
+    if (!rate.take(now)) { this.refused++; return; }
     switch (d.k) {
       case "hi":
         this.lastBase = -1e9; // send the room at once
@@ -524,21 +737,44 @@ export class LiveHost extends End {
         if (int(d.bb, 0, 2 ** 32, -1) !== this.base?.b && now - this.lastBase > 500) this.lastBase = -1e9;
         break;
       }
-      case "act": this.applyActs(d.p); break;
+      case "act": this.applyActs(d.p, isSid(d.sid) ? d.sid : ""); break;
       case "bye": this.pin!.heard = -1e9; break;
     }
   }
 
-  private applyActs(p: unknown) {
-    if (!Array.isArray(p) || this.game?.phase !== "service") return;
+  private applyActs(p: unknown, sid: string) {
+    if (!Array.isArray(p) || this.game?.phase !== "service" || this.status.benched) return;
     const batches = p.slice(0, MAX_PENDING).flatMap((e) => (Array.isArray(e) ? [{ q: int(e[0], 0, 1e12, -1), r: e[1] }] : [])).sort((a, b) => a.q - b.q);
-    for (const b of batches) {
-      if (b.q !== this.ack + 1) continue; // already applied, or a gap the next message fills
-      this.ack = b.q;
-      const results = (Array.isArray(b.r) ? b.r.slice(0, MAX_BATCH) : []).map((x) => checkResult(x, this.guestRole)).filter((x): x is HandsOnResult => x !== null);
-      if (results.length) { this.io.apply(results); this.status.applied += results.length; }
-      this.dirty = true;
+    if (!batches.length) return;
+    // R14 (G3): a page session the host hasn't heard starts where its oldest batch says (a fresh page: at 1)
+    if (!this.acks.has(sid)) {
+      if (this.acks.size >= SIDS) { const old = [...this.acks.keys()].find((k) => k !== this.sid); if (old !== undefined) this.acks.delete(old); }
+      this.acks.set(sid, Math.max(0, batches[0]!.q - 1));
     }
+    this.sid = sid;
+    const now = this.clock();
+    for (const b of batches) {
+      const ack = this.acks.get(sid)!;
+      if (b.q !== ack + 1) continue; // already applied, or a gap the next message fills
+      const raw = Array.isArray(b.r) ? b.r.slice(0, MAX_BATCH) : [];
+      // R14 (S14-1): the budget counts results; a batch it can't cover waits, unacknowledged, for the re-send
+      if (!this.results.take(now, Math.max(1, raw.length))) { this.refused++; break; }
+      this.acks.set(sid, b.q);
+      const checked = raw.map((x) => checkResult(x, this.guestRole)).filter((x): x is HandsOnResult => x !== null);
+      const v = vetResults(this.game, checked, this.guestRole, this.ledger, this.prof, now);
+      this.refused += v.refused;
+      if (v.ok.length) { this.io.apply(v.ok); this.status.applied += v.ok.length; }
+      this.status = { ...this.status, dropCost: this.ledger.cost, dropCap: dropCap(this.ledger) };
+      this.dirty = true;
+      if (v.capped) { this.bench(); break; }
+    }
+  }
+
+  /** R14: the guest's drops reached tonight's cap. Their role goes back to the team (the sim's fallback) till close. */
+  private bench() {
+    this.status = { ...this.status, benched: true };
+    this.dirty = true;
+    this.pump();
   }
 
   /** Call every ~50 ms: snapshots, the room, the guest's comings and goings, the slow-link check. */
@@ -548,14 +784,16 @@ export class LiveHost extends End {
       if (this.endN > 0 && now - this.lastSnap >= 300) { this.endN--; this.lastSnap = now; this.post(TOPIC.st, { k: "end", why: this.status.ended }); }
       return;
     }
-    const here = !!this.pin && now - this.pin.heard < QUIET_MS;
+    this.emotePump(now);
+    const near = !!this.pin && now - this.pin.heard < QUIET_MS;
+    const here = near && !this.status.benched;
     if (here !== this.here) { this.here = here; this.dirty = true; }
     // the sim backs off the role a human is playing: the guest's while they're here, else the host's own
     const want: LiveRole = this.cfg.hostRole === "server" || here ? "server" : "chef";
     if (this.game?.phase === "service" && this.game.handsOn && this.game.handsOn.role !== want) this.io.setSimRole(want);
     const rtt = this.rtt.median;
     if (rtt !== null && rtt > SLOW_MS && here) this.slowSince ??= now; else this.slowSince = null;
-    this.status = { ...this.status, guest: here ? "here" : this.pin ? "away" : "waiting", rtt, slow: this.slowSince !== null && now - this.slowSince >= SLOW_SUSTAIN_MS };
+    this.status = { ...this.status, guest: near ? "here" : this.pin ? "away" : "waiting", rtt, slow: this.slowSince !== null && now - this.slowSince >= SLOW_SUSTAIN_MS };
     if (!this.game || !this.base || !this.baseMsg) return;
     if (now - this.lastBase >= BASE_EVERY_MS) { this.lastBase = now; this.post(TOPIC.st, this.baseMsg); }
     // the floor only once the doors are open: before that the guest has the room (base) and waits
@@ -564,7 +802,7 @@ export class LiveHost extends End {
     if ((this.dirty && gap >= SNAP_MIN_MS) || gap >= SNAP_IDLE_MS) {
       this.dirty = false;
       this.lastSnap = now;
-      const msg = encodeFloor(this.game, this.base, { seq: ++this.seq, t: now, ack: this.ack, rtt, guestOn: here });
+      const msg = encodeFloor(this.game, this.base, { seq: ++this.seq, t: now, ack: this.ack, ackSid: this.sid ?? "", benched: this.status.benched, rtt, guestOn: here });
       const n = this.post(TOPIC.st, msg);
       if (n) { this.status.snaps++; this.status.snapBytes = n; this.sizes.push(n); if (this.sizes.length > 4000) this.sizes.shift(); }
     }
@@ -583,7 +821,7 @@ export class LiveHost extends End {
 // ───────────────────────── the guest ─────────────────────────
 
 export interface GuestIO { emit(topic: string, data: unknown): void; now(): number }
-export interface GuestStatus { host: "waiting" | "here" | "quiet"; rtt: number | null; on: boolean; ended: EndWhy | null; pending: number }
+export interface GuestStatus { host: "waiting" | "here" | "quiet"; rtt: number | null; on: boolean; ended: EndWhy | null; pending: number; benched: boolean }
 
 export class LiveGuest extends End {
   base: Base | null = null;
@@ -598,11 +836,14 @@ export class LiveGuest extends End {
   private heardSt = -1e9;
   private floorAt = 0;
   private hostT = 0;
-  status: GuestStatus = { host: "waiting", rtt: null, on: false, ended: null, pending: 0 };
+  /** R14 (G3): this page's session id: the host acknowledges batches per page, so a reload starts clean. */
+  readonly sid: string;
+  status: GuestStatus = { host: "waiting", rtt: null, on: false, ended: null, pending: 0, benched: false };
   /** Called when the view or the status changes. */
   onChange: (() => void) | null = null;
-  constructor(io: GuestIO, private cfg: { nonce: string; role: LiveRole }) {
+  constructor(io: GuestIO, private cfg: { nonce: string; role: LiveRole; sid?: string }) {
     super(cfg.nonce, (t, d) => io.emit(t, d), () => io.now());
+    this.sid = cfg.sid && isSid(cfg.sid) ? cfg.sid : newNonce().slice(0, 12);
   }
   get role(): LiveRole { return this.cfg.role; }
 
@@ -631,11 +872,14 @@ export class LiveGuest extends End {
     this.floorAt = now;
     this.hostT = f.t;
     this.heardSt = now;
-    this.pending = this.pending.filter(([q]) => q > f.ack);
+    // R14 (G3): only an acknowledgement of THIS page's batches clears them
+    if (f.ackSid === this.sid) this.pending = this.pending.filter(([q]) => q > f.ack);
     this.view = viewOf(this.skeleton, f);
-    this.status = { ...this.status, host: "here", rtt: f.rtt, on: f.guestOn, pending: this.pending.length };
+    this.status = { ...this.status, host: "here", rtt: f.rtt, on: f.guestOn, pending: this.pending.length, benched: f.benched };
     this.onChange?.();
   }
+  /** A new host page (a reload) was pinned: its floors come with a new sequence. */
+  protected override repinned() { this.floor = null; }
 
   /** The guest's own session produced results: keep them (filtered to the role) until the host acknowledges them. */
   send(results: readonly HandsOnResult[]) {
@@ -649,12 +893,12 @@ export class LiveGuest extends End {
   private flush(fresh: boolean) {
     const now = this.clock();
     if (!this.pending.length || now - this.lastAct < (fresh ? ACT_MIN_MS : ACT_RESEND_MS)) return;
-    if (this.send2({ k: "act", p: this.pending })) this.lastAct = now;
+    if (this.send2({ k: "act", sid: this.sid, p: this.pending })) this.lastAct = now;
   }
   private send2(body: Record<string, unknown>): number {
     let ok = this.post(TOPIC.in, body);
     // an over-size act (a burst of results): send the oldest half now, the rest on the next pump
-    if (!ok && body.k === "act" && this.pending.length > 1) ok = this.post(TOPIC.in, { k: "act", p: this.pending.slice(0, Math.ceil(this.pending.length / 2)) });
+    if (!ok && body.k === "act" && this.pending.length > 1) ok = this.post(TOPIC.in, { k: "act", sid: this.sid, p: this.pending.slice(0, Math.ceil(this.pending.length / 2)) });
     return ok;
   }
 
@@ -662,8 +906,9 @@ export class LiveGuest extends End {
   pump() {
     const now = this.clock();
     if (this.status.ended) return;
+    this.emotePump(now);
     // hello until the host shows it has us (a floor saying the guest is on): the first hello may have been lost
-    if ((!this.base || !this.floor || !this.floor.guestOn) && now - this.lastHi >= HELLO_MS) { this.lastHi = now; this.post(TOPIC.in, { k: "hi", role: this.cfg.role }); }
+    if ((!this.base || !this.floor || !this.floor.guestOn) && !this.floor?.benched && now - this.lastHi >= HELLO_MS) { this.lastHi = now; this.post(TOPIC.in, { k: "hi", role: this.cfg.role, sid: this.sid }); }
     if (now - this.lastBeat >= BEAT_MS) {
       this.lastBeat = now;
       this.post(TOPIC.in, { k: "beat", t: now, e: this.hostT, h: this.hostT ? Math.round(now - this.floorAt) : 0, bb: this.base?.b ?? -1 });
