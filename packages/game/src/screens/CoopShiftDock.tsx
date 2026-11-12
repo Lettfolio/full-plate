@@ -6,6 +6,7 @@
  * keeps the host's plan. The host's game stays the only authority: nothing the guest writes is applied without a tap.
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { devSwitches } from "../lib/perfMeter";
 import { lazyRetry } from "../lib/lazyRetry";
 import type { Command, GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
@@ -155,7 +156,7 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
         if (id) setGuestId(id);
         if (g?.pong) {
           const ms = meter.current.pong(g.pong.n);
-          if (ms !== null) { setRtt(meter.current.median); (window.__fpCoopRtt ??= []).push(ms); }
+          if (ms !== null) { setRtt(meter.current.median); if (devSwitches()) (window.__fpCoopRtt ??= []).push(ms); }
         }
       }, () => setLost(true));
     });

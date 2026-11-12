@@ -111,3 +111,16 @@ describe("S14-3 wired: B's path-derived ids are A's pin", () => {
     expect(dock + gst).not.toMatch(/(guestId|hostId)=\{null\}/);
   });
 });
+
+describe("S14-9 (review): co-op telemetry is a playtest hook too", () => {
+  it("every window.__fpCoop* write and the replay recorder sit behind devSwitches()", () => {
+    for (const f of ["../screens/CoopLive.tsx", "../screens/CoopShiftDock.tsx"]) {
+      const src = readFileSync(join(__dirname, f), "utf8");
+      for (const line of src.split("\n").filter((l) => /window\.__fpCoop\w*\s*(=|\?\?=)|\(window\.__fpCoop\w*\s*\?\?=/.test(l) || /coopTap\.rec = \{/.test(l) || /coopTap\.rec = devSwitches/.test(l))) {
+        if (/__fpCoopReplay/.test(line)) continue; // written only when coopTap.rec was recording (itself gated)
+        expect(line, f).toMatch(/devSwitches\(\)/);
+      }
+    }
+  });
+});
+

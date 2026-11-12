@@ -10,7 +10,7 @@
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { genSaves, loadPlaywright, SAVES, startPreview } from "./lib/harness.mjs";
+import { genSaves, loadPlaywright, SAVES, playtestDist, startPreview } from "./lib/harness.mjs";
 import { createMockStore, installMockClaude } from "./lib/mockClaude.mjs";
 import { readFileSync } from "node:fs";
 
@@ -18,6 +18,7 @@ const OUT = process.env.FP_SHOTS ?? join(process.cwd(), "playtest-shots");
 mkdirSync(OUT, { recursive: true });
 genSaves();
 const { chromium } = loadPlaywright();
+playtestDist(); // Round 14 review (S14-9): window.__fpCoopRtt is a playtest hook (dev/playtest builds only)
 const { url, stop } = await startPreview();
 const store = createMockStore({ latencyMs: Number(process.env.FP_LATENCY ?? 30) });
 const browser = await chromium.launch();

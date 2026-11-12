@@ -123,7 +123,7 @@ export function VisitShareCard({ game, brand }: { game: GameState; brand?: strin
                   {shown.map((r) => (
                     <li key={r.id} className="visitors__item">
                       <Stars rating={r.stars} size={18} />
-                      <span className="small"><b>{r.nick || "A friend"}</b>{r.date && <span className="muted"> · {r.date}</span>}</span>
+                      <span className="small visitors__who"><b>{r.nick || "A friend"}</b>{r.date && <span className="muted"> · {r.date}</span>}</span>
                       <button type="button" className="btn btn--ghost btn--tap visitors__hide" onClick={() => hide(r.id)} aria-label={`Hide ${r.nick || "this visitor"}'s review from your list`}>Hide</button>
                       {r.picks.length > 0 && <span className="small visitors__picks">{r.picks.map((p) => complimentText(p)).join(" · ")}</span>}
                     </li>

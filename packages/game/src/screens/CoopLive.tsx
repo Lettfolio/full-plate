@@ -28,7 +28,7 @@ import { prefsStorage } from "../lib/storage";
 import { formatPence } from "@full-plate/sim-core";
 import { handsOnLayout, markPhoneHowToSeen } from "./handsonPhone";
 import { phoneHowToCards } from "./HandsOnHowTo";
-import { prefersReducedMotion } from "../lib/perfMeter";
+import { devSwitches, prefersReducedMotion } from "../lib/perfMeter";
 import { appReducer, type AppState } from "../state/gameReducer";
 import type { HandsOnRemote, RemoteStage } from "./HandsOnShift";
 import { EmoteBar } from "./CoopShiftParts";
@@ -285,7 +285,7 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, guest
         const st = host.status;
         const k = `${st.guest}|${st.rtt}|${st.slow}|${st.benched}`;
         if (k !== lastStatus) { lastStatus = k; bump((x) => x + 1); }
-        window.__fpCoopLive = { side: "host", rtt: st.rtt, snaps: st.snaps, sizes: host.sizes, applied: st.applied, refused: host.refused, seconds: (performance.now() - t0.current) / 1000, status: st };
+        if (devSwitches()) window.__fpCoopLive = { side: "host", rtt: st.rtt, snaps: st.snaps, sizes: host.sizes, applied: st.applied, refused: host.refused, seconds: (performance.now() - t0.current) / 1000, status: st };
       }, PUMP_MS);
       stops.push(() => clearInterval(t));
       setRoom(j.room);
@@ -303,7 +303,8 @@ export function HostLive({ game, send, api, code, live, writer, guestNick, guest
     if (!room || ended.current) return;
     if (game.phase === "service" && !started.current) {
       started.current = true;
-      coopTap.rec = { start: null, actions: [], seen: new WeakSet() };
+      // Round 14 review (S14-9): the replay check is a playtest hook — dev and playtest builds only
+      coopTap.rec = devSwitches() ? { start: null, actions: [], seen: new WeakSet() } : null;
       void writer.patch({ live: { ...live, state: "on", at: Date.now() } });
       api$.current.jumpIn(hostRole);
     } else if (game.phase !== "service" && started.current && game.phase !== "planning") {
@@ -403,7 +404,7 @@ export function GuestLive({ code, live, hostNick, onExit, dbOver = null, hostId 
       stops = [j.room.on(TOPIC.st, (m) => g.hear(m)), j.room.on(TOPIC.emo, (m) => g.hear(m)), watchPartner(j.room, () => g.partnerPeer, spot)];
       const t = setInterval(() => {
         g.pump();
-        window.__fpCoopLive = { side: "guest", rtt: g.status.rtt, refused: g.refused, seconds: (performance.now() - t0) / 1000, status: g.status };
+        if (devSwitches()) window.__fpCoopLive = { side: "guest", rtt: g.status.rtt, refused: g.refused, seconds: (performance.now() - t0) / 1000, status: g.status };
       }, PUMP_MS);
       stops.push(() => clearInterval(t));
       setRoom(j.room);
