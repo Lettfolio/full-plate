@@ -7,18 +7,28 @@
  * validates them like the host's own taps, and stays deterministic because they enter as commands. The host runs the
  * service; both see the evening's numbers. Six emotes, no text.
  *
- * Two documents per session, one writer each (db.d.ts: last writer wins, one write at a time per document):
- *   fp-coop/<CODE>/side/host   HostDoc — the host's nickname, the board (tonight's menu and staff), the stage, the
- *                              evening, the answer to the last plan, the host's emote, a ping
- *   fp-coop/<CODE>/side/guest  GuestDoc — the guest's nickname, the plan, the guest's emote, the pong
- * Sessions expire two hours after the host made the code; either side can end it.
+ * Two documents per session, one writer each — Round 14 (B, S14-2): enforced by the `db` rules, because each lives
+ * under its writer's own id (scripts/lib/dbRules.ts; `fpc/{self}` is writable only by that viewer):
+ *   fpc/<host id>/c<hash(code)>/host    HostDoc — the host's nickname, the board (tonight's menu and staff), the stage,
+ *                                       the evening, the answer to the last plan, the host's emote, a ping, the live
+ *                                       shift's lobby record, and `guest`: the ONE guest id the host has let in
+ *   fpc/<guest id>/c<hash(code)>/guest  GuestDoc — the guest's nickname, the plan, the guest's emote, the pong
+ *   fpc/<id>                            each player's co-op marker; a guest's lists the slow keys of the sessions it
+ *                                       joined (`j`), which is how the host finds who wants in
+ * The code's check letters fit the host's id (state/share.ts), so a guest finds the host's document from the code
+ * alone and nobody else can stand in for the host; the partner's platform id always comes from a document's path.
+ * Sessions expire two hours after the host made the code; either side can end it, which deletes that side's document.
  */
 import type { Command, GameState, StaffRole } from "@full-plate/sim-core";
-import { cleanLabel, cleanNick } from "../../state/share";
+import { cleanLabel, cleanNick, codeSeg } from "../../state/share";
 
 export const SESSION_MS = 2 * 60 * 60 * 1000;
-export const hostPath = (code: string) => `fp-coop/${code}/side/host`;
-export const guestPath = (code: string) => `fp-coop/${code}/side/guest`;
+/** A player's co-op marker (a guest's carries `j`, the slow keys of the sessions it joined). */
+export const coopMePath = (uid: string) => `fpc/${uid}`;
+export const hostPath = (hostId: string, code: string) => `fpc/${hostId}/${codeSeg("c", code)}/host`;
+export const guestPath = (guestId: string, code: string) => `fpc/${guestId}/${codeSeg("c", code)}/guest`;
+/** A platform id as it may appear in a path segment (db.d.ts's segment grammar). */
+export const UID_RE = /^[A-Za-z0-9_\-.~:@+]{1,200}$/;
 
 export const EMOTES = [
   { id: "wave", glyph: "👋", label: "Hi!" },
@@ -55,6 +65,8 @@ export interface HostDoc {
   ping: { n: number } | null;
   /** Round 13 (F): tonight's live shift, when the host set one up (realtime.ts). Absent on Round 12 documents. */
   live?: LiveDoc | null;
+  /** Round 14 (B): the platform id of the guest the host let in (first to join); only the host can write it. */
+  guest?: string | null;
 }
 export interface Plan { n: number; day: number; menu: BoardDish[]; on: string[] }
 export interface GuestDoc {
@@ -135,6 +147,7 @@ export function checkHost(raw: unknown, dish: (id: string) => boolean): HostDoc 
     emote: emote(o.emote),
     ping: counter(o.ping),
     ...(o.live !== undefined ? { live: checkLive(o.live) } : {}),
+    ...(typeof o.guest === "string" && UID_RE.test(o.guest) ? { guest: o.guest } : {}),
   };
 }
 

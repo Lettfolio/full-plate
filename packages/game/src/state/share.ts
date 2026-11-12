@@ -1,28 +1,36 @@
 /**
  * Round 12 (G): visiting a friend's restaurant and the co-op day — the data layer over the artifact runtime's `db`.
+ * Round 14 (B, S14-2 / S14-11): every shared document now has exactly ONE writer, enforced by the artifact's `db`
+ * rules (scripts/lib/dbRules.ts DB_RULES; docs/COOP-NOTES.md "Round 14 — B"), not by client checks. Each player writes
+ * only under their own id, and the author of anything shared is read from its PATH (which the rules make trustworthy):
  *
- * There is no game server. Everything goes through the `db` capability (db.d.ts) that the saves already use, in
- * collections the saves never touch:
+ *   fps/<uid>                          "I share" marker (no fields that matter): lets a code find its owner
+ *   fps/<uid>/s<hash(code)>/snap       one snapshot per shared game, written only by <uid>
+ *   fpr/<uid>                          <uid>'s own reviews of other people's shares: one entry per share, keyed by a
+ *                                      slow hash of its code (`k` lists the keys so the owner can query for theirs)
+ *   fpc/<uid>, fpc/<uid>/c<hash>/host|guest   co-op (lib/coop/protocol.ts): each side writes only its own document
+ *   data/users/<uid>/r12/g/social      private: which code each of my games is shared under, my co-op sessions
  *
- *   fp-share/<CODE>/v/snap              the owner's read-only snapshot (ShareSnapshot + owner hash)
- *   fp-share/<CODE>/reviews/<rid>       one visitor's review: 1–5 stars + picks from COMPLIMENTS (no free text)
- *   fp-coop/<CODE>/side/host            co-op: written only by the host (lib/coop/protocol.ts)
- *   fp-coop/<CODE>/side/guest           co-op: written only by the guest
- *   data/users/<uid>/r12/g/social       private: which code each of my games is shared under, which shares I reviewed
+ * A code is 10 characters: 8 random, then 2 check letters computed from the random part AND the owner's platform id.
+ * A visitor lists the marker documents (one per player who shares), keeps the ids whose check letters fit, and reads
+ * `fps/<id>/s<hash(code)>/snap` for each: only the real owner can have written there. Someone else with the code can
+ * write their own snapshot under their own id, but the check letters fit their id only by a 1-in-961 fluke, and if
+ * two ever fit the code opens nothing ("ask for a new code") rather than the wrong one. Enumeration: the marker list
+ * gives ids but no codes; from an id, a snapshot path needs the code's 8 random letters (31^8 ≈ 8.5 × 10^11 online
+ * guesses per player, each a db call). Review keys are 8,192 rounds of SHA-256 over the code, so cracking one offline
+ * costs 31^8 × 8,192 × (players) hashes. Nothing links two of a player's shares beyond the id in their paths: the
+ * snapshot carries no owner field (the R12 owner hash is gone).
  *
- * The parent documents `fp-share/<CODE>` and `fp-coop/<CODE>` are never written, so a query on `fp-share` lists
- * nothing: a code is the only way in (Firestore-style nesting, as db.d.ts describes: deleting or omitting a parent
- * document leaves nested ones alone). Codes are 10 characters from a 31-letter alphabet (31^10 ≈ 8.2 × 10^14, above
- * the brief's 36^8 ≈ 2.8 × 10^12), drawn with crypto.getRandomValues.
- *
- * Everything read back is untrusted: snapshots are coerced field by field (`checkSnapshot`), reviews keep only a star
- * count, compliment ids from the fixed list and a nickname of ≤16 letters, digits and spaces. Nothing here feeds the
- * sim; wall-clock dates are UI metadata only.
+ * Everything read back is untrusted: snapshots are coerced field by field (`checkSnapshot`); review lines in a
+ * snapshot are shown only if they are the game's own words (`known.line` re-builds them from the review templates);
+ * reviews keep only a star count, compliment ids from the fixed list and a nickname of ≤16 letters, digits and spaces.
+ * Nothing here feeds the sim; wall-clock dates are UI metadata only.
  */
 import type { DecorSlot, Difficulty, GameState, StaffRole } from "@full-plate/sim-core";
 import { cleanName } from "@full-plate/sim-core/schema";
 import { DECOR_SLOTS } from "../sim";
 import { fnv1a, runtime } from "./saveStore";
+import { sha256Hex } from "../lib/coop/sha256";
 import { prefsStorage } from "../lib/storage";
 
 // ── the subset of db.d.ts used here (doc refs, ordered/limited queries, snapshots) ──
@@ -34,6 +42,7 @@ export interface SDocRef {
   onSnapshot(next: (s: SDocSnap) => void, error?: (e: { code: string }) => void): () => void;
 }
 export interface SQuery {
+  where(field: string, op: "==" | "array-contains", value: unknown): SQuery;
   orderBy(field: string, dir?: "asc" | "desc"): SQuery;
   limit(n: number): SQuery;
   get(): Promise<{ docs: SDocSnap[] }>;
@@ -74,16 +83,26 @@ export const errCode = (e: unknown): string => (e && typeof (e as { code?: unkno
 /** No 0/O, 1/I/L: a code read out loud or copied by hand survives. */
 export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 export const CODE_LEN = 10;
-export function newCode(rand: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+/** The random part; the last two letters are the check letters (`codeCheck`). */
+export const CODE_RAND = 8;
+/** Two letters from the random part and the owner's platform id: only the owner's id fits (bar a 1-in-961 fluke). */
+export function codeCheck(rand: string, uid: string): string {
+  const h = sha256Hex(`fp-code|${rand}|${uid}`);
+  return CODE_ALPHABET[parseInt(h.slice(0, 8), 16) % 31]! + CODE_ALPHABET[parseInt(h.slice(8, 16), 16) % 31]!;
+}
+/** Could this code be `uid`'s? */
+export const codeFits = (code: string, uid: string): boolean => code.length === CODE_LEN && codeCheck(code.slice(0, CODE_RAND), uid) === code.slice(CODE_RAND);
+/** A fresh code for `uid`: 8 letters by crypto.getRandomValues (rejection sampling, no bias) + the check letters. */
+export function newCode(uid: string, rand: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
   let out = "";
-  while (out.length < CODE_LEN) {
-    for (const b of rand(CODE_LEN * 2)) {
+  while (out.length < CODE_RAND) {
+    for (const b of rand(CODE_RAND * 2)) {
       if (b >= 248) continue; // 248 = 8 × 31: no bias
       out += CODE_ALPHABET[b % 31];
-      if (out.length === CODE_LEN) break;
+      if (out.length === CODE_RAND) break;
     }
   }
-  return out;
+  return out + codeCheck(out, uid);
 }
 /** What she typed → a code, or null. Spaces, dashes and case don't matter; O→0 and I/L→1 are not in the alphabet. */
 export function parseCode(s: string): string | null {
@@ -189,7 +208,15 @@ function recentReviews(game: GameState): ShareSnapshot["reviews"] {
  * Someone else's snapshot, coerced: every field to its type and range, lists capped, names cleaned. `known` filters
  * ids against this build's content (unknown dishes, decor items and districts are dropped, not shown as raw ids).
  */
-export function checkSnapshot(raw: unknown, known: { dish(id: string): boolean; decor(id: string): boolean; district(id: string): boolean }): ShareSnapshot | null {
+export interface Known {
+  dish(id: string): boolean; decor(id: string): boolean; district(id: string): boolean;
+  /**
+   * Round 14 (B): is `text` a line the game itself writes for a review with this rating and dish at a restaurant of
+   * this name (lib/visit.ts rebuilds it from the review templates)? Absent: no review line is shown.
+   */
+  line?(text: string, rating: number, dishId: string | undefined, restaurant: string): boolean;
+}
+export function checkSnapshot(raw: unknown, known: Known): ShareSnapshot | null {
   const o = obj(raw);
   if (o.kind !== "fp-share" || o.v !== 1) return null;
   const decor: ShareSnapshot["decor"] = {};
@@ -224,7 +251,7 @@ export function checkSnapshot(raw: unknown, known: { dish(id: string): boolean; 
       source: SOURCES.includes(r.source as (typeof SOURCES)[number]) ? (r.source as (typeof SOURCES)[number]) : "walkin",
       text: cleanLabel(r.text, LIMITS.text),
       ...(typeof r.dishId === "string" && known.dish(r.dishId) ? { dishId: r.dishId } : {}),
-    })).filter((r) => r.text),
+    })).filter((r) => r.text && !!known.line?.(r.text, r.rating, r.dishId, cleanLabel(o.name) || "A restaurant")),
     week: arr(o.week, LIMITS.week).map(obj).map((d) => ({
       day: int(d.day, 0, 1e6), covers: int(d.covers, 0, 1e5), walkouts: int(d.walkouts, 0, 1e5),
       revenue: int(d.revenue, -1e9, 1e9), profit: int(d.profit, -1e9, 1e9), rating: num(d.rating, 0, 5), ...(d.closed === true ? { closed: true } : {}),
@@ -234,53 +261,101 @@ export function checkSnapshot(raw: unknown, known: { dish(id: string): boolean; 
   return snap;
 }
 
-// ── reviews ──
-export interface VisitReview { id: string; stars: number; picks: ComplimentId[]; nick: string; date: string; at: number }
-export function checkReview(id: string, raw: unknown): VisitReview | null {
-  const o = obj(raw);
-  if (o.kind !== "fp-review") return null;
-  const picks = [...new Set(arr(o.picks, MAX_PICKS * 2).filter((p): p is ComplimentId => typeof p === "string" && !!complimentText(p)))].slice(0, MAX_PICKS);
-  return { id, stars: int(o.stars, 1, 5, 3), picks, nick: cleanNick(o.nick), date: typeof o.date === "string" && DATE.test(o.date) ? o.date : "", at: num(o.at, 0, 1e14) };
-}
-export const MAX_REVIEWS = 50;
-
 // ── paths ──
-export const snapPath = (code: string) => `fp-share/${code}/v/snap`;
-export const reviewsPath = (code: string) => `fp-share/${code}/reviews`;
+/** The collection segment a code's documents live under: `s…` for a share, `c…` for a co-op session (not listable). */
+export const codeSeg = (kind: "s" | "c", code: string): string => kind + sha256Hex(`fp-at|${kind}|${code}`).slice(0, 32);
+const STRETCH = 8192;
+const slow = new Map<string, string>();
+/** A key published where anyone can read it (review keys, co-op join keys): 8,192 rounds of SHA-256 over the code. */
+export function slowKey(kind: "r" | "j", code: string): string {
+  const k = `${kind}|${code}`;
+  let h = slow.get(k);
+  if (h) return h;
+  h = sha256Hex(`fp-key|${k}`);
+  for (let i = 0; i < STRETCH; i++) h = sha256Hex(h + code);
+  h = kind + h.slice(0, 32);
+  if (slow.size > 64) slow.clear();
+  slow.set(k, h);
+  return h;
+}
+/** The "I share" marker: the document a code's check letters are tested against. */
+export const pubPath = (uid: string) => `fps/${uid}`;
+export const snapPath = (ownerId: string, code: string) => `fps/${ownerId}/${codeSeg("s", code)}/snap`;
+/** A player's own reviews of other people's shares. */
+export const visitsPath = (uid: string) => `fpr/${uid}`;
 export const mePath = (uid: string) => `data/users/${uid}/r12/g/social`;
-/** A stable, non-reversible id for this viewer on this share (the review's document id prefix). */
-export const visitorKey = (uid: string, code: string): string => fnv1a(`visit:${uid}:${code}`);
-export const ownerKey = (uid: string): string => fnv1a(`owner:${uid}`);
 /** The game a share belongs to: the same restaurant across saves and devices (seed, street and name). */
 export const gameKey = (g: Pick<GameState, "seed" | "districtId" | "restaurantName">): string => fnv1a(`${g.seed}|${g.districtId}|${g.restaurantName}`);
 
+/** The ids under `root` whose check letters fit `code`: who could have shared or be hosting it. */
+export async function codeOwners(db: SDb, root: "fps" | "fpc", code: string): Promise<string[]> {
+  const s = await db.collection(root).limit(1000).get();
+  return s.docs.map((d) => d.id).filter((id) => codeFits(code, id));
+}
+/** Write my marker if it isn't there (one read, at most one write). */
+export async function ensureDoc(db: SDb, path: string, body: Record<string, unknown>): Promise<void> {
+  if (!(await db.doc(path).get()).exists) await db.doc(path).set(body);
+}
+
+// ── reviews ──
+/** One review as the owner sees it. `id` is the visitor's platform id: from the PATH of the document it came from. */
+export interface VisitReview { id: string; stars: number; picks: ComplimentId[]; nick: string; date: string }
+/** One entry of a visitor's `fpr/<uid>` document, coerced. */
+export function checkReview(id: string, raw: unknown): VisitReview | null {
+  const o = obj(raw);
+  const stars = int(o.stars, 0, 5, 0);
+  if (!stars) return null;
+  const picks = [...new Set(arr(o.picks, MAX_PICKS * 2).filter((p): p is ComplimentId => typeof p === "string" && !!complimentText(p)))].slice(0, MAX_PICKS);
+  return { id, stars, picks, nick: cleanNick(o.nick), date: typeof o.date === "string" && DATE.test(o.date) ? o.date : "" };
+}
+/** The owner's list shows at most this many (newest first); each visitor has one entry per share, so nobody can push others out. */
+export const MAX_REVIEWS = 50;
+/** A visitor keeps at most this many reviews in their own document (the oldest go). */
+export const MAX_MY_REVIEWS = 30;
+
 // ── my private record ──
-export interface Me { shares: Record<string, string>; reviewed: Record<string, string> }
+export interface CoopNote { role: "host" | "guest"; host: string; exp: number }
+export interface Me { shares: Record<string, string>; coop: Record<string, CoopNote> }
 const ME_LOCAL = "full-plate:social:v1";
 const MAX_ME = 60;
-function readLocalMe(): Me {
+/** Most a player shares at once (one per game). */
+export const MAX_SHARES = 12;
+/** This device's copy of the private record, per account (two people on one device keep their own). */
+const meLocalKey = (uid: string) => `${ME_LOCAL}:${fnv1a(uid)}`;
+function readLocalMe(uid: string): Me {
   try {
-    const o = obj(JSON.parse(prefsStorage().getItem(ME_LOCAL) ?? "{}"));
-    return { shares: strMap(o.shares), reviewed: strMap(o.reviewed) };
-  } catch { return { shares: {}, reviewed: {} }; }
+    const o = obj(JSON.parse(prefsStorage().getItem(meLocalKey(uid)) ?? "{}"));
+    return { shares: strMap(o.shares), coop: coopMap(o.coop) };
+  } catch { return { shares: {}, coop: {} }; }
 }
 function strMap(v: unknown): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, x] of Object.entries(obj(v)).slice(-MAX_ME)) if (typeof x === "string" && k.length <= 40) out[k] = x.slice(0, 40);
   return out;
 }
-const trimMap = (m: Record<string, string>) => Object.fromEntries(Object.entries(m).slice(-MAX_ME));
+const UIDISH = /^[A-Za-z0-9_\-.~:@+]{1,200}$/;
+function coopMap(v: unknown): Record<string, CoopNote> {
+  const out: Record<string, CoopNote> = {};
+  for (const [k, x] of Object.entries(obj(v)).slice(-20)) {
+    const e = obj(x);
+    if (parseCode(k) === k && (e.role === "host" || e.role === "guest") && typeof e.host === "string" && UIDISH.test(e.host)) out[k] = { role: e.role, host: e.host, exp: int(e.exp, 0, 1e14) };
+  }
+  return out;
+}
+const trimMap = <T>(m: Record<string, T>, n = MAX_ME) => Object.fromEntries(Object.entries(m).slice(-n));
 export async function readMe(l: { db: SDb; uid: string }): Promise<Me> {
-  const local = readLocalMe();
+  const local = readLocalMe(l.uid);
   try {
     const s = await l.db.doc(mePath(l.uid)).get();
-    const d = obj(s.exists ? s.data() : {});
-    return { shares: { ...local.shares, ...strMap(d.shares) }, reviewed: { ...local.reviewed, ...strMap(d.reviewed) } };
+    if (!s.exists) return local;
+    const d = obj(s.data());
+    // the account copy wins (it follows the player across devices); this device's copy fills in when it has none
+    return { shares: strMap(d.shares), coop: { ...local.coop, ...coopMap(d.coop) } };
   } catch { return local; }
 }
 export async function writeMe(l: { db: SDb; uid: string }, me: Me): Promise<void> {
-  const body = { kind: "fp-social", shares: trimMap(me.shares), reviewed: trimMap(me.reviewed) };
-  try { prefsStorage().setItem(ME_LOCAL, JSON.stringify(body)); } catch { /* storage blocked */ }
+  const body = { kind: "fp-social", v: 2, shares: trimMap(me.shares), coop: trimMap(me.coop, 20) };
+  try { prefsStorage().setItem(meLocalKey(l.uid), JSON.stringify(body)); } catch { /* storage blocked */ }
   await l.db.doc(mePath(l.uid)).set(body);
 }
 
@@ -289,72 +364,117 @@ export async function writeMe(l: { db: SDb; uid: string }, me: Me): Promise<void
 export async function share(l: { db: SDb; uid: string }, game: GameState, opts: { now?: number; code?: () => string; brand?: Record<string, string | number> } = {}): Promise<string> {
   const me = await readMe(l);
   const key = gameKey(game);
-  const code = me.shares[key] ?? (opts.code ?? newCode)();
-  await l.db.doc(snapPath(code)).set({ ...buildSnapshot(game, opts.now, opts.brand), owner: ownerKey(l.uid) });
-  if (me.shares[key] !== code) await writeMe(l, { ...me, shares: { ...me.shares, [key]: code } });
+  const had = me.shares[key];
+  const fresh = !had || !codeFits(had, l.uid); // an R12 code (no check letters for this id) gets a new one
+  if (fresh && Object.keys(me.shares).filter((k) => k !== key).length >= MAX_SHARES) throw { code: "quota_exceeded" };
+  const code = fresh ? (opts.code ?? (() => newCode(l.uid)))() : had;
+  if (!codeFits(code, l.uid)) throw { code: "invalid_argument" };
+  await ensureDoc(l.db, pubPath(l.uid), { kind: "fp-pub", v: 2 });
+  await l.db.doc(snapPath(l.uid, code)).set({ ...buildSnapshot(game, opts.now, opts.brand) });
+  if (had !== code) await writeMe(l, { ...me, shares: { ...me.shares, [key]: code } });
   return code;
 }
 /** This game's share code, if it is shared (from my private record; the snapshot may have been removed since). */
 export async function sharedCode(l: { db: SDb; uid: string }, game: GameState): Promise<string | null> {
   const code = (await readMe(l)).shares[gameKey(game)];
-  if (!code) return null;
-  try { return (await l.db.doc(snapPath(code)).get()).exists ? code : null; } catch { return code; }
+  if (!code || !codeFits(code, l.uid)) return null;
+  try { return (await l.db.doc(snapPath(l.uid, code)).get()).exists ? code : null; } catch { return code; }
 }
-/** Stop sharing: the snapshot and its reviews go; the code is forgotten (a new share gets a new code). */
-export async function stopSharing(l: { db: SDb; uid: string }, game: GameState): Promise<void> {
+/**
+ * Stop sharing the game with this key: its snapshot goes and the code is forgotten (a new share gets a new code); with
+ * nothing left shared, the marker goes too. Visitors' reviews live in THEIR documents, which only they can write: they
+ * point at a code that now opens nothing, and each visitor's list drops its oldest entries as they review elsewhere.
+ */
+export async function forgetShare(l: { db: SDb; uid: string }, key: string): Promise<boolean> {
   const me = await readMe(l);
-  const key = gameKey(game);
   const code = me.shares[key];
-  if (!code) return;
-  await l.db.doc(snapPath(code)).delete();
-  try {
-    const all = await l.db.collection(reviewsPath(code)).limit(200).get();
-    for (const d of all.docs) await l.db.collection(reviewsPath(code)).doc(d.id).delete();
-  } catch { /* reviews stay unreachable without the snapshot */ }
+  if (!code) return false;
+  if (codeFits(code, l.uid)) await l.db.doc(snapPath(l.uid, code)).delete();
   const shares = { ...me.shares };
   delete shares[key];
   await writeMe(l, { ...me, shares });
+  if (!Object.keys(shares).length) await l.db.doc(pubPath(l.uid)).delete();
+  return true;
 }
+export async function stopSharing(l: { db: SDb; uid: string }, game: GameState): Promise<void> { await forgetShare(l, gameKey(game)); }
 
-/** The newest reviews (≤ 50), live. Pruning the older ones is the owner's job (`pruneReviews`). */
-export function watchReviews(l: { db: SDb }, code: string, next: (r: VisitReview[]) => void, error?: (code: string) => void): () => void {
-  return l.db.collection(reviewsPath(code)).orderBy("at", "desc").limit(MAX_REVIEWS).onSnapshot(
-    (s) => next(s.docs.map((d) => checkReview(d.id, d.data())).filter((r): r is VisitReview => !!r)),
+const HIDE_KEY = "full-plate:social-hide:v1";
+/** Visitors the owner hid from this share's list (this device only: nobody else's data changes). */
+export function hiddenVisitors(code: string): string[] {
+  try { const v = obj(JSON.parse(prefsStorage().getItem(HIDE_KEY) ?? "{}"))[code]; return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(-200) : []; } catch { return []; }
+}
+export function hideVisitor(code: string, id: string): void {
+  try {
+    const all = obj(JSON.parse(prefsStorage().getItem(HIDE_KEY) ?? "{}"));
+    const next = { ...Object.fromEntries(Object.entries(all).slice(-20)), [code]: [...new Set([...hiddenVisitors(code), id])].slice(-200) };
+    prefsStorage().setItem(HIDE_KEY, JSON.stringify(next));
+  } catch { /* storage blocked: hidden for this visit only (the card keeps its own list) */ }
+}
+/**
+ * The reviews of my share `code`, from the visitors' own documents: one per visitor (the id from the document's
+ * path), my own id and hidden ones left out, dates in the future read as today, newest first, at most 50. Pruned by
+ * count on read; nobody's document is deleted.
+ */
+export function listReviews(docs: SDocSnap[], code: string, ownerId: string, hidden: readonly string[] = [], now = Date.now()): VisitReview[] {
+  const key = slowKey("r", code);
+  const day = today(now);
+  const out: VisitReview[] = [];
+  for (const d of docs) {
+    if (d.id === ownerId || hidden.includes(d.id) || !UIDISH.test(d.id)) continue;
+    const body = obj(d.data());
+    if (body.kind !== "fp-visits") continue;
+    const r = checkReview(d.id, obj(body.r)[key]);
+    if (r) out.push({ ...r, date: r.date > day ? day : r.date });
+  }
+  return out.sort((a, b) => (a.date === b.date ? (a.id < b.id ? -1 : 1) : a.date < b.date ? 1 : -1)).slice(0, MAX_REVIEWS);
+}
+/** My share's reviews, live (`fpr` documents whose `k` lists this code's review key). */
+export function watchReviews(l: { db: SDb; uid: string }, code: string, next: (r: VisitReview[]) => void, error?: (code: string) => void, hidden: () => readonly string[] = () => hiddenVisitors(code)): () => void {
+  return l.db.collection("fpr").where("k", "array-contains", slowKey("r", code)).limit(200).onSnapshot(
+    (s) => next(listReviews(s.docs, code, l.uid, hidden())),
     (e) => error?.(e.code),
   );
 }
-/** Keep the newest 50 reviews: older ones are deleted (one at a time, as db.d.ts asks). */
-export async function pruneReviews(l: { db: SDb }, code: string): Promise<number> {
-  const all = await l.db.collection(reviewsPath(code)).orderBy("at", "desc").limit(200).get();
-  const old = all.docs.slice(MAX_REVIEWS);
-  for (const d of old) await l.db.collection(reviewsPath(code)).doc(d.id).delete();
-  return old.length;
-}
 
 // ── visitor ──
-export type Opened = { snap: ShareSnapshot; mine: boolean } | { missing: true };
-export async function openShare(l: { db: SDb; uid: string }, code: string, known: Parameters<typeof checkSnapshot>[1]): Promise<Opened> {
-  const s = await l.db.doc(snapPath(code)).get();
-  const raw = s.exists ? s.data() : undefined;
-  const snap = raw ? checkSnapshot(raw, known) : null;
-  return snap ? { snap, mine: obj(raw).owner === ownerKey(l.uid) } : { missing: true };
+export type Opened = { snap: ShareSnapshot; mine: boolean; ownerId: string } | { missing: true; muddled?: boolean };
+/** Open a share by code: the one snapshot whose owner's id fits the code's check letters. */
+export async function openShare(l: { db: SDb; uid: string }, code: string, known: Known): Promise<Opened> {
+  const found: { id: string; snap: ShareSnapshot }[] = [];
+  for (const id of await codeOwners(l.db, "fps", code)) {
+    const s = await l.db.doc(snapPath(id, code)).get();
+    const snap = s.exists ? checkSnapshot(s.data(), known) : null;
+    if (snap) found.push({ id, snap });
+  }
+  if (found.length !== 1) return found.length ? { missing: true, muddled: true } : { missing: true };
+  const f = found[0]!;
+  return { snap: f.snap, mine: f.id === l.uid, ownerId: f.id };
 }
-/** Has this viewer reviewed this share today (from the private record and this device)? */
+async function myVisits(l: { db: SDb; uid: string }): Promise<Record<string, unknown>> {
+  const s = await l.db.doc(visitsPath(l.uid)).get();
+  return s.exists ? obj(obj(s.data()).r) : {};
+}
+/** Has this viewer reviewed this share today (from their own reviews document)? */
 export async function reviewedToday(l: { db: SDb; uid: string }, code: string, now = Date.now()): Promise<boolean> {
-  return (await readMe(l)).reviewed[code] === today(now);
+  return obj((await myVisits(l))[slowKey("r", code)]).date === today(now);
 }
 export type ReviewResult = "sent" | "already" | "own" | "bad";
-/** One review per visitor per share per day (client-side), stars 1–5 and up to three compliments from the list. */
+/**
+ * One review per visitor per share (a new one replaces mine, at most once a day), stars 1–5 and up to three
+ * compliments from the list, written into MY document `fpr/<my id>` — nobody else can write or delete it.
+ */
 export async function leaveReview(l: { db: SDb; uid: string }, code: string, r: { stars: number; picks: string[]; nick: string; mine?: boolean }, now = Date.now()): Promise<ReviewResult> {
   if (r.mine) return "own";
   const stars = Math.round(r.stars);
   if (!(stars >= 1 && stars <= 5)) return "bad";
   const picks = [...new Set(r.picks.filter((p) => !!complimentText(p)))].slice(0, MAX_PICKS);
-  const me = await readMe(l);
   const date = today(now);
-  if (me.reviewed[code] === date) return "already";
-  const id = `${visitorKey(l.uid, code)}-${date.replace(/-/g, "")}`;
-  await l.db.collection(reviewsPath(code)).doc(id).set({ kind: "fp-review", stars, picks, nick: cleanNick(r.nick), date, at: now });
-  await writeMe(l, { ...me, reviewed: { ...me.reviewed, [code]: date } });
+  const key = slowKey("r", code);
+  const mine = await myVisits(l);
+  if (obj(mine[key]).date === date) return "already";
+  const keep = Object.entries(mine).filter(([k, v]) => k !== key && /^r[0-9a-f]{32}$/.test(k) && checkReview("", v))
+    .sort((a, b) => String(obj(b[1]).date).localeCompare(String(obj(a[1]).date))).slice(0, MAX_MY_REVIEWS - 1);
+  const entries = Object.fromEntries([[key, { stars, picks, nick: cleanNick(r.nick), date }], ...keep]);
+  await l.db.doc(visitsPath(l.uid)).set({ kind: "fp-visits", v: 2, k: Object.keys(entries), r: entries });
   return "sent";
 }

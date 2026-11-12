@@ -7,12 +7,13 @@
  *   const store = createMockStore({ latencyMs: 40 });
  *   await installMockClaude(ctxA, store, { uid: "u_alice" });
  *   await installMockClaude(ctxB, store, { uid: "u_bob" });
+ *   await installMockClaude(ctxC, store, { uid: "u_viv", level: "view" });   // a Viewer
  *
  * Mirrors the parts of db.d.ts the game uses: `doc(path)` / `collection(path)` with the even/odd path parity (a
  * TypeError otherwise), get / set / update / delete, ordered + limited queries, onSnapshot on documents and queries,
- * `data/users/<id>/` private per viewer (others' read as missing, writes reject `invalid_argument`), 256 KiB bodies.
- * Listing a collection returns its direct documents only, so `fp-share` (whose `fp-share/<CODE>` parents are never
- * written) lists nothing. Snapshots are delivered by polling the Node-side store every `pollMs` (db.d.ts allows a
+ * the access rules (dbRules.ts: below the level, a read sees a missing document and a write rejects `invalid_argument`),
+ * 256 KiB bodies.
+ * Listing a collection returns its direct documents only (`where` filters, `orderBy`, `limit` as db.d.ts has them). Snapshots are delivered by polling the Node-side store every `pollMs` (db.d.ts allows a
  * periodic refresh), and each call waits `latencyMs` on the Node side, so the co-op round trip has a realistic floor.
  * `store.stats` counts calls; `store.docs` is the data.
  *
@@ -26,45 +27,33 @@
  *   await installMockClaude(ctx, store, { uid: "u_alice", room });     // room: false → claude.use("room") is null
  */
 
-const MAX_DOC = 256 * 1024;
+import { createRuleStore, DB_RULES } from "./dbRules.ts";
 
-export function createMockStore({ latencyMs = 0 } = {}) {
-  const docs = new Map();
-  const stats = { get: 0, set: 0, update: 0, delete: 0, list: 0 };
-  const priv = (path, uid) => { const m = /^data\/users\/([^/]+)\//.exec(path); return m && m[1] !== uid; };
-  const fail = (code, message) => ({ error: { code, message } });
-  async function call(uid, { op, path, data, order, dir, limit }) {
+/**
+ * Round 14 (B): the store ENFORCES the artifact's `db` rules (dbRules.ts DB_RULES by default; pass `rules` to try
+ * others, `null` for the platform defaults) with each viewer's sharing level — `levels[uid]` ("view" | "interact" |
+ * "admin" | "owner", default "interact"; "owner" for the uid `u_owner`). `store.as(uid, level)` acts as anyone from
+ * Node (an attacker script: `await store.as("u_mallory").set("fps/u_alice/x/snap", {...})` rejects like the platform).
+ * `store.stats.refused` counts writes the rules refused.
+ */
+export function createMockStore({ latencyMs = 0, rules = DB_RULES, levels = {} } = {}) {
+  const core = createRuleStore(rules ?? []);
+  const level = (uid) => levels[uid] ?? (uid === "u_owner" ? "owner" : "interact");
+  async function call(uid, msg, lv = level(uid)) {
     if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
-    switch (op) {
-      case "get": stats.get++; return priv(path, uid) || !docs.has(path) ? { exists: false } : { exists: true, data: docs.get(path) };
-      case "set":
-      case "update": {
-        stats[op]++;
-        if (priv(path, uid)) return fail("invalid_argument", "not your subtree");
-        if (!data || typeof data !== "object" || Array.isArray(data)) return fail("invalid_argument", "body must be an object");
-        if (JSON.stringify(data).length > MAX_DOC) return fail("invalid_argument", "document over 256 KiB");
-        if (op === "update" && !docs.has(path)) return fail("invalid_argument", "update needs the document to exist");
-        docs.set(path, JSON.parse(JSON.stringify(op === "update" ? { ...docs.get(path), ...data } : data)));
-        return { ok: true };
-      }
-      case "delete": stats.delete++; if (priv(path, uid)) return fail("invalid_argument", "not your subtree"); docs.delete(path); return { ok: true };
-      case "list": {
-        stats.list++;
-        const depth = path.split("/").length + 1;
-        let rows = [...docs.keys()].filter((p) => p.startsWith(path + "/") && p.split("/").length === depth && !priv(p, uid))
-          .map((p) => ({ id: p.split("/").at(-1), data: docs.get(p) }));
-        rows.sort((a, b) => (a.id < b.id ? -1 : 1));
-        if (order) {
-          const v = (r) => r.data[order];
-          rows.sort((a, b) => { const x = v(a), y = v(b); if (x === y) return 0; if (x === undefined) return 1; if (y === undefined) return -1; return (x < y ? -1 : 1) * (dir === "desc" ? -1 : 1); });
-        }
-        if (limit) rows = rows.slice(0, limit);
-        return { docs: rows };
-      }
-      default: return fail("invalid_argument", `unknown op ${op}`);
-    }
+    return core.call({ uid, level: lv }, msg);
   }
-  return { docs, stats, call };
+  const as = (uid, lv = level(uid)) => {
+    const go = async (msg) => { const r = await call(uid, msg, lv); if (r && r.error) throw r.error; return r; };
+    return {
+      get: (path) => go({ op: "get", path }),
+      set: (path, data) => go({ op: "set", path, data }),
+      update: (path, data) => go({ op: "update", path, data }),
+      delete: (path) => go({ op: "delete", path }),
+      list: (path, q = {}) => go({ op: "list", path, ...q }),
+    };
+  };
+  return { docs: core.docs, stats: core.stats, rules: core.rules, levels, call, as };
 }
 
 /** Round 13 (F): one room service shared by every context that installs it. */
@@ -173,7 +162,7 @@ function roomPage() {
 }
 
 /** The page side: builds `window.claude` over the `__fpMockDb` binding. Serialised into the page (no closures). */
-function pageScript({ uid, pollMs }) {
+function pageScript({ uid, pollMs, level }) {
   const rpc = (msg) => window.__fpMockDb(msg).then((r) => { if (r && r.error) throw r.error; return r; });
   const segs = (p) => p.split("/").filter(Boolean).length;
   const freeze = (o) => (o === undefined ? undefined : JSON.parse(JSON.stringify(o)));
@@ -189,16 +178,16 @@ function pageScript({ uid, pollMs }) {
     setTimeout(run, 0);
     return () => { stopped = true; };
   };
-  function query(path, order, dir, limit) {
+  function query(path, order, dir, limit, where = []) {
     const get = async () => {
-      const r = await rpc({ op: "list", path, order, dir, limit });
+      const r = await rpc({ op: "list", path, order, dir, limit, where });
       const docsOut = r.docs.map((d) => docSnap(`${path}/${d.id}`, { exists: true, data: d.data }));
       return { docs: docsOut, size: docsOut.length, empty: !docsOut.length, docChanges: () => [], metadata: { fromCache: false, hasPendingWrites: false } };
     };
     return {
-      orderBy: (f, d = "asc") => query(path, f, d, limit),
-      limit: (n) => query(path, order, dir, n),
-      where: () => { throw new TypeError("mockClaude: where() is not mocked"); },
+      orderBy: (f, d = "asc") => query(path, f, d, limit, where),
+      limit: (n) => query(path, order, dir, n, where),
+      where: (field, op, value) => query(path, order, dir, limit, [...where, { field, op, value }]),
       get,
       onSnapshot: (next, error) => poll(async () => { const s = await get(); return { key: s.docs.map((d) => [d.id, d.data()]), snap: s }; }, next, error),
     };
@@ -222,15 +211,17 @@ function pageScript({ uid, pollMs }) {
   }
   const db = Object.freeze({ doc, collection });
   const user = Object.freeze({
-    id: async () => uid, me: async () => ({ id: uid }), isOwner: () => uid === "u_owner", canEdit: () => true, can: () => true, profiles: async () => ({}),
+    id: async () => uid, me: async () => ({ id: uid }), isOwner: async () => level === "owner", canEdit: async () => level === "admin" || level === "owner",
+    can: async (c) => (c === "data.write" ? level !== "view" : null), profiles: async () => ({}),
   });
   const room = window.__fpMockRoomNs ?? null;
   window.claude = Object.freeze({ use: async (name) => { await new Promise((r) => setTimeout(r, 5)); return name === "db" ? db : name === "user" ? user : name === "room" ? room : null; } });
 }
 
 /** Give a browser context the mock runtime as viewer `uid` (with `room`, a createMockRoom(), the room capability). */
-export async function installMockClaude(context, store, { uid, pollMs = 120, room = null } = {}) {
-  await context.exposeBinding("__fpMockDb", (_src, msg) => store.call(uid, msg));
+export async function installMockClaude(context, store, { uid, pollMs = 120, room = null, level } = {}) {
+  const lv = level ?? store.levels?.[uid] ?? (uid === "u_owner" ? "owner" : "interact");
+  await context.exposeBinding("__fpMockDb", (_src, msg) => store.call(uid, msg, lv));
   if (room) { await context.exposeBinding("__fpMockRoom", (src, msg) => room.call(uid, src, msg)); await context.addInitScript(roomPage); }
-  await context.addInitScript(pageScript, { uid, pollMs });
+  await context.addInitScript(pageScript, { uid, pollMs, level: lv });
 }

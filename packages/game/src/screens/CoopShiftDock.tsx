@@ -15,7 +15,7 @@ import { pendingWriter } from "../lib/coop/hand";
 import { boardOf, eveningOf, planCommands, type EmoteId, type GuestDoc, type HostDoc, type LiveDoc, type LiveRole, type Stage } from "../lib/coop/protocol";
 import { newNonce, type EndWhy } from "../lib/coop/protocol";
 import { getRoom } from "../lib/coop/room";
-import { hostResume, RttMeter, watchGuest, type DocWriter } from "../lib/coop/session";
+import { endHosting, hostResume, RttMeter, watchGuest, type DocWriter } from "../lib/coop/session";
 import { dishName, known } from "../lib/visit";
 import { gameKey, link, showCode } from "../state/share";
 import { EmoteBar, EmoteHeard } from "./CoopShiftParts";
@@ -59,20 +59,22 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
     let live = true;
     void link().then(async (l) => {
       if (!live) return;
-      const w = "off" in l ? null : await hostResume(l.db, flag.code, known.dish);
+      const w = "off" in l ? null : await hostResume(l, flag.code, known.dish);
       if (!live) return;
       if (w) setWriter(w); else setHostFlag(null);
     });
     return () => { live = false; };
   }, [flag.code, writer]);
 
-  // the guest's side, live
+  // the guest's side, live (Round 14 B: the first guest to join is pinned into my document; their platform id, from
+  // the path, is watchGuest's second argument and session.ts `partnerOf(code)`)
   useEffect(() => {
+    if (!writer) return;
     let stop = () => {};
     let live = true;
     void link().then((l) => {
       if (!live || "off" in l) return;
-      stop = watchGuest(l.db, flag.code, known.dish, (g) => {
+      stop = watchGuest(l, writer, flag.code, known.dish, (g) => {
         setGuest(g);
         if (g?.pong) {
           const ms = meter.current.pong(g.pong.n);
@@ -81,7 +83,7 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
       }, () => setLost(true));
     });
     return () => { live = false; stop(); };
-  }, [flag.code]);
+  }, [flag.code, writer]);
 
   // a few pings when a guest arrives: the measured round trip shows in the panel (COOP-NOTES)
   const joined = guest?.joinedAt ?? 0;
@@ -154,8 +156,11 @@ function HostDock({ game, send, flag, live: liveApi }: Props & { flag: HostFlag 
     bump((x) => x + 1);
   };
   const end = async () => {
-    if (writer) { await writer.patch({ stage: "ended" }); }
+    // Round 14 (B): ending deletes my document (and sweeps my marker) in the background; the panel goes at once
+    const code = flag.code;
     setHostFlag(null);
+    const l = await link();
+    if (!("off" in l)) await endHosting(l, code, writer).catch(() => {});
   };
   const emote = (id: EmoteId) => { emoteN.current = Math.max(Date.now(), emoteN.current + 1); if (writer) void writer.patch({ emote: { id, n: emoteN.current } }); };
 

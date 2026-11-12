@@ -42,7 +42,9 @@ export class CrashGuard extends Component<Props, State> {
   };
 
   private del = (g: Game) => {
-    void this.store().remove(g.id).catch(() => {});
+    // Round 14 review: only after the confirm (and its "Save a copy to a file") — the share/co-op clean-up as Your games › Delete
+    const store = this.store();
+    void import("../lib/socialLife").then((m) => m.forgetSlotSocial(store, g.id)).catch(() => {}).finally(() => { void store.remove(g.id).catch(() => {}); });
     if (activeSlot === g.id) activeSlot = null;
     this.setState((s) => ({ slot: s.slot === g.id ? null : s.slot, ask: null, file: null, done: `${g.name} was deleted.` }));
   };

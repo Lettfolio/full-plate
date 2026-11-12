@@ -150,7 +150,8 @@ describe("U2/S14-4: a chunk that won't load is a connection problem", () => {
   it("CrashGuard: Delete names the game, asks first and offers the raw save as a file", async () => {
     const saveToFile = vi.fn(async () => "saved" as const);
     const remove = vi.fn(async () => {});
-    const store = { list: () => [{ slotId: "g1", name: "Bella's Bites" }], saveToFile, remove } as unknown as SaveStore;
+    const load = vi.fn(async () => null); // Round 14 review: B's share/co-op clean-up peeks the slot — only after the confirm
+    const store = { list: () => [{ slotId: "g1", name: "Bella's Bites" }], saveToFile, remove, load } as unknown as SaveStore;
     noteSlot("g1");
     function Boom(): never { throw new Error("damaged"); }
     quiet(() => render(<CrashGuard store={store}><Boom /></CrashGuard>));
@@ -162,10 +163,13 @@ describe("U2/S14-4: a chunk that won't load is a connection problem", () => {
     expect(saveToFile).toHaveBeenCalledWith("g1");
     expect(screen.getByRole("status").textContent).toMatch(/Saved a copy/);
     fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    await settle();
     expect(remove).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled(); // a cancelled delete cleans nothing
     fireEvent.click(screen.getByRole("button", { name: "Delete this game…" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete Bella's Bites" }));
-    expect(remove).toHaveBeenCalledWith("g1");
+    await vi.waitFor(() => expect(remove).toHaveBeenCalledWith("g1"));
+    expect(load).toHaveBeenCalledWith("g1", { peek: true });
   });
 
   it("no bare React.lazy anywhere: every lazy part goes through lazyRetry", () => {

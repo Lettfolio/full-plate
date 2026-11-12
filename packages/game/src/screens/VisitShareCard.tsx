@@ -3,16 +3,16 @@
  * and compliments only), and invite a friend to plan tonight with you (the co-op day; the dock takes over from there).
  * Where there's no db (GitHub Pages, signed out) it says so in one line.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GameState } from "@full-plate/sim-core";
 import { Icon } from "../components/Icon";
 import { Stars } from "../components/Stars";
 import { Term } from "../components/Term";
 import { setHostFlag, useHostFlag } from "../lib/coop/hostFlag";
-import { hostStart } from "../lib/coop/session";
+import { hostStart, sweepCoop } from "../lib/coop/session";
 import { pendingWriter } from "../lib/coop/hand";
 import {
-  cleanNick, complimentText, nickInput, errCode, gameKey, link, NICK_MAX, offLine, pruneReviews, share, sharedCode, showCode, stopSharing, watchReviews,
+  cleanNick, complimentText, nickInput, errCode, gameKey, hiddenVisitors, hideVisitor, link, NICK_MAX, offLine, share, sharedCode, showCode, stopSharing, watchReviews,
   type Link, type VisitReview,
 } from "../state/share";
 import { encodeBrand, resolveBrand } from "../lib/brand";
@@ -42,6 +42,7 @@ export function VisitShareCard({ game, brand }: { game: GameState; brand?: strin
       if (!live) return;
       setConn(l);
       if ("off" in l) return;
+      void sweepCoop(l).catch(() => {}); // Round 14 (B): my finished co-op sessions' documents go
       const c = await sharedCode(l, game).catch(() => null);
       if (live) setCode(c);
     });
@@ -50,11 +51,21 @@ export function VisitShareCard({ game, brand }: { game: GameState; brand?: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameKey(game)]);
 
+  // Round 14 (B): the visitors' own documents (one review each); hidden ones stay on this device's list
+  const [hidden, setHidden] = useState<string[]>([]);
+  const hiddenRef = useRef<string[]>([]);
+  useEffect(() => { hiddenRef.current = code ? hiddenVisitors(code) : []; setHidden(hiddenRef.current); }, [code]);
   useEffect(() => {
     if (!conn || "off" in conn || !code) { setReviews([]); return; }
-    void pruneReviews(conn, code).catch(() => {});
-    return watchReviews(conn, code, setReviews);
+    return watchReviews(conn, code, setReviews, undefined, () => hiddenRef.current);
   }, [conn, code]);
+  const hide = (id: string) => {
+    if (!code) return;
+    hideVisitor(code, id);
+    hiddenRef.current = [...hiddenRef.current, id];
+    setHidden(hiddenRef.current);
+  };
+  const shown = reviews.filter((r) => !hidden.includes(r.id));
 
   const off = conn ? offLine(conn) : null;
   const run = async (what: Exclude<Busy, null>, fn: (l: { db: import("../state/share").SDb; uid: string }) => Promise<void>) => {
@@ -73,7 +84,7 @@ export function VisitShareCard({ game, brand }: { game: GameState; brand?: strin
   };
   const invite = () => run("invite", async (l) => {
     const n = cleanNick(nick) || "Host";
-    const { code: c, writer } = await hostStart(l.db, n);
+    const { code: c, writer } = await hostStart(l, n);
     pendingWriter.set(c, writer);
     setHostFlag({ code: c, nick: n, expiresAt: writer.current.expiresAt, game: gameKey(game) });
   });
@@ -106,18 +117,20 @@ export function VisitShareCard({ game, brand }: { game: GameState; brand?: strin
           </div>
           {code && (
             <div className="stack stack--sm">
-              <h4>Visitors <span className="small muted">({reviews.length})</span></h4>
-              {reviews.length === 0 ? <p className="small muted">No visitors yet.</p> : (
+              <h4>Visitors <span className="small muted">({shown.length})</span></h4>
+              {shown.length === 0 ? <p className="small muted">No visitors yet.</p> : (
                 <ul className="visitors">
-                  {reviews.map((r) => (
+                  {shown.map((r) => (
                     <li key={r.id} className="visitors__item">
                       <Stars rating={r.stars} size={18} />
                       <span className="small"><b>{r.nick || "A friend"}</b>{r.date && <span className="muted"> · {r.date}</span>}</span>
+                      <button type="button" className="btn btn--ghost btn--tap visitors__hide" onClick={() => hide(r.id)} aria-label={`Hide ${r.nick || "this visitor"}'s review from your list`}>Hide</button>
                       {r.picks.length > 0 && <span className="small visitors__picks">{r.picks.map((p) => complimentText(p)).join(" · ")}</span>}
                     </li>
                   ))}
                 </ul>
               )}
+              {hidden.length > 0 && <p className="small muted">{hidden.length} hidden on this device. Each visitor's review is theirs: nobody else can change it.</p>}
             </div>
           )}
           <div className="stack stack--sm">

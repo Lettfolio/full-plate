@@ -13,6 +13,7 @@
 .visitors { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
 .visitors__item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); }
 .visitors__picks { flex-basis: 100%; color: var(--ink-soft); }
+.visitors__hide { margin-left: auto; }
 
 /* ── Visit a friend (title) ── */
 .visitfriend { display: grid; place-items: start center; }

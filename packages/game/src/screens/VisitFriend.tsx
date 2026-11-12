@@ -4,8 +4,8 @@
  */
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
-import { checkHost, expired, hostPath } from "../lib/coop/protocol";
-import { guestJoin, type DocWriter } from "../lib/coop/session";
+import { expired } from "../lib/coop/protocol";
+import { findHost, guestJoin, sweepCoop, type DocWriter } from "../lib/coop/session";
 import type { GuestDoc, HostDoc } from "../lib/coop/protocol";
 import { known } from "../lib/visit";
 import { cleanNick, link, NICK_MAX, nickInput, offLine, openShare, parseCode, type Link, type SDb, type ShareSnapshot } from "../state/share";
@@ -17,7 +17,7 @@ import { prefsStorage } from "../lib/storage";
 type View =
   | { at: "form" }
   | { at: "visit"; db: SDb; uid: string; code: string; snap: ShareSnapshot; mine: boolean }
-  | { at: "coop"; db: SDb; code: string; host: HostDoc; writer: DocWriter<GuestDoc> };
+  | { at: "coop"; db: SDb; uid: string; hostId: string; code: string; host: HostDoc; writer: DocWriter<GuestDoc> };
 
 const NICK_KEY = "full-plate:nick:v1";
 const savedNick = (): string => { try { return cleanNick(prefsStorage().getItem(NICK_KEY) ?? ""); } catch { return ""; } };
@@ -29,7 +29,8 @@ export function VisitFriend({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [view, setView] = useState<View>({ at: "form" });
-  useEffect(() => { void link().then(setConn); }, []);
+  // Round 14 (B): finished co-op sessions of mine are swept (their documents deleted) whenever I come here
+  useEffect(() => { void link().then((l) => { setConn(l); if (!("off" in l)) void sweepCoop(l).catch(() => {}); }); }, []);
 
   const go = async () => {
     if (!conn || "off" in conn) return;
@@ -39,20 +40,23 @@ export function VisitFriend({ onBack }: { onBack: () => void }) {
     try { prefsStorage().setItem(NICK_KEY, n); } catch { /* fine */ }
     setBusy(true); setNote(null);
     try {
-      const [h, shared] = await Promise.all([
-        conn.db.doc(hostPath(c)).get().then((s) => (s.exists ? checkHost(s.data(), known.dish) : null)),
-        openShare(conn, c, known),
-      ]);
+      const [found, shared] = await Promise.all([findHost(conn.db, c, known.dish), openShare(conn, c, known)]);
+      const h = found?.host ?? null;
       if (h && h.stage !== "ended" && !expired(h)) {
         if (!n) { setNote("Pick a nickname first: your friend sees it."); setBusy(false); return; }
-        const j = await guestJoin(conn.db, c, n, known.dish);
-        if (j.ok) { setView({ at: "coop", db: conn.db, code: c, host: j.host, writer: j.writer }); return; }
-        setNote(j.why === "error" ? "Couldn't join: your friend's link may only let you look (ask them for Contributor access)." : "That co-op day has finished. Ask for a new code.");
+        const j = await guestJoin(conn, c, n, known.dish);
+        if (j.ok) { setView({ at: "coop", db: conn.db, uid: conn.uid, hostId: j.hostId, code: c, host: j.host, writer: j.writer }); return; }
+        setNote(j.why === "error" ? "Couldn't join: your friend's link may only let you look (ask them for Contributor access)."
+          : j.why === "taken" ? "Someone else has already joined that co-op day. Ask your friend for a new code."
+          : j.why === "own" ? "That's your own co-op day: give the code to a friend."
+          : "That co-op day has finished. Ask for a new code.");
       } else if (h) {
         setNote(h.stage === "ended" ? "That co-op day has finished. Ask for a new code." : "That co-op code is over two hours old. Ask for a new one.");
       } else if ("snap" in shared) {
         setView({ at: "visit", db: conn.db, uid: conn.uid, code: c, snap: shared.snap, mine: shared.mine });
         return;
+      } else if (shared.muddled) {
+        setNote("That code is muddled up with another one. Ask your friend to stop sharing and share again for a new code.");
       } else {
         setNote("Nothing is shared under that code. Check it with your friend: it may have been stopped.");
       }
@@ -61,7 +65,7 @@ export function VisitFriend({ onBack }: { onBack: () => void }) {
   };
 
   if (view.at === "visit") return <VisitRoom db={view.db} uid={view.uid} code={view.code} snap={view.snap} mine={view.mine} nick={cleanNick(nick)} onExit={onBack} />;
-  if (view.at === "coop") return <CoopShiftGuest db={view.db} code={view.code} first={view.host} writer={view.writer} onExit={onBack} />;
+  if (view.at === "coop") return <CoopShiftGuest db={view.db} uid={view.uid} hostId={view.hostId} code={view.code} first={view.host} writer={view.writer} onExit={onBack} />;
 
   const off = conn ? offLine(conn) : null;
   return (

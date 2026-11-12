@@ -205,7 +205,7 @@ export function createSaveStore(deps: StoreDeps = {}): SaveStore & { core: Core 
       if (core.st.cloud === "waiting" && core.connecting) await Promise.race([core.connecting, new Promise((r) => setTimeout(r, 4000))]);
       const m = memory.get(slotId), e = index.get(slotId);
       const local = { raw: m?.raw ?? (e ? await readBlob(slotId) : null), summary: m?.summary ?? (e ? pickSummary(e) : null), from: m ? "memory" as const : "device" as const };
-      if (core.part && core.st.cloud === "on") return core.part.load(slotId, local, opts);
+      if (core.part && core.st.cloud === "on" && !opts.peek) return core.part.load(slotId, local, opts);
       if (!local.raw || !local.summary) return null;
       const loaded = tryDecode(local.raw);
       return loaded ? { loaded, summary: local.summary, from: local.from } : null;

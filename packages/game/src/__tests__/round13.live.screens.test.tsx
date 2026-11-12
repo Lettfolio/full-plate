@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { GameState } from "@full-plate/sim-core";
 import { applyCommand, content, newGame } from "../sim";
-import { gameKey, setLinkForTests, type SDb, type SDocRef, type SDocSnap, type SCol } from "../state/share";
+import { gameKey, newCode, setLinkForTests } from "../state/share";
+import { RuleDb } from "./ruleDb";
 import { setHostFlag } from "../lib/coop/hostFlag";
 import { pendingWriter } from "../lib/coop/hand";
 import { guestDoc, guestPath, hostDoc, hostPath, type HostDoc } from "../lib/coop/protocol";
@@ -17,21 +18,6 @@ import { CoopShiftDock } from "../screens/CoopShiftDock";
 import { CoopShiftGuest } from "../screens/CoopShiftGuest";
 
 afterEach(() => { cleanup(); setLinkForTests(null); setRoomForTests(null); setHostFlag(null); localStorage.clear(); pendingWriter.clear(); });
-
-class MemDb implements SDb {
-  docs = new Map<string, Record<string, unknown>>();
-  private subs = new Set<() => void>();
-  private snap(p: string): SDocSnap { const d = this.docs.get(p); return { id: p.split("/").at(-1)!, exists: !!d, data: () => (d ? JSON.parse(JSON.stringify(d)) : undefined) }; }
-  doc(path: string): SDocRef {
-    return {
-      get: async () => this.snap(path),
-      set: async (data) => { this.docs.set(path, JSON.parse(JSON.stringify(data))); for (const s of [...this.subs]) s(); },
-      delete: async () => { this.docs.delete(path); },
-      onSnapshot: (next) => { let last = ""; const f = () => { const s = this.snap(path); const k = JSON.stringify([s.exists, s.data()]); if (k !== last) { last = k; next(s); } }; this.subs.add(f); queueMicrotask(f); return () => { this.subs.delete(f); }; },
-    };
-  }
-  collection(): SCol { throw new Error("not used"); }
-}
 
 const stubRoom = (): RoomNs => ({
   join: async (name: string): Promise<NamedRoomLike> => ({
@@ -50,15 +36,16 @@ function planningGame(): GameState {
 const flush = async () => { for (let i = 0; i < 6; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
 
 async function hostWithGuest(rt: boolean, room: boolean) {
-  const db = new MemDb();
+  const db = RuleDb.create("u_host");
   const game = planningGame();
-  const code = "ABCDEFGHJK";
+  const code = newCode("u_host");
   setLinkForTests(async () => ({ db, uid: "u_host" }));
   setRoomForTests(async () => (room ? stubRoom() : null));
-  const writer = new DocWriter<HostDoc>(db, hostPath(code), hostDoc({ nick: "Ali", createdAt: Date.now() }));
+  // R14 (B): each side's document under its own id; the guest already pinned into the host's document
+  const writer = new DocWriter<HostDoc>(db, hostPath("u_host", code), hostDoc({ nick: "Ali", createdAt: Date.now(), guest: "u_guest" }));
   await writer.patch({});
   pendingWriter.set(code, writer);
-  await db.doc(guestPath(code)).set({ ...guestDoc({ nick: "Sam", joinedAt: Date.now() }), ...(rt ? { rt: true } : {}) } as unknown as Record<string, unknown>);
+  await db.as("u_guest").doc(guestPath("u_guest", code)).set({ ...guestDoc({ nick: "Sam", joinedAt: Date.now() }), ...(rt ? { rt: true } : {}) } as unknown as Record<string, unknown>);
   setHostFlag({ code, nick: "Ali", expiresAt: Date.now() + 3_600_000, game: gameKey(game) });
   const live = { handsOn: null, jumpIn: () => {}, sendResults: () => {} };
   render(<CoopShiftDock game={game} send={() => {}} live={live} />);
@@ -73,14 +60,14 @@ describe("the host's panel", () => {
     fireEvent.click(screen.getByRole("button", { name: /I serve, Sam cooks/ }));
     fireEvent.click(screen.getByRole("button", { name: "Go live tonight" }));
     await flush();
-    const live = (db.docs.get(hostPath(code)) as { live?: { state: string; guestRole: string; nonce: string } }).live!;
+    const live = (db.docs.get(hostPath("u_host", code)) as { live?: { state: string; guestRole: string; nonce: string } }).live!;
     expect(live.state).toBe("ready");
     expect(live.guestRole).toBe("chef");
     expect(live.nonce).toMatch(/^[a-z0-9]{24}$/);
     expect(screen.getByText(/Live tonight\./)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Not live tonight" }));
     await flush();
-    expect((db.docs.get(hostPath(code)) as { live?: { state: string } }).live!.state).toBe("ended");
+    expect((db.docs.get(hostPath("u_host", code)) as { live?: { state: string } }).live!.state).toBe("ended");
   });
   it("without the room on the host's page there is no offer: the Round 12 day as it was", async () => {
     await hostWithGuest(true, false);
@@ -96,21 +83,21 @@ describe("the host's panel", () => {
 
 describe("the guest's screen", () => {
   async function guest(room: boolean) {
-    const db = new MemDb();
-    const code = "ABCDEFGHJK";
+    const db = RuleDb.create("u_guest");
+    const code = newCode("u_host");
     setRoomForTests(async () => (room ? stubRoom() : null));
     const game = planningGame();
     const first = hostDoc({ nick: "Ali", createdAt: Date.now(), board: { day: game.day, restaurant: "Chez Live", menu: game.menu.map((m) => ({ dishId: m.dishId, price: m.price, active: m.active })), staff: [] }, live: { nonce: "n".repeat(24), guestRole: "server", state: "ready", day: game.day, at: 1 } });
-    await db.doc(hostPath(code)).set(first as unknown as Record<string, unknown>);
-    const writer = new DocWriter(db, guestPath(code), guestDoc({ nick: "Sam", joinedAt: Date.now() }));
-    render(<CoopShiftGuest db={db} code={code} first={first} writer={writer} onExit={() => {}} />);
+    await db.as("u_host").doc(hostPath("u_host", code)).set(first as unknown as Record<string, unknown>);
+    const writer = new DocWriter(db, guestPath("u_guest", code), guestDoc({ nick: "Sam", joinedAt: Date.now() }));
+    render(<CoopShiftGuest db={db} uid="u_guest" hostId="u_host" code={code} first={first} writer={writer} onExit={() => {}} />);
     await flush();
     return { db, code };
   }
   it("joins the live shift the host armed (and says its page can do live play)", async () => {
     const { db, code } = await guest(true);
     expect(await screen.findByText(/Live tonight: you.re serving/, undefined, { timeout: 8000 })).toBeTruthy();
-    expect((db.docs.get(guestPath(code)) as { rt?: boolean }).rt).toBe(true);
+    expect((db.docs.get(guestPath("u_guest", code)) as { rt?: boolean }).rt).toBe(true);
     // the turn-based day is one tap away
     fireEvent.click(screen.getByRole("button", { name: /Play the turn-based day instead/ }));
     await flush();

@@ -10,7 +10,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import type { GameState } from "@full-plate/sim-core";
 import { UNSAFE_CHARS } from "@full-plate/sim-core/schema";
 import { applyCommand, content, DECOR_SLOTS, newGame, runDay } from "../sim";
-import { buildSnapshot, checkReview, checkSnapshot, LIMITS, openShare, snapPath, type SDb, type SDocRef, type SDocSnap, type ShareSnapshot } from "../state/share";
+import { buildSnapshot, checkReview, checkSnapshot, LIMITS, newCode, openShare, pubPath, snapPath, type SDb, type SDocRef, type SDocSnap, type ShareSnapshot } from "../state/share";
 import { known } from "../lib/visit";
 import { VisitRoom } from "../screens/VisitRoom";
 
@@ -20,8 +20,13 @@ afterEach(cleanup);
 function oneDocDb(docs: Map<string, unknown>): SDb {
   const snap = (p: string): SDocSnap => ({ id: p.split("/").at(-1)!, exists: docs.has(p), data: () => (docs.has(p) ? (docs.get(p) as Record<string, unknown>) : undefined) });
   const ref = (p: string): SDocRef => ({ get: async () => snap(p), set: async () => {}, delete: async () => {}, onSnapshot: (next) => { queueMicrotask(() => next(snap(p))); return () => {}; } });
-  const q = { orderBy: () => q, limit: () => q, get: async () => ({ docs: [] }), onSnapshot: (next: (s: { docs: SDocSnap[] }) => void) => { queueMicrotask(() => next({ docs: [] })); return () => {}; } };
-  return { doc: ref, collection: () => ({ ...q, doc: (id: string) => ref(id) }) } as unknown as SDb;
+  // R14 (B): a collection lists the documents directly in it (openShare lists the `fps` markers)
+  const q = (c: string) => {
+    const list = () => [...docs.keys()].filter((p) => p.startsWith(`${c}/`) && p.split("/").length === c.split("/").length + 1).map(snap);
+    const self: object = { where: () => self, orderBy: () => self, limit: () => self, get: async () => ({ docs: list() }), onSnapshot: (next: (s: { docs: SDocSnap[] }) => void) => { queueMicrotask(() => next({ docs: list() })); return () => {}; } };
+    return self;
+  };
+  return { doc: ref, collection: (c: string) => ({ ...q(c), doc: (id: string) => ref(`${c}/${id}`) }) } as unknown as SDb;
 }
 
 /** A real snapshot: day 3, a menu, a hire, two nights of history and reviews, decor and a brand. */
@@ -153,9 +158,10 @@ describe("share snapshot fuzzing (R13-E)", () => {
   });
 
   it("openShare only ever hands the screen a checked snapshot (or 'missing'), whatever is stored", async () => {
+    const code = newCode("u_o");
     for (const [name, raw] of inputs.slice(0, 80)) {
-      const db = oneDocDb(new Map([[snapPath("ABCDEFGHJK"), raw]]));
-      const r = await openShare({ db, uid: "u_v" }, "ABCDEFGHJK", known);
+      const db = oneDocDb(new Map<string, unknown>([[pubPath("u_o"), { kind: "fp-pub", v: 2 }], [snapPath("u_o", code), raw]]));
+      const r = await openShare({ db, uid: "u_v" }, code, known);
       if ("missing" in r) continue;
       expect(r.snap, name).toEqual(checkSnapshot(raw, known));
     }
@@ -172,7 +178,7 @@ describe("share snapshot fuzzing (R13-E)", () => {
       expect(o.stars >= 1 && o.stars <= 5).toBe(true);
       expect(o.picks.every((p) => ["food", "room", "staff", "fast", "value", "menu", "music", "back"].includes(p))).toBe(true);
       expect(o.nick).toMatch(/^[\p{L}\p{N} ]{0,16}$/u);
-      expect(Number.isFinite(o.at)).toBe(true);
+      expect(o.date).toMatch(/^(\d{4}-\d{2}-\d{2})?$/);
     }
   });
 
