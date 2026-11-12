@@ -300,8 +300,7 @@ sees the host pin someone else treats the session as over. Nobody can rewrite th
 | A session's two hours pass | its documents are swept by their own writer next time they open Friends or Visit a friend (`sweepCoop`); readers treat it as over meanwhile |
 
 Visitors' reviews of a stopped share stay in the visitors' documents (only they can write them): they point at a code
-that opens nothing, and each visitor's list keeps only its newest 30. The owner can't delete them; under `write:
-"self"` nor can the artifact's owner, short of publishing looser rules.
+that opens nothing, and each visitor's list keeps only its newest 30. The share's owner can't delete them; the artifact's owner can (`write: "owner"` on the prefix rules, chosen at publish).
 
 **Budget** (25,000 documents per artifact): per player at most 1 share marker + 12 snapshots (`MAX_SHARES`; the 13th is
 refused "the shared space is full") + 1 reviews document + 1 co-op marker + 1 live host document (+ 1 guest document
@@ -333,7 +332,7 @@ new code on its next share (`share` replaces any code whose check letters don't 
       {
         "path": "fps",
         "read": "view",
-        "write": "self"
+        "write": "owner"
       },
       {
         "path": "fps/{self}",
@@ -343,7 +342,7 @@ new code on its next share (`share` replaces any code whose check letters don't 
       {
         "path": "fpr",
         "read": "view",
-        "write": "self"
+        "write": "owner"
       },
       {
         "path": "fpr/{self}",
@@ -353,7 +352,7 @@ new code on its next share (`share` replaces any code whose check letters don't 
       {
         "path": "fpc",
         "read": "view",
-        "write": "self"
+        "write": "owner"
       },
       {
         "path": "fpc/{self}",
@@ -395,7 +394,7 @@ their own subtree"); it adds no reader (no rule at `data/users`, so siblings sta
 `fps|fpr|fpc` prefix rule sets BOTH read and write and is the only place `self` appears (allowed: a prefix of a
 declared `{self}` rule), and each `{self}` rule states both levels, as db.d.ts's sign-off sheet does. 8 rules (≤ 64).
 `room.topics` uses the db level words, three exact topics (≤ 16). `user: {}` gives `id()` (no profile scope needed:
-only ids are stored). **`downloads` is declared `true`** (the capability's own wording; B had `{}`). The one doubtful
+only ids are stored). **`downloads` is declared `true`** (the capability's own wording; B had `{}`). **Chosen at the v15 publish: `write: "owner"` on the three prefix rules** (the capability guidance's default; the paragraph below records the alternative that was weighed). The one doubtful
 part is a choice, not validity: `write: "self"` means nobody — the owner included — can remove junk a Contributor
 writes inside their own subtree (see RED-TEAM-2 "After Round 14"). The conservative alternative, which keeps "only the
 author or the artifact's owner writes here", is `write: "owner"` on the three prefix rules (db.d.ts's "votes" pattern);

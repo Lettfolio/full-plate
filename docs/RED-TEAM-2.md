@@ -102,3 +102,5 @@ what holds. The reviewer then attacked the fixes themselves:
   comparison, but Safari vs Chrome is untested.
 - Share and co-op codes are capabilities: anyone who sees one can visit or join; secrecy rests on the family.
 - How the music feels over an hour; a 2-hour memory soak; system dark mode (U19, open).
+
+**Publisher's note (v15).** The declaration was published with `write: "owner"` on the `fps`, `fpr` and `fpc` prefix rules instead of `"self"`. The artifact's owner can therefore delete junk a Contributor writes in their own subtree (the new Low finding above is reduced to a nuisance the owner can clear); Editors and other players still cannot write another player's documents. Statements above that say "under `write: \"self\"` nobody can tidy" describe the build as reviewed, not as published.

@@ -21,16 +21,18 @@ export interface Rule { path: string; read?: RuleLevel; write?: RuleLevel }
  *   fps/<uid>                      the player's "I share" marker; fps/<uid>/s<hash(code)>/snap one snapshot per share
  *   fpr/<uid>                      the player's own reviews of other people's shares (one entry per share)
  *   fpc/<uid>                      the player's co-op marker; fpc/<uid>/c<hash(code)>/host | guest one side of a session
+ * Publisher's choice at v15: the three prefix rules say write "owner" (db.d.ts's "votes" pattern), not "self", so
+ * the artifact's owner can tidy junk with the data tool; no Editor or other player can write another player's subtree.
  * The root is raised to admin so a Contributor cannot fill the database with documents anywhere else.
  */
 export const DB_RULES: Rule[] = [
   { path: "", read: "view", write: "admin" },
   { path: "data/users/{self}", write: "interact" },
-  { path: "fps", read: "view", write: "self" },
+  { path: "fps", read: "view", write: "owner" },
   { path: "fps/{self}", read: "view", write: "interact" },
-  { path: "fpr", read: "view", write: "self" },
+  { path: "fpr", read: "view", write: "owner" },
   { path: "fpr/{self}", read: "view", write: "interact" },
-  { path: "fpc", read: "view", write: "self" },
+  { path: "fpc", read: "view", write: "owner" },
   { path: "fpc/{self}", read: "view", write: "interact" },
 ];
 

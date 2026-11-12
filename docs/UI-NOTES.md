@@ -2382,7 +2382,7 @@ signatures). The full design, the capability declaration and the per-level table
 **Settings.** None. No motion or sound added.
 
 **Left out, and why.**
-- The artifact's owner can't moderate a share or review (`write: "self"`, as the brief asked: nobody but the author).
+- As built, the artifact's owner couldn't moderate a share or review (`write: "self"`). Changed at the v15 publish to `write: "owner"`: the artifact's owner can tidy; no one else can write another player's documents.
   To moderate they would publish looser rules, which the platform allows any time; Hide covers the owner's own list.
 - Nicknames are still free text within the filter: Mallory can call herself "Carol". She can't touch Carol's review,
   and the owner can hide her.

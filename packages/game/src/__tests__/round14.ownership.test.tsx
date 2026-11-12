@@ -69,7 +69,7 @@ describe("the rules (dbRules.ts) as the platform reads them", () => {
       view: { own: ["r-", "r-", "r-", "r-", "r-", "r-", "r-"], other: ["r-", "r-", "r-", "r-", "--", "r-", "r-"] },
       interact: { own: ["rw", "rw", "rw", "rw", "rw", "r-", "r-"], other: ["r-", "r-", "r-", "r-", "--", "r-", "r-"] },
       admin: { own: ["rw", "rw", "rw", "rw", "rw", "rw", "rw"], other: ["r-", "r-", "r-", "r-", "--", "rw", "rw"] },
-      owner: { own: ["rw", "rw", "rw", "rw", "rw", "rw", "rw"], other: ["r-", "r-", "r-", "r-", "--", "rw", "rw"] },
+      owner: { own: ["rw", "rw", "rw", "rw", "rw", "rw", "rw"], other: ["rw", "rw", "rw", "rw", "--", "rw", "rw"] },
     });
   });
   it("the Playwright mock enforces the same rules, with an `as` to act as anyone at any level", async () => {
