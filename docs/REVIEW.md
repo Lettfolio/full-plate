@@ -1989,3 +1989,304 @@ Contributor and above writes), which is what the game expects and re-checks on e
 only (no `profile` scope: no names or emails). `room` opens exactly the three topics the game emits to `interact`
 (`ROOM_DECLARATION` in `lib/coop/realtime.ts`); everything else stays admin-only and named rooms need no declaration.
 The game has run on the stored default declaration of db, user and downloads so far; the only addition is `room`.
+
+
+# Round 14 — six fix branches for the second red team (RED-TEAM-2.md)
+
+Reviewer: one session, quiet machine (no builders running). Master `823733b` → final (see R14.1). Nothing pushed.
+
+## R14.1 What merged (`--no-ff`, one merge commit each, in the brief's order)
+
+| order | branch | tip | merge | owns |
+|---|---|---|---|---|
+| 1 | r14-c | `1fb49c1` | `414c104` | U2/S14-4, S14-7, S14-9, S14-10, U15 (lazyRetry, ChunkBack, delete confirm, prefetch, storage) |
+| 2 | r14-b | `67de32f` | `a2b14ae` | S14-2, S14-11, documents outliving the game, the `db` rules and the rule-enforcing mock |
+| 3 | r14-a | `4ee57c9` | `c66aaf3` | S14-1/G1, S14-3, G3, G5, S14-5, U6, R13-N1/N2 |
+| 4 | r14-d | `61aba5c` | `ac7909d` | G2, U8, G6, G7, S14-6, challenge reachable from a game |
+| 5 | r14-e | `cedeec7` | `35fad6b` | U1, U3, U4, U7, U11, U12, U17, U18, U20, Try card |
+| 6 | r14-f | `038de07` | `2c53d66` | G4, U5, U9, U10, U13, U14, U16, G9, G10, Today card |
+
+Review commits after the merges: `16e3898` (Service lazy, Try card's challenge, `downloads: true`), `f97ac4a` (co-op
+telemetry gated, Hide button), `7d2596a` (probe baseline), `3c91faa` (wording, visitor date), and the final docs/test
+commit (R14.3).
+
+## R14.2 Collisions and how they were resolved
+
+- **Co-op A × B (the important one).** B moved the lobby to per-player paths and exposes each partner's platform id
+  from the PATH (`watchGuest(…, (g, partnerId))`, `JoinResult.hostId/partnerId`); A's live engines pin only the account
+  `setPartner({by, gen})` names — but A's screens passed `guestId={null}` / `hostId={null}`, so S14-3 was still open in
+  real use. Wired: `CoopShiftDock` keeps the guest's id from `watchGuest` (sticky for the session — B pins the first
+  guest into the host document, so their going never frees the pin; `gen` = guest `joinedAt`), `CoopShiftGuest` passes
+  `hostId` (`gen` = host `createdAt`). `round14.review.test.ts` runs B's session over the rule-enforcing db and feeds its
+  ids into A's LiveHost/LiveGuest: a third account with the code says hi first and often, then waits two minutes —
+  never pinned, nothing applied, cash unchanged; a fake host page can't feed the guest's screen; and a source check that
+  no `null` placeholder is left. A's heartbeat ("seems to have gone") and B's "left" (document deleted → `ended`) coexist:
+  both A's `round14.coopday` tests (ported from A's flat MemDb to B's `RuleDb`, each side writing under its own id) and
+  `playtest-coop-r14.mjs` part 2 pass. A's script was moved onto `playtestDist()` and B's paths (the code is no longer in
+  the path: `fpc/<host>/c<hash>/host`).
+- **lazyRetry (C) × everyone.** No bare `React.lazy` left: E's StockTab line and `TryCard`, F's `TodayCard` go through
+  `lazyRetry`; Try and Today cards each sit in a `ChunkBack to={null}`; both are in `lib/prefetch.ts` DAY (C's test
+  caught TryCard missing). B's `socialLife` and E's share chunk are plain dynamic imports (not components). D's challenge
+  screen keeps C's `ChunkBack`, whose Back now goes where D's does (back to the game she came from).
+- **Dev switches (C).** `playtest-coop-r14.mjs` and `playtest-friends.mjs` now build/use `dist-playtest/`; the review
+  also gated A/F-of-R13's co-op telemetry (`window.__fpCoopLive`, `__fpCoopRtt`) and the reducer replay recorder behind
+  `devSwitches()` — the plain dist carried them. The plain and Pages dists now contain no `__fpCoopLive`/`__fpHandsOn`
+  writes; `__fpCoopReplay` survives only as dead code behind a recorder that is never on (test).
+- **App.tsx** (C, B, D, E): D's `chReturn` and C's `ChunkBack`; E's Try card "Today's challenge" now uses D's
+  `openChallengeFromGame` (saves, Back returns to the same game) instead of quitting to the title.
+- **Planning.tsx** (C, E, F): C's prefetch effect and F's `confirm` state both kept; order above the tabs: gossip,
+  F's Today card, E's Try card (never more than these two). On a phone the tabs are the fixed bottom bar, so they are
+  always reachable; with both cards up the menu starts about two screens down (R14.10).
+- **NewGame** (E × F): E's one flow; its lease step shows F's `LeaseMoney` breakdown.
+- **SlotPicker / CrashGuard** (B × C): B's share/co-op clean-up runs only after the confirm; the review added it to
+  C's CrashGuard delete too (after "Save a copy to a file" was offered), and a cancelled delete touches nothing (test).
+- **Storage.** Every new key goes through `lib/storage.ts`; the raw-localStorage test passes.
+- **Sim.** `git diff 823733b -- packages/sim-*/ packages/handson/`: only A's `playerDropped` handler in
+  `sim-core/src/commands.ts`. Byte-identity and C-of-R13's golden scores pass (full suite).
+- **Content.** F's 22 rewordings and `regulars.lapsed`; the review added one gossip pool, `emptyLarder` (3 lines, a new
+  key; validator list updated). D's fairness sweep passes with F's content.
+- **Wording.** E's "Restock for tomorrow" applied to F's no-food confirm ("Restock for tomorrow and close today"), F's
+  Today card VIP line and D's challenge advice. "Today's challenge" appears twice by design (title button, Settings
+  row); no test or script relies on a unique name.
+- **Docs.** `UI-NOTES.md` conflicted at every merge (each branch appended); all six sections kept in merge order.
+  `probe-baseline.json` (E vs F) was taken from E and re-set once after the merge (R14.6).
+
+## R14.3 Fixes in this pass
+
+| | what | where | guard |
+|---|---|---|---|
+| R14-1 | S14-3 open in live use: partner ids not wired | `CoopShiftDock.tsx`, `CoopShiftGuest.tsx` | `round14.review.test.ts` |
+| R14-2 | main chunk 201.23 kB after merging (budget 200) | `App.tsx`: `screens/Service` lazy (`lazyRetry` + `ChunkBack` + prefetch from planning and in DAY) | build: **165.08 kB** |
+| R14-3 | co-op telemetry and replay recorder ran in the shipped build | `CoopLive.tsx`, `CoopShiftDock.tsx` | `round14.review.test.ts` |
+| R14-4 | `downloads: {}` in the declaration | `scripts/lib/dbRules.ts`, `COOP-NOTES.md` | `round14.ownership` (doc = object) |
+| R14-5 | morning gossip said a dish "ran out / was taken off part-way" after an empty-larder night | `lib/gossip.ts`, content `emptyLarder` | `round14f.nofood.test.tsx` |
+| R14-6 | Try card's "Today's challenge" lost the way back to the game | `App.tsx` | playtest (tablet: Back to Bella's Bites) |
+| R14-7 | crash page's Delete didn't clear the share / co-op day | `CrashGuard.tsx` | `round14.c.test.tsx` (adapted: clean-up only after the confirm) |
+| R14-8 | a double tap on "Delete this game…" could land on "Delete <name>" | `CrashGuard.tsx` (Delete last) | `round14.review.test.ts` |
+| R14-9 | three restock wordings | `Planning.tsx`, `lib/today.ts`, `lib/challenge.ts` | `round14f.nofood` (renamed button) |
+| R14-10 | Friends card: Hide wrapped below the stars; then the date broke mid-number | `VisitShareCard.tsx`, `visit.css` | friends playtest shots |
+
+## R14.4 Tests
+
+`pnpm -r typecheck` clean. `pnpm -r test`: **1,668** (sim-core 302, content 107, sim-career 61, handson 107,
+sim-stars 72, sim-empire 106, game 913) — from 1,505: A +25, B +19, C +22, D +26, E +31, F +34, review +6 (three
+wiring tests, the telemetry gate, the delete order, the empty-larder gossip). The full suite ran twice on the quiet
+machine, all green both times (1,666 and 1,667: the last two review tests landed between and after; the game package
+ran a third time on the final commit, 913 green); none of the builders' flaky-under-load tests (`careerHandsOn` slow child, `round13.depth` cookbook strip,
+sim-core pricing, handson golden, the sim-empire test) failed either time, so no timeout was changed. D's fairness sweep
+(`round14.challengeFair.*`, 90 dates × 6 templates) ran in full inside both runs.
+
+## R14.5 Bundle (vite, minified kB; plain build of the final commit)
+
+Main chunk: master 181.53 → after the six merges **201.23 (over budget)** → after the review **165.08 kB** (budget 200,
+target ≤ 196). What moved: the service screen (`screens/Service.tsx`, 39.6 kB of rendered source: the floor sheet,
+peek, incidents, goals card) is now a lazy chunk (`Service` 28.27 kB), loaded through `lazyRetry` inside a `ChunkBack`,
+fetched as soon as planning is up (App's phase effect, beside the Evening prefetch) and listed in C's DAY prefetch so a
+started day still finishes offline (re-checked: `u-offline-day`, phone playtest day 5). Modules it shared only with
+other lazy chunks split into small shared chunks (Avatar 5.75, perfMeter 1.36, incidents 1.14, Stars 0.85, staff 0.77).
+No behaviour removed. Main CSS 158.58 → 163.23 kB. The plain build has **no** CSP meta and no playtest switches;
+`FP_TARGET=pages` carries the same CSP as Round 13 (`default-src 'self'; script-src 'self'; …; form-action 'none'`)
+and the same asset list. Changed chunks vs Round 13 (R13 = `823733b`'s dist; `render` → `HandsOnHowTo` is a rename of
+the shared hands-on renderer chunk):
+
+| chunk | R13 master | R14 merged | Δ |
+|---|---|---|---|
+| content.js | 206.22 | 206.72 | +0.50 |
+| index.js | 181.53 | 165.08 | -16.45 |
+| index.css | 158.58 | 163.23 | +4.65 |
+| sim-core.js | 140.96 | 141.22 | +0.26 |
+| HandsOnHowTo.js | — | 106.11 | +106.11 |
+| render.js | 100.37 | — | -100.37 |
+| voicesData.js | 58.73 | 59.97 | +1.23 |
+| VisitFriend.js | 49.69 | 39.89 | -9.79 |
+| CoopLive.js | 32.98 | 36.99 | +4.01 |
+| Evening.js | 24.47 | 31.27 | +6.80 |
+| Service.js | — | 28.27 | +28.27 |
+| HandsOnShift.js | 25.00 | 18.86 | -6.14 |
+| saveCheck.js | 20.87 | 21.67 | +0.80 |
+| challenge.js | 9.31 | 13.27 | +3.96 |
+| share.js | — | 11.96 | +11.96 |
+| CareerEvening.js | 11.67 | 11.73 | +0.07 |
+| postcard.js | 9.45 | 10.67 | +1.22 |
+| hostFlag.js | — | 10.49 | +10.49 |
+| SlotPicker.js | 9.64 | 10.13 | +0.49 |
+| NewGame.js | 6.72 | 8.47 | +1.76 |
+| regulars.js | 7.14 | 7.99 | +0.85 |
+| SettingsBody.js | 6.85 | 7.66 | +0.81 |
+| Challenge.js | 6.81 | 7.43 | +0.62 |
+| prefetch.js | — | 7.27 | +7.27 |
+| challenge.css | 6.97 | 7.18 | +0.21 |
+| VisitFriend.css | 6.12 | 6.64 | +0.52 |
+| StartPicker.js | 5.85 | 5.93 | +0.07 |
+| RestaurantTab.js | 5.88 | 3.08 | -2.80 |
+| Avatar.js | — | 5.75 | +5.75 |
+| CookbookStrip.js | 5.44 | 5.52 | +0.09 |
+| ChallengeScore.js | 4.84 | 5.39 | +0.55 |
+| CookbookStrip.css | 5.17 | — | -5.17 |
+| invent.css | — | 5.17 | +5.17 |
+| BankCards.js | 3.73 | 4.89 | +1.15 |
+| TodayCard.js | — | 4.27 | +4.27 |
+| ChapterCard.js | 3.06 | 4.06 | +1.00 |
+| gossip.js | 3.98 | 4.05 | +0.07 |
+| RivalCard.js | — | 3.53 | +3.53 |
+| RegularsBook.js | 3.28 | 3.42 | +0.14 |
+| EveningExtras.js | 3.31 | 3.41 | +0.10 |
+| PostcardDialog.js | 2.65 | 3.37 | +0.72 |
+| rival.js | 3.11 | 3.29 | +0.18 |
+| GameOver.js | 2.12 | 3.01 | +0.89 |
+| TryCard.js | — | 3.00 | +3.00 |
+| tryNext.js | — | 2.00 | +2.00 |
+| StorageNotice.js | — | 1.59 | +1.59 |
+| perfMeter.js | — | 1.36 | +1.36 |
+| incidents.js | — | 1.14 | +1.14 |
+| Stars.js | — | 0.85 | +0.85 |
+| staff.js | — | 0.77 | +0.77 |
+| Avatar.css | — | 0.71 | +0.71 |
+| socialLife.js | — | 0.65 | +0.65 |
+| TodayCard.css | — | 0.43 | +0.43 |
+
+54 other chunks within ±0.06 kB. JS total 1591.6 → 1673.6 kB.
+
+## R14.6 Probe (plain dist, two full ten-run probes; baseline re-set once = the higher of the two)
+
+Before = `823733b`'s baseline. The two runs were identical except `contrastLive` (the ticker's lines, 0 or 2 run to
+run). `clipped` and `notAtTop` (E's new counts) are **0 on all ten runs, both times**, with A's dock/pill, F's Today
+card and E's Try card present.
+
+| run | targets<44 | contrast | contrastLive | covered | underBar | clipped | notAtTop | errors |
+|---|---|---|---|---|---|---|---|---|
+| 1280x800-normal | 17 → 19 | 2 → 2 | 0 → 2 | 5 → 5 | 58 → 49 | — → 0 | — → 0 | 0 → 0 |
+| 1024x768-normal | 17 → 19 | 2 → 2 | 0 → 2 | 12 → 12 | 18 → 15 | — → 0 | — → 0 | 0 → 0 |
+| 768x1024-normal | 17 → 19 | 2 → 2 | 2 → 2 | 33 → 33 | 28 → 22 | — → 0 | — → 0 | 0 → 0 |
+| 390x844-normal | 7 → 7 | 1 → 1 | 0 → 0 | 0 → 0 | 33 → 30 | — → 0 | — → 0 | 0 → 0 |
+| 844x390-normal | 17 → 19 | 2 → 2 | 0 → 0 | 0 → 0 | 21 → 22 | — → 0 | — → 0 | 0 → 0 |
+| 1280x800-large | 17 → 19 | 2 → 2 | 0 → 2 | 8 → 8 | 33 → 31 | — → 0 | — → 0 | 0 → 0 |
+| 1024x768-large | 17 → 19 | 2 → 2 | 0 → 2 | 13 → 13 | 7 → 9 | — → 0 | — → 0 | 0 → 0 |
+| 768x1024-large | 17 → 19 | 2 → 2 | 0 → 2 | 31 → 31 | 22 → 23 | — → 0 | — → 0 | 0 → 0 |
+| 390x844-large | 7 → 7 | 1 → 1 | 0 → 0 | 0 → 0 | 34 → 31 | — → 0 | — → 0 | 0 → 0 |
+| 844x390-large | 17 → 19 | 2 → 2 | 0 → 0 | 0 → 0 | 12 → 15 | — → 0 | — → 0 | 0 → 0 |
+
+Screens 43/44, text < 13 0, canvas text < 13 0, overflow 0, every run as before. Why the rest moved:
+- **targets < 44 +2 on the eight non-upright runs**: E's two new glossary tips ("the pass", "Office") inside the
+  service screens' buttons (words inside buttons, the same sub-target kind as the other 17); upright they're laid out
+  in the sheet, so 7 stays 7.
+- **underBar**: E's arrivals at the top (the evening and each tab now open at their top, so terms near a screen's foot
+  sit under the dock where the walk used to be scrolled past them: E's +1…+4 on 844×390 and Bigger) and E's shorter
+  sheet peek / scroll fixes (−3…−9 on desktop/tablet). Against E's own baseline the merged build differs **only on the
+  evening screen** (F's tip, profit and bank slots move which evening control sits under the dock: −1 on five runs, +1
+  on 1024×768 Bigger) — checked screen by screen.
+- **contrastLive 0 ↔ 2**: the ticker line under the probe's sample changes run to run (slack 3), as in Round 13.
+Type audit (1280, 1024, 768-touch; Normal and Bigger): **129 screens per text size, 0 DOM and 0 canvas text < 13 px,
+0 page errors**, within baseline.
+
+## R14.7 Balance (headless, real pack, 200 seeds × 365 days, normal)
+
+| strategy | Round 13 | merged |
+|---|---|---|
+| typical | 90.0 % | **90.0 %** (180/200) |
+| balanced | 98.5 % | **98.5 %** (197/200) |
+| cheap | 68.0 % | **68.0 %** (136/200) |
+| premium | 99.0 % | **99.0 %** (198/200) |
+| nohire | 0 % | **0 %** |
+| learner | 98.0 % | **98.0 %** (196/200) |
+| decorator | 88.0 % | **88.0 %** (176/200) |
+
+The only sim diff is A's `playerDropped` (re-fires only plates on the pass; a named plate costs at most its dish's food
+cost; no RNG). Solo play never reaches it with nonsense, so balance, the corpus, byte-identity and C-of-R13's golden
+hands-on scores (chef 437 / server 361 / bar 647) are unchanged.
+
+## R14.8 Frame times (`scripts/perf-floor.mjs` on the playtest build; owner-planning save, service filled to 12:40, 5 s of rAF gaps; 3 rounds each, R13 measured now on `823733b`'s dist with `823733b`'s script)
+
+Frames over 20 ms / vsyncs missed, mean of three rounds:
+
+| | **R13** (`823733b`) | **R14 merged** | JS per frame R13 / R14 |
+|---|---|---|---|
+| 1024×768, 1× | 3.7 / 4.0 | 3.7 / 4.0 | 1.9–2.1 / 1.7–2.1 ms |
+| 1024×768, 4× | 24.0 / 25.3 (27, 24, 21) | 24.7 / 27.7 (17, 27, 30) | 2.0–2.6 / 2.3–2.8 ms |
+| 390×844, 1× | 2.3 / 2.3 | 3.0 / 3.0 | 1.8–2.0 / 1.6–1.8 ms |
+| 390×844, 4× | 13.0 / 15.7 (20, 11, 8) | 15.0 / 16.0 (15, 16, 14) | 1.5–2.2 / 1.6–1.9 ms |
+
+Within the round-to-round spread on every row (the R14 means sit inside R13's own min–max), median gap 16.7 ms
+everywhere, JS per frame the same. E's `noteFloorFrame` on every tick and A's dock measuring the live layout cost no
+measurable frames. (Absolute numbers are lower than R13.8's: this machine was quiet for both builds.)
+
+## R14.9 Red-team re-runs (every reproduction, against the merged build)
+
+Adapted: the security reviewer's `zz.r14sec.db.test.tsx` imports APIs B removed (`ownerKey`, `pruneReviews`,
+`reviewsPath`) and runs on a rule-less MemDb, so its attacks were re-run as B's `round14.ownership.test.tsx` (the same
+attacks against the rules engine) plus the reviewer's own rule attacks; `crash-chunk.mjs` points at the merged harness;
+`u-coop-vanish.mjs` needs the red team's worktree mock and Round 13 paths, so A's `playtest-coop-r14.mjs` part 2 (the
+same scenario on B's paths) stands in for it; the UX scripts' screenshots go to `shots/r14/review/`. Tests were copied
+into `src/__tests__/` for the run and removed after.
+
+| id | re-run | result |
+|---|---|---|
+| S14-1 / G1 | `zz.r14sec.live` S-live-1 (20×16 drops ×31), `zz-rt14-coop` drain; A's hostile-guest playtest 1a/1b | £0 drained; the reproduction's own assertion (−£16,000) now fails; honoured drops within the cap |
+| S14-1 sabotage | `zz.r14sec.live` "every plated dish back to the rail" | at most one drop (≤ 3 plates) per 1.2 s, each plating once (A's test asserts the bound) |
+| U2 / S14-4 | `crash-chunk.mjs`; `u-offline-crash`, `u-offline-day`; phone playtest offline day 5; simulated redeploy | no crash page, save intact; Staff tab offline fine; a whole day offline to the evening and postcard; redeploy → "A new version … is ready" with Reload and Back |
+| U1 | `u-scroll-all` | every arrival scrollY 0 |
+| U3 | `u-stepper` 390 / 320, `p15-sweep` 844×390 | 290/286, 220/216, 156/152 px shown/needed |
+| S14-2 | `round14.ownership` (adapted db attacks), `playtest-friends` attacker, review rule attacks | every write refused; Bob's review intact; Mallory one row |
+| S14-3 | `zz.r14sec.live` S-live-2 (unnamed partner) | engine fallback still pins first-tagged when nothing names the partner (as designed); with the lobby's ids (now wired) refused — `round14.review`, playtest 1d "through Mallory's flood the host still hears Bob" |
+| S14-3 bucket | `zz.r14sec.live` token bucket | guest acked 10 of 10 through a 300 msg/s flood (reproduction now fails) |
+| G3 | `zz-rt14-coop` reload | the reloaded page's first result applied |
+| G5 | `zz-rt14-coop` quality 100 | held to the dish ceiling |
+| G2 | `zz-rt14-challenge` 60-date sweeps (honest, grid, £200 cap, invented dishes) | pass; no price-cap win |
+| U8 | `u-challenge` (12 Nov) | five Skips: "Goal missed … (269)", with what went wrong |
+| G6 | `zz-rt14-rescue` | degenerate Rescue below honest |
+| G7 | D's `round14.challengeEngine` | Rush/Festival footfall up |
+| G4 | `zz-rt14-voices` 1,000–1,200-day games | pass; F's `round14f.regulars` asserts joins/finishes |
+| U4 | `p13-sheet` | "Cook it yourself for the rest of tonight" at the peek |
+| U5 | `p10-days` RESTOCK=0 | stops before opening ("Open anyway" needed); evening "Nobody ate: the larder was empty"; next morning's gossip now says so |
+| U6 | `playtest-coop-r14` parts 2–3 | "seems to have gone" after 53 s; pill and panel cover nothing at 390×844 and 844×390 |
+| U7 | `p2-newgame`, review phone run | street not asked on the picker; name first on the lease step; "Where will you open?" once |
+| S14-5 | `zz.r14sec.live`/`db` S-plan (`planCommands` only) | the engine still lists every change; the dock now shows all (A's `round14.coopday`) |
+| S14-6 | `zz.r14sec.challenge` | the reproduction's code format changed (8 characters, version, fingerprint): fails as written; a forged in-range code still decodes (partly, by design) |
+| S14-7 | `zz.r14sec.storage` near-full | the slot is no longer stranded (reproduction fails); interrupted / two-tab runs still lose nothing |
+| S14-9 | plain dist grep | no switches, no co-op telemetry |
+| S14-10 | `zz.r14sec.saves` 40-recipe save | loads; C's repair drops the non-live rows (`round14.c`) |
+| S14-11 | `round14.ownership`, friends playtest | no owner field in snapshots |
+| U9–U16, G9, G10 | F's tests; phone/tablet playtests | as designed |
+| U11, U12, U17, U18, U20 | `u-320`, `p15-sweep` (320, 844×390, 640×400), phone playtest | no sideways scroll; turn card alone, then the how-to; postcard opens |
+| held-up items | SHA-256 vectors, 20,000-message fuzz, hostile snapshots, saves fuzz, corpus × 30 days, brand contrast | all still pass |
+
+Second-pass attacks on the fixes: RED-TEAM-2.md "After Round 14" (all held except the new Low on document size/count
+inside one's own subtree, and the delete-order fix R14-8).
+
+## R14.10 Playtests (built plain dist, `vite preview` 127.0.0.1; 0 page errors in every run; shots `scratchpad/shots/r14/review/`)
+
+1. **Phone 390×844 touch, new owner game, days 1–8** (`review/ux/review-phone.mjs`): one new-game flow (owner →
+   lease step with the name first, one street question, F's money breakdown); every phase and tab arrival at the top
+   (returning to Menu restores Menu's own scroll, as E designed); steppers whole; Try card from Day 2 (dismissed: gone),
+   Today card on Days 5, 6 and 8 (rival's week), stacked Today then Try; peek "Cook it yourself" → the turn card alone,
+   then the how-to, then Office back to the floor; "One thing for tomorrow" most evenings; no review text twice; postcard
+   opens; one restock skipped (Day 3: not every dish ran out, so no stop — `p10-days` RESTOCK=0 shows the stop);
+   offline from the middle of Day 5 to its evening and Day 6's morning; then a simulated redeploy (unloaded chunks 404,
+   index.html names new ones) → "A new version of Full Plate is ready … Reload" and "Back to Bella's Bites", never Delete.
+   Repeated with reduced motion and Animations off (days 1–3): same, 0 errors. Storage blocked (`u-nostorage`): the
+   title and planning say so with Save to a file.
+2. **Tablet 1024×768 touch, days 1–5**: same flow; no sheet or peek at this size (the Jump in card instead); Settings →
+   Today's challenge → "Back to Bella's Bites" → the same game, same day and cash. Codes (same build, old code, forged,
+   different fingerprint): D's `round14.challenge` tests.
+3. **Friends** (`playtest-friends.mjs`, mock 30 ms, attacker Mallory): share → visit → review → hide → stop; co-op
+   day turn-based end to end; 10 attacker refusals; a third account refused ("someone else has already joined");
+   end/leave remove both sides' documents; delete → share gone (`round14.ownership`). **Live**
+   (`playtest-coop-live.mjs`, 0 ms and 150 ms + 20 % loss): replay check ok both nights (296 / 300 actions), rtt 20 /
+   378 ms, 0 refused, guest cards 31 and 40 plates. **A's `playtest-coop-r14.mjs`** with the ids wired: hostile Bob
+   drains £0, Mallory's flood doesn't starve him, heartbeat, phone layout — all pass.
+4. **Saves**: all 34 corpus saves load and play 30 days (red team's `zz-rt14-corpus30`); a save made in the Round 13
+   build (dist of `823733b`, three days) continues in the merged build (Day 4 played to the evening); C's 40-recipe
+   repaired save and old-code handling are in the suite.
+5. Reduced motion + Animations off: see 1.
+
+## R14.11 Still open
+
+- Real-platform proof: the `db` rules and `room` with two real accounts on claude.ai; whether `Sender.by` can be null
+  for an admitted Contributor (the live pin's fallback). Real iOS Safari. Cross-engine determinism of the challenge.
+- New Low: nothing caps size or count inside one's own `fps|fpr|fpc` subtree; under `write: "self"` nobody can tidy.
+  Options in COOP-NOTES; the conservative alternative declaration is in the report.
+- S14-6 partly (codes carry no secret, by design); S14-8, S14-12 (owner: custom domain, branch protection); G8, G11,
+  U19 (dark mode) open notes.
+- Low polish: at 320 px the dock's hint strip cuts a long hint mid-word (swipeable); at 640×400 the Decorate tab sits
+  3 px past the edge of its scrolling tab strip; U4's bar shift lives only in the sheet's Jump in card (left, as E noted).
+- With both morning cards up, the Menu starts about two screens down on a phone (tabs are fixed, so it's one tap).

@@ -6,6 +6,10 @@
  * admitted guest is present (S14-3 in live use, not only with hand-set ids).
  */
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { CrashGuard, noteSlot } from "../components/CrashGuard";
+import type { SaveStore } from "../state/saveStore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -121,6 +125,24 @@ describe("S14-9 (review): co-op telemetry is a playtest hook too", () => {
         expect(line, f).toMatch(/devSwitches\(\)/);
       }
     }
+  });
+});
+
+describe("review: the damaged-game Delete can't be double-tapped through", () => {
+  it("on the confirm, the button where 'Delete this game…' was is 'Keep it'; Delete is last", () => {
+    const store = { list: () => [{ slotId: "g1", name: "Bella's Bites" }], saveToFile: async () => "saved", remove: async () => {}, load: async () => null } as unknown as SaveStore;
+    noteSlot("g1");
+    function Boom(): never { throw new Error("damaged"); }
+    const err = console.error; console.error = () => {};
+    try {
+      render(createElement(CrashGuard, { store, children: createElement(Boom) }));
+      const first = screen.getAllByRole("button").map((b) => b.textContent);
+      const at = first.indexOf("Delete this game…");
+      fireEvent.click(screen.getByRole("button", { name: "Delete this game…" }));
+      const second = screen.getAllByRole("button").map((b) => b.textContent);
+      expect(second[at]).toBe("Keep it");
+      expect(second.at(-1)).toBe("Delete Bella's Bites");
+    } finally { console.error = err; cleanup(); noteSlot(null); }
   });
 });
 

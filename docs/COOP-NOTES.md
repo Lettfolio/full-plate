@@ -386,6 +386,21 @@ So: a Viewer can visit but can't review, share or join; a Contributor does every
 anyone else's documents; Editors and the owner can write the unused rest of the db but, like everyone, never another
 player's share, review or co-op side (`self` is a level nobody holds). The `room` topics are as Round 13 declared them.
 
+### Review of the declaration (Round 14 review, against contract 0.2.96's db.d.ts, room.d.ts, downloads.d.ts, user.d.ts)
+
+Line by line: `{path: "", read: "view", write: "admin"}` is db.d.ts's own root example (path `""` is the root);
+`{path: "data/users/{self}", write: "interact"}` MUST be listed — with the root raised to `admin` it is what lets a
+Contributor keep writing their own saves (db.d.ts: "locking the root alone … also stops everyone below admin writing
+their own subtree"); it adds no reader (no rule at `data/users`, so siblings stay private, the owner included). Each
+`fps|fpr|fpc` prefix rule sets BOTH read and write and is the only place `self` appears (allowed: a prefix of a
+declared `{self}` rule), and each `{self}` rule states both levels, as db.d.ts's sign-off sheet does. 8 rules (≤ 64).
+`room.topics` uses the db level words, three exact topics (≤ 16). `user: {}` gives `id()` (no profile scope needed:
+only ids are stored). **`downloads` is declared `true`** (the capability's own wording; B had `{}`). The one doubtful
+part is a choice, not validity: `write: "self"` means nobody — the owner included — can remove junk a Contributor
+writes inside their own subtree (see RED-TEAM-2 "After Round 14"). The conservative alternative, which keeps "only the
+author or the artifact's owner writes here", is `write: "owner"` on the three prefix rules (db.d.ts's "votes" pattern);
+it lets the owner tidy up with Claude's data tool, and nothing in the game's own code writes another player's path.
+
 ### Tests and the mock
 
 `scripts/lib/dbRules.ts` is the rules engine (levels, inheritance, `{self}`, the "whichever gives more" rule on one's own

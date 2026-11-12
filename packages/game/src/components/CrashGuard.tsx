@@ -67,8 +67,9 @@ export class CrashGuard extends Component<Props, State> {
         <>{btn(busy ? "Saving…" : "Reload", this.reload, "btn--primary")}{btn("Back to title", this.back)}</>);
     }
     if (ask) {
+      // Round 14 review: Delete goes last, so a double tap on "Delete this game…" lands on "Keep it", never on Delete
       return page(`Delete ${ask.name}?`, "It goes for good, on this device and your account. If you might want it back, save a copy to a file first: it keeps the save exactly as it is.", file,
-        <>{btn("Save a copy to a file", () => void this.toFile(ask), "btn--primary")}{btn(`Delete ${ask.name}`, () => this.del(ask), "btn--danger")}{btn("Keep it", () => this.setState({ ask: null, file: null }))}</>);
+        <>{btn("Save a copy to a file", () => void this.toFile(ask), "btn--primary")}{btn("Keep it", () => this.setState({ ask: null, file: null }))}{btn(`Delete ${ask.name}`, () => this.del(ask), "btn--danger")}</>);
     }
     let games: Game[] = [];
     try { games = this.store().list().map((s) => ({ id: String(s.slotId), name: safeName(s.name) || "A game" })); } catch { /* listing failed too */ }
