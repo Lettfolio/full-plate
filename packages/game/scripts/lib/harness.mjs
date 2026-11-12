@@ -239,8 +239,12 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     }, [owner ? save(owner) : null, career ?? null, speed, text]);
     await page.reload(); await page.waitForTimeout(350);
   }
+  // Round 14 (E, U1): on an upright phone, before moving on, scroll the page (and the .screen box) to its foot, so a
+  // screen that keeps the last one's position shows in the probe's notAtTop count instead of passing because nothing
+  // had scrolled. Wider screens walk exactly as before.
+  const toFoot = async () => { if ((page.viewportSize()?.width ?? 9999) > 480) return; await page.evaluate(() => { const sc = document.querySelector(".screen"); if (sc) sc.scrollTop = sc.scrollHeight; window.scrollTo(0, document.documentElement.scrollHeight); }); await page.waitForTimeout(80); };
   const cont = async () => { await page.getByRole("button", { name: /^Continue/ }).first().click(); await page.waitForTimeout(700); };
-  const tab = async (name) => { await page.getByRole("tab", { name }).first().click(); await page.waitForTimeout(400); };
+  const tab = async (name) => { await toFoot(); await page.getByRole("tab", { name }).first().click(); await page.waitForTimeout(400); };
   // FP_WALK_DEBUG=1 prints the whole error (Playwright's call log says which element got in the way).
   const step = async (label, fn) => { try { await fn(); } catch (e) { log(`  ! ${label}: ${process.env.FP_WALK_DEBUG ? String(e) : String(e).split("\n")[0]}`); } };
   const esc = async () => { await page.keyboard.press("Escape"); await page.waitForTimeout(200); };
@@ -257,12 +261,12 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     await page.getByRole("button", { name: /Start in an empty slot/ }).click(); await page.waitForTimeout(300); await shot("02-start-picker");
     await page.getByRole("radio", { name: /^Apprentice chef/ }).click(); await page.waitForTimeout(200); await shot("03-start-picker-career");
     await page.getByRole("radio", { name: /^Owner/ }).click(); await page.waitForTimeout(200);
-    await page.locator("button.btn--xl.btn--primary").last().click(); await page.waitForTimeout(400); await shot("04-new-game-lease");
+    await toFoot(); await page.locator("button.btn--xl.btn--primary").last().click(); await page.waitForTimeout(400); await shot("04-new-game-lease");
   });
   await step("planning", async () => {
     await boot({ owner: "owner-planning" }); await cont();
     await shot("10-planning-menu");
-    const mx = page.getByRole("button", { name: /Menu matrix/ }); if (await mx.count()) { await mx.click(); await page.waitForTimeout(500); await shot("10b-menu-matrix"); await page.getByRole("button", { name: /Today's menu/ }).click(); }
+    const mx = page.getByRole("button", { name: /Menu matrix/ }); if (await mx.count()) { await mx.click(); await page.waitForTimeout(500); await shot("10b-menu-matrix", { scrolled: true }); await page.getByRole("button", { name: /Today's menu/ }).click(); }
     await tab(/^Staff/); await shot("11-planning-staff");
     const hire = page.getByRole("button", { name: /Hire someone/ }); if (await hire.count()) { await hire.click(); await page.waitForTimeout(300); await shot("11b-planning-hire-sheet"); await esc(); }
     await tab(/^Stock/); await shot("12-planning-stock");
@@ -270,14 +274,14 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     await tab(/^Decorate/); await page.waitForTimeout(900);
     await page.getByRole("group", { name: "Choose what to decorate" }).getByRole("button", { name: /^Sign/ }).click();
     await page.locator("li.decorate__card").last().hover(); await page.waitForTimeout(500);
-    await shot("13b-planning-decorate");
+    await shot("13b-planning-decorate", { scrolled: true });
     await page.getByRole("button", { name: /What do I do/ }).click(); await page.waitForTimeout(200); await shot("14-planning-help"); await esc();
     // Round 13 (B): on a phone Settings and the save mark live in the header's "⋯" sheet
     const more = async () => { const m = page.locator(".status__morebtn"); if (await m.isVisible() && (await m.getAttribute("aria-expanded")) !== "true") { await m.click(); await page.waitForTimeout(200); } };
     await more(); await page.getByRole("button", { name: "Settings" }).first().click(); await page.waitForTimeout(250); await shot("15-settings", { terms: false }); await esc();
     await more(); await page.locator(".savemark").click(); await page.waitForTimeout(400); await shot("16-save-mark", { terms: false }); await esc();
     await tab(/^Menu/);
-    await page.locator("button.btn--xl.btn--primary").last().click();
+    await toFoot(); await page.locator("button.btn--xl.btn--primary").last().click();
     const anyway = page.getByRole("button", { name: "Open anyway" }); if (await anyway.count()) await anyway.click();
     await page.waitForTimeout(5000); await shot("20-service", { live: true });
     const s4 = page.getByRole("button", { name: /Speed 4/ }); if (await s4.count()) { await s4.click(); await page.waitForTimeout(6000); await shot("21-service-4x", { live: true }); }
@@ -299,7 +303,7 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     for (const [i, p] of panels.entries()) {
       if (i === 0) continue;
       await page.locator(".empire aside [role=tab]").nth(i).click(); await page.waitForTimeout(300);
-      await shot(`4${i + 1}-empire-${p.trim().toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}`);
+      await shot(`4${i + 1}-empire-${p.trim().toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}`, { scrolled: true }); // an inner panel, not an arrival
     }
   });
   await step("board", async () => {
@@ -308,12 +312,12 @@ export async function walkScreens(page, { url, text, shot, log, handsOnWait = 30
     await page.getByRole("button", { name: /Next day/ }).click(); await page.waitForTimeout(500);
     await tab(/Empire/);
     await page.locator(".empire aside [role=tab]").filter({ hasText: "Money" }).click(); await page.waitForTimeout(300);
-    await shot("46-empire-board-minutes");
+    await shot("46-empire-board-minutes", { scrolled: true });
     await page.getByRole("button", { name: "Zoom in" }).click(); await page.getByRole("button", { name: "Zoom in" }).click(); await page.waitForTimeout(200);
-    await shot("47-empire-map-zoomed");
+    await shot("47-empire-map-zoomed", { scrolled: true });
     await page.getByRole("button", { name: "Reset map" }).click();
     await page.getByRole("button", { name: /^Harbourton,/ }).click(); await page.waitForTimeout(300);
-    await shot("48-empire-city-map");
+    await shot("48-empire-city-map", { scrolled: true });
   });
   await step("stars", async () => { await boot({ owner: "stars" }); await cont(); await tab(/Stars/); await shot("50-stars"); });
   await step("career", async () => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { DayResult, GameState } from "@full-plate/sim-core";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
-import { makePostcard, offerPng, postcardFileName, type PostcardSize } from "../lib/postcard";
+import { canSharePng, isBestNight, makePostcard, offerPng, postcardFileName, sharePng, type PostcardSize } from "../lib/postcard";
 import { MENU_NAMES, useBrand } from "../lib/brand";
 import "../screens/planning/BrandTab.css";
 
@@ -26,12 +26,25 @@ export function PostcardDialog({ game, result, onClose }: { game: GameState; res
     });
     return () => { live = false; };
   }, [game, size, result, brand]);
+  const fileName = postcardFileName(game.restaurantName, result?.day ?? game.history.at(-1)?.day ?? game.day, size);
   const save = async () => {
     if (!card) return;
     setNote("Saving…");
-    const r = await offerPng(card.canvas, postcardFileName(game.restaurantName, result?.day ?? game.history.at(-1)?.day ?? game.day, size));
+    const r = await offerPng(card.canvas, fileName);
     setNote(r === "saved" ? "Postcard saved ✓" : r === "declined" ? "No file was saved." : "Sorry, the postcard couldn't be made.");
   };
+  // Round 14 (E, U18): on a phone that can share a picture, Share opens the share sheet (Messages, WhatsApp…) with
+  // the PNG; Save still downloads it. Elsewhere only Save shows.
+  const [canShare] = useState(canSharePng);
+  const share = async () => {
+    if (!card) return;
+    setNote("");
+    const r = await sharePng(card.canvas, fileName, game.restaurantName);
+    if (r === "unsupported") { await save(); return; }
+    setNote(r === "shared" ? "Sent ✓" : r === "declined" ? "" : "Sorry, it couldn't be shared. Save it instead.");
+  };
+  const day = result ?? game.history.at(-1);
+  const best = !!day && isBestNight(game.history, day);
   return (
     <Dialog title="Send a postcard" kicker={game.restaurantName} stamp={<Icon name="restaurant" size={28} />} onClose={onClose} wide className="postcard">
       <div className="postcard__bar">
@@ -45,11 +58,15 @@ export function PostcardDialog({ game, result, onClose }: { game: GameState; res
       <div className={`postcard__preview postcard__preview--${size}`}>
         {card?.url ? <img src={card.url} alt={`Postcard of ${game.restaurantName}`} /> : <div className="postcard__wait small muted">{card ? "Preview not available here — you can still save it." : "Drawing your postcard…"}</div>}
       </div>
+      {best && <p className="postcard__best"><Icon name="trophy" size={20} />Your best night yet: the card says so.</p>}
       <p className="small muted">Just the restaurant: its name, logo, room and the day's numbers. Nothing about you.</p>
       <div className="postcard__buttons">
         <span className="small" role="status">{note}</span>
         <button className="btn btn--tap" onClick={onClose}>Close</button>
-        <button className="btn btn--green btn--tap" data-autofocus disabled={!card} onClick={() => void save()}><Icon name="check" size={20} />Save postcard</button>
+        {canShare && <button className="btn btn--tap" disabled={!card} onClick={() => void save()}>Save</button>}
+        {canShare
+          ? <button className="btn btn--green btn--tap" data-autofocus disabled={!card} onClick={() => void share()}><Icon name="forward" size={20} />Share postcard</button>
+          : <button className="btn btn--green btn--tap" data-autofocus disabled={!card} onClick={() => void save()}><Icon name="check" size={20} />Save postcard</button>}
       </div>
     </Dialog>
   );

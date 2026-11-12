@@ -67,7 +67,9 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
   const [name, setName] = useState("");
   const [look, setLook] = useState(0);
   const def = STARTS.find((s) => s.id === start)!;
-  const go = () => (start === "owner" ? onOwner(difficulty, districtId) : onCareer({ track: start, strategy, playerName: name.trim() || "You", difficulty, districtId, look }));
+  // Round 14 (E, U7): an owner picks the street once, on the lease screen (with its rent, footfall and busy months);
+  // the picker only asks where a career starts.
+  const go = () => (start === "owner" ? onOwner(difficulty, "") : onCareer({ track: start, strategy, playerName: name.trim() || "You", difficulty, districtId, look }));
 
   return (
     <div className="page">
@@ -100,9 +102,9 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
             </div>
           </div>
 
-          <div className="card stack">
+          {start !== "owner" && <div className="card stack">
             <div className="field">
-              <span className="field__label startpick__q" id="dist-l">{start === "owner" ? "Where will you open?" : "Where's your first job?"}</span>
+              <span className="field__label startpick__q" id="dist-l">Where's your first job?</span>
               <div className="districtpick" role="radiogroup" aria-labelledby="dist-l">
                 {content.districts.map((d) => (
                   <button key={d.id} role="radio" aria-checked={districtId === d.id} className="diff" onClick={() => setDistrictId(d.id)}>
@@ -115,11 +117,11 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
                 ))}
               </div>
             </div>
-          </div>
+          </div>}
 
           <div className="card stack">
             {start === "owner" ? (
-              <p className="small muted">Next you'll name your restaurant and sign the lease.</p>
+              <p className="small muted">Next: name your restaurant, pick its street and sign the lease.</p>
             ) : (
               <>
                 <label className="field">
@@ -158,7 +160,7 @@ export function StartPicker({ content, onOwner, onCareer, onBack }: Props) {
             it was ~1,400 px down the page at 1024×768 with Bigger text. */}
         <div className="actiondock startpick__go">
           <span className="actiondock__note small muted">
-            {def.name} · {DIFFICULTY_CHOICES.find((d) => d.id === difficulty)?.name} · {content.districts.find((d) => d.id === districtId)?.name}
+            {def.name} · {DIFFICULTY_CHOICES.find((d) => d.id === difficulty)?.name}{start !== "owner" && <> · {content.districts.find((d) => d.id === districtId)?.name}</>}
           </span>
           <button className="btn btn--primary btn--xl" disabled={!districtId} onClick={go}>
             {start === "owner" ? "Choose a name →" : `Start as ${def.name.toLowerCase()} →`}

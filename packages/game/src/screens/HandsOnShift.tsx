@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
+import { Term } from "../components/Term";
 import type { ContentPack, GameState } from "@full-plate/sim-core";
 import {
   botInput, createInputSource, createSession, hitTest, nextHint, padToMin, railSlotRect, railTagRect, readPalette, render, shiftTempo, stationRect, summarise,
@@ -356,7 +357,7 @@ export function HandsOnShift({ game, role, playerStaffId, station, jumpIn, look,
     </button>
   );
   const leaveBtn = jumpIn && onLeave
-    ? <button className="btn handson__btn handson__leave" onClick={() => s && onLeave(summarise(s))}>{phone ? "Office" : "Back to the office"}</button>
+    ? <button className="btn handson__btn handson__leave" onClick={() => s && onLeave(summarise(s))}>{phone ? <Term id="office" inline inButton="passive">Office</Term> : "Back to the office"}</button>
     : null;
   const skipBtn = (
     <button className="btn btn--ghost handson__btn handson__skip" onClick={() => { if (s) onScore?.(summarise(s)); onSkip(); }} aria-label={phone ? (jumpIn ? "Skip to close" : "Skip to end of shift") : undefined}>

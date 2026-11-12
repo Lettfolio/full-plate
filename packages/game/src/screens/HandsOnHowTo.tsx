@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { HandsOnRole } from "@full-plate/handson";
 import { Term } from "../components/Term";
 import type { HandsOnLayout } from "./handsonPhone";
+import { useRotateCardUp } from "../components/RotateCard";
 
 /**
  * Round 13 (C): the first-shift how-to on a phone — three cards that fit a 390 px-high screen (one short paragraph
@@ -53,7 +54,9 @@ export function phoneHowToCards(role: HandsOnRole, layout: Exclude<HandsOnLayout
 
 export function HandsOnHowTo({ cards, step, onNext, onSkip }: { cards: HowToCard[]; step: number; onNext: () => void; onSkip: () => void }) {
   const card = cards[step];
-  if (!card) return null;
+  // Round 14 (E, U17): never under the "Turn your phone sideways" card — it goes first, then the how-to.
+  const rotating = useRotateCardUp();
+  if (!card || rotating) return null;
   const last = step + 1 >= cards.length;
   return (
     <div className="onboard howto" role="dialog" aria-modal="false" aria-labelledby="howto-title">

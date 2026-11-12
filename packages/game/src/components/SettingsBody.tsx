@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { setTryOff, useTryState } from "../lib/tryNext";
 import { startSpeed, useSettings, type TextSize, type UnderlineTerms } from "../lib/settings";
 import { playSfx } from "../lib/sfx";
 import { canBuzz } from "../lib/haptics";
@@ -84,6 +85,8 @@ export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
             <input type="checkbox" className="switch" data-settings-row="animations" {...(focusRow === "animations" ? { "data-autofocus": true } : {})} checked={s.animations} onChange={(e) => set({ animations: e.target.checked })} />
             <span>Animations <span className="xs muted">(the floor's little moments, numbers that count up, fades between screens; off makes them instant)</span></span>
           </label>
+          {/* R14-E: the planning screen's "New thing to try" card (lib/tryNext.ts) */}
+          <TryNextSwitch />
           {/* R12-A */}
           <VolumeSlider label="Music" value={s.musicVolume} onChange={(v) => set({ musicVolume: v })} {...(s.sound ? {} : { note: "Sound is off" })} />
           {/* R12-A */}
@@ -152,5 +155,16 @@ export function SettingsBody({ onQuit, onNewGame, saveName, onSave, onSaveFile, 
         />
       )}
     </>
+  );
+}
+
+/** Round 14 (E): Settings › New things to try (on by default; off hides the planning screen's card). */
+function TryNextSwitch() {
+  const t = useTryState();
+  return (
+    <label className="sheet__row sheet__check">
+      <input type="checkbox" className="switch" checked={!t.off} onChange={(e) => setTryOff(!e.target.checked)} />
+      <span>New things to try <span className="xs muted">(one tip a day on the planning screen, from Day 2: something you haven't tried yet)</span></span>
+    </label>
   );
 }

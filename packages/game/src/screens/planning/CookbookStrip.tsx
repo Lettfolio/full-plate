@@ -56,7 +56,7 @@ export default function CookbookStrip({ meta, game, send, onInvent, onCookbook }
     <section className="cookbook" aria-label="Your cookbook">
       <div className="row cookbook__head">
         <h3 className="spacer">Your cookbook</h3>
-        <span className="small muted">{dishes.length ? `${dishes.length} invented${shelf ? ` · ${shelf} resting` : ""} · ${total} plate${total === 1 ? "" : "s"} sold so far` : "Your own recipes: pick the ingredients, set the price."}</span>
+        <span className="small muted">{dishes.length ? `Recipes you made up: ${dishes.length} invented${shelf ? ` · ${shelf} resting` : ""} · ${total} plate${total === 1 ? "" : "s"} sold so far` : "Your own recipes: pick the ingredients, set the price."}</span>
         {can && <button className="btn" disabled={!planning} onClick={() => setOpen(true)}><Icon name="chefHat" size={20} />Invent a dish</button>}
       </div>
       {dishes.length > 0 && (

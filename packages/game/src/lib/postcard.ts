@@ -8,6 +8,7 @@
  * Nothing personal goes on a card: the restaurant's name, the game's own numbers and a guest review written by the sim.
  * A lazy module: Evening, the Restaurant tab and the win screen import it on click.
  */
+import { floorFrameFor } from "./floorFrame";
 import type { DayResult, GameState, Review } from "@full-plate/sim-core";
 import { content } from "../sim";
 import { dateLabel } from "./calendar";
@@ -28,6 +29,14 @@ export interface PostcardInfo {
   /** Three headline numbers. */
   numbers: { label: string; value: string }[];
   review?: { text: string; rating: number } | undefined;
+  /** Round 14 (E, U18): the best night so far (most profit of every day played, two or more days in). */
+  best?: boolean;
+}
+
+/** Round 14 (E, U18): `r` made more profit than every other day in `history` (and some profit at all). */
+export function isBestNight(history: readonly DayResult[], r: DayResult): boolean {
+  if (r.closed || r.profit <= 0 || history.length < 2) return false;
+  return history.every((h) => h.day === r.day || h.profit < r.profit);
 }
 
 const INK = "#2b2622", SOFT = "#5c534a", PAPER = "#fffdf8", CREAM = "#fbf4e6";
@@ -65,6 +74,7 @@ export function postcardInfo(game: GameState, brand: Brand, result?: DayResult |
       { label: "Rating", value: r.covers ? `${r.averageRating.toFixed(1)}★` : "—" },
     ],
     review: bestReview(r.reviews),
+    best: isBestNight(game.history, r),
   };
 }
 
@@ -208,6 +218,21 @@ export async function drawPostcard(info: PostcardInfo, size: PostcardSize, room:
   } else { x.fillStyle = "#e9cfa3"; x.fillRect(rx, ry, rw, rh); }
   x.restore();
   if (m === "modern") { x.strokeStyle = INK; x.lineWidth = 4; rr(x, rx, ry, rw, rh, 18); x.stroke(); }
+  // Round 14 (E, U18): the "best night" badge, pinned to the room's top corner
+  if (info.best) {
+    const label = "Best night yet", fs = portrait ? 34 : 28;
+    x.save();
+    x.font = `600 ${fs}px Fredoka, Nunito, sans-serif`;
+    const bw = x.measureText(label).width + 44, bh = fs + 26;
+    x.translate(rx + rw - bw / 2 - 10, ry + bh / 2 + 4); x.rotate(0.05);
+    x.fillStyle = b.accent; x.shadowColor = "rgba(0,0,0,0.3)"; x.shadowBlur = 10; x.shadowOffsetY = 4;
+    rr(x, -bw / 2, -bh / 2, bw, bh, bh / 2); x.fill();
+    x.shadowColor = "transparent";
+    x.fillStyle = onColour(b.accent); x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(label, 0, 2);
+    x.restore();
+    x.textAlign = "left"; x.textBaseline = "alphabetic";
+  }
 
   // headline, numbers, review
   const cx = pad + 6, cw = portrait ? W - pad * 2 - 12 : 610 - pad - 40;
@@ -250,7 +275,7 @@ export async function drawPostcard(info: PostcardInfo, size: PostcardSize, room:
 export const slug = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "restaurant";
 export const postcardFileName = (name: string, day: number, size: PostcardSize): string => `full-plate-${slug(name)}-day${day + 1}${size === "portrait" ? "-portrait" : ""}.png`;
 
-const toBlob = (c: HTMLCanvasElement): Promise<Blob | null> => new Promise((ok) => { try { c.toBlob((b) => ok(b), "image/png"); } catch { ok(null); } });
+export const toBlob = (c: HTMLCanvasElement): Promise<Blob | null> => new Promise((ok) => { try { c.toBlob((b) => ok(b), "image/png"); } catch { ok(null); } });
 
 /** Offers the PNG through the save-file path (downloads capability, else a link). */
 export async function offerPng(c: HTMLCanvasElement, filename: string): Promise<"saved" | "declined" | "failed"> {
@@ -260,12 +285,33 @@ export async function offerPng(c: HTMLCanvasElement, filename: string): Promise<
   return offerFile(filename, blob);
 }
 
+/**
+ * Round 14 (E, U18): the phone's share sheet with the picture as a file, where the browser can share files
+ * (`navigator.canShare({ files })`); "unsupported" means use `offerPng` (a download) instead.
+ */
+export function canSharePng(): boolean {
+  try {
+    const n = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+    if (typeof n.share !== "function" || typeof n.canShare !== "function" || typeof File === "undefined") return false;
+    return n.canShare({ files: [new File([new Uint8Array(1)], "x.png", { type: "image/png" })] });
+  } catch { return false; }
+}
+export async function sharePng(c: HTMLCanvasElement, filename: string, title: string): Promise<"shared" | "declined" | "failed" | "unsupported"> {
+  if (!canSharePng()) return "unsupported";
+  const blob = await toBlob(c);
+  if (!blob) return "failed";
+  const file = new File([blob], filename, { type: "image/png" });
+  try { await navigator.share({ files: [file], title }); return "shared"; }
+  catch (e) { return (e as { name?: string })?.name === "AbortError" ? "declined" : "failed"; }
+}
+
 /** The whole postcard for a game: its brand (the page's, else the name's default), the room and the day's numbers. */
 export async function makePostcard(game: GameState, size: PostcardSize, result?: DayResult | null, brand?: Brand): Promise<HTMLCanvasElement> {
   const b = brand ?? currentBrand() ?? resolveBrand(undefined, game.restaurantName);
   const info = postcardInfo(game, b, result);
   const portrait = size === "portrait";
-  const room = await roomPicture(game, portrait ? 960 : 540, portrait ? 520 : 400);
+  // Round 14 (E, U18): the night's busiest moment of service (lib/floorFrame), not the empty room after closing
+  const room = await roomPicture(floorFrameFor(info.day) ?? game, portrait ? 960 : 540, portrait ? 520 : 400);
   return drawPostcard(info, size, room);
 }
 

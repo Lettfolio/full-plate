@@ -83,6 +83,8 @@ export const GLOSSARY = {
   campaign: { term: "brand campaign", plain: "Adverts", explain: "paying for adverts in one region so more people there know your name." },
   // Round 13 (C): the hands-on how-to's words
   pass: { term: "the pass", plain: "Where plates wait", explain: "the counter between kitchen and dining room: cooks put finished plates there and servers take them out." },
+  // Round 14 (E, U17): the hands-on shift's way out, on a phone
+  office: { term: "Office", plain: "Back to watching", explain: "leave the hands-on shift: the team carries on and you watch the rest of service from the office." },
   ticketRail: { term: "ticket rail", plain: "The order strip", explain: "the rail where order slips hang, one per table, oldest first, so the kitchen cooks them in turn." },
 } satisfies Record<string, GlossaryEntry>;
 

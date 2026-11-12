@@ -63,7 +63,7 @@ export function StockWarning({ game, risk, send, inspection = false, stars = 0, 
             title="Orders sim-core's suggested shortfall for every ingredient. It arrives tomorrow morning."
             onClick={() => risk.lines.forEach(([ingredientId, qty]) => send({ type: "ORDER_STOCK", ingredientId, qty }))}
           >
-            Order to cover tomorrow · ≈<MoneyText pence={risk.cost} whole />
+            Restock for tomorrow · ≈<MoneyText pence={risk.cost} whole />
           </button>
         ) : null}
         {inspection && offNight && canClose && onClose && (

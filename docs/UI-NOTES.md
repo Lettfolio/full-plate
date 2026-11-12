@@ -2542,3 +2542,131 @@ locally. `round14.challengeEngine.test.ts`: the build with Math.log/cos/sqrt/exp
 **Left out**: the score code still has no secret (nothing offline can stop someone typing a made-up score below the
 ceiling); the compare line is worded accordingly. The fingerprint is 8 bits, so two different builds match by chance 1
 time in 256. Yesterday's challenge still can't be replayed.
+
+## Round 14 — E: the first hour on a phone
+
+Fix round for RED-TEAM-2 U1, U3, U4, U7, U11, U12, U17, U18, U20 and discoverability. Tests: `round14.e.test.tsx`
+(31). The probe gained two counts (`clipped`, `notAtTop`) and its walk now scrolls each screen to its foot before moving
+on, so a kept scroll position can't pass unnoticed.
+
+### On screen
+
+- **Every screen starts at the top** (U1; `lib/scrollTop.ts`, wired in `App.tsx` and `Planning.tsx`). A change of
+  screen (title → picker → lease → planning → service → evening → morning post → planning; win, game over, the score,
+  a hands-on shift starting or ending) scrolls the page and the `.screen` box to 0. Focus moves to the new screen's
+  heading (`tabindex=-1`, no scroll) only when the pressed button has gone, so a keyboard player never loses a control
+  that is still there. For 2.5 s after a screen change, or until the first touch, click, key or wheel, a control that
+  focuses itself (React `autoFocus`: the evening's Next day, game over, the challenge) keeps its focus but not the
+  scroll — this is what opened the evening 488 px down. **Planning tabs** each keep their own position for the day
+  (`TabScrollMemory`): the first visit of a day is at the top, coming back to a tab puts it where she left it, a new
+  morning forgets all. **Shortcuts land on what they are about**: "Hire someone first" and hire goals on the wanted
+  candidate (`.candidate--wanted`, else the hiring sheet), the "Step 1: add dishes" nudge on the starter-menu button
+  (also when Menu is already open), the "New thing to try" buttons and the phone chips on their card.
+- **Price stepper** (U3): on a phone a menu row is name and facts, then the stepper on its own full-width row, then
+  margin and Rest / remove — the same with the Goals panel up or not, at 390 and 320. Steppers never clip their own
+  buttons on a phone.
+- **Service sheet's peek** (U4): a 44 px chip under the urgent line, **Cook it yourself** (no chef on, or by default) or
+  **Serve it yourself** (kitchen staffed, floor not), "for the rest of tonight". Filled green on Days 1–3 and whenever
+  no chef is on; an outline chip after that. The sheet body keeps the full Jump in card. Wording that promised she'd
+  cook while she watches is gone: the dock says "Hire a chef (or you'll cover the kitchen, slowly)" / "No chef on for
+  Mon — you'll cover the kitchen" / "…you'll cover the floor"; the peek's amber line says "You're watching · covering
+  the kitchen, slowly".
+- **New game** (U7): the start picker no longer asks an owner where to open ("Next: name your restaurant, pick its
+  street and sign the lease"; careers still pick a street there). The lease screen is one flow: **What's it called?**
+  first (in view before the keyboard opens; Enter / the keyboard's Next goes on to the streets), then **Where will you
+  open?** once, then How tricky (the picker's answer as a one-line reminder with Change), seed, Quick year, Sign the
+  lease. On a phone the streets are a compact list: name, blurb, rent and footfall; who walks past and the busy months
+  only on the picked street.
+- **Toasts** (U11): upright, a toast spans the width just above the dock (one or two lines); in service on any phone it
+  sits along the top edge over the header, clear of the floor's middle, the peek and Skip; sideways and at 200 % zoom it
+  sits top right, at most 46 % of the width.
+- **Small screens** (U12): 320 px has no sideways scroll (the Today's menu / Menu matrix toggle was 16 px too wide, and
+  once someone was hired a staff card's seven 44 px day buttons widened the layout viewport to 374 px: they wrap now)
+  and the tab bar's tabs share the width. Sideways and at 200 % zoom the panel's Skip to evening sticks to the panel's foot.
+  `viewport-fit=cover` in `index.html`; the header, the sheet's peek and the sideways page/header/service padding take
+  the safe-area insets (the tab bar, dialogs and the hands-on frame already did).
+- **Hands-on upright** (U17): the how-to never shows under "Turn your phone sideways" — the turn card first, then the
+  how-to (`useRotateCardUp`, a tiny store in `RotateCard.tsx`). **Office** (the phone's way out of the shift) is a
+  glossary term ("Back to watching"); "On the **pass**" in the Jump in card tips the pass.
+- **Postcard** (U18): **Share postcard** opens the phone's share sheet with the PNG where `navigator.canShare({files})`
+  says yes (Save stays beside it); elsewhere Save postcard as before. The room in the picture is the night's busiest
+  moment of service, drawn paused (`lib/floorFrame.ts`: the app reducer hands over every service tick, "ticks" and
+  "skipShift", so a skipped night counts too; the one with most guests in is kept by reference — a memory-only cache
+  that changes no state), not the empty room after closing; after a reload it falls back to the room as it stands. A **Best
+  night yet** badge sits on the room's corner (and a line in the dialog) when the night made more profit than every
+  other day, two nights in.
+- **New thing to try** (discoverability; `components/TryCard.tsx`, lazy, rules in `lib/tryNext.ts`): one card under the
+  gossip on the planning screen. Never before Day 2; one item a day (a day that showed an item shows it or nothing, so
+  dismissing doesn't bring on the next); the button goes there and counts as done; × is gone for good; an item left
+  alone three days retires itself. Order: cook a shift yourself (Day 2; "Cook tonight" opens service and starts the
+  hands-on shift), brand kit (Day 2), invent a dish (Day 3), today's challenge (Day 3; saves and leaves the game),
+  postcard (after the first profitable night), regulars (when the first joins), rival (when they first post), share
+  with a friend (Day 5, only where claude.ai's db is reachable). **Settings › New things to try** turns it off.
+  Stored in `full-plate:try-next:v1` through `lib/storage` (prefs, not the save). On a phone (either way up) a row of 44 px
+  **chips** at the top of the Menu tab (Your cookbook — where Invent a dish is —, Recipe book) and the Restaurant tab
+  (Brand & postcard, Rival, Regulars, Friends) jumps to cards that sat two to four screens down.
+- **Polish** (U20): game-over tiles wrap ("1.9" and its stars stay in the tile); per-dish pictures (`lib/dishIcon.ts`:
+  🥖 garlic bread, 🍤 prawn cocktail, 🍲 soup…; drinks matched only against drink words, so steak & ale pie is a pie);
+  "Recipe book — Recipes that come with the game…" and "Your cookbook — Recipes you made up…"; one restock wording
+  ("Restock for tomorrow" on the morning warning too). The year-two fork's two cards stack on a phone (the new
+  `clipped` count found "Be the best →" cut off).
+
+### Where the code lives (merge watch)
+
+| File | What changed |
+| --- | --- |
+| `lib/scrollTop.ts`, `lib/floorFrame.ts`, `lib/dishIcon.ts`, `lib/tryNext.ts`, `components/TryCard.tsx` | new |
+| `App.tsx` | the screen-change effect (`screenKey`), `onCookTonight` / `onChallenge` to Planning |
+| `screens/Planning.tsx` | tab memory + landings (`goTo`, `landingFor`), TryCard mount, phone chips, dock wording (F also touches the open-for-service confirm) |
+| `screens/Service.tsx` | `PeekJumpIn` / `peekJumpRole`, peek wording, the "pass" term |
+| `state/gameReducer.ts` | two lines: `noteFloorFrame(game)` in the "ticks" and "skipShift" loops (no state change) |
+| `screens/NewGame.tsx`, `screens/StartPicker.tsx` | U7 order; owner skips the street on the picker |
+| `components/Toast.tsx`, `RotateCard.tsx`, `screens/HandsOnHowTo.tsx`, `HandsOnShift.tsx` (one line), `lib/glossary.ts` (`office`) | as above |
+| `lib/postcard.ts`, `components/PostcardDialog.tsx` | share, busy frame, best-night badge |
+| `screens/planning/MenuTab.tsx`, `CookbookStrip.tsx`, `StockWarning.tsx` | icons and one-line wordings (F owns review text, not these lines) |
+| `components/SettingsBody.tsx` | one row (New things to try) |
+| `phone.css` | one "Round 14 — E" section at the end of each block; `theme.css` one marked block at the end |
+| `scripts/probe.mjs`, `scripts/lib/harness.mjs` | `clipped`, `notAtTop`, `toFoot()` before tab changes, `{ scrolled: true }` on shots the walk scrolled itself |
+| `__tests__/starsReview.test.tsx` | the one-tap order's button name (/Restock for tomorrow/) |
+
+### Settings, motion, sound
+
+One new row: **New things to try** (on). Nothing new animates (scroll resets are instant; `scrollIntoView` for a
+landing uses the default instant behaviour) and nothing new makes a sound.
+
+### Checks (built dist)
+
+- **Main JS 181.53 → 189.09 kB** (budget 200): the scroll rules (`lib/scrollTop`), the per-dish pictures (`lib/dishIcon`,
+  MenuTab is first-paint), the peek chip, the tab landings and chips. New lazy chunks: `TryCard` 3.00 kB, `tryNext`
+  2.00 kB (shared with SettingsBody), `share` 8.01 kB (state/share.ts, now its own chunk: TryCard asks whether sharing
+  works; `VisitFriend` 49.69 → 41.98 kB accordingly). `NewGame` 6.72 → 7.26, `PostcardDialog` 2.65 → 3.37, `postcard`
+  9.45 → 10.64, `SettingsBody` 6.85 → 7.29, `StartPicker` 5.85 → 5.89, `HandsOnShift` 25.00 → 25.08 kB.
+- Tests 1,505 → **1,536** (+31, `round14.e.test.tsx`); `starsReview.test.tsx` finds the one-tap order by its new name.
+- Type audit Normal and Bigger: 129 screens each, 0 text < 13 px, 0 errors, within baseline.
+- **Probe** (all ten runs, 0 errors, every screen reached): new counts `clipped` **0** and `notAtTop` **0** on every run
+  (on master `823733b` the upright phone had clipped 21 — the menu's seven price steppers twice, the fork's "Be the
+  best →" — and notAtTop 18 of 44 screens). Baseline re-set; what rose: `term` 17 → 19 on the eight non-upright runs (the
+  "pass" tip in the Jump in card, on the two service screens: asked for by U17; the card is in the sheet's hidden body
+  at an upright peek), `underBar` +1 on 844×390 Normal, 1024×768 and 768×1024 Bigger and +4 on 844×390 Bigger (the
+  evening now opens at its top, so a term near its foot sits under the dock where before the page had been scrolled
+  past it; the dock's hints are a few words longer). Everything else equal or lower.
+- Headless (real pack, 200 seeds): typical **90.0 %**, cheap **68.0 %**, nohire **0 %** — no sim package touched.
+- **Playtest** (built dist, `vite preview` 127.0.0.1, Playwright; shots and contact sheets
+  `scratchpad/shots/r14/E/00-contact-phone.png`, `00-contact-ipad.png`): iPhone 390×844 touch and 1024×768 touch, a fresh
+  game: picker (no street question) → lease (name field at y 123; Enter → streets; High Street) → day 1 at the top →
+  Step 1 lands on the starter button → seven steppers whole → Staff / Restaurant at the top, back to Menu where she left
+  it → five days, restocking each evening; the peek's Cook it yourself (loud Days 1–3, quiet from Day 4); Day 2 cook it
+  → turn card alone, then the how-to → Office → evening; New thing to try Day 2 (×: gone, nothing else that day), Day 3
+  Brand kit → lands on the brand card, Days 4–6 Invent a dish (then it would retire); Day 3 postcard with guests at the
+  tables and the Best night yet badge. Every arrival scrollY 0, no sideways scroll, **0 page errors**. The reviewer's
+  `u-scroll-all`, `u-stepper` (390 and 320), `p13-sheet`, `p2-newgame`, `u-320` and `p15-sweep` (phone, sideways,
+  200 %, 320) all pass.
+
+### Left out, and why
+
+- The postcard's busy frame lives in memory only: keeping a whole GameState in the save for a picture isn't worth the
+  save size or a schema change.
+- `Challenge.tsx` / `ChallengeScore.tsx` (D's) keep their `autoFocus`; App's hold keeps the page at the top anyway.
+- The peek chip covers chef and server; the bar stays in the sheet's Jump in card (a bar shift is a third role she
+  meets later).
+- Discoverability for live co-op: the Friends card is the door; co-op itself is A's and B's this round.

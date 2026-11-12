@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePhonePortrait } from "../lib/layout";
 
 /**
@@ -9,13 +9,26 @@ import { usePhonePortrait } from "../lib/layout";
  * Round 13 (C): "anyway" now gets a real upright layout (HandsOnShift's `upright`: a following camera, a drag pad and
  * USE/Drop under the kitchen), not the sideways kitchen squeezed into 390 px.
  */
+/**
+ * Round 14 (E, U17): whether the turn card is up, so the hands-on how-to (HandsOnHowTo, in the shift's own chunk)
+ * waits for it instead of stacking under it: rotate first, then the how-to.
+ */
+let rotateUp = false;
+const rotateSubs = new Set<() => void>();
+function setRotateUp(v: boolean): void { if (v !== rotateUp) { rotateUp = v; for (const f of rotateSubs) f(); } }
+export function useRotateCardUp(): boolean {
+  return useSyncExternalStore((f) => { rotateSubs.add(f); return () => { rotateSubs.delete(f); }; }, () => rotateUp, () => false);
+}
+
 export function RotateCard() {
   const portrait = usePhonePortrait();
   const [anyway, setAnyway] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (!portrait) setAnyway(false); }, [portrait]);
   useEffect(() => { if (portrait && !anyway) btn.current?.focus(); }, [portrait, anyway]);
-  if (!portrait || anyway) return null;
+  const up = portrait && !anyway;
+  useEffect(() => { setRotateUp(up); return () => setRotateUp(false); }, [up]);
+  if (!up) return null;
   return (
     <div className="modal-back turncard-back">
       <div className="modal turncard" role="dialog" aria-modal="true" aria-labelledby="rotate-t" aria-describedby="rotate-d">

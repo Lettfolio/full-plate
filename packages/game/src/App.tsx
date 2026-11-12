@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { ChunkBack, lazyRetry, setSaveBeforeReload } from "./lib/lazyRetry";
 import { storageTrouble } from "./lib/storageTrouble";
 import type { CheckedLoaded } from "./state/saveCheck";
@@ -80,6 +80,7 @@ import { chapterDue, CHAPTER_DAYS, forkDayOf, handsOnRoleFor, type PathMeta } fr
 import { weekdayIndex } from "./lib/calendar";
 import { PLAYER_ID } from "@full-plate/sim-career";
 import { setSoundtrack } from "./lib/sfx";
+import { focusScreenHeading, holdTopAfterScreenChange, scrollToTop } from "./lib/scrollTop";
 
 /**
  * Shell views. "pick" = the round-3 start picker ("Start as…"); "newgame" = the owner's lease screen.
@@ -248,6 +249,16 @@ export function App() {
     if (m.handsOnResume) dispatch({ type: "resumeHandsOn" });
     setShell({ view: "game" });
   };
+  // Round 14 (E, U1): every new screen starts at the top (the phone page scrolls as one), and focus goes to its
+  // heading when the button that was pressed has gone. Planning's tabs keep their own positions (Planning.tsx).
+  const screenKey = `${shell.view}|${game?.phase ?? ""}|${eventOpen ? 1 : 0}|${meta.win && !meta.win.dismissed ? 1 : 0}|${chOver ? 1 : 0}|${meta.handsOn ? 1 : 0}`;
+  useLayoutEffect(() => {
+    scrollToTop();
+    const hold = holdTopAfterScreenChange();
+    const raf = requestAnimationFrame(() => { focusScreenHeading(); });
+    return () => { cancelAnimationFrame(raf); hold(); };
+  }, [screenKey]);
+
   const saveFile = async () => {
     if (!slotId) return "Nothing to save yet.";
     const r = await store.saveToFile(slotId);
@@ -437,6 +448,8 @@ export function App() {
             onBrand={(code) => dispatch({ type: "brand", code })}
             onInvent={(dish) => dispatch({ type: "invent", dish })}
             onCookbook={(op) => dispatch({ type: "cookbook", op })}
+            onCookTonight={() => { send({ type: "START_SERVICE" }); dispatch({ type: "handsOnStart", meta: { role: "chef", jumpIn: true } }); }}
+            onChallenge={() => { quitToTitle(); setShell({ view: "challenge" }); }}
           />
         )}
         {inService && meta.handsOn && (
